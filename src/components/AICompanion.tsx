@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Mic, Image, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -16,16 +17,105 @@ const AICompanion = () => {
     {
       id: "1",
       role: "assistant",
-      content: "Hey there! I'm your personal stylist. Tell me about your day—where are you heading? What vibe are you feeling? Or just snap a pic of your outfit and I'll help you nail it. 💫",
+      content: "Hey there! I'm your personal stylist. Tell me what's on your mind—outfit ideas, shopping help, color advice, or anything fashion. I'm here to help! 💫",
       timestamp: new Date(),
     },
   ]);
   const [inputValue, setInputValue] = useState("");
-  const [voiceSecondsUsed] = useState(120); // Mock data: 2 minutes used
-  const voiceSecondsTotal = 300; // 5 minutes daily cap
+  const [isLoading, setIsLoading] = useState(false);
+  const [voiceSecondsUsed] = useState(120);
+  const voiceSecondsTotal = 300;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const streamChat = async (userMessages: Message[]) => {
+    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: userMessages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to start chat stream');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = '';
+      let assistantMessage = '';
+      let streamDone = false;
+
+      // Add empty assistant message to update
+      const assistantMsgId = Date.now().toString();
+      setMessages(prev => [...prev, {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      }]);
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantMessage += content;
+              setMessages(prev => prev.map(m =>
+                m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+              ));
+            }
+          } catch {
+            textBuffer = line + '\n' + textBuffer;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get response. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSend = async () => {
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -34,19 +124,13 @@ const AICompanion = () => {
       timestamp: new Date(),
     };
 
-    setMessages([...messages, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInputValue("");
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "I hear you! Let me help you with that. Can you tell me more about the occasion and the vibe you're going for?",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+    await streamChat(newMessages);
+    setIsLoading(false);
   };
 
   const voiceMinutesRemaining = Math.floor((voiceSecondsTotal - voiceSecondsUsed) / 60);
@@ -55,7 +139,7 @@ const AICompanion = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 px-4 py-6">
+      <ScrollArea className="flex-1 px-4 py-6" ref={scrollRef}>
         <div className="space-y-4 max-w-2xl mx-auto">
           {messages.map((message) => (
             <div
@@ -69,7 +153,7 @@ const AICompanion = () => {
                     : "glass-card"
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.content}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content || (message.role === "assistant" && isLoading ? "..." : "")}</p>
                 <span className="text-xs opacity-60 mt-1 block">
                   {message.timestamp.toLocaleTimeString([], {
                     hour: "2-digit",
@@ -132,7 +216,7 @@ const AICompanion = () => {
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isLoading}
             className="glow-primary"
           >
             <Send className="w-5 h-5" />
