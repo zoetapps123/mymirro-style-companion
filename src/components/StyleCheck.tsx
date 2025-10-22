@@ -1,7 +1,22 @@
-import { Upload, CheckCircle, Share2 } from "lucide-react";
+import { Upload, CheckCircle, Share2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const StyleCheck = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    toast({
+      title: "Outfit uploaded!",
+      description: "Analyzing your style...",
+    });
+  };
+
   return (
     <div className="flex flex-col h-full p-4 space-y-6">
       {/* Header */}
@@ -13,9 +28,20 @@ const StyleCheck = () => {
       </div>
 
       {/* Upload Area */}
-      <div className="glass-card rounded-2xl p-8 border-2 border-dashed border-border/50 text-center space-y-4 hover:border-accent/50 transition-colors cursor-pointer">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleImageUpload}
+        className="hidden"
+      />
+      <div 
+        onClick={() => fileInputRef.current?.click()}
+        className="glass-card rounded-2xl p-8 border-2 border-dashed border-border/50 text-center space-y-4 hover:border-accent/50 transition-colors cursor-pointer"
+      >
         <div className="mx-auto w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center">
-          <Upload className="w-8 h-8 text-accent" />
+          <Camera className="w-8 h-8 text-accent" />
         </div>
         <div>
           <h3 className="font-semibold mb-1">Upload Your Outfit</h3>

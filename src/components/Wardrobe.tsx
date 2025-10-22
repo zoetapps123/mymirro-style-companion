@@ -1,7 +1,9 @@
-import { Plus, Shirt, Search } from "lucide-react";
+import { Plus, Shirt, Search, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const mockGarments = [
   { id: "1", name: "White Oxford Shirt", category: "Tops", color: "#FFFFFF", image: "👕" },
@@ -13,6 +15,19 @@ const mockGarments = [
 ];
 
 const Wardrobe = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    toast({
+      title: "Image uploaded!",
+      description: "Processing your clothing item...",
+    });
+  };
+
   return (
     <div className="flex flex-col h-full p-4 space-y-4">
       {/* Header */}
@@ -32,8 +47,19 @@ const Wardrobe = () => {
             className="pl-10 glass-card border-border/50"
           />
         </div>
-        <Button className="glow-primary">
-          <Plus className="w-5 h-5" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+        <Button 
+          className="glow-primary"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Camera className="w-5 h-5" />
         </Button>
       </div>
 

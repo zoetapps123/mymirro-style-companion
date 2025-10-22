@@ -1,5 +1,7 @@
-import { Crown, Trophy, Upload } from "lucide-react";
+import { Crown, Trophy, Upload, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const mockBattle = [
   { name: "Aarav", score: 4.3, rank: 1 },
@@ -8,6 +10,19 @@ const mockBattle = [
 ];
 
 const Battles = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    toast({
+      title: "Outfits uploaded!",
+      description: "Setting up your battle...",
+    });
+  };
+
   return (
     <div className="flex flex-col h-full p-4 space-y-6">
       {/* Header */}
@@ -19,9 +34,21 @@ const Battles = () => {
       </div>
 
       {/* Start Battle CTA */}
-      <div className="glass-card rounded-2xl p-8 border-2 border-dashed border-border/50 text-center space-y-4 hover:border-primary/50 transition-colors cursor-pointer">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        capture="environment"
+        onChange={handleImageUpload}
+        className="hidden"
+      />
+      <div 
+        onClick={() => fileInputRef.current?.click()}
+        className="glass-card rounded-2xl p-8 border-2 border-dashed border-border/50 text-center space-y-4 hover:border-primary/50 transition-colors cursor-pointer"
+      >
         <div className="mx-auto w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center glow-primary">
-          <Upload className="w-8 h-8 text-primary" />
+          <Camera className="w-8 h-8 text-primary" />
         </div>
         <div>
           <h3 className="font-semibold mb-1">Start a New Battle</h3>

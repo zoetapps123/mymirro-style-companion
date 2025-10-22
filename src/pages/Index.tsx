@@ -1,15 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Home, Sparkles, Shirt, Trophy, User } from "lucide-react";
 import AICompanion from "@/components/AICompanion";
 import Wardrobe from "@/components/Wardrobe";
 import StyleCheck from "@/components/StyleCheck";
 import Battles from "@/components/Battles";
 import Profile from "@/components/Profile";
+import Onboarding from "@/components/Onboarding";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const hasCompletedOnboarding = localStorage.getItem("onboarding_completed");
+    if (!hasCompletedOnboarding) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  if (showOnboarding) {
+    return <Onboarding onComplete={() => setShowOnboarding(false)} />;
+  }
 
   const tabs = [
     { id: "home" as Tab, icon: Home, label: "AI Companion" },

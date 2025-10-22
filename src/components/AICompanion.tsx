@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Mic, Image, Sparkles } from "lucide-react";
+import { Send, Mic, Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,6 +9,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  images?: string[];
   timestamp: Date;
 }
 
@@ -23,9 +24,11 @@ const AICompanion = () => {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [voiceSecondsUsed] = useState(120);
   const voiceSecondsTotal = 300;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,6 +36,23 @@ const AICompanion = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImages((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const streamChat = async (userMessages: Message[]) => {
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -45,7 +65,11 @@ const AICompanion = () => {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: userMessages.map(m => ({ role: m.role, content: m.content })),
+          messages: userMessages.map(m => ({ 
+            role: m.role, 
+            content: m.content,
+            images: m.images 
+          })),
         }),
       });
 
@@ -115,18 +139,20 @@ const AICompanion = () => {
   };
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if ((!inputValue.trim() && selectedImages.length === 0) || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: inputValue,
+      content: inputValue || "What do you think about this outfit?",
+      images: selectedImages.length > 0 ? selectedImages : undefined,
       timestamp: new Date(),
     };
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInputValue("");
+    setSelectedImages([]);
     setIsLoading(true);
 
     await streamChat(newMessages);
@@ -153,6 +179,18 @@ const AICompanion = () => {
                     : "glass-card"
                 }`}
               >
+                {message.images && message.images.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    {message.images.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt="Uploaded"
+                        className="rounded-lg w-full h-32 object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content || (message.role === "assistant" && isLoading ? "..." : "")}</p>
                 <span className="text-xs opacity-60 mt-1 block">
                   {message.timestamp.toLocaleTimeString([], {
@@ -194,33 +232,65 @@ const AICompanion = () => {
 
       {/* Input Area */}
       <div className="px-4 py-4 border-t border-border/50 glass-card">
-        <div className="flex items-center gap-2 max-w-2xl mx-auto">
-          <Button size="icon" variant="outline" className="glass-card border-border/50">
-            <Image className="w-5 h-5" />
-          </Button>
-          <Button
-            size="icon"
-            variant="outline"
-            className="glass-card border-border/50"
-            disabled={voiceSecondsUsed >= voiceSecondsTotal}
-          >
-            <Mic className="w-5 h-5" />
-          </Button>
-          <Input
-            placeholder="Ask me anything about style..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSend()}
-            className="flex-1 glass-card border-border/50"
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isLoading}
-            className="glow-primary"
-          >
-            <Send className="w-5 h-5" />
-          </Button>
+        <div className="space-y-3 max-w-2xl mx-auto">
+          {/* Image Preview */}
+          {selectedImages.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {selectedImages.map((img, idx) => (
+                <div key={idx} className="relative flex-shrink-0">
+                  <img src={img} alt="Selected" className="w-20 h-20 object-cover rounded-lg" />
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              className="glass-card border-border/50"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImageIcon className="w-5 h-5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              className="glass-card border-border/50"
+              disabled={voiceSecondsUsed >= voiceSecondsTotal}
+            >
+              <Mic className="w-5 h-5" />
+            </Button>
+            <Input
+              placeholder="Ask me anything about style..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+              className="flex-1 glass-card border-border/50"
+            />
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
+              className="glow-primary"
+            >
+              <Send className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
