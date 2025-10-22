@@ -2,3 +2,12 @@ project_id = "lwxpedwhtowjkhxrovzx"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.process-wardrobe]
+verify_jwt = false
+
+[functions.score-outfit]
+verify_jwt = false
+
+[functions.score-battle]
+verify_jwt = false
