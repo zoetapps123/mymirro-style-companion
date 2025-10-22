@@ -14,7 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      battles: {
+        Row: {
+          created_at: string
+          id: string
+          participants: Json
+          results: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          participants: Json
+          results: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          participants?: Json
+          results?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      style_checks: {
+        Row: {
+          color_score: number
+          created_at: string
+          fit_score: number
+          id: string
+          image_url: string
+          occasion: string | null
+          occasion_score: number
+          overall_score: number
+          texture_score: number
+          user_id: string
+          verdict_improvements: string
+          verdict_positive: string
+        }
+        Insert: {
+          color_score: number
+          created_at?: string
+          fit_score: number
+          id?: string
+          image_url: string
+          occasion?: string | null
+          occasion_score: number
+          overall_score: number
+          texture_score: number
+          user_id: string
+          verdict_improvements: string
+          verdict_positive: string
+        }
+        Update: {
+          color_score?: number
+          created_at?: string
+          fit_score?: number
+          id?: string
+          image_url?: string
+          occasion?: string | null
+          occasion_score?: number
+          overall_score?: number
+          texture_score?: number
+          user_id?: string
+          verdict_improvements?: string
+          verdict_positive?: string
+        }
+        Relationships: []
+      }
+      wardrobe_items: {
+        Row: {
+          category: string
+          color: string | null
+          created_at: string
+          id: string
+          image_url: string
+          name: string
+          processed_image_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          name: string
+          processed_image_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          name?: string
+          processed_image_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
