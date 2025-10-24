@@ -234,8 +234,8 @@ const StyleCheck = () => {
             <div className="flex items-start gap-2">
               <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium mb-1">Quick fixes</p>
-                <div className="text-xs text-muted-foreground whitespace-pre-line">
+                <p className="text-sm font-semibold mb-2 text-primary">Quick fixes</p>
+                <div className="text-sm text-foreground whitespace-pre-line leading-relaxed">
                   {latestScore.verdict_improvements}
                 </div>
               </div>
