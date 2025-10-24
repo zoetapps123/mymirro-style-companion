@@ -1,11 +1,25 @@
 import { User, Mic, Settings, LogOut, Share2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Profile = () => {
+  const { toast } = useToast();
   const voiceUsedSeconds = 120;
   const voiceTotalSeconds = 300;
   const voiceUsedPercent = (voiceUsedSeconds / voiceTotalSeconds) * 100;
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col h-full p-4 space-y-6">
@@ -80,7 +94,11 @@ const Profile = () => {
           <FileText className="w-4 h-4 mr-3" />
           Export My Data
         </Button>
-        <Button variant="outline" className="w-full glass-card border-border/50 justify-start text-destructive">
+        <Button 
+          variant="outline" 
+          className="w-full glass-card border-border/50 justify-start text-destructive"
+          onClick={handleSignOut}
+        >
           <LogOut className="w-4 h-4 mr-3" />
           Sign Out
         </Button>

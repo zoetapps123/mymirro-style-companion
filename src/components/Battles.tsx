@@ -133,7 +133,12 @@ const Battles = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Score battle error:', error);
+        throw error;
+      }
+      
+      console.log('Battle results:', data);
 
       // Save to database
       const { error: dbError } = await supabase

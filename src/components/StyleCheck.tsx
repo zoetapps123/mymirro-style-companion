@@ -66,7 +66,12 @@ const StyleCheck = () => {
           body: { imageData, occasion: null }
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Score outfit error:', error);
+          throw error;
+        }
+        
+        console.log('Score outfit response:', data);
 
         // Upload image to storage
         const fileName = `style-check-${Date.now()}.jpg`;

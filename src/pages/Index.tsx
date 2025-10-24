@@ -6,19 +6,58 @@ import StyleCheck from "@/components/StyleCheck";
 import Battles from "@/components/Battles";
 import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
+import Auth from "@/components/Auth";
+import { supabase } from "@/integrations/supabase/client";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const hasCompletedOnboarding = localStorage.getItem("onboarding_completed");
-    if (!hasCompletedOnboarding) {
-      setShowOnboarding(true);
-    }
+    // Check auth session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session) {
+      const hasCompletedOnboarding = localStorage.getItem("onboarding_completed");
+      if (!hasCompletedOnboarding) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [session]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
+            <Sparkles className="w-8 h-8 text-primary" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
 
   if (showOnboarding) {
     return <Onboarding onComplete={() => setShowOnboarding(false)} />;

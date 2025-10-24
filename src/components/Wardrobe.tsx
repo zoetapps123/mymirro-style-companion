@@ -74,7 +74,12 @@ const Wardrobe = () => {
           body: { imageData }
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Process wardrobe error:', error);
+          throw error;
+        }
+        
+        console.log('Wardrobe processing response:', data);
 
         // Upload processed image to storage
         const fileName = `${Date.now()}-${data.name.replace(/\s+/g, '-')}.png`;
