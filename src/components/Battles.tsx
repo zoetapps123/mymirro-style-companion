@@ -1,4 +1,4 @@
-import { Crown, Trophy, Camera, X } from "lucide-react";
+import { Crown, Trophy, Camera, X, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,9 @@ const Battles = () => {
   const { toast } = useToast();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [currentScanIndex, setCurrentScanIndex] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [latestBattle, setLatestBattle] = useState<Battle | null>(null);
 
   useEffect(() => {
@@ -104,6 +107,14 @@ const Battles = () => {
     }
 
     setLoading(true);
+    setScanning(true);
+
+    // Animate scanning each participant
+    for (let i = 0; i < participants.length; i++) {
+      setCurrentScanIndex(i);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    setScanning(false);
 
     try {
       // Check auth
@@ -152,6 +163,10 @@ const Battles = () => {
       if (dbError) throw dbError;
 
       const winner = data.results.find((r: BattleResult) => r.rank === 1);
+      
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 4000);
+
       toast({
         title: "Battle complete!",
         description: `${winner?.name} takes the crown! 👑`,
@@ -171,8 +186,210 @@ const Battles = () => {
     }
   };
 
+  const generateBattleShareImage = async (): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!latestBattle) return resolve('');
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1920;
+      const ctx = canvas.getContext('2d')!;
+
+      // Background
+      const gradient = ctx.createLinearGradient(0, 0, 0, 1920);
+      gradient.addColorStop(0, 'hsl(240, 10%, 8%)');
+      gradient.addColorStop(1, 'hsl(240, 8%, 12%)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      // MyMirro branding
+      ctx.fillStyle = 'hsl(295, 75%, 58%)';
+      ctx.font = 'bold 72px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('MyMirro', 540, 120);
+      ctx.fillStyle = 'hsl(240, 5%, 70%)';
+      ctx.font = '32px sans-serif';
+      ctx.fillText('Outfit Battle Results', 540, 180);
+
+      // Winner section
+      const winner = latestBattle.results[0];
+      ctx.fillStyle = 'hsl(295, 75%, 58%)';
+      ctx.font = 'bold 96px sans-serif';
+      ctx.fillText('👑', 540, 320);
+      ctx.fillStyle = 'hsl(240, 5%, 98%)';
+      ctx.font = 'bold 56px sans-serif';
+      ctx.fillText(winner.name, 540, 420);
+      ctx.font = 'bold 72px sans-serif';
+      ctx.fillStyle = 'hsl(295, 75%, 58%)';
+      ctx.fillText(`${winner.score.toFixed(1)}/5.0`, 540, 520);
+
+      // Leaderboard
+      let yPos = 660;
+      latestBattle.results.forEach((result, index) => {
+        const emoji = index === 0 ? '👑' : index === 1 ? '🥈' : '🥉';
+        
+        ctx.fillStyle = 'hsl(240, 5%, 98%)';
+        ctx.font = '48px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(emoji, 100, yPos);
+        
+        ctx.font = 'bold 40px sans-serif';
+        ctx.fillText(result.name, 200, yPos);
+        
+        ctx.fillStyle = 'hsl(180, 65%, 45%)';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(result.score.toFixed(1), 980, yPos);
+        
+        yPos += 100;
+      });
+
+      // Winner verdict
+      yPos += 60;
+      ctx.fillStyle = 'hsl(240, 5%, 70%)';
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'center';
+      const verdictLines = wrapText(ctx, latestBattle.winner_verdict, 920);
+      verdictLines.forEach((line, i) => {
+        ctx.fillText(line, 540, yPos + (i * 40));
+      });
+
+      // CTA
+      ctx.fillStyle = 'hsl(240, 5%, 40%)';
+      ctx.font = '32px sans-serif';
+      ctx.fillText('Battle your outfits at', 540, 1780);
+      ctx.fillStyle = 'hsl(295, 75%, 58%)';
+      ctx.font = 'bold 40px sans-serif';
+      ctx.fillText('mymirro.app', 540, 1840);
+
+      resolve(canvas.toDataURL('image/png'));
+    });
+  };
+
+  const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+      const testLine = currentLine + (currentLine ? ' ' : '') + word;
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  };
+
+  const handleShareBattle = async () => {
+    if (!latestBattle) return;
+
+    try {
+      setLoading(true);
+      const shareImage = await generateBattleShareImage();
+      
+      const response = await fetch(shareImage);
+      const blob = await response.blob();
+      const file = new File([blob], 'mymirro-battle.png', { type: 'image/png' });
+
+      const shareData = {
+        files: [file],
+        title: 'MyMirro Outfit Battle',
+        text: `Battle results on MyMirro! 👑\n\nCheck your style at mymirro.app ✨`
+      };
+
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        const link = document.createElement('a');
+        link.href = shareImage;
+        link.download = 'mymirro-battle.png';
+        link.click();
+        
+        toast({
+          title: "Image downloaded!",
+          description: "Share your battle results on social media",
+        });
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate share image",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full p-4 space-y-6">
+    <div className="flex flex-col h-full p-4 space-y-6 relative">
+      {/* Scanning Overlay */}
+      {scanning && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card rounded-3xl p-8 max-w-md w-full space-y-6">
+            <div className="relative">
+              <img 
+                src={participants[currentScanIndex]?.imageData} 
+                alt="Scanning" 
+                className="w-full aspect-square object-cover rounded-2xl"
+              />
+              <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                <div className="scanning-line"></div>
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold text-gradient-primary">
+                Scanning {participants[currentScanIndex]?.name}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Participant {currentScanIndex + 1} of {participants.length}
+              </p>
+              <div className="flex justify-center gap-2 pt-4">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Celebration Overlay */}
+      {showCelebration && latestBattle && (
+        <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-lg flex items-center justify-center p-4">
+          {[...Array(50)].map((_, i) => (
+            <div
+              key={i}
+              className="confetti"
+              style={{
+                left: `${Math.random() * 100}%`,
+                backgroundColor: `hsl(${Math.random() * 360}, 70%, 60%)`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${2 + Math.random() * 2}s`
+              }}
+            />
+          ))}
+          <div className="glass-card rounded-3xl p-12 max-w-md w-full text-center space-y-6 glow-primary">
+            <div className="text-8xl animate-bounce">👑</div>
+            <h2 className="text-4xl font-bold text-gradient-primary">
+              {latestBattle.results[0]?.name} Wins!
+            </h2>
+            <div className="text-6xl font-bold text-primary">
+              {latestBattle.results[0]?.score.toFixed(1)}
+            </div>
+            <p className="text-muted-foreground">
+              {latestBattle.winner_verdict}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="space-y-2">
         <h2 className="text-2xl font-bold text-gradient-primary">Outfit Battles</h2>
@@ -294,16 +511,26 @@ const Battles = () => {
           </div>
 
           {/* Winner Verdict */}
-          <div className="pt-4 border-t border-border/50">
-            <p className="text-sm mb-2">
+          <div className="pt-4 border-t border-border/50 space-y-3">
+            <p className="text-base">
               <span className="font-semibold text-primary">
                 {latestBattle.results[0]?.name}
               </span> takes the crown! 🎉
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-foreground leading-relaxed">
               {latestBattle.winner_verdict}
             </p>
           </div>
+
+          {/* Share Button */}
+          <Button 
+            className="w-full glow-primary" 
+            onClick={handleShareBattle}
+            disabled={loading}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share Battle Results
+          </Button>
         </div>
       )}
     </div>
