@@ -35,7 +35,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
+                text: `As a professional fashion stylist with deep expertise in fabrics, cuts, and styling, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
 
 1. A creative, context-aware outfit name (2-4 words, e.g., "Neo-Classic Finisher", "Sunset Boardwalk Vibes")
 2. Scores across these dimensions (scale 1.0-5.0):
@@ -44,10 +44,11 @@ serve(async (req) => {
    - Texture/Fabric Mix (cohesiveness of materials)
    - Style/Occasion Match (appropriateness for the context)
 3. Overall average score
-4. What's working well (2-3 specific positive points about fabric/texture interplay, palette harmony)
-5. Quick fixes/improvements (2-3 actionable suggestions: tuck, cuff, swap shoes, add layer, accessory, hair/makeup tip)
+4. WHAT WORKS: Compliment the good parts - be technical about fabrics, textures, color theory, and silhouette. Keep it brief but sophisticated.
+5. WHAT COULD BE BETTER: Technical feedback on how different parts of the outfit could improve - cut, proportion, styling choices.
+6. QUICK FIXES: Life-saving accessible changes that dramatically elevate the look WITHOUT changing the outfit much - could include hair styling, accessories, makeup, shoes, tucking, cuffing, layering, etc.
 
-Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
+Be precise, constructive, and technically detailed like a professional stylist. Return ONLY valid JSON.`
               },
               {
                 type: 'image_url',
@@ -71,10 +72,11 @@ Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
                   texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                   occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                   overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  verdict_positive: { type: 'string' },
-                  verdict_improvements: { type: 'string' }
+                  what_works: { type: 'string', description: 'Technical compliments about fabrics, textures, colors' },
+                  what_could_be_better: { type: 'string', description: 'Technical feedback on improvements' },
+                  quick_fixes: { type: 'string', description: 'Accessible quick changes to elevate the look' }
                 },
-                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'verdict_positive', 'verdict_improvements']
+                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_could_be_better', 'quick_fixes']
               }
             }
           }

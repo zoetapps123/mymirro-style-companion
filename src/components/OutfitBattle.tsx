@@ -16,9 +16,11 @@ interface Participant {
 
 interface BattleResult {
   name: string;
+  persona_name: string;
   score: number;
   rank: number;
-  reasoning: string;
+  roast: string;
+  imageData?: string;
 }
 
 interface OutfitBattleProps {
@@ -153,7 +155,13 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
       if (battleError) throw battleError;
 
-      setResults(data);
+      // Attach images to results
+      const resultsWithImages = data.results.map((result: BattleResult) => {
+        const participant = participants.find(p => p.name === result.name);
+        return { ...result, imageData: participant?.imageData };
+      });
+
+      setResults({ ...data, results: resultsWithImages });
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
       
@@ -181,43 +189,118 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
     canvas.height = 1920;
     const ctx = canvas.getContext('2d')!;
 
+    // Background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 1920);
     gradient.addColorStop(0, 'hsl(240, 10%, 8%)');
     gradient.addColorStop(1, 'hsl(240, 8%, 12%)');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 1080, 1920);
 
+    // Title
     ctx.fillStyle = 'hsl(295, 75%, 58%)';
-    ctx.font = 'bold 72px sans-serif';
+    ctx.font = 'bold 60px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('MyMirro Battle', 540, 120);
+    ctx.fillText('MyMirro Battle', 540, 100);
 
+    // Winner section - larger space
+    const winner = results.results[0];
+    if (winner.imageData) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.src = winner.imageData!;
+      });
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(240, 160, 600, 600, 30);
+      ctx.clip();
+      const imgAspect = img.width / img.height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+      if (imgAspect > 1) {
+        drawHeight = 600;
+        drawWidth = drawHeight * imgAspect;
+        offsetX = 240 - (drawWidth - 600) / 2;
+        offsetY = 160;
+      } else {
+        drawWidth = 600;
+        drawHeight = drawWidth / imgAspect;
+        offsetX = 240;
+        offsetY = 160 - (drawHeight - 600) / 2;
+      }
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      ctx.restore();
+    }
+
+    // Crown on winner
+    ctx.font = 'bold 80px sans-serif';
+    ctx.fillText('👑', 540, 810);
+
+    // Winner name and score
     ctx.fillStyle = 'hsl(240, 5%, 98%)';
-    ctx.font = 'bold 64px sans-serif';
-    ctx.fillText('👑', 540, 220);
-    ctx.font = 'bold 48px sans-serif';
-    ctx.fillText(results.results[0].name, 540, 300);
-    ctx.font = '32px sans-serif';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillText(winner.name, 540, 880);
+    ctx.font = '28px sans-serif';
     ctx.fillStyle = 'hsl(180, 65%, 45%)';
-    ctx.fillText(`${results.results[0].score.toFixed(1)} / 5.0`, 540, 360);
+    ctx.fillText(winner.persona_name || '', 540, 920);
+    ctx.font = 'bold 48px sans-serif';
+    ctx.fillText(`${winner.score.toFixed(1)} / 5.0`, 540, 980);
 
-    let y = 480;
-    results.results.forEach((result, index) => {
-      ctx.fillStyle = index === 0 ? 'hsl(180, 65%, 45%)' : 'hsl(240, 5%, 40%)';
-      ctx.font = index === 0 ? 'bold 36px sans-serif' : '32px sans-serif';
+    // Other participants in smaller frames
+    let y = 1050;
+    for (let i = 1; i < Math.min(results.results.length, 3); i++) {
+      const result = results.results[i];
+      
+      if (result.imageData) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.src = result.imageData!;
+        });
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(90, y, 200, 200, 20);
+        ctx.clip();
+        const imgAspect = img.width / img.height;
+        let drawWidth, drawHeight, offsetX, offsetY;
+        if (imgAspect > 1) {
+          drawHeight = 200;
+          drawWidth = drawHeight * imgAspect;
+          offsetX = 90 - (drawWidth - 200) / 2;
+          offsetY = y;
+        } else {
+          drawWidth = 200;
+          drawHeight = drawWidth / imgAspect;
+          offsetX = 90;
+          offsetY = y - (drawHeight - 200) / 2;
+        }
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = 'hsl(240, 5%, 70%)';
+      ctx.font = 'bold 32px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`${result.rank}. ${result.name}`, 140, y);
+      ctx.fillText(`${result.rank}. ${result.name}`, 320, y + 80);
+      ctx.font = '24px sans-serif';
+      ctx.fillText(result.persona_name || '', 320, y + 120);
       
+      ctx.fillStyle = 'hsl(180, 65%, 45%)';
+      ctx.font = 'bold 36px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(result.score.toFixed(1), 940, y);
+      ctx.fillText(result.score.toFixed(1), 990, y + 100);
       
-      y += 80;
-    });
+      y += 250;
+    }
 
-    ctx.fillStyle = 'hsl(240, 5%, 40%)';
+    // Footer message
+    ctx.fillStyle = 'hsl(240, 5%, 50%)';
     ctx.font = '28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Good fights all around', 540, 1780);
+    ctx.fillText(results.winner_verdict.substring(0, 60), 540, 1850);
 
     const shareImage = canvas.toDataURL('image/png');
     const response = await fetch(shareImage);
@@ -368,15 +451,36 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                   <Crown className="w-16 h-16 mx-auto text-primary" />
                 </motion.div>
               </motion.div>
+              {results.results[0].imageData && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <img 
+                    src={results.results[0].imageData} 
+                    alt={results.results[0].name}
+                    className="w-48 h-48 mx-auto rounded-2xl object-cover border-4 border-primary/20"
+                  />
+                </motion.div>
+              )}
               <div>
                 <motion.h3 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="text-3xl font-bold text-gradient-primary mb-2"
+                  className="text-3xl font-bold text-gradient-primary mb-1"
                 >
                   {results.results[0].name}
                 </motion.h3>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-sm text-accent font-medium mb-2"
+                >
+                  {results.results[0].persona_name}
+                </motion.p>
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -393,7 +497,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                 transition={{ delay: 0.8 }}
                 className="text-sm text-muted-foreground italic"
               >
-                {results.results[0].reasoning}
+                {results.results[0].roast}
               </motion.p>
             </div>
 
@@ -416,17 +520,25 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                     type: "spring",
                     stiffness: 200
                   }}
-                  className={`flex items-center gap-4 p-3 rounded-lg ${
+                  className={`flex items-center gap-3 p-3 rounded-lg ${
                     index === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
                   }`}
                 >
+                  {result.imageData && (
+                    <img 
+                      src={result.imageData} 
+                      alt={result.name}
+                      className="w-16 h-16 rounded-lg object-cover"
+                    />
+                  )}
                   <div className="flex items-center gap-3 flex-1">
-                    <span className={`text-2xl font-bold ${index === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <span className={`text-xl font-bold ${index === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                       {result.rank}
                     </span>
                     <div className="flex-1">
                       <p className="font-medium">{result.name}</p>
-                      <p className="text-xs text-muted-foreground">{result.reasoning}</p>
+                      <p className="text-xs text-accent">{result.persona_name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{result.roast}</p>
                     </div>
                   </div>
                   <Badge variant={index === 0 ? "default" : "outline"}>

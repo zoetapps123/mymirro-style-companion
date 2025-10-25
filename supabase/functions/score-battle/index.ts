@@ -25,44 +25,6 @@ serve(async (req) => {
 
     console.log(`Scoring battle with ${participants.length} participants...`);
 
-    // Build the prompt with all images
-    const content: any[] = [
-      {
-        type: 'text',
-        text: `As a professional fashion judge, compare these ${participants.length} outfits and rank them. For each person, provide:
-- A style score (1.0-5.0)
-- A rank (1 being best)
-- Brief reasoning (1-2 sentences)
-
-Participants: ${participants.map((p: any) => p.name).join(', ')}
-
-Return ONLY a JSON object with structure:
-{
-  "results": [
-    {
-      "name": "participant_name",
-      "score": 4.5,
-      "rank": 1,
-      "reasoning": "Perfect color coordination and sharp fit create an unbeatable combo."
-    }
-  ],
-  "winner_verdict": "Brief explanation of why the winner won and tips for others"
-}`
-      }
-    ];
-
-    // Add all participant images
-    for (const participant of participants) {
-      content.push({
-        type: 'text',
-        text: `Outfit for ${participant.name}:`
-      });
-      content.push({
-        type: 'image_url',
-        image_url: { url: participant.imageData }
-      });
-    }
-
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -70,11 +32,36 @@ Return ONLY a JSON object with structure:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'user',
-            content
+            content: [
+              {
+                type: 'text',
+                text: `You are a professional fashion judge with a competitive edge and witty personality. Score these ${participants.length} outfits in a battle format. For each participant:
+
+1. Give them a competitive PERSONA NAME (2-3 words, fun and competitive, e.g., "Style Maverick", "Denim Destroyer", "Monochrome Master")
+2. Overall score (1.0-5.0) - be honest and differentiate scores clearly
+3. Rank (1 = best, 2 = second, etc.)
+4. FUN BANTER/ROAST: Write a competitive, playful roast comparing them to other participants. Be cheeky, mention specific style elements, reference their outfit details and how they stack up. Make it entertaining but not mean-spirited. Like a friendly fashion roast battle.
+
+Also provide:
+- winner_verdict: A celebratory sentence about why the winner dominated the competition
+
+Be detailed, competitive, entertaining, and reference specific outfit elements in your roasts. Return ONLY valid JSON.`
+              },
+              ...participants.map((p: any, idx: number) => [
+                {
+                  type: 'text',
+                  text: `Participant ${idx + 1}: ${p.name}`
+                },
+                {
+                  type: 'image_url',
+                  image_url: { url: p.imageData }
+                }
+              ]).flat()
+            ]
           }
         ],
         tools: [
@@ -82,7 +69,7 @@ Return ONLY a JSON object with structure:
             type: 'function',
             function: {
               name: 'score_battle',
-              description: 'Score and rank multiple outfits in a fashion battle',
+              description: 'Score and rank multiple outfits in a fashion battle with fun competitive banter',
               parameters: {
                 type: 'object',
                 properties: {
@@ -91,12 +78,13 @@ Return ONLY a JSON object with structure:
                     items: {
                       type: 'object',
                       properties: {
-                        name: { type: 'string' },
+                        name: { type: 'string', description: 'Original participant name' },
+                        persona_name: { type: 'string', description: 'Competitive persona name (2-3 words)' },
                         score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                         rank: { type: 'integer', minimum: 1 },
-                        reasoning: { type: 'string' }
+                        roast: { type: 'string', description: 'Fun competitive banter comparing to others' }
                       },
-                      required: ['name', 'score', 'rank', 'reasoning']
+                      required: ['name', 'persona_name', 'score', 'rank', 'roast']
                     }
                   },
                   winner_verdict: { type: 'string' }
