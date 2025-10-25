@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
-import { Home, Sparkles, Shirt, Trophy, User } from "lucide-react";
+import { Home, Sparkles, Shirt, User } from "lucide-react";
 import AICompanion from "@/components/AICompanion";
 import Wardrobe from "@/components/Wardrobe";
 import StyleCheck from "@/components/StyleCheck";
-import Battles from "@/components/Battles";
+
 import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
 import Auth from "@/components/Auth";
 
-type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
+type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -69,7 +69,6 @@ const Index = () => {
     { id: "home" as Tab, icon: Home, label: "AI Companion" },
     { id: "wardrobe" as Tab, icon: Shirt, label: "Wardrobe" },
     { id: "stylecheck" as Tab, icon: Sparkles, label: "Style Check" },
-    { id: "battles" as Tab, icon: Trophy, label: "Battles" },
     { id: "profile" as Tab, icon: User, label: "Profile" },
   ];
 
@@ -81,8 +80,6 @@ const Index = () => {
         return <Wardrobe />;
       case "stylecheck":
         return <StyleCheck />;
-      case "battles":
-        return <Battles />;
       case "profile":
         return <Profile />;
       default:
