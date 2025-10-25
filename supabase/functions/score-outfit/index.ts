@@ -51,7 +51,7 @@ Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
               },
               {
                 type: 'image_url',
-                image_url: { url: imageData }
+                image_url: imageData
               }
             ]
           }
@@ -83,11 +83,29 @@ Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
       }),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI error (score-outfit):', response.status, errText);
+      return new Response(
+        JSON.stringify({ error: 'AI error', details: errText }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const data = await response.json();
     console.log('Scoring response:', data);
 
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    const scores = toolCall ? JSON.parse(toolCall.function.arguments) : null;
+    let scores = null as any;
+    if (toolCall?.function?.arguments) {
+      try { scores = JSON.parse(toolCall.function.arguments); } catch (_) {}
+    }
+    if (!scores) {
+      const content = data.choices?.[0]?.message?.content;
+      if (typeof content === 'string') {
+        try { scores = JSON.parse(content); } catch (_) {}
+      }
+    }
 
     if (!scores) {
       throw new Error('Failed to score outfit');

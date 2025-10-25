@@ -59,7 +59,7 @@ Return ONLY a JSON object with structure:
       });
       content.push({
         type: 'image_url',
-        image_url: { url: participant.imageData }
+        image_url: participant.imageData
       });
     }
 
@@ -110,11 +110,29 @@ Return ONLY a JSON object with structure:
       }),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenAI error (score-battle):', response.status, errText);
+      return new Response(
+        JSON.stringify({ error: 'AI error', details: errText }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const data = await response.json();
     console.log('Battle scoring response:', data);
 
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    const battleResults = toolCall ? JSON.parse(toolCall.function.arguments) : null;
+    let battleResults = null as any;
+    if (toolCall?.function?.arguments) {
+      try { battleResults = JSON.parse(toolCall.function.arguments); } catch (_) {}
+    }
+    if (!battleResults) {
+      const content = data.choices?.[0]?.message?.content;
+      if (typeof content === 'string') {
+        try { battleResults = JSON.parse(content); } catch (_) {}
+      }
+    }
 
     if (!battleResults) {
       throw new Error('Failed to score battle');
