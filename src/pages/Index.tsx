@@ -88,13 +88,11 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden max-w-[430px] mx-auto">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
-      <header className="bg-card border-b border-border px-4 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] font-semibold text-foreground">MyMirro</h1>
-          <p className="caption text-muted-foreground">Your AI Stylist Companion</p>
-        </div>
+      <header className="glass-card border-b border-border/50 px-6 py-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gradient-primary">MyMirro</h1>
+        <p className="text-xs text-muted-foreground">Your AI Stylist Companion</p>
       </header>
 
       {/* Main Content */}
@@ -102,28 +100,26 @@ const Index = () => {
         {renderContent()}
       </main>
 
-      {/* Bottom Navigation - Sticky with safe area */}
-      <nav className="sticky bottom-0 bg-card border-t border-border shadow-elevated">
-        <div className="flex items-center justify-around px-2 py-2 safe-area-bottom">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-150 touch-target animate-press ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? "scale-110" : ""} transition-transform duration-150`} />
-                <span className="caption font-medium">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* Bottom Navigation */}
+      <nav className="glass-card border-t border-border/50 px-4 py-3 flex items-center justify-around">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-300 ${
+                isActive
+                  ? "text-primary glow-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className={`w-6 h-6 ${isActive ? "scale-110" : ""} transition-transform`} />
+              <span className="text-xs font-medium">{tab.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
