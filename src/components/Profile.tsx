@@ -1,14 +1,33 @@
-import { User, Mic, Settings, LogOut, Share2, FileText } from "lucide-react";
+import { Settings, LogOut, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
   const { toast } = useToast();
-  const voiceUsedSeconds = 120;
-  const voiceTotalSeconds = 300;
-  const voiceUsedPercent = (voiceUsedSeconds / voiceTotalSeconds) * 100;
+  const navigate = useNavigate();
+  const [userName, setUserName] = useState("Style Enthusiast");
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setUserEmail(user.email || "");
+      // Try to get name from onboarding data
+      const storedName = localStorage.getItem("onboard_name");
+      if (storedName) {
+        setUserName(storedName);
+      } else if (user.user_metadata?.name) {
+        setUserName(user.user_metadata.name);
+      }
+    }
+  };
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -18,7 +37,38 @@ const Profile = () => {
         description: "Failed to sign out",
         variant: "destructive",
       });
+    } else {
+      // Clear all localStorage
+      localStorage.clear();
+      // Reload to trigger auth flow
+      window.location.reload();
     }
+  };
+
+  const handleReferFriend = () => {
+    const referralText = `Check out MyMirro - Your AI Fashion Companion! 👗✨`;
+    const referralUrl = window.location.origin;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'MyMirro - AI Fashion Companion',
+        text: referralText,
+        url: referralUrl,
+      }).catch(() => {
+        // Fallback if share fails
+        copyToClipboard(referralUrl);
+      });
+    } else {
+      copyToClipboard(referralUrl);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Link copied!",
+      description: "Share MyMirro with your friends",
+    });
   };
 
   return (
@@ -32,35 +82,18 @@ const Profile = () => {
       </div>
 
       {/* User Info Card */}
-      <div className="glass-card rounded-2xl p-4 sm:p-6 space-y-4">
+      <div className="glass-card rounded-2xl p-4 sm:p-6">
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-2xl sm:text-3xl glow-primary flex-shrink-0">
             👤
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base sm:text-lg truncate">Style Enthusiast</h3>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Member since Jan 2025</p>
+            <h3 className="font-semibold text-base sm:text-lg truncate">{userName}</h3>
+            <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{userEmail}</p>
           </div>
           <Button variant="ghost" size="icon" className="min-w-[40px] min-h-[40px] flex-shrink-0">
             <Settings className="w-5 h-5" />
           </Button>
-        </div>
-
-        {/* Voice Usage */}
-        <div className="pt-3 border-t border-border/50 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Mic className="w-4 h-4 text-accent flex-shrink-0" />
-              <span className="text-xs sm:text-sm font-medium truncate">Voice Usage Today</span>
-            </div>
-            <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
-              {Math.floor(voiceUsedSeconds / 60)}:{(voiceUsedSeconds % 60).toString().padStart(2, "0")} / 5:00
-            </span>
-          </div>
-          <Progress value={voiceUsedPercent} className="h-2" />
-          <p className="text-[10px] sm:text-xs text-muted-foreground">
-            Resets daily. Chat has no limits!
-          </p>
         </div>
       </div>
 
@@ -86,13 +119,13 @@ const Profile = () => {
 
       {/* Actions */}
       <div className="space-y-2">
-        <Button variant="outline" className="w-full glass-card border-border/50 justify-start min-h-[44px] text-sm">
+        <Button 
+          variant="outline" 
+          className="w-full glass-card border-border/50 justify-start min-h-[44px] text-sm"
+          onClick={handleReferFriend}
+        >
           <Share2 className="w-4 h-4 mr-3 flex-shrink-0" />
           <span className="truncate">Refer a Friend</span>
-        </Button>
-        <Button variant="outline" className="w-full glass-card border-border/50 justify-start min-h-[44px] text-sm">
-          <FileText className="w-4 h-4 mr-3 flex-shrink-0" />
-          <span className="truncate">Export My Data</span>
         </Button>
         <Button 
           variant="outline" 

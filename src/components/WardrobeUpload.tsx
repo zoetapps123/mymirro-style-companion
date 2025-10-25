@@ -51,16 +51,24 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        console.error('Auth error:', sessionError);
         toast({
           title: "Authentication required",
-          description: "Please sign in to add items to your wardrobe",
+          description: "Please sign in again to add items to your wardrobe",
           variant: "destructive",
         });
         setLoading(false);
+        // Clear storage and reload
+        localStorage.clear();
+        window.location.reload();
         return;
       }
+
+      const user = session.user;
 
       const reader = new FileReader();
       reader.onloadend = async () => {

@@ -105,14 +105,28 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
     setLoading(true);
     try {
+      // Check authentication first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in again to battle outfits",
+          variant: "destructive",
+        });
+        setLoading(false);
+        localStorage.clear();
+        window.location.reload();
+        return;
+      }
+
+      const user = session.user;
+
       const { data, error } = await supabase.functions.invoke('score-battle', {
         body: { participants }
       });
 
       if (error) throw error;
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
 
       // Save battle to database
       const { data: battle, error: battleError } = await supabase

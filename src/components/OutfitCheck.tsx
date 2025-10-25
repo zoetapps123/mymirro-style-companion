@@ -39,6 +39,24 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
     setScanning(true);
 
     try {
+      // Check authentication first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in again to check outfits",
+          variant: "destructive",
+        });
+        setLoading(false);
+        setScanning(false);
+        localStorage.clear();
+        window.location.reload();
+        return;
+      }
+
+      const user = session.user;
+
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;
@@ -63,9 +81,6 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           .from('outfits')
           .getPublicUrl(fileName);
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
         await supabase.from('style_checks').insert({
           user_id: user.id,
           image_url: publicUrl,
@@ -74,6 +89,7 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           fit_score: data.fit_score,
           texture_score: data.texture_score,
           occasion_score: data.occasion_score,
+          outfit_name: data.outfit_name,
           verdict_positive: data.verdict_positive,
           verdict_improvements: data.verdict_improvements,
           occasion: selectedOccasion
