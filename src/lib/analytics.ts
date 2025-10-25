@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export interface AnalyticsEvent {
   event_name: string;
   screen?: string;
@@ -9,30 +7,15 @@ export interface AnalyticsEvent {
 
 /**
  * Track user interaction events for the Interactive Profile
+ * Note: Analytics persistence will be added once the database table is created
  */
 export const trackEvent = async (event: AnalyticsEvent) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn("Cannot track event: User not authenticated");
-      return;
-    }
-
-    const { error } = await supabase.from("analytics_events").insert({
-      user_id: user.id,
-      event_name: event.event_name,
-      screen: event.screen,
-      element_id: event.element_id,
-      payload_json: event.payload || {},
-    });
-
-    if (error) {
-      console.error("Error tracking event:", error);
-    }
-  } catch (error) {
-    console.error("Error tracking event:", error);
-  }
+  // Log events to console for now
+  console.log('[Analytics]', event.event_name, {
+    screen: event.screen,
+    element_id: event.element_id,
+    payload: event.payload
+  });
 };
 
 // Convenience functions for common events
