@@ -25,6 +25,15 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    if (!selectedOccasion) {
+      toast({
+        title: "Context Required",
+        description: "Tell me where you're wearing this — I'll judge smarter 😎",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const file = files[0];
     setLoading(true);
     setScanning(true);
@@ -279,15 +288,33 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             disabled={loading}
           />
           <div 
-            onClick={() => !loading && fileInputRef.current?.click()}
-            className="glass-card rounded-2xl p-8 border-2 border-dashed border-border/50 text-center space-y-4 hover:border-accent/50 transition-colors cursor-pointer"
+            onClick={() => {
+              if (!selectedOccasion) {
+                toast({
+                  title: "Select Context First",
+                  description: "Tell me where you're wearing this — I'll judge smarter 😎",
+                  variant: "destructive"
+                });
+                return;
+              }
+              if (!loading) fileInputRef.current?.click();
+            }}
+            className={`glass-card rounded-2xl p-8 border-2 border-dashed text-center space-y-4 transition-all ${
+              selectedOccasion 
+                ? "border-accent/50 hover:border-accent cursor-pointer" 
+                : "border-border/30 opacity-60 cursor-not-allowed"
+            }`}
           >
             <div className="mx-auto w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center">
               <Camera className="w-8 h-8 text-accent" />
             </div>
             <div>
-              <h3 className="font-semibold mb-1">Upload Your Outfit</h3>
-              <p className="text-xs text-muted-foreground">Snap or select from gallery</p>
+              <h3 className="font-semibold mb-1">
+                {selectedOccasion ? "Upload Your Outfit" : "Select Context First"}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {selectedOccasion ? "Snap or select from gallery" : "Choose where you're heading above"}
+              </p>
             </div>
           </div>
         </>

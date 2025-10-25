@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, CheckCircle2 } from "lucide-react";
+import { Sparkles, CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface AuthProps {
@@ -14,6 +14,7 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const { toast } = useToast();
 
   // Analytics helper
@@ -46,12 +47,37 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
     }
 
     setLoading(true);
+    setCheckingEmail(true);
     setError("");
     trackEvent("onboard_email_submit_clicked", { email: maskEmail(email) });
 
     try {
-      // Store email locally
+      // Check if returning user (email exists in localStorage)
+      const storedEmail = localStorage.getItem("onboard_email");
+      const isReturning = storedEmail === email;
+      
+      if (isReturning) {
+        // Check if session is still valid (7 days)
+        const lastLogin = localStorage.getItem("last_login");
+        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        
+        if (lastLogin && parseInt(lastLogin) > sevenDaysAgo) {
+          trackEvent("returning_user_auto_signin", { email: maskEmail(email) });
+          toast({
+            title: `Welcome back! 👋`,
+            description: "We missed your fits.",
+          });
+          setSuccess(true);
+          setTimeout(() => {
+            onEmailCaptured(email);
+          }, 800);
+          return;
+        }
+      }
+      
+      // Store email and login timestamp
       localStorage.setItem("onboard_email", email);
+      localStorage.setItem("last_login", Date.now().toString());
       
       // Fire-and-forget API call (optional backend endpoint)
       fetch("/api/lead", {
@@ -61,13 +87,17 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
           email,
           source: "onboarding_email_step",
           device: "web-mobile",
+          returning: isReturning
         }),
       }).catch(() => {
-        // Silent failure, stored locally
         console.log("API call failed, saved locally");
       });
 
-      trackEvent("onboard_email_saved_success", { email: maskEmail(email) });
+      if (isReturning) {
+        trackEvent("returning_user_proceed", { email: maskEmail(email) });
+      } else {
+        trackEvent("new_user_proceed", { email: maskEmail(email) });
+      }
       
       // Success animation
       setSuccess(true);
@@ -84,7 +114,10 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
         description: "We'll sync when you're online.",
       });
     } finally {
-      setTimeout(() => setLoading(false), 800);
+      setTimeout(() => {
+        setLoading(false);
+        setCheckingEmail(false);
+      }, 800);
     }
   };
 
@@ -106,6 +139,8 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
             >
               {success ? (
                 <CheckCircle2 className="w-10 h-10 text-primary animate-scale-in" />
+              ) : checkingEmail ? (
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
               ) : (
                 <Sparkles className="w-10 h-10 text-primary" />
               )}

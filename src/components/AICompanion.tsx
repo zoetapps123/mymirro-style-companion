@@ -72,7 +72,7 @@ const AICompanion = () => {
           timestamp: new Date(msg.timestamp),
         }));
         setMessages(messagesWithDates);
-        setShowPrompts(false);
+        setShowPrompts(messagesWithDates.length <= 1);
         trackEvent("session_restored");
       } catch (e) {
         // Invalid session, start fresh
@@ -103,7 +103,13 @@ const AICompanion = () => {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
     }
   }, [messages]);
 
@@ -323,8 +329,8 @@ const AICompanion = () => {
         </div>
       </ScrollArea>
 
-      {/* Quick Start Prompts */}
-      {showPrompts && messages.length <= 1 && (
+      {/* Quick Start Prompts - Always visible at top */}
+      {showPrompts && (
         <div className="px-4 py-2 border-t border-border/50">
           <div className="flex gap-2 max-w-2xl mx-auto overflow-x-auto pb-1 scrollbar-hide">
             {QUICK_PROMPTS.map((prompt) => (
@@ -385,20 +391,31 @@ const AICompanion = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
-            />
-            <Button
-              data-send-button
-              size="icon"
-              onClick={handleSend}
-              disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
-              className="glow-primary flex-shrink-0 min-w-[44px] min-h-[44px]"
-              title="Send message"
-            >
-              <Send className="w-5 h-5" />
-            </Button>
+                className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
+              />
+              <Button
+                data-send-button
+                size="icon"
+                onClick={handleSend}
+                disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
+                className="glow-primary flex-shrink-0 min-w-[44px] min-h-[44px]"
+                title="Send message"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            {/* Guided tip after first message */}
+            {messages.length > 1 && messages.length < 4 && !selectedImages.length && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-muted-foreground text-center"
+              >
+                💡 Upload your look 📸 so I can give you sharper tips
+              </motion.p>
+            )}
           </div>
-        </div>
       </div>
     </div>
   );

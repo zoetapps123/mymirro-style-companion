@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import Confetti from 'react-confetti';
 
 interface Participant {
   name: string;
@@ -31,6 +32,9 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
   const [currentName, setCurrentName] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<{ results: BattleResult[], winner_verdict: string } | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [awaitingName, setAwaitingName] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ imageData: string, imageFile: File } | null>(null);
 
   const addParticipant = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -48,14 +52,41 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         return;
       }
 
-      setParticipants([...participants, {
-        name: currentName || `Participant ${participants.length + 1}`,
+      setPendingImage({
         imageData: reader.result as string,
         imageFile: file
-      }]);
-      setCurrentName("");
+      });
+      setAwaitingName(true);
     };
     reader.readAsDataURL(file);
+  };
+
+  const confirmParticipant = () => {
+    if (!pendingImage) return;
+    
+    if (!currentName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Who's rocking this look? Enter their name below.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setParticipants([...participants, {
+      name: currentName.trim(),
+      imageData: pendingImage.imageData,
+      imageFile: pendingImage.imageFile
+    }]);
+    setCurrentName("");
+    setPendingImage(null);
+    setAwaitingName(false);
+  };
+
+  const cancelPendingImage = () => {
+    setPendingImage(null);
+    setCurrentName("");
+    setAwaitingName(false);
   };
 
   const removeParticipant = (index: number) => {
@@ -97,10 +128,12 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       if (battleError) throw battleError;
 
       setResults(data);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
       
       toast({
         title: "Battle complete!",
-        description: `${data.results[0].name} takes the crown!`,
+        description: `${data.results[0].name} takes the crown! 👑`,
       });
     } catch (error) {
       console.error('Error:', error);
@@ -177,7 +210,17 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full p-4 space-y-4">
+    <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
+      {showConfetti && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.3}
+        />
+      )}
+
       <div className="space-y-2">
         <h2 className="text-2xl font-bold text-gradient-primary">Outfit Battle</h2>
         <p className="text-sm text-muted-foreground">Pit outfits head-to-head. Winner gets the crown.</p>
@@ -185,29 +228,60 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
       {!results && (
         <>
-          <div className="space-y-3">
-            <Input
-              placeholder="Participant name (optional)"
-              value={currentName}
-              onChange={(e) => setCurrentName(e.target.value)}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={addParticipant}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={participants.length >= 5}
+          {awaitingName && pendingImage ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-card rounded-2xl p-6 space-y-4"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Outfit ({participants.length}/5)
-            </Button>
-          </div>
+              <div className="text-center space-y-2">
+                <img 
+                  src={pendingImage.imageData} 
+                  alt="Pending" 
+                  className="w-32 h-32 mx-auto rounded-xl object-cover"
+                />
+                <h3 className="text-lg font-semibold">Who's rocking this look?</h3>
+                <p className="text-sm text-muted-foreground">Enter their name below</p>
+              </div>
+              
+              <Input
+                placeholder="Enter participant name"
+                value={currentName}
+                onChange={(e) => setCurrentName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && confirmParticipant()}
+                autoFocus
+                className="min-h-[44px]"
+              />
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={cancelPendingImage} className="min-h-[44px]">
+                  Cancel
+                </Button>
+                <Button onClick={confirmParticipant} className="glow-primary min-h-[44px]">
+                  Add to Battle
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="space-y-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={addParticipant}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                className="w-full min-h-[44px]"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={participants.length >= 5}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Outfit ({participants.length}/5)
+              </Button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-auto space-y-3">
             {participants.map((participant, index) => (
@@ -234,8 +308,8 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
           </div>
 
           {participants.length >= 2 && (
-            <Button onClick={startBattle} disabled={loading} className="w-full glow-primary">
-              {loading ? "Judging..." : "Start Battle"}
+            <Button onClick={startBattle} disabled={loading} className="w-full glow-primary min-h-[44px]">
+              {loading ? "Judging..." : "Start Battle 🔥"}
             </Button>
           )}
         </>
@@ -250,33 +324,72 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
           <div className="glass-card rounded-2xl p-6 space-y-4">
             <div className="text-center space-y-4">
               <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", delay: 0.2 }}
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
               >
-                <Crown className="w-16 h-16 mx-auto text-primary" />
+                <motion.div
+                  animate={{ 
+                    y: [0, -10, 0],
+                    rotate: [0, 10, -10, 0]
+                  }}
+                  transition={{ 
+                    repeat: Infinity,
+                    duration: 2,
+                    delay: 0.5
+                  }}
+                >
+                  <Crown className="w-16 h-16 mx-auto text-primary" />
+                </motion.div>
               </motion.div>
               <div>
-                <h3 className="text-3xl font-bold text-gradient-primary mb-2">
+                <motion.h3 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="text-3xl font-bold text-gradient-primary mb-2"
+                >
                   {results.results[0].name}
-                </h3>
-                <Badge variant="secondary" className="text-lg">
-                  {results.results[0].score.toFixed(1)} / 5.0
-                </Badge>
+                </motion.h3>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <Badge variant="secondary" className="text-lg">
+                    {results.results[0].score.toFixed(1)} / 5.0
+                  </Badge>
+                </motion.div>
               </div>
-              <p className="text-sm text-muted-foreground italic">
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="text-sm text-muted-foreground italic"
+              >
                 {results.results[0].reasoning}
-              </p>
+              </motion.p>
             </div>
 
             <div className="pt-4 border-t border-border/50 space-y-3">
-              <h4 className="font-semibold">Leaderboard</h4>
+              <motion.h4 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                className="font-semibold"
+              >
+                Leaderboard
+              </motion.h4>
               {results.results.map((result, index) => (
                 <motion.div
                   key={result.name}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -30 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ 
+                    delay: 1.2 + index * 0.15,
+                    type: "spring",
+                    stiffness: 200
+                  }}
                   className={`flex items-center gap-4 p-3 rounded-lg ${
                     index === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
                   }`}
