@@ -66,7 +66,12 @@ const AICompanion = () => {
     if (lastSession && sessionMessages && (now - parseInt(lastSession)) < SESSION_DURATION) {
       try {
         const savedMessages = JSON.parse(sessionMessages);
-        setMessages(savedMessages);
+        // Convert timestamp strings back to Date objects
+        const messagesWithDates = savedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(messagesWithDates);
         setShowPrompts(false);
         trackEvent("session_restored");
       } catch (e) {
@@ -314,7 +319,7 @@ const AICompanion = () => {
                   {message.content || (message.role === "assistant" && isLoading ? "..." : "")}
                 </p>
                 <span className="text-xs opacity-60 mt-1 block">
-                  {message.timestamp.toLocaleTimeString([], {
+                  {new Date(message.timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
