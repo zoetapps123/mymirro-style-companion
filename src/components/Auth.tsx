@@ -2,122 +2,128 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, CheckCircle2, Loader2 } from "lucide-react";
+import { Sparkles, CheckCircle2, Loader2, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
 interface AuthProps {
   onEmailCaptured: (email: string) => void;
 }
 
+const emailSchema = z.string().trim().email("Please enter a valid email address");
+const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+
 const Auth = ({ onEmailCaptured }: AuthProps) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false);
   const { toast } = useToast();
 
-  // Analytics helper
-  const trackEvent = (eventName: string, metadata?: any) => {
-    console.log(`[Analytics] ${eventName}`, metadata);
-  };
-
-  // RFC5322 basic email validation
-  const isValidEmail = (email: string) => {
-    return /^\S+@\S+\.\S+$/.test(email);
-  };
-
-  // Mask email for analytics (p***@y***.in)
-  const maskEmail = (email: string) => {
-    const [username, domain] = email.split("@");
-    if (!username || !domain) return email;
-    const maskedUsername = username[0] + "***";
-    const [domainName, ext] = domain.split(".");
-    const maskedDomain = domainName[0] + "***." + ext;
-    return `${maskedUsername}@${maskedDomain}`;
-  };
-
-  const handleContinue = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!isValidEmail(email)) {
-      setError("Please enter a valid email address");
-      trackEvent("onboard_email_invalid");
+    setError("");
+
+    // Validate inputs
+    const emailValidation = emailSchema.safeParse(email);
+    if (!emailValidation.success) {
+      setError(emailValidation.error.errors[0].message);
+      return;
+    }
+
+    const passwordValidation = passwordSchema.safeParse(password);
+    if (!passwordValidation.success) {
+      setError(passwordValidation.error.errors[0].message);
       return;
     }
 
     setLoading(true);
-    setCheckingEmail(true);
-    setError("");
-    trackEvent("onboard_email_submit_clicked", { email: maskEmail(email) });
 
     try {
-      // Check if returning user (email exists in localStorage)
-      const storedEmail = localStorage.getItem("onboard_email");
-      const isReturning = storedEmail === email;
-      
-      if (isReturning) {
-        // Check if session is still valid (7 days)
-        const lastLogin = localStorage.getItem("last_login");
-        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        
-        if (lastLogin && parseInt(lastLogin) > sevenDaysAgo) {
-          trackEvent("returning_user_auto_signin", { email: maskEmail(email) });
-          toast({
-            title: `Welcome back! 👋`,
-            description: "We missed your fits.",
-          });
-          setSuccess(true);
-          setTimeout(() => {
-            onEmailCaptured(email);
-          }, 800);
+      if (isSignUp) {
+        // Sign up new user
+        const { error: signUpError, data } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          }
+        });
+
+        if (signUpError) {
+          if (signUpError.message.includes("already registered")) {
+            setError("This email is already registered. Please sign in instead.");
+            setIsSignUp(false);
+          } else {
+            setError(signUpError.message);
+          }
           return;
         }
-      }
-      
-      // Store email and login timestamp
-      localStorage.setItem("onboard_email", email);
-      localStorage.setItem("last_login", Date.now().toString());
-      
-      // Fire-and-forget API call (optional backend endpoint)
-      fetch("/api/lead", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          source: "onboarding_email_step",
-          device: "web-mobile",
-          returning: isReturning
-        }),
-      }).catch(() => {
-        console.log("API call failed, saved locally");
-      });
 
-      if (isReturning) {
-        trackEvent("returning_user_proceed", { email: maskEmail(email) });
+        // Store session timestamp
+        localStorage.setItem("last_login", Date.now().toString());
+        localStorage.setItem("onboard_email", email.trim());
+
+        setSuccess(true);
+        toast({
+          title: "Welcome to MyMirro! 🎉",
+          description: "Your fashion journey starts now",
+        });
+
+        setTimeout(() => {
+          onEmailCaptured(email.trim());
+        }, 800);
+
       } else {
-        trackEvent("new_user_proceed", { email: maskEmail(email) });
+        // Sign in existing user
+        const { error: signInError, data } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (signInError) {
+          if (signInError.message.includes("Invalid login credentials")) {
+            setError("Invalid email or password. Please try again.");
+          } else {
+            setError(signInError.message);
+          }
+          return;
+        }
+
+        // Check if within 7-day session
+        const lastLogin = localStorage.getItem("last_login");
+        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        const isReturning = lastLogin && parseInt(lastLogin) > sevenDaysAgo;
+
+        // Update session timestamp
+        localStorage.setItem("last_login", Date.now().toString());
+        localStorage.setItem("onboard_email", email.trim());
+
+        setSuccess(true);
+        toast({
+          title: isReturning ? "Welcome back! 👋" : "Signed in successfully!",
+          description: isReturning ? "We missed your fits." : "Your fashion journey continues",
+        });
+
+        setTimeout(() => {
+          onEmailCaptured(email.trim());
+        }, 800);
       }
-      
-      // Success animation
-      setSuccess(true);
-      
-      setTimeout(() => {
-        trackEvent("onboard_advance_to_profile_details");
-        onEmailCaptured(email);
-      }, 800);
-    } catch (error: any) {
-      setError(error.message || "Something went wrong. Please try again.");
-      trackEvent("onboard_email_saved_error", { error: error.message });
+
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setError("Something went wrong. Please try again.");
       toast({
-        title: "Saved locally",
-        description: "We'll sync when you're online.",
+        title: "Error",
+        description: "Failed to authenticate. Please try again.",
+        variant: "destructive",
       });
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-        setCheckingEmail(false);
-      }, 800);
+      setLoading(false);
     }
   };
 
@@ -139,7 +145,7 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
             >
               {success ? (
                 <CheckCircle2 className="w-10 h-10 text-primary animate-scale-in" />
-              ) : checkingEmail ? (
+              ) : loading ? (
                 <Loader2 className="w-10 h-10 text-primary animate-spin" />
               ) : (
                 <Sparkles className="w-10 h-10 text-primary" />
@@ -156,16 +162,21 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
             className="glass-card rounded-2xl p-8 space-y-6"
           >
             <div className="text-center space-y-1">
-              <h2 className="text-2xl font-bold">Start your fashion journey</h2>
+              <h2 className="text-2xl font-bold">
+                {isSignUp ? "Create your account" : "Welcome back"}
+              </h2>
               <p className="text-sm text-muted-foreground">
-                We'll personalize your experience and share important updates
+                {isSignUp 
+                  ? "Start your fashion journey with MyMirro"
+                  : "Sign in to continue your style evolution"
+                }
               </p>
             </div>
 
-            <form onSubmit={handleContinue} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">
-                  Your Email
+                  Email Address
                 </label>
                 <Input
                   id="email"
@@ -175,46 +186,94 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setError("");
-                    trackEvent("onboard_email_typed");
                   }}
-                  onFocus={() => trackEvent("onboard_email_viewed")}
                   required
                   disabled={loading || success}
                   className="glass-card border-border/50 h-12 text-base"
-                  autoFocus
-                  aria-invalid={!!error}
-                  aria-describedby={error ? "email-error" : undefined}
+                  autoComplete="email"
                 />
-                {error && (
-                  <motion.p
-                    id="email-error"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-sm text-destructive"
-                    role="alert"
-                    aria-live="polite"
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                    }}
+                    required
+                    disabled={loading || success}
+                    className="glass-card border-border/50 h-12 text-base pr-10"
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    disabled={loading || success}
                   >
-                    {error}
-                  </motion.p>
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {isSignUp && (
+                  <p className="text-xs text-muted-foreground">
+                    Must be at least 6 characters
+                  </p>
                 )}
               </div>
+
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-sm text-destructive text-center"
+                  role="alert"
+                >
+                  {error}
+                </motion.p>
+              )}
 
               <Button
                 type="submit"
                 className="w-full glow-primary h-12 text-base"
-                disabled={loading || !email || success}
+                disabled={loading || !email || !password || success}
               >
-                {loading ? "Continuing..." : success ? "Success ✓" : "Continue"}
+                {loading 
+                  ? "Processing..." 
+                  : success 
+                  ? "Success ✓" 
+                  : isSignUp 
+                  ? "Create Account" 
+                  : "Sign In"
+                }
               </Button>
             </form>
 
-            <div className="text-center">
-              <a
-                href="/privacy"
-                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            <div className="text-center space-y-2">
+              <button
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError("");
+                }}
+                disabled={loading || success}
+                className="text-sm text-primary hover:underline transition-all disabled:opacity-50"
               >
-                Privacy
-              </a>
+                {isSignUp 
+                  ? "Already have an account? Sign in" 
+                  : "New here? Create an account"
+                }
+              </button>
             </div>
           </motion.div>
         </motion.div>

@@ -3,11 +3,11 @@ import { Home, Sparkles, Shirt, User } from "lucide-react";
 import AICompanion from "@/components/AICompanion";
 import Wardrobe from "@/components/Wardrobe";
 import StyleCheck from "@/components/StyleCheck";
-
 import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
 import Auth from "@/components/Auth";
+import { supabase } from "@/integrations/supabase/client";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
@@ -18,19 +18,41 @@ const Index = () => {
   const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   useEffect(() => {
-    // Check flow status based on localStorage
-    const email = localStorage.getItem("onboard_email");
+    checkAuthAndFlow();
+  }, []);
+
+  const checkAuthAndFlow = async () => {
+    // Check if user has valid session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      // No session - show auth
+      setShowEmailCapture(true);
+      return;
+    }
+
+    // Check if session is within 7 days
+    const lastLogin = localStorage.getItem("last_login");
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    
+    if (!lastLogin || parseInt(lastLogin) <= sevenDaysAgo) {
+      // Session expired - show auth
+      await supabase.auth.signOut();
+      localStorage.clear();
+      setShowEmailCapture(true);
+      return;
+    }
+
+    // Valid session - check onboarding status
     const onboardingComplete = localStorage.getItem("onboardingComplete") === "true";
     const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
 
-    if (!email) {
-      setShowEmailCapture(true);
-    } else if (!onboardingComplete) {
+    if (!onboardingComplete) {
       setShowOnboarding(true);
     } else if (!walkthroughComplete) {
       setShowWalkthrough(true);
     }
-  }, []);
+  };
 
   const handleEmailCaptured = (email: string) => {
     localStorage.setItem("onboard_email", email);
