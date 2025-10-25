@@ -16,7 +16,6 @@ interface Participant {
 
 interface BattleResult {
   name: string;
-  persona?: string;
   score: number;
   rank: number;
   reasoning: string;
@@ -182,108 +181,43 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
     canvas.height = 1920;
     const ctx = canvas.getContext('2d')!;
 
-    // Background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 1920);
     gradient.addColorStop(0, 'hsl(240, 10%, 8%)');
     gradient.addColorStop(1, 'hsl(240, 8%, 12%)');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 1080, 1920);
 
-    // Title
     ctx.fillStyle = 'hsl(295, 75%, 58%)';
-    ctx.font = 'bold 64px sans-serif';
+    ctx.font = 'bold 72px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('MyMirro Battle', 540, 80);
+    ctx.fillText('MyMirro Battle', 540, 120);
 
-    // Load winner image
-    const winnerParticipant = participants.find(p => p.name === results.results[0].name);
-    if (winnerParticipant) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.src = winnerParticipant.imageData;
-      });
-      
-      // Winner section with larger image
-      ctx.save();
-      const winnerSize = 350;
-      const winnerX = (1080 - winnerSize) / 2;
-      const winnerY = 140;
-      ctx.beginPath();
-      ctx.roundRect(winnerX, winnerY, winnerSize, winnerSize, 20);
-      ctx.clip();
-      ctx.drawImage(img, winnerX, winnerY, winnerSize, winnerSize);
-      ctx.restore();
-
-      // Crown above winner
-      ctx.font = '80px sans-serif';
-      ctx.fillText('👑', 540, 520);
-    }
-
-    // Winner name and persona
     ctx.fillStyle = 'hsl(240, 5%, 98%)';
+    ctx.font = 'bold 64px sans-serif';
+    ctx.fillText('👑', 540, 220);
     ctx.font = 'bold 48px sans-serif';
-    ctx.fillText(results.results[0].name, 540, 580);
-    if (results.results[0].persona) {
-      ctx.font = '32px sans-serif';
-      ctx.fillStyle = 'hsl(180, 65%, 45%)';
-      ctx.fillText(results.results[0].persona, 540, 630);
-    }
-    ctx.font = 'bold 56px sans-serif';
-    ctx.fillText(`${results.results[0].score.toFixed(1)} / 5.0`, 540, 690);
+    ctx.fillText(results.results[0].name, 540, 300);
+    ctx.font = '32px sans-serif';
+    ctx.fillStyle = 'hsl(180, 65%, 45%)';
+    ctx.fillText(`${results.results[0].score.toFixed(1)} / 5.0`, 540, 360);
 
-    // Leaderboard with smaller images
-    let y = 780;
-    for (let i = 0; i < Math.min(results.results.length, 4); i++) {
-      const result = results.results[i];
-      const participant = participants.find(p => p.name === result.name);
-      
-      if (participant) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise((resolve) => {
-          img.onload = resolve;
-          img.src = participant.imageData;
-        });
-        
-        // Small participant image
-        ctx.save();
-        const imgSize = 80;
-        ctx.beginPath();
-        ctx.roundRect(100, y - 60, imgSize, imgSize, 10);
-        ctx.clip();
-        ctx.drawImage(img, 100, y - 60, imgSize, imgSize);
-        ctx.restore();
-      }
-
-      // Rank and name
-      ctx.fillStyle = i === 0 ? 'hsl(180, 65%, 45%)' : 'hsl(240, 5%, 98%)';
-      ctx.font = i === 0 ? 'bold 36px sans-serif' : 'bold 32px sans-serif';
+    let y = 480;
+    results.results.forEach((result, index) => {
+      ctx.fillStyle = index === 0 ? 'hsl(180, 65%, 45%)' : 'hsl(240, 5%, 40%)';
+      ctx.font = index === 0 ? 'bold 36px sans-serif' : '32px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`${result.rank}. ${result.name}`, 200, y);
+      ctx.fillText(`${result.rank}. ${result.name}`, 140, y);
       
-      // Persona
-      if (result.persona) {
-        ctx.font = '24px sans-serif';
-        ctx.fillStyle = 'hsl(240, 5%, 60%)';
-        ctx.fillText(result.persona, 200, y + 30);
-      }
-      
-      // Score
-      ctx.fillStyle = i === 0 ? 'hsl(180, 65%, 45%)' : 'hsl(240, 5%, 98%)';
-      ctx.font = 'bold 40px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(result.score.toFixed(1), 980, y);
+      ctx.fillText(result.score.toFixed(1), 940, y);
       
-      y += 120;
-    }
+      y += 80;
+    });
 
-    // Footer
     ctx.fillStyle = 'hsl(240, 5%, 40%)';
     ctx.font = '28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Battle royale complete', 540, 1820);
+    ctx.fillText('Good fights all around', 540, 1780);
 
     const shareImage = canvas.toDataURL('image/png');
     const response = await fetch(shareImage);
@@ -472,47 +406,34 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
               >
                 Leaderboard
               </motion.h4>
-              {results.results.map((result, index) => {
-                const participant = participants.find(p => p.name === result.name);
-                return (
-                  <motion.div
-                    key={result.name}
-                    initial={{ opacity: 0, x: -30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ 
-                      delay: 1.2 + index * 0.15,
-                      type: "spring",
-                      stiffness: 200
-                    }}
-                    className={`flex items-center gap-4 p-3 rounded-lg ${
-                      index === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
-                    }`}
-                  >
-                    {participant && (
-                      <img 
-                        src={participant.imageData} 
-                        alt={result.name}
-                        className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className={`text-2xl font-bold flex-shrink-0 ${index === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                        {result.rank}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">{result.name}</p>
-                        {result.persona && (
-                          <p className="text-xs text-accent italic">{result.persona}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground line-clamp-2">{result.reasoning}</p>
-                      </div>
+              {results.results.map((result, index) => (
+                <motion.div
+                  key={result.name}
+                  initial={{ opacity: 0, x: -30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ 
+                    delay: 1.2 + index * 0.15,
+                    type: "spring",
+                    stiffness: 200
+                  }}
+                  className={`flex items-center gap-4 p-3 rounded-lg ${
+                    index === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className={`text-2xl font-bold ${index === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {result.rank}
+                    </span>
+                    <div className="flex-1">
+                      <p className="font-medium">{result.name}</p>
+                      <p className="text-xs text-muted-foreground">{result.reasoning}</p>
                     </div>
-                    <Badge variant={index === 0 ? "default" : "outline"} className="flex-shrink-0">
-                      {result.score.toFixed(1)}
-                    </Badge>
-                  </motion.div>
-                );
-              })}
+                  </div>
+                  <Badge variant={index === 0 ? "default" : "outline"}>
+                    {result.score.toFixed(1)}
+                  </Badge>
+                </motion.div>
+              ))}
             </div>
 
             <div className="pt-4 border-t border-border/50">
