@@ -63,22 +63,22 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
   ];
 
   return (
-    <div className="flex flex-col h-full p-4 space-y-6">
+    <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
       {/* Header */}
-      <div className="space-y-2">
-        <h2 className="text-3xl font-bold text-gradient-primary">Your Wardrobe</h2>
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-1">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gradient-primary">Your Wardrobe</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Your closet, upgraded. Build, style, and plan your perfect looks.
         </p>
       </div>
 
       {/* Sly Copy */}
-      <p className="text-xs text-muted-foreground italic">
+      <p className="text-[10px] sm:text-xs text-muted-foreground italic">
         Please don't be lazy — take pictures in good lighting or upload a clear photo :P
       </p>
 
       {/* Feature Cards */}
-      <div className="flex-1 grid gap-4">
+      <div className="flex-1 grid gap-3 overflow-y-auto">
         {cards.map((card, index) => {
           const Icon = card.icon;
           return (
@@ -89,34 +89,34 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
               transition={{ delay: index * 0.1 }}
             >
               <Card 
-                className={`glass-card hover:glow-primary transition-all cursor-pointer relative overflow-hidden ${
+                className={`glass-card hover:glow-primary transition-all cursor-pointer relative overflow-hidden active:scale-[0.98] ${
                   card.disabled ? 'opacity-60' : ''
                 }`}
                 onClick={card.disabled ? undefined : card.action}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-50`} />
-                <CardHeader className="relative">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-card/50 backdrop-blur">
-                      <Icon className="w-6 h-6 text-primary" />
+                <CardHeader className="relative pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-card/50 backdrop-blur flex-shrink-0">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{card.title}</CardTitle>
-                      <CardDescription className="mt-1">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base sm:text-lg">{card.title}</CardTitle>
+                      <CardDescription className="mt-0.5 text-xs sm:text-sm">
                         {card.description}
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative">
+                <CardContent className="relative pt-0">
                   {card.emptyMessage && (
-                    <div className="mb-4 p-3 rounded-lg bg-muted/20 border border-border/50">
-                      <p className="text-xs text-muted-foreground">{card.emptyMessage}</p>
+                    <div className="mb-3 p-2.5 rounded-lg bg-muted/20 border border-border/50">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">{card.emptyMessage}</p>
                     </div>
                   )}
                   <Button
                     variant="secondary"
-                    className="w-full glow-accent"
+                    className="w-full glow-accent min-h-[44px] text-sm"
                     disabled={card.disabled}
                     title={card.disabled ? card.disabledTooltip : undefined}
                   >
@@ -131,14 +131,14 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
 
       {/* Stats */}
       {itemCount > 0 && (
-        <div className="flex gap-4 text-center">
+        <div className="flex gap-3 text-center flex-shrink-0">
           <div className="flex-1 p-3 glass-card rounded-xl">
-            <p className="text-2xl font-bold text-gradient-primary">{itemCount}</p>
-            <p className="text-xs text-muted-foreground">Items</p>
+            <p className="text-xl sm:text-2xl font-bold text-gradient-primary">{itemCount}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Items</p>
           </div>
           <div className="flex-1 p-3 glass-card rounded-xl">
-            <p className="text-2xl font-bold text-gradient-accent">{outfitCount}</p>
-            <p className="text-xs text-muted-foreground">Outfits</p>
+            <p className="text-xl sm:text-2xl font-bold text-gradient-accent">{outfitCount}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Outfits</p>
           </div>
         </div>
       )}

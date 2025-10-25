@@ -65,11 +65,31 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground font-sans antialiased;
     letter-spacing: -0.01em;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.02em;
     font-weight: 600;
+  }
+
+  /* Mobile-specific utilities */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pb-safe {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 

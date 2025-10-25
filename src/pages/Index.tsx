@@ -90,9 +90,9 @@ const Index = () => {
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
-      <header className="glass-card border-b border-border/50 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gradient-primary">MyMirro</h1>
-        <p className="text-xs text-muted-foreground">Your AI Stylist Companion</p>
+      <header className="glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between min-h-[56px]">
+        <h1 className="text-xl font-bold text-gradient-primary">MyMirro</h1>
+        <p className="text-xs text-muted-foreground hidden sm:block">Your AI Stylist Companion</p>
       </header>
 
       {/* Main Content */}
@@ -100,8 +100,8 @@ const Index = () => {
         {renderContent()}
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="glass-card border-t border-border/50 px-4 py-3 flex items-center justify-around">
+      {/* Bottom Navigation - Mobile Optimized */}
+      <nav className="glass-card border-t border-border/50 px-2 py-2 flex items-center justify-around safe-area-bottom">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -109,14 +109,14 @@ const Index = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-300 ${
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-[64px] min-h-[56px] ${
                 isActive
                   ? "text-primary glow-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground active:scale-95"
               }`}
             >
               <Icon className={`w-6 h-6 ${isActive ? "scale-110" : ""} transition-transform`} />
-              <span className="text-xs font-medium">{tab.label}</span>
+              <span className="text-[10px] sm:text-xs font-medium leading-tight">{tab.label}</span>
             </button>
           );
         })}

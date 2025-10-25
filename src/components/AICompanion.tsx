@@ -281,23 +281,16 @@ const AICompanion = () => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border/50 glass-card">
-        <h2 className="text-center text-sm font-medium text-muted-foreground">
-          Your AI Fashion Companion
-        </h2>
-      </div>
-
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 px-4 py-6" ref={scrollRef}>
-        <div className="space-y-4 max-w-2xl mx-auto">
+      <ScrollArea className="flex-1 px-4 py-4" ref={scrollRef}>
+        <div className="space-y-3 max-w-2xl mx-auto">
           {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "glass-card text-foreground"
@@ -332,15 +325,15 @@ const AICompanion = () => {
 
       {/* Quick Start Prompts */}
       {showPrompts && messages.length <= 1 && (
-        <div className="px-4 py-3 border-t border-border/50">
-          <div className="flex gap-2 max-w-2xl mx-auto overflow-x-auto pb-2">
+        <div className="px-4 py-2 border-t border-border/50">
+          <div className="flex gap-2 max-w-2xl mx-auto overflow-x-auto pb-1 scrollbar-hide">
             {QUICK_PROMPTS.map((prompt) => (
               <Button
                 key={prompt}
                 variant="outline"
                 size="sm"
                 onClick={() => handlePromptClick(prompt)}
-                className="glass-card border-border/50 whitespace-nowrap"
+                className="glass-card border-border/50 whitespace-nowrap text-xs min-h-[36px]"
               >
                 {prompt}
               </Button>
@@ -350,17 +343,17 @@ const AICompanion = () => {
       )}
 
       {/* Input Area */}
-      <div className="px-4 py-4 border-t border-border/50 glass-card">
-        <div className="space-y-3 max-w-2xl mx-auto">
+      <div className="px-4 py-3 border-t border-border/50 glass-card safe-area-bottom">
+        <div className="space-y-2 max-w-2xl mx-auto">
           {/* Image Preview */}
           {selectedImages.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {selectedImages.map((img, idx) => (
                 <div key={idx} className="relative flex-shrink-0">
-                  <img src={img} alt="Selected" className="w-20 h-20 object-cover rounded-lg" />
+                  <img src={img} alt="Selected" className="w-16 h-16 object-cover rounded-lg" />
                   <button
                     onClick={() => removeImage(idx)}
-                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
+                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 min-w-[24px] min-h-[24px]"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -381,25 +374,25 @@ const AICompanion = () => {
             <Button
               size="icon"
               variant="outline"
-              className="glass-card border-border/50"
+              className="glass-card border-border/50 flex-shrink-0 min-w-[44px] min-h-[44px]"
               onClick={() => fileInputRef.current?.click()}
               title="Upload outfit image"
             >
               <Camera className="w-5 h-5" />
             </Button>
             <Input
-              placeholder="Ask anything about your outfit or style"
+              placeholder="Ask about your style..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              className="flex-1 glass-card border-border/50"
+              className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
             />
             <Button
               data-send-button
               size="icon"
               onClick={handleSend}
               disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
-              className="glow-primary"
+              className="glow-primary flex-shrink-0 min-w-[44px] min-h-[44px]"
               title="Send message"
             >
               <Send className="w-5 h-5" />

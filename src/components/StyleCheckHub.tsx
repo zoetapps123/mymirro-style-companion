@@ -26,19 +26,19 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   ];
 
   return (
-    <div className="flex flex-col h-full p-4 space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-bold text-gradient-accent">Style Check</h2>
-        <p className="text-sm text-muted-foreground">
+    <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
+      <div className="space-y-1">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gradient-accent">Style Check</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Proof your outfit in 30 seconds. Honest score. Easy fixes.
         </p>
       </div>
 
-      <p className="text-xs text-muted-foreground italic">
+      <p className="text-[10px] sm:text-xs text-muted-foreground italic">
         Please use a clear full-length photo in good lighting.
       </p>
 
-      <div className="flex-1 grid gap-4">
+      <div className="flex-1 grid gap-3 overflow-y-auto">
         {features.map((feature, index) => {
           const Icon = feature.icon;
           return (
@@ -49,25 +49,25 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
               transition={{ delay: index * 0.1 }}
             >
               <Card 
-                className="glass-card hover:glow-accent transition-all cursor-pointer relative overflow-hidden h-full"
+                className="glass-card hover:glow-accent transition-all cursor-pointer relative overflow-hidden h-full active:scale-[0.98]"
                 onClick={feature.action}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-50`} />
-                <CardHeader className="relative">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-card/50 backdrop-blur">
-                      <Icon className="w-6 h-6 text-accent" />
+                <CardHeader className="relative pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-card/50 backdrop-blur flex-shrink-0">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl">{feature.title}</CardTitle>
-                      <CardDescription className="mt-2 text-base">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg sm:text-xl">{feature.title}</CardTitle>
+                      <CardDescription className="mt-1 text-xs sm:text-sm">
                         {feature.description}
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative">
-                  <Button variant="secondary" className="w-full glow-accent">
+                <CardContent className="relative pt-0">
+                  <Button variant="secondary" className="w-full glow-accent min-h-[44px] text-sm">
                     Start Check
                   </Button>
                 </CardContent>
