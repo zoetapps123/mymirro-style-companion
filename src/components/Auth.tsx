@@ -101,7 +101,7 @@ const Auth = () => {
     trackEvent("auth_otp_send_clicked", { email });
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
@@ -121,6 +121,10 @@ const Auth = () => {
       // Focus first OTP input
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
 
+      // QA: success instrumentation
+      console.log("OTP send success", { email: maskEmail(email) });
+      trackEvent("auth_code_viewed", { email: maskEmail(email) });
+
       toast({
         title: "Code Sent!",
         description: `We've sent a 6-digit code to ${maskEmail(email)}.`,
@@ -129,12 +133,14 @@ const Auth = () => {
       trackEvent("auth_otp_sent", { email: maskEmail(email) });
     } catch (error: any) {
       setError(error.message);
+      console.error("OTP send error", error?.message || error);
       toast({
         title: "Error",
         description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
-      trackEvent("auth_otp_send_failed", { email, error: error.message });
+      trackEvent("auth_otp_send_error", { email: maskEmail(email), error: error.message });
+      trackEvent("auth_otp_send_failed", { email: maskEmail(email), error: error.message });
     } finally {
       setLoading(false);
     }
@@ -207,7 +213,7 @@ const Auth = () => {
     trackEvent("auth_code_verify_clicked", { email: maskEmail(email) });
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otpCode,
         type: "email",
@@ -231,8 +237,9 @@ const Auth = () => {
 
       // Success animation
       setVerified(true);
+      console.log("OTP verify success");
+      trackEvent("auth_otp_verified", { email: maskEmail(email) });
       trackEvent("auth_login_success", { email: maskEmail(email) });
-
       // Set remember me if checked
       if (rememberMe) {
         localStorage.setItem("rememberMe", "true");
