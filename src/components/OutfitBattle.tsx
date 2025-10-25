@@ -126,7 +126,19 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         body: { participants }
       });
 
-      if (error) throw error;
+      if (error) {
+        const status = (error as any)?.context?.response?.status;
+        if (status === 429) {
+          toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
+          return;
+        }
+        if (status === 402) {
+          toast({ title: 'Service temporarily unavailable', description: 'Please try again later.', variant: 'destructive' });
+          return;
+        }
+        toast({ title: 'Error', description: 'Failed to score battle. Try again.', variant: 'destructive' });
+        return;
+      }
 
       // Save battle to database
       const { data: battle, error: battleError } = await supabase

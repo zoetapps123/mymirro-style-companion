@@ -68,7 +68,21 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           body: { imageData, occasion: selectedOccasion }
         });
 
-        if (error) throw error;
+        if (error) {
+          const status = (error as any)?.context?.response?.status;
+          setScanning(false);
+          setLoading(false);
+          if (status === 429) {
+            toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
+            return;
+          }
+          if (status === 402) {
+            toast({ title: 'Service temporarily unavailable', description: 'Please try again later.', variant: 'destructive' });
+            return;
+          }
+          toast({ title: 'Error', description: 'Failed to score outfit. Try again.', variant: 'destructive' });
+          return;
+        }
 
         const fileName = `style-check-${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage

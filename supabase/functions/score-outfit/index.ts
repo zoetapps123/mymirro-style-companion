@@ -13,22 +13,22 @@ serve(async (req) => {
 
   try {
     const { imageData, occasion } = await req.json();
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     console.log('Scoring outfit...');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'user',
@@ -51,7 +51,7 @@ Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
               },
               {
                 type: 'image_url',
-                image_url: imageData
+                image_url: { url: imageData }
               }
             ]
           }
@@ -85,7 +85,19 @@ Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('OpenAI error (score-outfit):', response.status, errText);
+      console.error('AI gateway error (score-outfit):', response.status, errText);
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: 'AI error', details: errText }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
