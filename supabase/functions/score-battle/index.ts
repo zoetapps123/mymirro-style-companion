@@ -29,24 +29,28 @@ serve(async (req) => {
     const content: any[] = [
       {
         type: 'text',
-        text: `As a professional fashion judge, compare these ${participants.length} outfits and rank them. For each person, provide:
-- A style score (1.0-5.0)
-- A rank (1 being best)
-- Brief reasoning (1-2 sentences)
+        text: `You are a sassy, witty fashion judge hosting an epic outfit battle! Compare these ${participants.length} outfits and rank them with ATTITUDE and FLAIR.
+
+For each person, provide:
+- A competitive, fun PERSONA NAME (2-4 words, e.g., "The Minimalist Maven", "Street Style Warrior", "Vintage Vixen", "Corporate Crusher")
+- Style score (1.0-5.0)
+- Rank (1 = winner)
+- FUN BANTER: Roast OR compliment with personality! Be playful, competitive, and entertaining. Make comparisons between participants. Example: "While [Name] brought the heat with that layering game, [Other Name]'s color choices were giving 'played it too safe' energy."
 
 Participants: ${participants.map((p: any) => p.name).join(', ')}
 
-Return ONLY a JSON object with structure:
+Return ONLY a JSON object:
 {
   "results": [
     {
       "name": "participant_name",
+      "persona": "Their Persona Name",
       "score": 4.5,
       "rank": 1,
-      "reasoning": "Perfect color coordination and sharp fit create an unbeatable combo."
+      "reasoning": "Fun, competitive banter with roasts/compliments comparing to others"
     }
   ],
-  "winner_verdict": "Brief explanation of why the winner won and tips for others"
+  "winner_verdict": "Explain why the winner dominated and what others could learn. Keep it spicy and fun!"
 }`
       }
     ];
@@ -70,7 +74,7 @@ Return ONLY a JSON object with structure:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'user',
@@ -92,11 +96,12 @@ Return ONLY a JSON object with structure:
                       type: 'object',
                       properties: {
                         name: { type: 'string' },
+                        persona: { type: 'string', description: 'Competitive fun persona name' },
                         score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                         rank: { type: 'integer', minimum: 1 },
-                        reasoning: { type: 'string' }
+                        reasoning: { type: 'string', description: 'Fun banter with roasts/compliments' }
                       },
-                      required: ['name', 'score', 'rank', 'reasoning']
+                      required: ['name', 'persona', 'score', 'rank', 'reasoning']
                     }
                   },
                   winner_verdict: { type: 'string' }

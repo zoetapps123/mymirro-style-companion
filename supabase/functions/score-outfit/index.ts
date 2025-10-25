@@ -28,26 +28,33 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
+                text: `You are an elite fashion stylist with deep expertise in haute couture, street style, and occasion-appropriate dressing. Analyze this outfit${occasion ? ` for ${occasion}` : ''} with precision and sophistication.
 
-1. A creative, context-aware outfit name (2-4 words, e.g., "Neo-Classic Finisher", "Sunset Boardwalk Vibes")
-2. Scores across these dimensions (scale 1.0-5.0):
-   - Color Harmony (how well the colors work together)
-   - Fit (how well the clothes fit the body)
-   - Texture/Fabric Mix (cohesiveness of materials)
-   - Style/Occasion Match (appropriateness for the context)
-3. Overall average score
-4. What's working well (2-3 specific positive points about fabric/texture interplay, palette harmony)
-5. Quick fixes/improvements (2-3 actionable suggestions: tuck, cuff, swap shoes, add layer, accessory, hair/makeup tip)
+Provide:
+1. A beautiful, memorable outfit name (2-4 words that capture the vibe, e.g., "Parisian Minimalist Chic", "Urban Power Player", "Sunset Soirée Elegance")
 
-Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
+2. Detailed scoring (scale 1.0-5.0 with one decimal):
+   - Color Harmony: palette coordination, contrast, seasonal appropriateness
+   - Fit: tailoring, proportions, silhouette flattery
+   - Texture/Fabric Mix: material cohesion, tactile appeal, quality perception
+   - Style/Occasion Match: context appropriateness, trend awareness
+
+3. Overall score (average of the four dimensions)
+
+4. WHAT WORKS: Compliment 2-3 specific elements. Be technical about fabrics (cotton poplin, merino wool, silk charmeuse, etc.), cut, color theory, and styling choices. Brief but insightful.
+
+5. WHAT COULD BE BETTER: Technical critique of 2-3 outfit elements. Discuss specific pieces, proportions, color mismatches, or fabric clashes. Be constructive and specific.
+
+6. QUICK FIXES: 3-4 ACTIONABLE life-saver tips that dramatically elevate the look WITHOUT changing the outfit entirely. Include advice on: tucking/untucking, rolling sleeves/cuffs, belt additions, shoe swaps, jewelry/accessories, hairstyle adjustments, makeup tweaks, posture, or small styling hacks. Make it feel like a stylist's secret weapon.
+
+Return ONLY valid JSON.`
               },
               {
                 type: 'image_url',
@@ -71,10 +78,11 @@ Be precise, constructive, and technically detailed. Return ONLY valid JSON.`
                   texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                   occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                   overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  verdict_positive: { type: 'string' },
-                  verdict_improvements: { type: 'string' }
+                  what_works: { type: 'string', description: 'Technical compliments about fabrics, cut, colors' },
+                  what_could_be_better: { type: 'string', description: 'Technical critique of specific elements' },
+                  quick_fixes: { type: 'string', description: 'Actionable styling tips without changing outfit' }
                 },
-                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'verdict_positive', 'verdict_improvements']
+                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_could_be_better', 'quick_fixes']
               }
             }
           }

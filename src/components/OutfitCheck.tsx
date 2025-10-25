@@ -104,17 +104,56 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           texture_score: data.texture_score,
           occasion_score: data.occasion_score,
           outfit_name: data.outfit_name,
-          verdict_positive: data.verdict_positive,
-          verdict_improvements: data.verdict_improvements,
+          verdict_positive: data.what_works || data.verdict_positive,
+          verdict_improvements: data.what_could_be_better || data.verdict_improvements,
           occasion: selectedOccasion
         });
 
+        // Auto-extract items to wardrobe
+        try {
+          const { data: wardrobeData, error: wardrobeError } = await supabase.functions.invoke('process-wardrobe', {
+            body: { imageData }
+          });
+
+          if (!wardrobeError && wardrobeData) {
+            const fileName = `${Date.now()}-${wardrobeData.name.replace(/\s+/g, '-')}.png`;
+            const base64Data = wardrobeData.processedImageUrl.split(',')[1];
+            const binaryData = atob(base64Data);
+            const bytes = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+              bytes[i] = binaryData.charCodeAt(i);
+            }
+            const processedBlob = new Blob([bytes], { type: 'image/png' });
+
+            const { error: uploadError } = await supabase.storage
+              .from('outfits')
+              .upload(fileName, processedBlob);
+
+            if (!uploadError) {
+              const { data: { publicUrl: wardrobeUrl } } = supabase.storage
+                .from('outfits')
+                .getPublicUrl(fileName);
+
+              await supabase.from('wardrobe_items').insert({
+                user_id: user.id,
+                name: wardrobeData.name,
+                category: wardrobeData.category,
+                color: wardrobeData.color,
+                image_url: wardrobeUrl,
+                processed_image_url: wardrobeUrl,
+              });
+            }
+          }
+        } catch (e) {
+          console.log('Auto-extract to wardrobe skipped:', e);
+        }
+
         setScanning(false);
-        setResult({ ...data, image_url: publicUrl });
+        setResult({ ...data, image_url: publicUrl, quick_fixes: data.quick_fixes, what_works: data.what_works, what_could_be_better: data.what_could_be_better });
         
         toast({
           title: "Score complete!",
-          description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0`,
+          description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0 • Added to wardrobe`,
         });
       };
 
@@ -202,53 +241,92 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
     canvas.height = 1920;
     const ctx = canvas.getContext('2d')!;
 
+    // Background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, 1920);
     gradient.addColorStop(0, 'hsl(240, 10%, 8%)');
     gradient.addColorStop(1, 'hsl(240, 8%, 12%)');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 1080, 1920);
 
+    // Load and draw outfit image
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve) => {
+      img.onload = resolve;
+      img.src = result.image_url;
+    });
+    
+    // Draw outfit image with rounded corners effect
+    ctx.save();
+    const imgSize = 400;
+    const imgX = (1080 - imgSize) / 2;
+    const imgY = 150;
+    ctx.beginPath();
+    ctx.roundRect(imgX, imgY, imgSize, imgSize, 20);
+    ctx.clip();
+    ctx.drawImage(img, imgX, imgY, imgSize, imgSize);
+    ctx.restore();
+
+    // MyMirro branding
     ctx.fillStyle = 'hsl(295, 75%, 58%)';
-    ctx.font = 'bold 72px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('MyMirro', 540, 120);
-
-    ctx.fillStyle = 'hsl(240, 5%, 98%)';
     ctx.font = 'bold 56px sans-serif';
-    ctx.fillText(result.outfit_name, 540, 220);
+    ctx.textAlign = 'center';
+    ctx.fillText('MyMirro Style Check', 540, 80);
 
-    ctx.font = 'bold 96px sans-serif';
-    ctx.fillText(`${result.overall_score.toFixed(1)}`, 540, 340);
-    ctx.font = '36px sans-serif';
-    ctx.fillText('out of 5.0', 540, 400);
+    // Outfit name
+    ctx.fillStyle = 'hsl(240, 5%, 98%)';
+    ctx.font = 'bold 48px sans-serif';
+    ctx.fillText(result.outfit_name, 540, 600);
 
+    // Overall score
+    ctx.font = 'bold 120px sans-serif';
+    ctx.fillText(`${result.overall_score.toFixed(1)}`, 540, 750);
+    ctx.font = '32px sans-serif';
+    ctx.fillText('out of 5.0', 540, 800);
+
+    // Individual scores grid
     const subscores = [
-      { label: 'Color', score: result.color_score, y: 540 },
-      { label: 'Fit', score: result.fit_score, y: 640 },
-      { label: 'Texture', score: result.texture_score, y: 740 },
-      { label: 'Occasion', score: result.occasion_score, y: 840 }
+      { label: 'Color', score: result.color_score, x: 240, y: 920 },
+      { label: 'Fit', score: result.fit_score, x: 840, y: 920 },
+      { label: 'Texture', score: result.texture_score, x: 240, y: 1050 },
+      { label: 'Occasion', score: result.occasion_score, x: 840, y: 1050 }
     ];
 
-    subscores.forEach(({ label, score, y }) => {
+    subscores.forEach(({ label, score, x, y }) => {
       ctx.fillStyle = 'hsl(240, 5%, 40%)';
-      ctx.font = '32px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(label, 140, y);
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, y);
       
       ctx.fillStyle = 'hsl(180, 65%, 45%)';
-      ctx.font = 'bold 48px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(score.toFixed(1), 940, y);
+      ctx.font = 'bold 56px sans-serif';
+      ctx.fillText(score.toFixed(1), x, y + 60);
     });
 
+    // What works highlight
     ctx.fillStyle = 'hsl(180, 65%, 45%)';
-    ctx.font = 'bold 40px sans-serif';
+    ctx.font = 'bold 32px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(result.verdict_positive.substring(0, 60), 540, 1000);
+    const whatWorks = (result.what_works || result.verdict_positive || '').substring(0, 80);
+    const words = whatWorks.split(' ');
+    let line = '';
+    let yPos = 1220;
+    for (let i = 0; i < words.length; i++) {
+      const testLine = line + words[i] + ' ';
+      if (ctx.measureText(testLine).width > 900 && i > 0) {
+        ctx.fillText(line, 540, yPos);
+        line = words[i] + ' ';
+        yPos += 40;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, 540, yPos);
 
+    // Footer
     ctx.fillStyle = 'hsl(240, 5%, 40%)';
-    ctx.font = '32px sans-serif';
-    ctx.fillText('Ready to turn heads', 540, 1780);
+    ctx.font = '28px sans-serif';
+    ctx.fillText('Styled with confidence', 540, 1820);
 
     const shareImage = canvas.toDataURL('image/png');
     const response = await fetch(shareImage);
@@ -387,15 +465,22 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-base font-semibold mb-2 text-accent">What's working</p>
-                  <p className="text-sm leading-relaxed">{result.verdict_positive}</p>
+                  <p className="text-base font-semibold mb-2 text-accent">What works</p>
+                  <p className="text-sm leading-relaxed">{result.what_works || result.verdict_positive}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-6 h-6 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-base font-semibold mb-2">What could be better</p>
+                  <p className="text-sm leading-relaxed">{result.what_could_be_better || result.verdict_improvements}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-6 h-6 text-primary mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-base font-semibold mb-2 text-primary">Quick fixes</p>
-                  <div className="text-sm whitespace-pre-line leading-relaxed">{result.verdict_improvements}</div>
+                  <div className="text-sm whitespace-pre-line leading-relaxed">{result.quick_fixes || 'Style it with confidence!'}</div>
                 </div>
               </div>
             </div>
