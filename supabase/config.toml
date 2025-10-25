@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.score-battle]
 verify_jwt = false
+
+[functions.generate-outfit]
+verify_jwt = false
+
+[functions.tryon-outfit]
+verify_jwt = false

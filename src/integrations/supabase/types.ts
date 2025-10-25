@@ -38,6 +38,150 @@ export type Database = {
         }
         Relationships: []
       }
+      event_outfits: {
+        Row: {
+          created_at: string
+          event_date: string
+          event_id: string
+          id: string
+          outfit_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_date: string
+          event_id: string
+          id?: string
+          outfit_id: string
+        }
+        Update: {
+          created_at?: string
+          event_date?: string
+          event_id?: string
+          id?: string
+          outfit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_outfits_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_outfits_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          occasion: string | null
+          place: string | null
+          start_date: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          occasion?: string | null
+          place?: string | null
+          start_date: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          occasion?: string | null
+          place?: string | null
+          start_date?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      outfit_items: {
+        Row: {
+          ai_meta: Json | null
+          ai_virtual: boolean
+          created_at: string
+          id: string
+          item_id: string | null
+          item_type: string
+          outfit_id: string
+        }
+        Insert: {
+          ai_meta?: Json | null
+          ai_virtual?: boolean
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          item_type: string
+          outfit_id: string
+        }
+        Update: {
+          ai_meta?: Json | null
+          ai_virtual?: boolean
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          item_type?: string
+          outfit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "wardrobe_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outfits: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          occasion: string | null
+          preview_image_url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          occasion?: string | null
+          preview_image_url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          occasion?: string | null
+          preview_image_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       style_checks: {
         Row: {
           color_score: number
@@ -82,6 +226,44 @@ export type Database = {
           verdict_positive?: string
         }
         Relationships: []
+      }
+      tryon_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          outfit_id: string | null
+          render_url: string | null
+          status: string
+          user_id: string
+          user_image_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          outfit_id?: string | null
+          render_url?: string | null
+          status?: string
+          user_id: string
+          user_image_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          outfit_id?: string | null
+          render_url?: string | null
+          status?: string
+          user_id?: string
+          user_image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tryon_sessions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wardrobe_items: {
         Row: {
