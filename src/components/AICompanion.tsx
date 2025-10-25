@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Mic, Image as ImageIcon, Sparkles, X } from "lucide-react";
+import { Send, Camera, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,23 +13,88 @@ interface Message {
   timestamp: Date;
 }
 
+interface UserProfile {
+  name?: string;
+  gender?: string;
+  location?: string;
+}
+
+const QUICK_PROMPTS = [
+  "How do I style this better?",
+  "Outfit ideas for dinner?",
+  "What can I pair this with?",
+];
+
+const SESSION_DURATION = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+
 const AICompanion = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Hey there! I'm your personal stylist. Tell me what's on your mind—outfit ideas, shopping help, color advice, or anything fashion. I'm here to help! 💫",
-      timestamp: new Date(),
-    },
-  ]);
+  const [userProfile, setUserProfile] = useState<UserProfile>({});
+  const [showPrompts, setShowPrompts] = useState(true);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [voiceSecondsUsed] = useState(120);
-  const voiceSecondsTotal = 300;
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Analytics helper
+  const trackEvent = (eventName: string, metadata?: any) => {
+    console.log(`[Analytics] ${eventName}`, metadata);
+  };
+
+  // Load user profile from onboarding
+  useEffect(() => {
+    const onboardingData = localStorage.getItem("onboardingData");
+    if (onboardingData) {
+      try {
+        const profile = JSON.parse(onboardingData);
+        setUserProfile(profile);
+      } catch (e) {
+        console.error("Failed to parse onboarding data", e);
+      }
+    }
+  }, []);
+
+  // Check session and initialize greeting
+  useEffect(() => {
+    const lastSession = localStorage.getItem("chat_last_session");
+    const sessionMessages = localStorage.getItem("chat_session_messages");
+    const now = Date.now();
+
+    // Check if session is still valid (within 6 hours)
+    if (lastSession && sessionMessages && (now - parseInt(lastSession)) < SESSION_DURATION) {
+      try {
+        const savedMessages = JSON.parse(sessionMessages);
+        setMessages(savedMessages);
+        setShowPrompts(false);
+        trackEvent("session_restored");
+      } catch (e) {
+        // Invalid session, start fresh
+        initializeSession();
+      }
+    } else {
+      initializeSession();
+    }
+  }, [userProfile]);
+
+  const initializeSession = () => {
+    const genderTone = userProfile.gender === "male" ? "bro" : userProfile.gender === "female" ? "girl" : "friend";
+    const userName = userProfile.name || "there";
+    
+    const greeting: Message = {
+      id: "greeting",
+      role: "assistant",
+      content: `Hey ${userName} 👋 ready to style something up today, ${genderTone}?`,
+      timestamp: new Date(),
+    };
+
+    setMessages([greeting]);
+    setShowPrompts(true);
+    localStorage.setItem("chat_last_session", Date.now().toString());
+    localStorage.setItem("chat_session_messages", JSON.stringify([greeting]));
+    trackEvent("session_started", { userName });
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -70,10 +135,29 @@ const AICompanion = () => {
             content: m.content,
             images: m.images 
           })),
+          userProfile,
         }),
       });
 
       if (!response.ok || !response.body) {
+        if (response.status === 429) {
+          toast({
+            title: "Rate Limit Reached",
+            description: "Too many requests. Please try again in a moment.",
+            variant: "destructive",
+          });
+          trackEvent("rate_limit_error");
+          return;
+        }
+        if (response.status === 402) {
+          toast({
+            title: "Payment Required",
+            description: "Please add credits to continue using AI features.",
+            variant: "destructive",
+          });
+          trackEvent("payment_required_error");
+          return;
+        }
         throw new Error('Failed to start chat stream');
       }
 
@@ -85,12 +169,15 @@ const AICompanion = () => {
 
       // Add empty assistant message to update
       const assistantMsgId = Date.now().toString();
-      setMessages(prev => [...prev, {
-        id: assistantMsgId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-      }]);
+      setMessages(prev => {
+        const updated = [...prev, {
+          id: assistantMsgId,
+          role: 'assistant' as const,
+          content: '',
+          timestamp: new Date(),
+        }];
+        return updated;
+      });
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -118,9 +205,14 @@ const AICompanion = () => {
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantMessage += content;
-              setMessages(prev => prev.map(m =>
-                m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
-              ));
+              setMessages(prev => {
+                const updated = prev.map(m =>
+                  m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+                );
+                // Save to localStorage for session persistence
+                localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+                return updated;
+              });
             }
           } catch {
             textBuffer = line + '\n' + textBuffer;
@@ -128,6 +220,8 @@ const AICompanion = () => {
           }
         }
       }
+      
+      trackEvent("reply_delivered");
     } catch (error) {
       console.error('Chat error:', error);
       toast({
@@ -135,11 +229,27 @@ const AICompanion = () => {
         description: "Failed to get response. Please try again.",
         variant: "destructive",
       });
+      trackEvent("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
     }
+  };
+
+  const handlePromptClick = (prompt: string) => {
+    setInputValue(prompt);
+    setShowPrompts(false);
+    trackEvent("prompt_clicked", { prompt });
+    // Auto-send after selecting prompt
+    setTimeout(() => {
+      const btn = document.querySelector('[data-send-button]') as HTMLButtonElement;
+      btn?.click();
+    }, 100);
   };
 
   const handleSend = async () => {
     if ((!inputValue.trim() && selectedImages.length === 0) || isLoading) return;
+
+    const hasImages = selectedImages.length > 0;
+    trackEvent("sent_message", { hasImages, messageLength: inputValue.length });
+    if (hasImages) trackEvent("uploaded_image", { count: selectedImages.length });
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -153,17 +263,26 @@ const AICompanion = () => {
     setMessages(newMessages);
     setInputValue("");
     setSelectedImages([]);
+    setShowPrompts(false);
     setIsLoading(true);
+
+    // Update session
+    localStorage.setItem("chat_last_session", Date.now().toString());
+    localStorage.setItem("chat_session_messages", JSON.stringify(newMessages));
 
     await streamChat(newMessages);
     setIsLoading(false);
   };
 
-  const voiceMinutesRemaining = Math.floor((voiceSecondsTotal - voiceSecondsUsed) / 60);
-  const voiceSecondsRemaining = (voiceSecondsTotal - voiceSecondsUsed) % 60;
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border/50 glass-card">
+        <h2 className="text-center text-sm font-medium text-muted-foreground">
+          Your AI Fashion Companion
+        </h2>
+      </div>
+
       {/* Chat Messages */}
       <ScrollArea className="flex-1 px-4 py-6" ref={scrollRef}>
         <div className="space-y-4 max-w-2xl mx-auto">
@@ -175,8 +294,8 @@ const AICompanion = () => {
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground glow-primary"
-                    : "glass-card"
+                    ? "bg-primary text-primary-foreground"
+                    : "glass-card text-foreground"
                 }`}
               >
                 {message.images && message.images.length > 0 && (
@@ -191,7 +310,9 @@ const AICompanion = () => {
                     ))}
                   </div>
                 )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content || (message.role === "assistant" && isLoading ? "..." : "")}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {message.content || (message.role === "assistant" && isLoading ? "..." : "")}
+                </p>
                 <span className="text-xs opacity-60 mt-1 block">
                   {message.timestamp.toLocaleTimeString([], {
                     hour: "2-digit",
@@ -204,31 +325,24 @@ const AICompanion = () => {
         </div>
       </ScrollArea>
 
-      {/* Quick Actions */}
-      <div className="px-4 py-3 border-t border-border/50">
-        <div className="flex gap-2 max-w-2xl mx-auto overflow-x-auto pb-2">
-          <Button variant="outline" size="sm" className="glass-card border-border/50 whitespace-nowrap">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Build Outfit
-          </Button>
-          <Button variant="outline" size="sm" className="glass-card border-border/50 whitespace-nowrap">
-            Find Similar
-          </Button>
-          <Button variant="outline" size="sm" className="glass-card border-border/50 whitespace-nowrap">
-            Shop in India
-          </Button>
+      {/* Quick Start Prompts */}
+      {showPrompts && messages.length <= 1 && (
+        <div className="px-4 py-3 border-t border-border/50">
+          <div className="flex gap-2 max-w-2xl mx-auto overflow-x-auto pb-2">
+            {QUICK_PROMPTS.map((prompt) => (
+              <Button
+                key={prompt}
+                variant="outline"
+                size="sm"
+                onClick={() => handlePromptClick(prompt)}
+                className="glass-card border-border/50 whitespace-nowrap"
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Voice Timer */}
-      <div className="px-4 py-2 border-t border-border/50 bg-muted/20">
-        <div className="flex items-center justify-center gap-2 max-w-2xl mx-auto">
-          <Mic className="w-4 h-4 text-accent" />
-          <span className="text-xs text-muted-foreground">
-            Voice time today: {voiceMinutesRemaining}:{voiceSecondsRemaining.toString().padStart(2, "0")} remaining
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Input Area */}
       <div className="px-4 py-4 border-t border-border/50 glass-card">
@@ -264,29 +378,24 @@ const AICompanion = () => {
               variant="outline"
               className="glass-card border-border/50"
               onClick={() => fileInputRef.current?.click()}
+              title="Upload outfit image"
             >
-              <ImageIcon className="w-5 h-5" />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="glass-card border-border/50"
-              disabled={voiceSecondsUsed >= voiceSecondsTotal}
-            >
-              <Mic className="w-5 h-5" />
+              <Camera className="w-5 h-5" />
             </Button>
             <Input
-              placeholder="Ask me anything about style..."
+              placeholder="Ask anything about your outfit or style"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               className="flex-1 glass-card border-border/50"
             />
             <Button
+              data-send-button
               size="icon"
               onClick={handleSend}
               disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
               className="glow-primary"
+              title="Send message"
             >
               <Send className="w-5 h-5" />
             </Button>
