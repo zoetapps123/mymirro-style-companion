@@ -8,73 +8,61 @@ import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
 import Auth from "@/components/Auth";
-import { supabase } from "@/integrations/supabase/client";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [showEmailCapture, setShowEmailCapture] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check auth session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    // Check flow status based on localStorage
+    const email = localStorage.getItem("onboard_email");
+    const onboardingComplete = localStorage.getItem("onboardingComplete") === "true";
+    const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    if (!email) {
+      setShowEmailCapture(true);
+    } else if (!onboardingComplete) {
+      setShowOnboarding(true);
+    } else if (!walkthroughComplete) {
+      setShowWalkthrough(true);
+    }
   }, []);
 
-  useEffect(() => {
-    if (session) {
-      const hasCompletedOnboarding = localStorage.getItem("onboardingComplete") === "true";
-      const isFirstLogin = localStorage.getItem("isFirstLogin") === "true";
-      const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
-      
-      if (!hasCompletedOnboarding) {
-        setShowOnboarding(true);
-      } else if (isFirstLogin && !walkthroughComplete) {
-        setShowWalkthrough(true);
-      }
-    }
-  }, [session]);
+  const handleEmailCaptured = (email: string) => {
+    localStorage.setItem("onboard_email", email);
+    setShowEmailCapture(false);
+    setShowOnboarding(true);
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
-            <Sparkles className="w-8 h-8 text-primary" />
-          </div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return <Auth />;
+  if (showEmailCapture) {
+    return <Auth onEmailCaptured={handleEmailCaptured} />;
   }
 
   if (showOnboarding) {
-    return <Onboarding onComplete={() => {
-      setShowOnboarding(false);
-      setShowWalkthrough(true);
-    }} />;
+    return (
+      <Onboarding
+        onComplete={() => {
+          localStorage.setItem("onboardingComplete", "true");
+          setShowOnboarding(false);
+          setShowWalkthrough(true);
+        }}
+      />
+    );
   }
 
   if (showWalkthrough) {
-    return <FeatureWalkthrough onComplete={() => setShowWalkthrough(false)} />;
+    return (
+      <FeatureWalkthrough
+        onComplete={() => {
+          localStorage.setItem("walkthroughComplete", "true");
+          setShowWalkthrough(false);
+        }}
+      />
+    );
   }
 
   const tabs = [
