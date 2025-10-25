@@ -191,6 +191,7 @@ export type Database = {
           image_url: string
           occasion: string | null
           occasion_score: number
+          outfit_name: string | null
           overall_score: number
           texture_score: number
           user_id: string
@@ -205,6 +206,7 @@ export type Database = {
           image_url: string
           occasion?: string | null
           occasion_score: number
+          outfit_name?: string | null
           overall_score: number
           texture_score: number
           user_id: string
@@ -219,6 +221,7 @@ export type Database = {
           image_url?: string
           occasion?: string | null
           occasion_score?: number
+          outfit_name?: string | null
           overall_score?: number
           texture_score?: number
           user_id?: string
