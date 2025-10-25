@@ -6,6 +6,7 @@ import StyleCheck from "@/components/StyleCheck";
 import Battles from "@/components/Battles";
 import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
+import FeatureWalkthrough from "@/components/FeatureWalkthrough";
 import Auth from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,6 +15,7 @@ type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,9 +37,14 @@ const Index = () => {
 
   useEffect(() => {
     if (session) {
-      const hasCompletedOnboarding = localStorage.getItem("onboarding_completed");
+      const hasCompletedOnboarding = localStorage.getItem("onboardingComplete") === "true";
+      const isFirstLogin = localStorage.getItem("isFirstLogin") === "true";
+      const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
+      
       if (!hasCompletedOnboarding) {
         setShowOnboarding(true);
+      } else if (isFirstLogin && !walkthroughComplete) {
+        setShowWalkthrough(true);
       }
     }
   }, [session]);
@@ -60,7 +67,14 @@ const Index = () => {
   }
 
   if (showOnboarding) {
-    return <Onboarding onComplete={() => setShowOnboarding(false)} />;
+    return <Onboarding onComplete={() => {
+      setShowOnboarding(false);
+      setShowWalkthrough(true);
+    }} />;
+  }
+
+  if (showWalkthrough) {
+    return <FeatureWalkthrough onComplete={() => setShowWalkthrough(false)} />;
   }
 
   const tabs = [
