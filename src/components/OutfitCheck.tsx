@@ -1,4 +1,4 @@
-import { Upload, CheckCircle, Share2, Camera, Package } from "lucide-react";
+import { Upload, CheckCircle, Share2, Camera, Package, Shirt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRef, useState } from "react";
@@ -20,6 +20,8 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractedItems, setExtractedItems] = useState<any[]>([]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -134,77 +136,6 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
 
             // Update result with public URL once saved
             setResult((prev: any) => prev ? { ...prev, image_url: publicUrl } : prev);
-
-            // Auto-extract all items to wardrobe with duplicate checking
-            try {
-              const { data: existingItems } = await supabase
-                .from('wardrobe_items')
-                .select('name, category, color')
-                .eq('user_id', user.id);
-
-              const extractResponse = await fetch(publicUrl);
-              const extractBlob = await extractResponse.blob();
-              const extractReader = new FileReader();
-              extractReader.onloadend = async () => {
-                const extractImageData = extractReader.result as string;
-                const { data: wardrobeData, error: wardrobeError } = await supabase.functions.invoke('process-wardrobe', {
-                  body: { imageData: extractImageData }
-                });
-
-                if (!wardrobeError && wardrobeData && wardrobeData.items) {
-                  let addedCount = 0;
-                  let skippedCount = 0;
-
-                  for (const item of wardrobeData.items) {
-                    const isDuplicate = existingItems?.some(existing => 
-                      existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-                      (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-                       item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-                       (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
-                        Math.abs(existing.name?.length - item.name?.length) < 5))
-                    );
-
-                    if (isDuplicate) {
-                      console.log(`Skipping duplicate item: ${item.name}`);
-                      skippedCount++;
-                      continue;
-                    }
-
-                    const wardrobeFileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
-                    const base64Data = item.processedImageUrl.split(',')[1];
-                    const binaryData = atob(base64Data);
-                    const bytes = new Uint8Array(binaryData.length);
-                    for (let i = 0; i < binaryData.length; i++) bytes[i] = binaryData.charCodeAt(i);
-                    const processedBlob = new Blob([bytes], { type: 'image/png' });
-
-                    const { error: uploadProcessedError } = await supabase.storage
-                      .from('outfits')
-                      .upload(wardrobeFileName, processedBlob);
-
-                    if (!uploadProcessedError) {
-                      const { data: { publicUrl: wardrobePublicUrl } } = supabase.storage
-                        .from('outfits')
-                        .getPublicUrl(wardrobeFileName);
-
-                      await supabase.from('wardrobe_items').insert({
-                        user_id: user.id,
-                        name: item.name,
-                        category: item.category,
-                        color: item.color,
-                        image_url: wardrobePublicUrl,
-                        processed_image_url: wardrobePublicUrl,
-                      });
-                      addedCount++;
-                    }
-                  }
-
-                  if (skippedCount > 0) console.log(`Skipped ${skippedCount} duplicate items to save AI credits`);
-                }
-              };
-              extractReader.readAsDataURL(extractBlob);
-            } catch (_) {
-              console.log('Auto-extract failed, continuing...');
-            }
           } catch (persistErr) {
             console.error('Save failed:', persistErr);
             toast({ title: 'Saved locally', description: 'We could not sync to cloud, but your results are here.', variant: 'default' });
@@ -228,19 +159,31 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
   const extractToWardrobe = async () => {
     if (!result?.image_url) return;
     
-    setLoading(true);
+    setExtracting(true);
+    setExtractedItems([]);
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to add items to wardrobe",
+          variant: "destructive",
+        });
+        return;
+      }
       
       // Fetch existing wardrobe items for duplicate checking
       const { data: existingItems } = await supabase
         .from('wardrobe_items')
         .select('name, category, color')
-        .eq('user_id', user!.id);
+        .eq('user_id', user.id);
 
       const response = await fetch(result.image_url);
       const blob = await response.blob();
       const reader = new FileReader();
+      
       reader.onloadend = async () => {
         const imageData = reader.result as string;
 
@@ -248,11 +191,25 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           body: { imageData }
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Process wardrobe error:', error);
+          throw new Error('Failed to process image');
+        }
 
-        const itemsDetected = data.items || [];
+        const itemsDetected = data?.items || [];
+        if (itemsDetected.length === 0) {
+          toast({
+            title: "No items detected",
+            description: "Try a clearer photo with visible clothing items.",
+            variant: "destructive",
+          });
+          setExtracting(false);
+          return;
+        }
+
         let addedCount = 0;
         let skippedCount = 0;
+        const addedItemsPreview: any[] = [];
 
         for (const item of itemsDetected) {
           // Check for duplicates
@@ -261,7 +218,7 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
              item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
              (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
-              Math.abs(existing.name?.length - item.name?.length) < 5))
+              Math.abs((existing.name?.length || 0) - (item.name?.length || 0)) < 5))
           );
 
           if (isDuplicate) {
@@ -270,7 +227,7 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             continue;
           }
 
-          const fileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
+          const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
           const base64Data = item.processedImageUrl.split(',')[1];
           const binaryData = atob(base64Data);
           const bytes = new Uint8Array(binaryData.length);
@@ -292,33 +249,50 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             .from('outfits')
             .getPublicUrl(fileName);
 
-          await supabase.from('wardrobe_items').insert({
-            user_id: user!.id,
+          const { error: insertError } = await supabase.from('wardrobe_items').insert({
+            user_id: user.id,
             name: item.name,
             category: item.category,
             color: item.color,
             image_url: publicUrl,
             processed_image_url: publicUrl,
           });
-          addedCount++;
+
+          if (!insertError) {
+            addedCount++;
+            addedItemsPreview.push({
+              name: item.name,
+              category: item.category,
+              image_url: publicUrl,
+            });
+          }
         }
 
-        toast({
-          title: "Added to wardrobe!",
-          description: addedCount > 0 
-            ? `${addedCount} new item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`
-            : `All items already exist in wardrobe.`,
-        });
+        setExtractedItems(addedItemsPreview);
+        setExtracting(false);
+
+        if (addedCount > 0) {
+          toast({
+            title: "Added to wardrobe!",
+            description: `${addedCount} item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`,
+          });
+        } else {
+          toast({
+            title: "All items already in wardrobe",
+            description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
+          });
+        }
       };
+      
       reader.readAsDataURL(blob);
     } catch (error) {
+      console.error('Extract error:', error);
+      setExtracting(false);
       toast({
-        title: "Error",
-        description: "Failed to extract. Try again.",
+        title: "Extraction failed",
+        description: "Couldn't extract items. Please retry.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -542,6 +516,59 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               <h3 className="text-xl sm:text-2xl font-bold text-gradient-primary mb-1">{result.outfit_name}</h3>
               <p className="text-xs sm:text-sm text-muted-foreground">Here's your outfit score</p>
             </div>
+
+            {/* Extract Items CTA */}
+            {extractedItems.length === 0 && (
+              <Button 
+                variant="default" 
+                className="w-full min-h-[52px] text-sm font-semibold"
+                onClick={extractToWardrobe}
+                disabled={extracting}
+              >
+                {extracting ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent" />
+                      <span>Clipping garments</span>
+                      <span className="animate-pulse">✂️</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Shirt className="w-4 h-4 mr-2" />
+                    Extract Items & Add to Wardrobe
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Extracted Items Preview */}
+            {extractedItems.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-accent">Extracted Items</h4>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {extractedItems.map((item, idx) => (
+                    <div key={idx} className="flex-shrink-0 w-20 space-y-1">
+                      <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted/20">
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                      </div>
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0.5 w-full justify-center truncate">
+                        {item.category}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-wardrobe'))}
+                >
+                  <Package className="w-3 h-3 mr-1" />
+                  View in Wardrobe
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {[
