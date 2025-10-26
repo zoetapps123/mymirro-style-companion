@@ -116,15 +116,18 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       // Check authentication first
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session?.user) {
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+      }
+      
+      if (!session?.user) {
         toast({
           title: "Authentication required",
-          description: "Please sign in again to battle outfits",
+          description: "Please sign in to use this feature",
           variant: "destructive",
         });
         setLoading(false);
-        localStorage.clear();
-        window.location.reload();
+        setScanning(false);
         return;
       }
 
@@ -135,16 +138,31 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       });
 
       if (error) {
+        console.error('Score battle error:', error);
         const status = (error as any)?.context?.response?.status;
+        const errorMessage = (error as any)?.message || 'Unknown error';
+        setScanning(false);
+        setLoading(false);
+        
         if (status === 429) {
           toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
-          return;
-        }
-        if (status === 402) {
+        } else if (status === 402) {
           toast({ title: 'Service temporarily unavailable', description: 'Please try again later.', variant: 'destructive' });
-          return;
+        } else {
+          toast({ 
+            title: 'Battle failed', 
+            description: `Unable to score battle. ${errorMessage}`, 
+            variant: 'destructive' 
+          });
         }
-        toast({ title: 'Error', description: 'Failed to score battle. Try again.', variant: 'destructive' });
+        return;
+      }
+
+      if (!data) {
+        console.error('No data returned from score-battle');
+        setScanning(false);
+        setLoading(false);
+        toast({ title: 'Error', description: 'No response from server. Try again.', variant: 'destructive' });
         return;
       }
 

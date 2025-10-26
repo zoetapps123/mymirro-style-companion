@@ -42,16 +42,18 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
       // Check authentication first
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session?.user) {
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+      }
+      
+      if (!session?.user) {
         toast({
           title: "Authentication required",
-          description: "Please sign in again to check outfits",
+          description: "Please sign in to use this feature",
           variant: "destructive",
         });
         setLoading(false);
         setScanning(false);
-        localStorage.clear();
-        window.location.reload();
         return;
       }
 
@@ -69,18 +71,31 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
         });
 
         if (error) {
+          console.error('Score outfit error:', error);
           const status = (error as any)?.context?.response?.status;
+          const errorMessage = (error as any)?.message || 'Unknown error';
           setScanning(false);
           setLoading(false);
+          
           if (status === 429) {
             toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
-            return;
-          }
-          if (status === 402) {
+          } else if (status === 402) {
             toast({ title: 'Service temporarily unavailable', description: 'Please try again later.', variant: 'destructive' });
-            return;
+          } else {
+            toast({ 
+              title: 'Scoring failed', 
+              description: `Unable to analyze outfit. ${errorMessage}`, 
+              variant: 'destructive' 
+            });
           }
-          toast({ title: 'Error', description: 'Failed to score outfit. Try again.', variant: 'destructive' });
+          return;
+        }
+
+        if (!data) {
+          console.error('No data returned from score-outfit');
+          setScanning(false);
+          setLoading(false);
+          toast({ title: 'Error', description: 'No response from server. Try again.', variant: 'destructive' });
           return;
         }
 
