@@ -507,14 +507,18 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           <div className="glass-card rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
             <div className="relative rounded-xl overflow-hidden max-w-sm mx-auto">
               <img src={result.image_url} alt="Your outfit" className="w-full aspect-square object-cover" />
-              <div className="absolute top-3 right-3 glass-card px-3 py-1.5 sm:px-4 sm:py-2 rounded-full">
-                <span className="text-xl sm:text-2xl font-bold text-gradient-accent">{result.overall_score.toFixed(1)}</span>
-              </div>
             </div>
 
-            <div className="text-center">
-              <h3 className="text-xl sm:text-2xl font-bold text-gradient-primary mb-1">{result.outfit_name}</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">Here's your outfit score</p>
+            <div className="text-center space-y-3">
+              <h3 className="text-xl sm:text-2xl font-bold text-gradient-primary">{result.outfit_name}</h3>
+              
+              <div className="glass-card rounded-2xl p-6 space-y-2">
+                <p className="text-sm sm:text-base text-muted-foreground font-medium">Overall Score</p>
+                <div className="text-5xl sm:text-6xl font-bold text-gradient-accent">
+                  {result.overall_score.toFixed(1)}
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground">out of 5.0</p>
+              </div>
             </div>
 
             {/* Extract Items CTA */}
