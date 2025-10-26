@@ -1,15 +1,18 @@
-import { Settings, LogOut, Share2 } from "lucide-react";
+import { Settings, LogOut, Share2, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUserAnalytics } from "@/hooks/useUserAnalytics";
+import { formatDistanceToNow } from "date-fns";
 
 const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [userName, setUserName] = useState("Style Enthusiast");
   const [userEmail, setUserEmail] = useState("");
+  const { analytics, loading: analyticsLoading } = useUserAnalytics();
 
   useEffect(() => {
     fetchUserData();
@@ -100,22 +103,58 @@ const Profile = () => {
       {/* Quick Stats */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-xl sm:text-2xl font-bold text-primary">42</p>
+          <p className="text-xl sm:text-2xl font-bold text-primary">
+            {analyticsLoading ? '...' : analytics.wardrobeItems}
+          </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Wardrobe Items</p>
         </div>
         <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-xl sm:text-2xl font-bold text-accent">8</p>
+          <p className="text-xl sm:text-2xl font-bold text-accent">
+            {analyticsLoading ? '...' : analytics.savedOutfits}
+          </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Saved Looks</p>
         </div>
         <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-xl sm:text-2xl font-bold text-primary">15</p>
+          <p className="text-xl sm:text-2xl font-bold text-primary">
+            {analyticsLoading ? '...' : analytics.styleChecks}
+          </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Style Checks</p>
         </div>
         <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-xl sm:text-2xl font-bold text-accent">3</p>
+          <p className="text-xl sm:text-2xl font-bold text-accent">
+            {analyticsLoading ? '...' : analytics.battlesWon}
+          </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Battles Won</p>
         </div>
+        <div className="glass-card rounded-xl p-3 text-center col-span-2">
+          <p className="text-xl sm:text-2xl font-bold text-primary">
+            {analyticsLoading ? '...' : analytics.totalEvents}
+          </p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Events Planned</p>
+        </div>
       </div>
+
+      {/* Recent Activity */}
+      {!analyticsLoading && analytics.recentActivity.length > 0 && (
+        <div className="glass-card rounded-2xl p-4 sm:p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-accent" />
+            <h3 className="font-semibold text-sm sm:text-base">Recent Activity</h3>
+          </div>
+          <div className="space-y-2">
+            {analytics.recentActivity.slice(0, 5).map((activity, index) => (
+              <div key={index} className="flex items-start gap-2 pb-2 border-b border-border/30 last:border-0 last:pb-0">
+                <div className="flex-1">
+                  <p className="text-xs sm:text-sm">{activity.description}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                    {formatDistanceToNow(new Date(activity.date), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="space-y-2">
