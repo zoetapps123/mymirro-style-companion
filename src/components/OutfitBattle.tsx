@@ -387,7 +387,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                 disabled={participants.length >= 5}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Outfit ({participants.length}/5)
+                Add Participant ({participants.length}/5)
               </Button>
             </div>
           )}
