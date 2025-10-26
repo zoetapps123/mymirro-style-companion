@@ -69,8 +69,8 @@ const Profile = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Link copied!",
-      description: "Share MyMirro with your friends",
+      title: "Link copied! 🎉",
+      description: "Share MyMirro with your friends and help them discover their style",
     });
   };
 
