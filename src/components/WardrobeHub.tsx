@@ -36,12 +36,13 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
   const cards = [
     {
       icon: Upload,
-      title: "Upload your clothing items",
+      title: "Your Wardrobe",
       description: "Click or upload to digitize your wardrobe.",
       action: () => onNavigate('upload'),
       disabled: false,
       emptyMessage: itemCount === 0 ? "Your wardrobe is empty. Add items (don't be lazy :P)" : null,
-      gradient: "from-primary/20 to-primary/5"
+      gradient: "from-primary/20 to-primary/5",
+      showCount: true
     },
     {
       icon: Sparkles,
@@ -104,7 +105,14 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
                       <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base sm:text-lg">{card.title}</CardTitle>
+                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        {card.title}
+                        {card.showCount && (
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                          </span>
+                        )}
+                      </CardTitle>
                       <CardDescription className="mt-0.5 text-xs sm:text-sm">
                         {card.description}
                       </CardDescription>
