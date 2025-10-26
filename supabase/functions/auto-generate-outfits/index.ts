@@ -40,32 +40,31 @@ CRITICAL RULES:
 1. NEVER include more than ONE item from the same category in a single outfit (e.g., no two tops, no two bottoms)
 2. Each outfit must be complete and wearable
 3. Ensure color coordination and style consistency
-4. Give each outfit a creative, descriptive name that reflects its vibe (e.g., "Urban Edge", "Elegant Evening", "Coastal Breeze")
+4. EVERY outfit MUST have a unique, creative, descriptive name (2-3 words max)
 
 Create 5 complete outfits for each category:
 
-1. STYLE-BASED OUTFITS:
-   - Minimalist Chic: Clean lines, neutral colors, timeless pieces
-   - Street Style Edge: Urban, trendy, bold combinations
-   - Classic Sophistication: Timeless, polished, elegant
-   - Casual Comfort: Relaxed, easy-going, everyday wear
-   - Bold & Trendy: Fashion-forward, statement-making, current trends
+1. STYLE-BASED OUTFITS - Give each a name like:
+   "Minimalist Maven", "Urban Edge", "Timeless Classic", "Everyday Ease", "Bold Statement"
 
-2. OCCASION-BASED OUTFITS:
-   - Professional Power: Office-appropriate, confident, polished
-   - Date Night Allure: Romantic, stylish, attention-grabbing
-   - Weekend Ease: Comfortable, casual, effortless
-   - Social Scene: Party-ready, fun, eye-catching
-   - Travel Ready: Versatile, comfortable, stylish
+2. OCCASION-BASED OUTFITS - Give each a name like:
+   "Boardroom Boss", "Date Night Charm", "Weekend Warrior", "Party Ready", "Jet Setter"
+
+NAMING EXAMPLES:
+- "Coastal Breeze" (relaxed, breezy style)
+- "Midnight Elegance" (dark, sophisticated evening)
+- "Golden Hour" (warm-toned, glowing aesthetic)
+- "Monochrome Magic" (single color palette)
+- "Power Play" (confident, commanding presence)
 
 For each outfit:
 - Select 3-5 items from DIFFERENT categories only
 - Ensure excellent color coordination
 - Match the style aesthetic or occasion perfectly
 - Use item IDs from the wardrobe
-- Give it a creative, curated name
+- REQUIRED: Give it a unique, creative name (2-3 words)
 
-Return structured outfit data.`;
+Return structured outfit data with creative names for ALL outfits.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -96,26 +95,44 @@ Return structured outfit data.`;
                 properties: {
                   styleOutfits: {
                     type: 'array',
+                    description: 'Array of 5 style-based outfits, each with a unique creative name',
                     items: {
                       type: 'object',
                       properties: {
-                        id: { type: 'string' },
-                        label: { type: 'string' },
-                        itemIds: { type: 'array', items: { type: 'string' } },
+                        id: { type: 'string', description: 'Unique identifier' },
+                        label: { 
+                          type: 'string', 
+                          description: 'Creative 2-3 word outfit name (e.g., "Urban Edge", "Minimalist Maven")'
+                        },
+                        itemIds: { 
+                          type: 'array', 
+                          items: { type: 'string' },
+                          description: 'Array of item IDs from different categories'
+                        },
                         type: { type: 'string', enum: ['style'] }
-                      }
+                      },
+                      required: ['id', 'label', 'itemIds', 'type']
                     }
                   },
                   occasionOutfits: {
                     type: 'array',
+                    description: 'Array of 5 occasion-based outfits, each with a unique creative name',
                     items: {
                       type: 'object',
                       properties: {
-                        id: { type: 'string' },
-                        label: { type: 'string', description: 'Creative, descriptive outfit name' },
-                        itemIds: { type: 'array', items: { type: 'string' } },
+                        id: { type: 'string', description: 'Unique identifier' },
+                        label: { 
+                          type: 'string', 
+                          description: 'Creative 2-3 word outfit name (e.g., "Date Night Charm", "Boardroom Boss")'
+                        },
+                        itemIds: { 
+                          type: 'array', 
+                          items: { type: 'string' },
+                          description: 'Array of item IDs from different categories'
+                        },
                         type: { type: 'string', enum: ['occasion'] }
-                      }
+                      },
+                      required: ['id', 'label', 'itemIds', 'type']
                     }
                   }
                 },
