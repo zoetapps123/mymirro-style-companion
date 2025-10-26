@@ -19,7 +19,7 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true); // Default to signup for new users
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const { toast } = useToast();

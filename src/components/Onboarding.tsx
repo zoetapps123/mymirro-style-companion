@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingData {
   name: string;
@@ -26,10 +27,23 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     { id: "prefer-not-to-say", label: "💫 Prefer not to say" },
   ];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     localStorage.setItem("onboard_name", data.name);
     localStorage.setItem("onboard_gender", data.gender);
     localStorage.setItem("onboardingComplete", "true");
+    
+    // Also store in Supabase user metadata for persistence across devices
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.auth.updateUser({
+        data: {
+          name: data.name,
+          gender: data.gender,
+          onboarding_complete: true
+        }
+      });
+    }
+    
     onComplete();
   };
 

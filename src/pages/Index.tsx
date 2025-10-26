@@ -44,10 +44,25 @@ const Index = () => {
     }
 
     // Valid session - check onboarding status
-    const onboardingComplete = localStorage.getItem("onboardingComplete") === "true";
+    // First check user metadata (persists across devices/sessions)
+    const user = session.user;
+    const onboardingCompleteInMetadata = user?.user_metadata?.onboarding_complete === true;
+    const onboardingCompleteInStorage = localStorage.getItem("onboardingComplete") === "true";
     const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
 
-    if (!onboardingComplete) {
+    // If onboarding was completed before (in metadata), sync to localStorage
+    if (onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
+      localStorage.setItem("onboardingComplete", "true");
+      if (user?.user_metadata?.name) {
+        localStorage.setItem("onboard_name", user.user_metadata.name);
+      }
+      if (user?.user_metadata?.gender) {
+        localStorage.setItem("onboard_gender", user.user_metadata.gender);
+      }
+    }
+
+    // Show onboarding only if never completed
+    if (!onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
       setShowOnboarding(true);
     } else if (!walkthroughComplete) {
       setShowWalkthrough(true);
