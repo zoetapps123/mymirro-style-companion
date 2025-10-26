@@ -90,42 +90,55 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         
         console.log('Wardrobe processing response:', data);
 
-        // Upload processed image
-        const fileName = `${Date.now()}-${data.name.replace(/\s+/g, '-')}.png`;
-        const base64Data = data.processedImageUrl.split(',')[1];
-        const binaryData = atob(base64Data);
-        const bytes = new Uint8Array(binaryData.length);
-        for (let i = 0; i < binaryData.length; i++) {
-          bytes[i] = binaryData.charCodeAt(i);
+        const itemsDetected = data.items || [];
+        
+        if (itemsDetected.length === 0) {
+          throw new Error('No clothing items detected');
         }
-        const blob = new Blob([bytes], { type: 'image/png' });
 
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, blob);
+        // Upload and save all detected items
+        for (const item of itemsDetected) {
+          const fileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
+          const base64Data = item.processedImageUrl.split(',')[1];
+          const binaryData = atob(base64Data);
+          const bytes = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'image/png' });
 
-        if (uploadError) throw uploadError;
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, blob);
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
+          if (uploadError) {
+            console.error('Upload error for item:', item.name, uploadError);
+            continue;
+          }
 
-        const { error: dbError } = await supabase
-          .from('wardrobe_items')
-          .insert({
-            user_id: user.id,
-            name: data.name,
-            category: data.category,
-            color: data.color,
-            image_url: publicUrl,
-            processed_image_url: publicUrl,
-          });
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
 
-        if (dbError) throw dbError;
+          const { error: dbError } = await supabase
+            .from('wardrobe_items')
+            .insert({
+              user_id: user.id,
+              name: item.name,
+              category: item.category,
+              color: item.color,
+              image_url: publicUrl,
+              processed_image_url: publicUrl,
+            });
+
+          if (dbError) {
+            console.error('DB error for item:', item.name, dbError);
+          }
+        }
 
         toast({
-          title: "Added to your wardrobe.",
-          description: `${data.name} is ready to style!`,
+          title: "Added to your wardrobe!",
+          description: `${itemsDetected.length} item${itemsDetected.length > 1 ? 's' : ''} extracted and saved.`,
         });
 
         fetchWardrobeItems();

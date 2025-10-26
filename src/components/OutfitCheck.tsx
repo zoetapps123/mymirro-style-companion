@@ -109,7 +109,7 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           occasion: selectedOccasion
         });
 
-        // Auto-extract items to wardrobe
+        // Auto-extract all items to wardrobe
         try {
           const extractResponse = await fetch(publicUrl);
           const extractBlob = await extractResponse.blob();
@@ -120,33 +120,35 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               body: { imageData: extractImageData }
             });
 
-            if (!wardrobeError && wardrobeData) {
-              const wardrobeFileName = `${Date.now()}-${wardrobeData.name.replace(/\s+/g, '-')}.png`;
-              const base64Data = wardrobeData.processedImageUrl.split(',')[1];
-              const binaryData = atob(base64Data);
-              const bytes = new Uint8Array(binaryData.length);
-              for (let i = 0; i < binaryData.length; i++) {
-                bytes[i] = binaryData.charCodeAt(i);
-              }
-              const processedBlob = new Blob([bytes], { type: 'image/png' });
+            if (!wardrobeError && wardrobeData && wardrobeData.items) {
+              for (const item of wardrobeData.items) {
+                const wardrobeFileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
+                const base64Data = item.processedImageUrl.split(',')[1];
+                const binaryData = atob(base64Data);
+                const bytes = new Uint8Array(binaryData.length);
+                for (let i = 0; i < binaryData.length; i++) {
+                  bytes[i] = binaryData.charCodeAt(i);
+                }
+                const processedBlob = new Blob([bytes], { type: 'image/png' });
 
-              const { error: uploadError } = await supabase.storage
-                .from('outfits')
-                .upload(wardrobeFileName, processedBlob);
-
-              if (!uploadError) {
-                const { data: { publicUrl: wardrobePublicUrl } } = supabase.storage
+                const { error: uploadError } = await supabase.storage
                   .from('outfits')
-                  .getPublicUrl(wardrobeFileName);
+                  .upload(wardrobeFileName, processedBlob);
 
-                await supabase.from('wardrobe_items').insert({
-                  user_id: user.id,
-                  name: wardrobeData.name,
-                  category: wardrobeData.category,
-                  color: wardrobeData.color,
-                  image_url: wardrobePublicUrl,
-                  processed_image_url: wardrobePublicUrl,
-                });
+                if (!uploadError) {
+                  const { data: { publicUrl: wardrobePublicUrl } } = supabase.storage
+                    .from('outfits')
+                    .getPublicUrl(wardrobeFileName);
+
+                  await supabase.from('wardrobe_items').insert({
+                    user_id: user.id,
+                    name: item.name,
+                    category: item.category,
+                    color: item.color,
+                    image_url: wardrobePublicUrl,
+                    processed_image_url: wardrobePublicUrl,
+                  });
+                }
               }
             }
           };
@@ -194,38 +196,45 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
 
         if (error) throw error;
 
-        const fileName = `${Date.now()}-${data.name.replace(/\s+/g, '-')}.png`;
-        const base64Data = data.processedImageUrl.split(',')[1];
-        const binaryData = atob(base64Data);
-        const bytes = new Uint8Array(binaryData.length);
-        for (let i = 0; i < binaryData.length; i++) {
-          bytes[i] = binaryData.charCodeAt(i);
-        }
-        const processedBlob = new Blob([bytes], { type: 'image/png' });
-
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, processedBlob);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
-
+        const itemsDetected = data.items || [];
         const { data: { user } } = await supabase.auth.getUser();
-        await supabase.from('wardrobe_items').insert({
-          user_id: user!.id,
-          name: data.name,
-          category: data.category,
-          color: data.color,
-          image_url: publicUrl,
-          processed_image_url: publicUrl,
-        });
+
+        for (const item of itemsDetected) {
+          const fileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
+          const base64Data = item.processedImageUrl.split(',')[1];
+          const binaryData = atob(base64Data);
+          const bytes = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i);
+          }
+          const processedBlob = new Blob([bytes], { type: 'image/png' });
+
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, processedBlob);
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
+
+          await supabase.from('wardrobe_items').insert({
+            user_id: user!.id,
+            name: item.name,
+            category: item.category,
+            color: item.color,
+            image_url: publicUrl,
+            processed_image_url: publicUrl,
+          });
+        }
 
         toast({
           title: "Added to wardrobe!",
-          description: `${data.name} is now in your collection.`,
+          description: `${itemsDetected.length} item${itemsDetected.length > 1 ? 's' : ''} extracted.`,
         });
       };
       reader.readAsDataURL(blob);
