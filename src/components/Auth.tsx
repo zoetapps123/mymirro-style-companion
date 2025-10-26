@@ -149,6 +149,9 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
         // Update session timestamp
         localStorage.setItem("last_login", Date.now().toString());
         localStorage.setItem("onboard_email", email.trim());
+        
+        // Mark that this is a sign-in (not sign-up) to skip onboarding
+        localStorage.setItem("is_signin", "true");
 
         setSuccess(true);
         toast({

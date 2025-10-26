@@ -49,6 +49,7 @@ const Index = () => {
     const onboardingCompleteInMetadata = user?.user_metadata?.onboarding_complete === true;
     const onboardingCompleteInStorage = localStorage.getItem("onboardingComplete") === "true";
     const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
+    const isSignIn = localStorage.getItem("is_signin") === "true";
 
     // If onboarding was completed before (in metadata), sync to localStorage
     if (onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
@@ -61,8 +62,14 @@ const Index = () => {
       }
     }
 
-    // Show onboarding only if never completed
-    if (!onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
+    // Clear the signin flag after checking
+    if (isSignIn) {
+      localStorage.removeItem("is_signin");
+    }
+
+    // Show onboarding only for new signups (not sign-ins)
+    // Skip onboarding if user is signing in (not signing up)
+    if (!isSignIn && !onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
       setShowOnboarding(true);
     } else if (!walkthroughComplete) {
       setShowWalkthrough(true);
