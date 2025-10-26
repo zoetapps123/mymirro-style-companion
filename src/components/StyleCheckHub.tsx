@@ -14,14 +14,16 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       title: "Outfit Check",
       description: "Get a pro score and quick fixes for your look.",
       action: () => onNavigate('outfit-check'),
-      gradient: "from-accent/20 to-accent/5"
+      gradient: "from-accent/20 to-accent/5",
+      buttonText: "Start Check"
     },
     {
       icon: Swords,
       title: "Outfit Battle",
       description: "Pit outfits head-to-head. Winner gets the crown.",
       action: () => onNavigate('outfit-battle'),
-      gradient: "from-primary/20 to-primary/5"
+      gradient: "from-primary/20 to-primary/5",
+      buttonText: "Let's Battle"
     }
   ];
 
@@ -68,7 +70,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 </CardHeader>
                 <CardContent className="relative pt-0 pb-3">
                   <Button variant="secondary" className="w-full glow-accent min-h-[44px] text-sm">
-                    Start Check
+                    {feature.buttonText}
                   </Button>
                 </CardContent>
               </Card>
