@@ -70,6 +70,12 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
       const user = session.user;
 
+      // Fetch existing wardrobe items for duplicate checking
+      const { data: existingItems } = await supabase
+        .from('wardrobe_items')
+        .select('name, category, color')
+        .eq('user_id', user.id);
+
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;
@@ -96,8 +102,26 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           throw new Error('No clothing items detected');
         }
 
-        // Upload and save all detected items
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        // Upload and save all detected items with duplicate checking
         for (const item of itemsDetected) {
+          // Check for duplicates
+          const isDuplicate = existingItems?.some(existing => 
+            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+             (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+              Math.abs(existing.name?.length - item.name?.length) < 5))
+          );
+
+          if (isDuplicate) {
+            console.log(`Skipping duplicate item: ${item.name}`);
+            skippedCount++;
+            continue;
+          }
+
           const fileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
           const base64Data = item.processedImageUrl.split(',')[1];
           const binaryData = atob(base64Data);
@@ -133,12 +157,16 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
           if (dbError) {
             console.error('DB error for item:', item.name, dbError);
+          } else {
+            addedCount++;
           }
         }
 
         toast({
-          title: "Added to your wardrobe!",
-          description: `${itemsDetected.length} item${itemsDetected.length > 1 ? 's' : ''} extracted and saved.`,
+          title: addedCount > 0 ? "Added to your wardrobe!" : "Items already exist",
+          description: addedCount > 0
+            ? `${addedCount} new item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save AI credits)` : ''}.`
+            : `All detected items already exist in your wardrobe.`,
         });
 
         fetchWardrobeItems();

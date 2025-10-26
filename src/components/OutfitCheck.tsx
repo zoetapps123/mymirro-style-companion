@@ -109,8 +109,14 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           occasion: selectedOccasion
         });
 
-        // Auto-extract all items to wardrobe
+        // Auto-extract all items to wardrobe with duplicate checking
         try {
+          // Fetch existing wardrobe items
+          const { data: existingItems } = await supabase
+            .from('wardrobe_items')
+            .select('name, category, color')
+            .eq('user_id', user.id);
+
           const extractResponse = await fetch(publicUrl);
           const extractBlob = await extractResponse.blob();
           const extractReader = new FileReader();
@@ -121,7 +127,25 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             });
 
             if (!wardrobeError && wardrobeData && wardrobeData.items) {
+              let addedCount = 0;
+              let skippedCount = 0;
+
               for (const item of wardrobeData.items) {
+                // Check for duplicates
+                const isDuplicate = existingItems?.some(existing => 
+                  existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+                  (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+                   item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+                   (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+                    Math.abs(existing.name?.length - item.name?.length) < 5))
+                );
+
+                if (isDuplicate) {
+                  console.log(`Skipping duplicate item: ${item.name}`);
+                  skippedCount++;
+                  continue;
+                }
+
                 const wardrobeFileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
                 const base64Data = item.processedImageUrl.split(',')[1];
                 const binaryData = atob(base64Data);
@@ -148,7 +172,12 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
                     image_url: wardrobePublicUrl,
                     processed_image_url: wardrobePublicUrl,
                   });
+                  addedCount++;
                 }
+              }
+
+              if (skippedCount > 0) {
+                console.log(`Skipped ${skippedCount} duplicate items to save AI credits`);
               }
             }
           };
@@ -184,6 +213,14 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
     
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Fetch existing wardrobe items for duplicate checking
+      const { data: existingItems } = await supabase
+        .from('wardrobe_items')
+        .select('name, category, color')
+        .eq('user_id', user!.id);
+
       const response = await fetch(result.image_url);
       const blob = await response.blob();
       const reader = new FileReader();
@@ -197,9 +234,25 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
         if (error) throw error;
 
         const itemsDetected = data.items || [];
-        const { data: { user } } = await supabase.auth.getUser();
+        let addedCount = 0;
+        let skippedCount = 0;
 
         for (const item of itemsDetected) {
+          // Check for duplicates
+          const isDuplicate = existingItems?.some(existing => 
+            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+             (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+              Math.abs(existing.name?.length - item.name?.length) < 5))
+          );
+
+          if (isDuplicate) {
+            console.log(`Skipping duplicate item: ${item.name}`);
+            skippedCount++;
+            continue;
+          }
+
           const fileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
           const base64Data = item.processedImageUrl.split(',')[1];
           const binaryData = atob(base64Data);
@@ -230,11 +283,14 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             image_url: publicUrl,
             processed_image_url: publicUrl,
           });
+          addedCount++;
         }
 
         toast({
           title: "Added to wardrobe!",
-          description: `${itemsDetected.length} item${itemsDetected.length > 1 ? 's' : ''} extracted.`,
+          description: addedCount > 0 
+            ? `${addedCount} new item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`
+            : `All items already exist in wardrobe.`,
         });
       };
       reader.readAsDataURL(blob);
