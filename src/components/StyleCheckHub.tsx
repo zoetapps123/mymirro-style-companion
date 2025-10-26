@@ -66,7 +66,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative pt-0">
+                <CardContent className="relative pt-0 pb-3">
                   <Button variant="secondary" className="w-full glow-accent min-h-[44px] text-sm">
                     Start Check
                   </Button>
