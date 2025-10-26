@@ -89,6 +89,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => setEditingOutfit(outfit)}
     >
+      <h4 className="text-base font-semibold text-center mb-3 text-foreground">{outfit.label}</h4>
       <div className="grid grid-cols-2 gap-2">
         {outfit.items.slice(0, 4).map((item, idx) => (
           <div key={idx} className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
@@ -100,7 +101,6 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
           </div>
         ))}
       </div>
-      <p className="text-sm font-medium mt-2 text-center text-foreground">{outfit.label}</p>
     </div>
   );
 
