@@ -20,9 +20,56 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true); // Default to signup for new users
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const { toast } = useToast();
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    // Validate email
+    const emailValidation = emailSchema.safeParse(email);
+    if (!emailValidation.success) {
+      setError(emailValidation.error.errors[0].message);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/`,
+        }
+      );
+
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+
+      setSuccess(true);
+      toast({
+        title: "Reset email sent! 📧",
+        description: "Check your email for password reset instructions",
+      });
+
+      setTimeout(() => {
+        setIsForgotPassword(false);
+        setSuccess(false);
+        setEmail("");
+      }, 2000);
+
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setError("Failed to send reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,17 +210,23 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
           >
             <div className="text-center space-y-1">
               <h2 className="text-2xl font-bold">
-                {isSignUp ? "Create your account" : "Welcome back"}
+                {isForgotPassword 
+                  ? "Reset your password" 
+                  : isSignUp 
+                  ? "Create your account" 
+                  : "Welcome back"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {isSignUp 
+                {isForgotPassword
+                  ? "We'll send you a password reset link"
+                  : isSignUp 
                   ? "Start your fashion journey with MyMirro"
                   : "Sign in to continue your style evolution"
                 }
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">
                   Email Address
@@ -194,44 +247,46 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError("");
-                    }}
-                    required
-                    disabled={loading || success}
-                    className="glass-card border-border/50 h-12 text-base pr-10"
-                    autoComplete={isSignUp ? "new-password" : "current-password"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    disabled={loading || success}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
+              {!isForgotPassword && (
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError("");
+                      }}
+                      required
+                      disabled={loading || success}
+                      className="glass-card border-border/50 h-12 text-base pr-10"
+                      autoComplete={isSignUp ? "new-password" : "current-password"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={loading || success}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {isSignUp && (
+                    <p className="text-xs text-muted-foreground">
+                      Must be at least 6 characters
+                    </p>
+                  )}
                 </div>
-                {isSignUp && (
-                  <p className="text-xs text-muted-foreground">
-                    Must be at least 6 characters
-                  </p>
-                )}
-              </div>
+              )}
 
               {error && (
                 <motion.p
@@ -247,12 +302,14 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
               <Button
                 type="submit"
                 className="w-full glow-primary h-12 text-base"
-                disabled={loading || !email || !password || success}
+                disabled={loading || !email || (!isForgotPassword && !password) || success}
               >
                 {loading 
                   ? "Processing..." 
                   : success 
                   ? "Success ✓" 
+                  : isForgotPassword
+                  ? "Send Reset Email"
                   : isSignUp 
                   ? "Create Account" 
                   : "Sign In"
@@ -261,15 +318,34 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
             </form>
 
             <div className="text-center space-y-2">
+              {!isForgotPassword && !isSignUp && (
+                <button
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setError("");
+                  }}
+                  disabled={loading || success}
+                  className="text-sm text-muted-foreground hover:text-primary transition-all disabled:opacity-50 block w-full"
+                >
+                  Forgot password?
+                </button>
+              )}
               <button
                 onClick={() => {
-                  setIsSignUp(!isSignUp);
+                  if (isForgotPassword) {
+                    setIsForgotPassword(false);
+                  } else {
+                    setIsSignUp(!isSignUp);
+                  }
                   setError("");
+                  setPassword("");
                 }}
                 disabled={loading || success}
                 className="text-sm text-primary hover:underline transition-all disabled:opacity-50"
               >
-                {isSignUp 
+                {isForgotPassword
+                  ? "Back to sign in"
+                  : isSignUp 
                   ? "Already have an account? Sign in" 
                   : "New here? Create an account"
                 }
