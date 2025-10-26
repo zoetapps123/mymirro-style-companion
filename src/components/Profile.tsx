@@ -49,20 +49,21 @@ const Profile = () => {
   };
 
   const handleReferFriend = () => {
-    const referralText = `Check out MyMirro - Your AI Fashion Companion! 👗✨`;
-    const referralUrl = window.location.origin;
+    // Use deployed URL if available, otherwise fallback to current origin
+    const deployedUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const referralText = `Check out MyMirro - Your AI Fashion Companion! 👗✨\n\n${deployedUrl}`;
     
     if (navigator.share) {
       navigator.share({
         title: 'MyMirro - AI Fashion Companion',
         text: referralText,
-        url: referralUrl,
+        url: deployedUrl,
       }).catch(() => {
         // Fallback if share fails
-        copyToClipboard(referralUrl);
+        copyToClipboard(deployedUrl);
       });
     } else {
-      copyToClipboard(referralUrl);
+      copyToClipboard(deployedUrl);
     }
   };
 
@@ -70,7 +71,7 @@ const Profile = () => {
     navigator.clipboard.writeText(text);
     toast({
       title: "Link copied! 🎉",
-      description: "Share MyMirro with your friends and help them discover their style",
+      description: "Paste and share this link with your friends anywhere",
     });
   };
 
