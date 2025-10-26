@@ -54,11 +54,9 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
   const generateOutfit = async () => {
     if (wardrobeItems.length === 0) {
       toast({
-        title: "Empty wardrobe",
-        description: "Your wardrobe is empty. Add items (don't be lazy :P)",
-        variant: "destructive"
+        title: "No items yet? No problem",
+        description: "I'll fill gaps with AI suggestions for a complete look.",
       });
-      return;
     }
 
     setLoading(true);

@@ -18,16 +18,19 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
   }, []);
 
   const fetchCounts = async () => {
-    const { data: items } = await supabase
+    const { count: itemsCount, error: itemsError } = await supabase
       .from('wardrobe_items')
       .select('id', { count: 'exact', head: true });
     
-    const { data: outfits } = await supabase
+    const { count: outfitsCount, error: outfitsError } = await supabase
       .from('outfits')
       .select('id', { count: 'exact', head: true });
 
-    setItemCount(items?.length || 0);
-    setOutfitCount(outfits?.length || 0);
+    if (itemsError) console.error('Failed to count wardrobe_items:', itemsError);
+    if (outfitsError) console.error('Failed to count outfits:', outfitsError);
+
+    setItemCount(itemsCount || 0);
+    setOutfitCount(outfitsCount || 0);
   };
 
   const cards = [
@@ -45,9 +48,9 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       title: "Generate Outfits",
       description: "Create complete looks from your items.",
       action: () => onNavigate('generate'),
-      disabled: itemCount === 0,
-      disabledTooltip: "Add a few items to start.",
-      emptyMessage: itemCount === 0 ? "Add items or save a look to generate outfits." : null,
+      disabled: false,
+      disabledTooltip: undefined,
+      emptyMessage: itemCount === 0 ? "Add items or generate with AI suggestions." : null,
       gradient: "from-accent/20 to-accent/5"
     },
     {
@@ -55,9 +58,9 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       title: "Plan your looks",
       description: "Schedule outfits on your calendar.",
       action: () => onNavigate('calendar'),
-      disabled: itemCount === 0 && outfitCount === 0,
-      disabledTooltip: "Add items or save a look to plan outfits.",
-      emptyMessage: itemCount === 0 && outfitCount === 0 ? "Add items or save a look to plan outfits." : null,
+      disabled: false,
+      disabledTooltip: undefined,
+      emptyMessage: outfitCount === 0 ? "No saved looks yet — you can still plan and generate inline." : null,
       gradient: "from-secondary/20 to-secondary/5"
     }
   ];
@@ -117,10 +120,9 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
                   <Button
                     variant="secondary"
                     className="w-full glow-accent min-h-[44px] text-sm"
-                    disabled={card.disabled}
-                    title={card.disabled ? card.disabledTooltip : undefined}
+                    onClick={card.action}
                   >
-                    {card.disabled ? card.disabledTooltip : 'Get Started'}
+                    Get Started
                   </Button>
                 </CardContent>
               </Card>
