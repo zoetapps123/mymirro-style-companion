@@ -33,6 +33,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentName, setCurrentName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [results, setResults] = useState<{ results: BattleResult[], winner_verdict: string } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [awaitingName, setAwaitingName] = useState(false);
@@ -106,6 +107,11 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
     }
 
     setLoading(true);
+    setScanning(true);
+
+    // Show scanning animation for 2 seconds
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     try {
       // Check authentication first
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -161,6 +167,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         return { ...result, imageData: participant?.imageData };
       });
 
+      setScanning(false);
       setResults({ ...data, results: resultsWithImages });
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
@@ -171,6 +178,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       });
     } catch (error) {
       console.error('Error:', error);
+      setScanning(false);
       toast({
         title: "Error",
         description: "Failed to score battle. Try again.",
@@ -320,6 +328,34 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
   return (
     <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
+      {scanning && participants.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card rounded-3xl p-6 sm:p-8 max-w-2xl w-full space-y-4 sm:space-y-6">
+            <div className={`grid ${participants.length === 2 ? 'grid-cols-2' : participants.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-3 sm:gap-4`}>
+              {participants.map((participant, index) => (
+                <div key={index} className="relative">
+                  <img 
+                    src={participant.imageData} 
+                    alt={participant.name}
+                    className={`w-full ${participants.length > 3 ? 'aspect-square' : 'aspect-[3/4]'} object-cover rounded-2xl`}
+                  />
+                  <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                    <div className="scanning-line"></div>
+                  </div>
+                  <div className="absolute bottom-2 left-2 right-2 glass-card px-2 py-1 rounded-lg">
+                    <p className="text-xs font-medium text-center truncate">{participant.name}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Analyzing All Outfits</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Comparing style, fit, and overall vibe...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showConfetti && (
         <Confetti
           width={window.innerWidth}
