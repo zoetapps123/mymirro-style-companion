@@ -133,9 +133,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
       const user = session.user;
 
-      const { data, error } = await supabase.functions.invoke('score-battle', {
-        body: { participants }
-      });
+      const { data, error } = await supabase.functions.invoke('score-battle', { body: { participants } });
 
       if (error) {
         console.error('Score battle error:', error);
@@ -143,17 +141,15 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         const errorMessage = (error as any)?.message || 'Unknown error';
         setScanning(false);
         setLoading(false);
-        
+
         if (status === 429) {
           toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
         } else if (status === 402) {
           toast({ title: 'Service temporarily unavailable', description: 'Please try again later.', variant: 'destructive' });
+        } else if (status === 504) {
+          toast({ title: 'Taking longer than usual', description: 'AI timeout. Please try again.', variant: 'destructive' });
         } else {
-          toast({ 
-            title: 'Battle failed', 
-            description: `Unable to score battle. ${errorMessage}`, 
-            variant: 'destructive' 
-          });
+          toast({ title: 'Battle failed', description: `Unable to score battle. ${errorMessage}`, variant: 'destructive' });
         }
         return;
       }
@@ -166,20 +162,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         return;
       }
 
-      // Save battle to database
-      const { data: battle, error: battleError } = await supabase
-        .from('battles')
-        .insert({
-          user_id: user.id,
-          participants: participants.map(p => ({ name: p.name })),
-          results: data.results
-        })
-        .select()
-        .single();
-
-      if (battleError) throw battleError;
-
-      // Attach images to results
+      // Attach images to results and show UI immediately
       const resultsWithImages = data.results.map((result: BattleResult) => {
         const participant = participants.find(p => p.name === result.name);
         return { ...result, imageData: participant?.imageData };
@@ -189,11 +172,24 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       setResults({ ...data, results: resultsWithImages });
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
-      
-      toast({
-        title: "Battle complete!",
-        description: `${data.results[0].name} takes the crown! 👑`,
-      });
+      toast({ title: 'Battle complete!', description: `${data.results[0].name} takes the crown! 👑` });
+
+      // Persist battle in background (non-blocking)
+      (async () => {
+        try {
+          const { error: battleError } = await supabase
+            .from('battles')
+            .insert({
+              user_id: user.id,
+              participants: participants.map(p => ({ name: p.name })),
+              results: data.results
+            });
+          if (battleError) throw battleError;
+        } catch (persistErr) {
+          console.error('Battle save failed:', persistErr);
+          toast({ title: 'Not saved to history', description: 'Results shown, but could not save. Try again later.' });
+        }
+      })();
     } catch (error) {
       console.error('Error:', error);
       setScanning(false);

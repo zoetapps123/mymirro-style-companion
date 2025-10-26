@@ -19,23 +19,52 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
+    // Validate input
+    if (!imageData || typeof imageData !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'imageData is required and must be a base64 data URL or http(s) URL' }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const isDataUrl = imageData.startsWith('data:image/');
+    const isHttpUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
+    if (!isDataUrl && !isHttpUrl) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid imageData format. Provide data:image/* base64 or a public URL.' }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (isDataUrl && imageData.length > 15_000_000) {
+      return new Response(
+        JSON.stringify({ error: 'Image too large. Please upload a smaller image (<10MB).' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('Scoring outfit...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `As a professional fashion stylist with deep expertise in fabrics, cuts, and styling, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
+    // Timeout + abort for robustness
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    let response: Response;
+    try {
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `As a professional fashion stylist with deep expertise in fabrics, cuts, and styling, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
 
 1. A creative, context-aware outfit name (2-4 words, e.g., "Neo-Classic Finisher", "Sunset Boardwalk Vibes")
 2. Scores across these dimensions (scale 1.0-5.0):
@@ -49,41 +78,45 @@ serve(async (req) => {
 6. QUICK FIXES: Life-saving accessible changes that dramatically elevate the look WITHOUT changing the outfit much - could include hair styling, accessories, makeup, shoes, tucking, cuffing, layering, etc.
 
 Be precise, constructive, and technically detailed like a professional stylist. Return ONLY valid JSON.`
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageData }
-              }
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'score_outfit',
-              description: 'Score an outfit across multiple fashion dimensions',
-              parameters: {
-                type: 'object',
-                properties: {
-                  outfit_name: { type: 'string', description: 'Creative 2-4 word outfit name' },
-                  color_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  fit_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  what_works: { type: 'string', description: 'Technical compliments about fabrics, textures, colors' },
-                  what_could_be_better: { type: 'string', description: 'Technical feedback on improvements' },
-                  quick_fixes: { type: 'string', description: 'Accessible quick changes to elevate the look' }
                 },
-                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_could_be_better', 'quick_fixes']
+                {
+                  type: 'image_url',
+                  image_url: { url: imageData }
+                }
+              ]
+            }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'score_outfit',
+                description: 'Score an outfit across multiple fashion dimensions',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    outfit_name: { type: 'string', description: 'Creative 2-4 word outfit name' },
+                    color_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                    fit_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                    texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                    occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                    overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                    what_works: { type: 'string', description: 'Technical compliments about fabrics, textures, colors' },
+                    what_could_be_better: { type: 'string', description: 'Technical feedback on improvements' },
+                    quick_fixes: { type: 'string', description: 'Accessible quick changes to elevate the look' }
+                  },
+                  required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_could_be_better', 'quick_fixes']
+                }
               }
             }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'score_outfit' } }
-      }),
-    });
+          ],
+          tool_choice: { type: 'function', function: { name: 'score_outfit' } }
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -117,7 +150,8 @@ Be precise, constructive, and technically detailed like a professional stylist. 
     if (!scores) {
       const content = data.choices?.[0]?.message?.content;
       if (typeof content === 'string') {
-        try { scores = JSON.parse(content); } catch (_) {}
+        const cleaned = content.trim().replace(/^```json\n?|```$/g, '');
+        try { scores = JSON.parse(cleaned); } catch (_) {}
       }
     }
 
@@ -133,10 +167,13 @@ Be precise, constructive, and technically detailed like a professional stylist. 
     );
   } catch (error) {
     console.error('Error in score-outfit:', error);
+    const isAbort = (error as any)?.name === 'AbortError' || (error as any)?.message?.includes('aborted');
+    const status = isAbort ? 504 : 500;
+    const msg = isAbort ? 'AI service timeout. Please try again.' : (error instanceof Error ? error.message : 'Unknown error');
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: msg }),
       {
-        status: 500,
+        status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

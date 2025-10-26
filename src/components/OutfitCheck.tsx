@@ -99,115 +99,117 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           return;
         }
 
-        const fileName = `style-check-${Date.now()}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, file);
+        // Show results immediately, persist in background
+        setScanning(false);
+        setResult({ ...data, image_url: imageData });
+        setLoading(false);
+        toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
 
-        if (uploadError) throw uploadError;
+        // Background persistence (non-blocking)
+        (async () => {
+          try {
+            const fileName = `style-check-${Date.now()}.jpg`;
+            const { error: uploadError } = await supabase.storage
+              .from('outfits')
+              .upload(fileName, file);
+            if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
+            const { data: { publicUrl } } = supabase.storage
+              .from('outfits')
+              .getPublicUrl(fileName);
 
-        await supabase.from('style_checks').insert({
-          user_id: user.id,
-          image_url: publicUrl,
-          overall_score: data.overall_score,
-          color_score: data.color_score,
-          fit_score: data.fit_score,
-          texture_score: data.texture_score,
-          occasion_score: data.occasion_score,
-          outfit_name: data.outfit_name,
-          verdict_positive: data.what_works || data.verdict_positive,
-          verdict_improvements: data.what_could_be_better || data.verdict_improvements,
-          occasion: selectedOccasion
-        });
-
-        // Auto-extract all items to wardrobe with duplicate checking
-        try {
-          // Fetch existing wardrobe items
-          const { data: existingItems } = await supabase
-            .from('wardrobe_items')
-            .select('name, category, color')
-            .eq('user_id', user.id);
-
-          const extractResponse = await fetch(publicUrl);
-          const extractBlob = await extractResponse.blob();
-          const extractReader = new FileReader();
-          extractReader.onloadend = async () => {
-            const extractImageData = extractReader.result as string;
-            const { data: wardrobeData, error: wardrobeError } = await supabase.functions.invoke('process-wardrobe', {
-              body: { imageData: extractImageData }
+            await supabase.from('style_checks').insert({
+              user_id: user.id,
+              image_url: publicUrl,
+              overall_score: data.overall_score,
+              color_score: data.color_score,
+              fit_score: data.fit_score,
+              texture_score: data.texture_score,
+              occasion_score: data.occasion_score,
+              outfit_name: data.outfit_name,
+              verdict_positive: data.what_works || data.verdict_positive,
+              verdict_improvements: data.what_could_be_better || data.verdict_improvements,
+              occasion: selectedOccasion
             });
 
-            if (!wardrobeError && wardrobeData && wardrobeData.items) {
-              let addedCount = 0;
-              let skippedCount = 0;
+            // Update result with public URL once saved
+            setResult((prev: any) => prev ? { ...prev, image_url: publicUrl } : prev);
 
-              for (const item of wardrobeData.items) {
-                // Check for duplicates
-                const isDuplicate = existingItems?.some(existing => 
-                  existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-                  (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-                   item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-                   (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
-                    Math.abs(existing.name?.length - item.name?.length) < 5))
-                );
+            // Auto-extract all items to wardrobe with duplicate checking
+            try {
+              const { data: existingItems } = await supabase
+                .from('wardrobe_items')
+                .select('name, category, color')
+                .eq('user_id', user.id);
 
-                if (isDuplicate) {
-                  console.log(`Skipping duplicate item: ${item.name}`);
-                  skippedCount++;
-                  continue;
+              const extractResponse = await fetch(publicUrl);
+              const extractBlob = await extractResponse.blob();
+              const extractReader = new FileReader();
+              extractReader.onloadend = async () => {
+                const extractImageData = extractReader.result as string;
+                const { data: wardrobeData, error: wardrobeError } = await supabase.functions.invoke('process-wardrobe', {
+                  body: { imageData: extractImageData }
+                });
+
+                if (!wardrobeError && wardrobeData && wardrobeData.items) {
+                  let addedCount = 0;
+                  let skippedCount = 0;
+
+                  for (const item of wardrobeData.items) {
+                    const isDuplicate = existingItems?.some(existing => 
+                      existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+                      (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+                       item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+                       (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+                        Math.abs(existing.name?.length - item.name?.length) < 5))
+                    );
+
+                    if (isDuplicate) {
+                      console.log(`Skipping duplicate item: ${item.name}`);
+                      skippedCount++;
+                      continue;
+                    }
+
+                    const wardrobeFileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
+                    const base64Data = item.processedImageUrl.split(',')[1];
+                    const binaryData = atob(base64Data);
+                    const bytes = new Uint8Array(binaryData.length);
+                    for (let i = 0; i < binaryData.length; i++) bytes[i] = binaryData.charCodeAt(i);
+                    const processedBlob = new Blob([bytes], { type: 'image/png' });
+
+                    const { error: uploadProcessedError } = await supabase.storage
+                      .from('outfits')
+                      .upload(wardrobeFileName, processedBlob);
+
+                    if (!uploadProcessedError) {
+                      const { data: { publicUrl: wardrobePublicUrl } } = supabase.storage
+                        .from('outfits')
+                        .getPublicUrl(wardrobeFileName);
+
+                      await supabase.from('wardrobe_items').insert({
+                        user_id: user.id,
+                        name: item.name,
+                        category: item.category,
+                        color: item.color,
+                        image_url: wardrobePublicUrl,
+                        processed_image_url: wardrobePublicUrl,
+                      });
+                      addedCount++;
+                    }
+                  }
+
+                  if (skippedCount > 0) console.log(`Skipped ${skippedCount} duplicate items to save AI credits`);
                 }
-
-                const wardrobeFileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
-                const base64Data = item.processedImageUrl.split(',')[1];
-                const binaryData = atob(base64Data);
-                const bytes = new Uint8Array(binaryData.length);
-                for (let i = 0; i < binaryData.length; i++) {
-                  bytes[i] = binaryData.charCodeAt(i);
-                }
-                const processedBlob = new Blob([bytes], { type: 'image/png' });
-
-                const { error: uploadError } = await supabase.storage
-                  .from('outfits')
-                  .upload(wardrobeFileName, processedBlob);
-
-                if (!uploadError) {
-                  const { data: { publicUrl: wardrobePublicUrl } } = supabase.storage
-                    .from('outfits')
-                    .getPublicUrl(wardrobeFileName);
-
-                  await supabase.from('wardrobe_items').insert({
-                    user_id: user.id,
-                    name: item.name,
-                    category: item.category,
-                    color: item.color,
-                    image_url: wardrobePublicUrl,
-                    processed_image_url: wardrobePublicUrl,
-                  });
-                  addedCount++;
-                }
-              }
-
-              if (skippedCount > 0) {
-                console.log(`Skipped ${skippedCount} duplicate items to save AI credits`);
-              }
+              };
+              extractReader.readAsDataURL(extractBlob);
+            } catch (_) {
+              console.log('Auto-extract failed, continuing...');
             }
-          };
-          extractReader.readAsDataURL(extractBlob);
-        } catch (error) {
-          console.log('Auto-extract failed, continuing...');
-        }
-
-        setScanning(false);
-        setResult({ ...data, image_url: publicUrl });
-        
-        toast({
-          title: "Score complete!",
-          description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0`,
-        });
+          } catch (persistErr) {
+            console.error('Save failed:', persistErr);
+            toast({ title: 'Saved locally', description: 'We could not sync to cloud, but your results are here.', variant: 'default' });
+          }
+        })();
       };
 
       reader.readAsDataURL(file);

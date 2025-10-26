@@ -19,27 +19,57 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    if (!participants || participants.length < 2) {
-      throw new Error('At least 2 participants required');
+    if (!participants || !Array.isArray(participants) || participants.length < 2) {
+      return new Response(
+        JSON.stringify({ error: 'At least 2 participants required' }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (participants.length > 5) {
+      return new Response(
+        JSON.stringify({ error: 'Too many participants. Max 5 allowed.' }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    for (const p of participants) {
+      if (!p?.name || typeof p.name !== 'string' || !p?.imageData || typeof p.imageData !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'Each participant must include name and imageData' }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (p.imageData.startsWith('data:image/') && p.imageData.length > 15_000_000) {
+        return new Response(
+          JSON.stringify({ error: `Image too large for ${p.name}. Please use a smaller image (<10MB).` }),
+          { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     console.log(`Scoring battle with ${participants.length} participants...`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `You are a professional fashion judge with a competitive edge and witty personality. Score these ${participants.length} outfits in a battle format. For each participant:
+    // Timeout + abort for robustness
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    let response: Response;
+    try {
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-pro',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `You are a professional fashion judge with a competitive edge and witty personality. Score these ${participants.length} outfits in a battle format. For each participant:
 
 1. Give them a competitive PERSONA NAME (2-3 words, fun and competitive, e.g., "Style Maverick", "Denim Destroyer", "Monochrome Master")
 2. Overall score (1.0-5.0) - be honest and differentiate scores clearly
@@ -50,53 +80,51 @@ Also provide:
 - winner_verdict: A celebratory sentence about why the winner dominated the competition
 
 Be detailed, competitive, entertaining, and reference specific outfit elements in your roasts. Return ONLY valid JSON.`
-              },
-              ...participants.map((p: any, idx: number) => [
-                {
-                  type: 'text',
-                  text: `Participant ${idx + 1}: ${p.name}`
                 },
-                {
-                  type: 'image_url',
-                  image_url: { url: p.imageData }
-                }
-              ]).flat()
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'score_battle',
-              description: 'Score and rank multiple outfits in a fashion battle with fun competitive banter',
-              parameters: {
-                type: 'object',
-                properties: {
-                  results: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        name: { type: 'string', description: 'Original participant name' },
-                        persona_name: { type: 'string', description: 'Competitive persona name (2-3 words)' },
-                        score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                        rank: { type: 'integer', minimum: 1 },
-                        roast: { type: 'string', description: 'Fun competitive banter comparing to others' }
-                      },
-                      required: ['name', 'persona_name', 'score', 'rank', 'roast']
-                    }
+                ...participants.map((p: any, idx: number) => [
+                  { type: 'text', text: `Participant ${idx + 1}: ${p.name}` },
+                  { type: 'image_url', image_url: { url: p.imageData } }
+                ]).flat()
+              ]
+            }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'score_battle',
+                description: 'Score and rank multiple outfits in a fashion battle with fun competitive banter',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    results: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string', description: 'Original participant name' },
+                          persona_name: { type: 'string', description: 'Competitive persona name (2-3 words)' },
+                          score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                          rank: { type: 'integer', minimum: 1 },
+                          roast: { type: 'string', description: 'Fun competitive banter comparing to others' }
+                        },
+                        required: ['name', 'persona_name', 'score', 'rank', 'roast']
+                      }
+                    },
+                    winner_verdict: { type: 'string' }
                   },
-                  winner_verdict: { type: 'string' }
-                },
-                required: ['results', 'winner_verdict']
+                  required: ['results', 'winner_verdict']
+                }
               }
             }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'score_battle' } }
-      }),
-    });
+          ],
+          tool_choice: { type: 'function', function: { name: 'score_battle' } }
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -149,10 +177,13 @@ Be detailed, competitive, entertaining, and reference specific outfit elements i
     );
   } catch (error) {
     console.error('Error in score-battle:', error);
+    const isAbort = (error as any)?.name === 'AbortError' || (error as any)?.message?.includes('aborted');
+    const status = isAbort ? 504 : 500;
+    const msg = isAbort ? 'AI service timeout. Please try again.' : (error instanceof Error ? error.message : 'Unknown error');
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: msg }),
       {
-        status: 500,
+        status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
