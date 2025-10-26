@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Save, Camera, Loader2, Shirt } from "lucide-react";
+import { Sparkles, Save, Camera, Loader2, Shirt, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,8 +14,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
+interface WardrobeItem {
+  id: string;
+  name: string;
+  category: string;
+  image_url: string;
+  processed_image_url: string;
+  color: string;
+}
+
 interface GenerateOutfitsProps {
+  selectedItem: WardrobeItem | null;
   onBack: () => void;
+  onTryAnother: () => void;
 }
 
 const occasions = [
@@ -28,21 +39,26 @@ const occasions = [
   "Interview"
 ];
 
-const dressCodes = ["Relaxed", "Smart Casual", "Semi-Formal", "Formal"];
-
-const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
+const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfitsProps) => {
   const { toast } = useToast();
-  const [selectedOccasion, setSelectedOccasion] = useState(occasions[0]);
-  const [selectedDressCode, setSelectedDressCode] = useState(dressCodes[0]);
+  const [selectedOccasion, setSelectedOccasion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [outfit, setOutfit] = useState<any>(null);
+  const [outfits, setOutfits] = useState<any[]>([]);
+  const [currentOutfitIndex, setCurrentOutfitIndex] = useState(0);
   const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [outfitName, setOutfitName] = useState("");
+  const [aiGenerationCount, setAiGenerationCount] = useState(0);
 
   useEffect(() => {
     fetchWardrobeItems();
   }, []);
+
+  useEffect(() => {
+    if (!selectedItem) {
+      onTryAnother();
+    }
+  }, [selectedItem, onTryAnother]);
 
   const fetchWardrobeItems = async () => {
     const { data } = await supabase
@@ -52,25 +68,36 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
   };
 
   const generateOutfit = async () => {
-    if (wardrobeItems.length === 0) {
+    if (!selectedOccasion) {
       toast({
-        title: "No items yet? No problem",
-        description: "I'll fill gaps with AI suggestions for a complete look.",
+        title: "Select an occasion",
+        description: "Please choose an occasion to generate outfits.",
+        variant: "destructive"
       });
+      return;
+    }
+
+    if (!selectedItem) {
+      toast({
+        title: "No item selected",
+        description: "Please select an item from your wardrobe first.",
+        variant: "destructive"
+      });
+      return;
     }
 
     setLoading(true);
     try {
       console.log('Calling generate-outfit with:', {
         occasion: selectedOccasion,
-        dressCode: selectedDressCode,
+        selectedItemId: selectedItem.id,
         itemCount: wardrobeItems.length
       });
 
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
           occasion: selectedOccasion,
-          dressCode: selectedDressCode,
+          selectedItem: selectedItem,
           weatherContext: "Comfortable",
           userItems: wardrobeItems
         }
@@ -82,11 +109,33 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
       }
 
       console.log('Generated outfit:', data);
-      setOutfit(data.outfit);
+      
+      // Check if outfit has AI suggestions
+      const hasAiSuggestions = Object.values(data.outfit).some(
+        (item: any) => item && !item.useExisting
+      );
+      
+      if (hasAiSuggestions) {
+        setAiGenerationCount(prev => prev + 1);
+      }
+
+      setOutfits(prev => [...prev, data]);
+      setCurrentOutfitIndex(outfits.length);
+      
       toast({
         title: "Outfit generated!",
         description: data.reasoning,
       });
+
+      // After 3 AI generations, prompt to upload items
+      if (aiGenerationCount >= 2 && hasAiSuggestions) {
+        setTimeout(() => {
+          toast({
+            title: "Complete your wardrobe",
+            description: "Upload the missing items to get even better outfit suggestions!",
+          });
+        }, 2000);
+      }
     } catch (error) {
       console.error('Error generating outfit:', error);
       toast({
@@ -100,7 +149,7 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
   };
 
   const saveOutfit = async () => {
-    if (!outfit || !outfitName.trim()) return;
+    if (!currentOutfit || !outfitName.trim()) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -118,7 +167,7 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
 
       if (outfitError) throw outfitError;
 
-      const outfitItems = Object.entries(outfit)
+      const outfitItems = Object.entries(currentOutfit.outfit)
         .filter(([_, item]: any) => item)
         .map(([type, item]: any) => ({
           outfit_id: savedOutfit.id,
@@ -151,6 +200,16 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
     }
   };
 
+  const currentOutfit = outfits[currentOutfitIndex];
+
+  const navigateOutfit = (direction: 'prev' | 'next') => {
+    if (direction === 'prev' && currentOutfitIndex > 0) {
+      setCurrentOutfitIndex(prev => prev - 1);
+    } else if (direction === 'next' && currentOutfitIndex < outfits.length - 1) {
+      setCurrentOutfitIndex(prev => prev + 1);
+    }
+  };
+
   const renderOutfitItem = (type: string, item: any) => {
     if (!item) return null;
 
@@ -171,7 +230,7 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
           )}
         </div>
         
-        <div className="aspect-square bg-muted/20 rounded-lg flex items-center justify-center overflow-hidden">
+        <div className="aspect-square bg-white rounded-lg flex items-center justify-center overflow-hidden">
           {wardrobeItem?.processed_image_url ? (
             <img 
               src={wardrobeItem.processed_image_url} 
@@ -197,18 +256,40 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
     );
   };
 
+  if (!selectedItem) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col h-full p-4 space-y-4">
       <div className="space-y-2">
         <h2 className="text-2xl font-bold text-gradient-primary">Generate Outfits</h2>
         <p className="text-sm text-muted-foreground">
-          Create complete looks from your wardrobe
+          Build complete looks around your selected item
         </p>
+      </div>
+
+      {/* Selected Item */}
+      <div className="glass-card p-4 rounded-xl">
+        <p className="text-sm font-medium mb-2">Selected Item</p>
+        <div className="flex items-center gap-3">
+          <div className="w-20 h-20 bg-white rounded-lg flex items-center justify-center overflow-hidden">
+            <img
+              src={selectedItem.processed_image_url}
+              alt={selectedItem.name}
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <p className="font-medium">{selectedItem.name}</p>
+            <p className="text-xs text-muted-foreground">{selectedItem.category}</p>
+          </div>
+        </div>
       </div>
 
       {/* Occasion Selection */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Occasion</label>
+        <label className="text-sm font-medium">Occasion *</label>
         <div className="flex flex-wrap gap-2">
           {occasions.map(occasion => (
             <Badge
@@ -218,23 +299,6 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
               onClick={() => setSelectedOccasion(occasion)}
             >
               {occasion}
-            </Badge>
-          ))}
-        </div>
-      </div>
-
-      {/* Dress Code */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Dress Code</label>
-        <div className="flex flex-wrap gap-2">
-          {dressCodes.map(code => (
-            <Badge
-              key={code}
-              variant={selectedDressCode === code ? "secondary" : "outline"}
-              className="cursor-pointer"
-              onClick={() => setSelectedDressCode(code)}
-            >
-              {code}
             </Badge>
           ))}
         </div>
@@ -256,25 +320,48 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
                 <p className="text-muted-foreground">Creating your perfect look...</p>
               </div>
             </motion.div>
-          ) : outfit ? (
+          ) : currentOutfit ? (
             <motion.div
-              key="outfit"
+              key={`outfit-${currentOutfitIndex}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="space-y-4"
             >
-              <div className="text-center py-2">
+              <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   Here's a clean balanced look for your event. Wanna see how it looks on you? Hit Try On!
                 </p>
+                {outfits.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigateOutfit('prev')}
+                      disabled={currentOutfitIndex === 0}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {currentOutfitIndex + 1} / {outfits.length}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigateOutfit('next')}
+                      disabled={currentOutfitIndex === outfits.length - 1}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
-                {renderOutfitItem('top', outfit.top)}
-                {renderOutfitItem('bottom', outfit.bottom)}
-                {renderOutfitItem('layer', outfit.layer)}
-                {renderOutfitItem('shoes', outfit.shoes)}
-                {renderOutfitItem('accessories', outfit.accessories)}
+                {renderOutfitItem('top', currentOutfit.outfit.top)}
+                {renderOutfitItem('bottom', currentOutfit.outfit.bottom)}
+                {renderOutfitItem('layer', currentOutfit.outfit.layer)}
+                {renderOutfitItem('shoes', currentOutfit.outfit.shoes)}
+                {renderOutfitItem('accessories', currentOutfit.outfit.accessories)}
               </div>
             </motion.div>
           ) : (
@@ -287,9 +374,7 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
               <div className="text-center space-y-4">
                 <Sparkles className="w-16 h-16 mx-auto text-muted-foreground" />
                 <p className="text-muted-foreground">
-                  {wardrobeItems.length === 0 
-                    ? "Your wardrobe is empty. Add items (don't be lazy :P)" 
-                    : "Ready to create your look?"}
+                  Select an occasion and generate your first look!
                 </p>
               </div>
             </motion.div>
@@ -301,14 +386,22 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
       <div className="flex gap-2">
         <Button
           variant="outline"
+          onClick={onTryAnother}
+          disabled={loading}
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Try Another Item
+        </Button>
+        <Button
+          variant="outline"
           className="flex-1"
           onClick={generateOutfit}
-          disabled={loading || wardrobeItems.length === 0}
+          disabled={loading || !selectedOccasion}
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-          {outfit ? "Show me more combos" : "Generate New"}
+          Generate New
         </Button>
-        {outfit && (
+        {currentOutfit && (
           <>
             <Button
               variant="secondary"

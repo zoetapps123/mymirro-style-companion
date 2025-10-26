@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 
 interface WardrobeHubProps {
-  onNavigate: (view: 'upload' | 'generate' | 'calendar') => void;
+  onNavigate: (view: 'upload' | 'generate' | 'calendar' | 'select-item') => void;
 }
 
 const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
@@ -47,7 +47,7 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       icon: Sparkles,
       title: "Generate Outfits",
       description: "Create complete looks from your items.",
-      action: () => onNavigate('generate'),
+      action: () => onNavigate('select-item'),
       disabled: false,
       disabledTooltip: undefined,
       emptyMessage: itemCount === 0 ? "Add items or generate with AI suggestions." : null,

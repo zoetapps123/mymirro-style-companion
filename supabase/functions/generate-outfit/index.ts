@@ -13,35 +13,45 @@ serve(async (req) => {
   }
 
   try {
-    const { occasion, weatherContext, dressCode, userItems } = await req.json();
+    const { occasion, weatherContext, selectedItem, userItems } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Generating outfit for:', { occasion, weatherContext, dressCode, itemCount: userItems?.length });
+    console.log('Generating outfit for:', { occasion, weatherContext, selectedItem: selectedItem?.name, itemCount: userItems?.length });
 
-    // Build outfit generation prompt
+    // Build outfit generation prompt anchored on selected item
     const prompt = `You are a professional fashion stylist. Generate a complete outfit for the following:
 
 Occasion: ${occasion || 'Casual Day Out'}
 Weather: ${weatherContext || 'Comfortable'}
-Dress Code: ${dressCode || 'Relaxed'}
 
-${userItems?.length > 0 ? `Available wardrobe items:
-${userItems.map((item: any) => `- ${item.name} (${item.category}, ${item.color})`).join('\n')}` : 'No wardrobe items available yet.'}
+SELECTED ANCHOR ITEM (MUST USE):
+- ${selectedItem.name} (${selectedItem.category}, ${selectedItem.color})
 
-Create a complete outfit suggestion with the following categories:
-1. Top wear
-2. Bottom wear  
-3. Layer (optional)
-4. Shoes
-5. Accessories (optional)
+${userItems?.length > 0 ? `Available wardrobe items to pair with:
+${userItems.filter((item: any) => item.id !== selectedItem.id).map((item: any) => `- ${item.name} (${item.category}, ${item.color})`).join('\n')}` : 'No other wardrobe items available.'}
+
+Create a complete outfit that INCLUDES the selected anchor item and pairs it with:
+1. Top wear (if anchor is not top)
+2. Bottom wear (if anchor is not bottom)
+3. Layer (optional, if anchor is not layer)
+4. Shoes (if anchor is not shoes)
+5. Accessories (optional, if anchor is not accessories)
+
+IMPORTANT RULES:
+1. ALWAYS use the selected anchor item in its appropriate category
+2. FIRST try to complete the outfit using available wardrobe items
+3. ONLY suggest AI completions if no suitable wardrobe items exist for a category
+4. Prioritize items that complement the anchor item's color and style
+5. Ensure the complete outfit is appropriate for the occasion
 
 For each piece:
-- If a user item matches well, specify which one to use
-- If no suitable item exists in wardrobe, suggest an AI completion with specific description
+- If using the anchor item, set useExisting=true and use its ID
+- If a wardrobe item matches well, set useExisting=true with that item's ID
+- If no suitable wardrobe item exists, set useExisting=false and provide a specific AI suggestion
 
 Return your response as a structured outfit plan.`;
 
