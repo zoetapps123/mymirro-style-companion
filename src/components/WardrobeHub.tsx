@@ -6,12 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 
 interface WardrobeHubProps {
-  onNavigate: (view: 'upload' | 'generate' | 'calendar' | 'select-item') => void;
+  onNavigate: (view: 'upload' | 'generate' | 'calendar') => void;
 }
 
 const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
   const [itemCount, setItemCount] = useState(0);
   const [outfitCount, setOutfitCount] = useState(0);
+  const [categoryCount, setCategoryCount] = useState({ tops: 0, bottoms: 0 });
 
   useEffect(() => {
     fetchCounts();
@@ -26,11 +27,25 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       .from('outfits')
       .select('id', { count: 'exact', head: true });
 
+    // Get category counts
+    const { data: categoryData } = await supabase
+      .from('wardrobe_items')
+      .select('category');
+    
+    const tops = categoryData?.filter(item => 
+      item.category === 'Tops' || item.category === 'Shirts'
+    ).length || 0;
+    
+    const bottoms = categoryData?.filter(item => 
+      item.category === 'Bottoms' || item.category === 'Pants' || item.category === 'Skirts'
+    ).length || 0;
+
     if (itemsError) console.error('Failed to count wardrobe_items:', itemsError);
     if (outfitsError) console.error('Failed to count outfits:', outfitsError);
 
     setItemCount(itemsCount || 0);
     setOutfitCount(outfitsCount || 0);
+    setCategoryCount({ tops, bottoms });
   };
 
   const cards = [
@@ -47,11 +62,13 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
     {
       icon: Sparkles,
       title: "Generate Outfits",
-      description: "Create complete looks from your items.",
-      action: () => onNavigate('select-item'),
-      disabled: false,
-      disabledTooltip: undefined,
-      emptyMessage: itemCount === 0 ? "Add items or generate with AI suggestions." : null,
+      description: "Auto-create looks by style, occasion, and items.",
+      action: () => onNavigate('generate'),
+      disabled: categoryCount.tops < 3 || categoryCount.bottoms < 3,
+      disabledTooltip: `Need ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock`,
+      emptyMessage: (categoryCount.tops < 3 || categoryCount.bottoms < 3) 
+        ? `Add ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock this feature.`
+        : null,
       gradient: "from-accent/20 to-accent/5"
     },
     {
@@ -93,8 +110,8 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
               transition={{ delay: index * 0.1 }}
             >
               <Card 
-                className={`glass-card hover:glow-primary transition-all cursor-pointer relative overflow-hidden active:scale-[0.98] ${
-                  card.disabled ? 'opacity-60' : ''
+                className={`glass-card hover:glow-primary transition-all relative overflow-hidden ${
+                  card.disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'
                 }`}
                 onClick={card.disabled ? undefined : card.action}
               >

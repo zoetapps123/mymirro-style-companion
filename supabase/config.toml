@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.tryon-outfit]
 verify_jwt = false
+
+[functions.auto-generate-outfits]
+verify_jwt = false
