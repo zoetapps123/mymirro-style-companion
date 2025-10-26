@@ -84,6 +84,13 @@ const PlanLooks = ({ onBack }: PlanLooksProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      console.log('Creating event:', {
+        title: eventForm.title,
+        occasion: eventForm.occasion,
+        place: eventForm.place,
+        date: format(date, 'yyyy-MM-dd')
+      });
+
       const { data: event, error: eventError } = await supabase
         .from('events')
         .insert({
@@ -97,7 +104,12 @@ const PlanLooks = ({ onBack }: PlanLooksProps) => {
         .select()
         .single();
 
-      if (eventError) throw eventError;
+      if (eventError) {
+        console.error('Event creation error:', eventError);
+        throw eventError;
+      }
+
+      console.log('Event created:', event);
 
       if (eventForm.outfitId) {
         const { error: outfitError } = await supabase
@@ -108,12 +120,15 @@ const PlanLooks = ({ onBack }: PlanLooksProps) => {
             event_date: format(date, 'yyyy-MM-dd')
           });
 
-        if (outfitError) throw outfitError;
+        if (outfitError) {
+          console.error('Outfit link error:', outfitError);
+          throw outfitError;
+        }
       }
 
       toast({
         title: "Event scheduled!",
-        description: "Your calendar just got stylish.",
+        description: "Plan complete! Your calendar just got stylish.",
       });
 
       setShowEventDialog(false);

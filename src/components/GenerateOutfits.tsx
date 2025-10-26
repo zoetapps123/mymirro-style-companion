@@ -52,8 +52,23 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
   };
 
   const generateOutfit = async () => {
+    if (wardrobeItems.length === 0) {
+      toast({
+        title: "Empty wardrobe",
+        description: "Your wardrobe is empty. Add items (don't be lazy :P)",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('Calling generate-outfit with:', {
+        occasion: selectedOccasion,
+        dressCode: selectedDressCode,
+        itemCount: wardrobeItems.length
+      });
+
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
           occasion: selectedOccasion,
@@ -63,8 +78,12 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Generate outfit error:', error);
+        throw error;
+      }
 
+      console.log('Generated outfit:', data);
       setOutfit(data.outfit);
       toast({
         title: "Outfit generated!",
@@ -245,13 +264,20 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid grid-cols-2 gap-4"
+              className="space-y-4"
             >
-              {renderOutfitItem('top', outfit.top)}
-              {renderOutfitItem('bottom', outfit.bottom)}
-              {renderOutfitItem('layer', outfit.layer)}
-              {renderOutfitItem('shoes', outfit.shoes)}
-              {renderOutfitItem('accessories', outfit.accessories)}
+              <div className="text-center py-2">
+                <p className="text-sm text-muted-foreground">
+                  Here's a clean balanced look for your event. Wanna see how it looks on you? Hit Try On!
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {renderOutfitItem('top', outfit.top)}
+                {renderOutfitItem('bottom', outfit.bottom)}
+                {renderOutfitItem('layer', outfit.layer)}
+                {renderOutfitItem('shoes', outfit.shoes)}
+                {renderOutfitItem('accessories', outfit.accessories)}
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -262,7 +288,11 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
             >
               <div className="text-center space-y-4">
                 <Sparkles className="w-16 h-16 mx-auto text-muted-foreground" />
-                <p className="text-muted-foreground">Ready to create your look?</p>
+                <p className="text-muted-foreground">
+                  {wardrobeItems.length === 0 
+                    ? "Your wardrobe is empty. Add items (don't be lazy :P)" 
+                    : "Ready to create your look?"}
+                </p>
               </div>
             </motion.div>
           )}
@@ -275,21 +305,31 @@ const GenerateOutfits = ({ onBack }: GenerateOutfitsProps) => {
           variant="outline"
           className="flex-1"
           onClick={generateOutfit}
-          disabled={loading}
+          disabled={loading || wardrobeItems.length === 0}
         >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          Generate New
+          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+          {outfit ? "Show me more combos" : "Generate New"}
         </Button>
         {outfit && (
           <>
             <Button
               variant="secondary"
               onClick={() => setShowSaveDialog(true)}
+              disabled={loading}
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 mr-2" />
+              Save
             </Button>
-            <Button variant="secondary">
-              <Camera className="w-4 h-4" />
+            <Button 
+              variant="secondary"
+              disabled={loading}
+              onClick={() => toast({
+                title: "Try On coming soon!",
+                description: "Upload a clear photo in good light, bro/girl — trust me, your fit deserves it :P"
+              })}
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              Try On
             </Button>
           </>
         )}
