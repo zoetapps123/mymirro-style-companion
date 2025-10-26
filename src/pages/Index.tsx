@@ -132,20 +132,20 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden fixed inset-0">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Fixed Header */}
-      <header className="glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between min-h-[56px] flex-shrink-0 sticky top-0 z-50">
+      <header className="glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between min-h-[56px] flex-shrink-0 fixed top-0 left-0 right-0 z-50">
         <h1 className="text-xl font-bold text-gradient-primary">MyMirro</h1>
         <p className="text-xs text-muted-foreground hidden sm:block">Your AI Stylist Companion</p>
       </header>
 
-      {/* Scrollable Main Content */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+      {/* Scrollable Main Content with proper spacing */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-[56px] pb-[72px]" style={{ WebkitOverflowScrolling: 'touch' }}>
         {renderContent()}
       </main>
 
       {/* Fixed Bottom Navigation - Mobile Native */}
-      <nav className="glass-card border-t border-border/50 px-2 flex items-center justify-around flex-shrink-0 sticky bottom-0 z-50" style={{ paddingTop: '0.5rem', paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
+      <nav className="glass-card border-t border-border/50 px-2 flex items-center justify-around flex-shrink-0 fixed bottom-0 left-0 right-0 z-50" style={{ paddingTop: '0.5rem', paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
