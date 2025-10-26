@@ -62,7 +62,6 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-pro',
-          response_format: { type: 'json_object' },
           messages: [
             {
               role: 'user',
