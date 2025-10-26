@@ -39,8 +39,6 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   const [styleOutfits, setStyleOutfits] = useState<Outfit[]>([]);
   const [occasionOutfits, setOccasionOutfits] = useState<Outfit[]>([]);
-  const [itemBasedOutfits, setItemBasedOutfits] = useState<Outfit[]>([]);
-  const [selectedCenterItem, setSelectedCenterItem] = useState<WardrobeItem | null>(null);
   const [editingOutfit, setEditingOutfit] = useState<Outfit | null>(null);
 
   useEffect(() => {
@@ -73,11 +71,6 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
       setStyleOutfits(data.styleOutfits || []);
       setOccasionOutfits(data.occasionOutfits || []);
-      setItemBasedOutfits(data.itemBasedOutfits || []);
-      
-      if (wardrobeItems.length > 0) {
-        setSelectedCenterItem(wardrobeItems[0]);
-      }
     } catch (error) {
       console.error('Error generating outfits:', error);
       toast({
@@ -90,36 +83,6 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     }
   };
 
-  const updateItemBasedOutfits = (centerItem: WardrobeItem) => {
-    setSelectedCenterItem(centerItem);
-    // Filter outfits that include this item
-    const filtered = itemBasedOutfits.filter(outfit =>
-      outfit.items.some(item => item.id === centerItem.id)
-    );
-    if (filtered.length === 0) {
-      // Generate new outfits for this item
-      generateOutfitsForItem(centerItem);
-    }
-  };
-
-  const generateOutfitsForItem = async (item: WardrobeItem) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('auto-generate-outfits', {
-        body: { 
-          items: wardrobeItems,
-          focusItem: item 
-        }
-      });
-
-      if (error) throw error;
-      setItemBasedOutfits(data.itemBasedOutfits || []);
-    } catch (error) {
-      console.error('Error generating item-based outfits:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const renderOutfitTemplate = (outfit: Outfit) => (
     <div 
@@ -200,53 +163,6 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
               <CarouselPrevious />
               <CarouselNext />
             </Carousel>
-          </div>
-
-          {/* Item-based Section */}
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold">By Item</h3>
-            
-            {/* Item Carousel */}
-            <Carousel className="w-full">
-              <CarouselContent>
-                {wardrobeItems.map((item) => (
-                  <CarouselItem 
-                    key={item.id} 
-                    className="basis-1/4 md:basis-1/6"
-                    onClick={() => updateItemBasedOutfits(item)}
-                  >
-                    <div className={`bg-white rounded-lg p-2 cursor-pointer transition-all ${
-                      selectedCenterItem?.id === item.id ? 'ring-2 ring-primary' : ''
-                    }`}>
-                      <div className="aspect-square">
-                        <img
-                          src={item.processed_image_url}
-                          alt={item.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
-
-            {/* Outfit Carousel for selected item */}
-            {selectedCenterItem && (
-              <Carousel className="w-full mt-4">
-                <CarouselContent>
-                  {itemBasedOutfits.map((outfit) => (
-                    <CarouselItem key={outfit.id} className="basis-1/2 md:basis-1/3">
-                      {renderOutfitTemplate(outfit)}
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <CarouselPrevious />
-                <CarouselNext />
-              </Carousel>
-            )}
           </div>
         </>
       )}

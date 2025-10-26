@@ -12,14 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { items, focusItem } = await req.json();
+    const { items } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Auto-generating outfits with:', { itemCount: items?.length, focusItem: focusItem?.name });
+    console.log('Auto-generating outfits with:', { itemCount: items?.length });
 
     // Separate items by category
     const tops = items.filter((item: any) => item.category === 'Tops' || item.category === 'Shirts');
@@ -28,26 +28,42 @@ serve(async (req) => {
     const accessories = items.filter((item: any) => item.category === 'Accessories');
     const layers = items.filter((item: any) => item.category === 'Layers' || item.category === 'Jackets');
 
-    const prompt = `You are a professional fashion stylist. Create outfit combinations using the following wardrobe items:
+    const prompt = `You are a professional fashion stylist with deep knowledge of fashion trends, color theory, and style principles. Create curated outfit combinations using the following wardrobe items:
 
-TOPS (${tops.length}): ${tops.map((t: any) => `${t.name} (${t.color})`).join(', ')}
-BOTTOMS (${bottoms.length}): ${bottoms.map((b: any) => `${b.name} (${b.color})`).join(', ')}
-SHOES (${shoes.length}): ${shoes.map((s: any) => `${s.name} (${s.color})`).join(', ')}
-ACCESSORIES (${accessories.length}): ${accessories.map((a: any) => `${a.name} (${a.color})`).join(', ')}
-LAYERS (${layers.length}): ${layers.map((l: any) => `${l.name} (${l.color})`).join(', ')}
+TOPS (${tops.length}): ${tops.map((t: any) => `ID:${t.id} - ${t.name} (${t.color})`).join(', ')}
+BOTTOMS (${bottoms.length}): ${bottoms.map((b: any) => `ID:${b.id} - ${b.name} (${b.color})`).join(', ')}
+SHOES (${shoes.length}): ${shoes.map((s: any) => `ID:${s.id} - ${s.name} (${s.color})`).join(', ')}
+ACCESSORIES (${accessories.length}): ${accessories.map((a: any) => `ID:${a.id} - ${a.name} (${a.color})`).join(', ')}
+LAYERS (${layers.length}): ${layers.map((l: any) => `ID:${l.id} - ${l.name} (${l.color})`).join(', ')}
 
-${focusItem ? `FOCUS on creating outfits that include: ${focusItem.name} (${focusItem.category})` : ''}
+CRITICAL RULES:
+1. NEVER include more than ONE item from the same category in a single outfit (e.g., no two tops, no two bottoms)
+2. Each outfit must be complete and wearable
+3. Ensure color coordination and style consistency
+4. Give each outfit a creative, descriptive name that reflects its vibe (e.g., "Urban Edge", "Elegant Evening", "Coastal Breeze")
 
 Create 5 complete outfits for each category:
-1. STYLE-BASED: Create outfits for different style aesthetics (Casual, Smart-Casual, Formal, Sporty, Trendy)
-2. OCCASION-BASED: Create outfits for different occasions (Work, Date Night, Weekend, Party, Travel)
-3. ITEM-BASED: Create outfits centered around key pieces
+
+1. STYLE-BASED OUTFITS:
+   - Minimalist Chic: Clean lines, neutral colors, timeless pieces
+   - Street Style Edge: Urban, trendy, bold combinations
+   - Classic Sophistication: Timeless, polished, elegant
+   - Casual Comfort: Relaxed, easy-going, everyday wear
+   - Bold & Trendy: Fashion-forward, statement-making, current trends
+
+2. OCCASION-BASED OUTFITS:
+   - Professional Power: Office-appropriate, confident, polished
+   - Date Night Allure: Romantic, stylish, attention-grabbing
+   - Weekend Ease: Comfortable, casual, effortless
+   - Social Scene: Party-ready, fun, eye-catching
+   - Travel Ready: Versatile, comfortable, stylish
 
 For each outfit:
-- Select 3-5 items that work well together
-- Ensure color coordination and style consistency
-- Include item IDs from the wardrobe
-- Label each outfit appropriately
+- Select 3-5 items from DIFFERENT categories only
+- Ensure excellent color coordination
+- Match the style aesthetic or occasion perfectly
+- Use item IDs from the wardrobe
+- Give it a creative, curated name
 
 Return structured outfit data.`;
 
@@ -96,26 +112,14 @@ Return structured outfit data.`;
                       type: 'object',
                       properties: {
                         id: { type: 'string' },
-                        label: { type: 'string' },
+                        label: { type: 'string', description: 'Creative, descriptive outfit name' },
                         itemIds: { type: 'array', items: { type: 'string' } },
                         type: { type: 'string', enum: ['occasion'] }
                       }
                     }
-                  },
-                  itemBasedOutfits: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        id: { type: 'string' },
-                        label: { type: 'string' },
-                        itemIds: { type: 'array', items: { type: 'string' } },
-                        type: { type: 'string', enum: ['item'] }
-                      }
-                    }
                   }
                 },
-                required: ['styleOutfits', 'occasionOutfits', 'itemBasedOutfits']
+                required: ['styleOutfits', 'occasionOutfits']
               }
             }
           }
@@ -142,8 +146,7 @@ Return structured outfit data.`;
 
     const result = {
       styleOutfits: mapOutfits(outfitData.styleOutfits || []),
-      occasionOutfits: mapOutfits(outfitData.occasionOutfits || []),
-      itemBasedOutfits: mapOutfits(outfitData.itemBasedOutfits || [])
+      occasionOutfits: mapOutfits(outfitData.occasionOutfits || [])
     };
 
     return new Response(
