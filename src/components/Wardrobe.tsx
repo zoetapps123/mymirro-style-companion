@@ -29,12 +29,12 @@ const Wardrobe = () => {
   return (
     <div className="flex flex-col h-full">
       {currentView !== 'hub' && (
-        <div className="p-4 border-b border-border/50">
+        <div className="p-3 sm:p-4 border-b border-border/50">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setCurrentView('hub')}
-            className="gap-2"
+            className="gap-2 min-h-[44px]"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Wardrobe

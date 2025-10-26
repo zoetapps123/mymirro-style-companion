@@ -369,10 +369,10 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full p-4 space-y-4">
+    <div className="flex flex-col h-full p-3 sm:p-4 space-y-3 sm:space-y-4 pb-safe">
       {scanning && uploadedImage && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card rounded-3xl p-8 max-w-md w-full space-y-6">
+          <div className="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-4 sm:space-y-6">
             <div className="relative">
               <img src={uploadedImage} alt="Analyzing" className="w-full aspect-square object-cover rounded-2xl" />
               <div className="absolute inset-0 rounded-2xl overflow-hidden">
@@ -380,28 +380,28 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               </div>
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-xl font-bold text-gradient-accent">Scoring Your Fit</h3>
-              <p className="text-sm text-muted-foreground">Analyzing color, fit, texture, and style...</p>
+              <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Scoring Your Fit</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Analyzing color, fit, texture, and style...</p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-gradient-accent">Outfit Check</h2>
-        <p className="text-sm text-muted-foreground">Pro score and quick fixes for your look</p>
+      <div className="space-y-1">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gradient-accent">Outfit Check</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">Pro score and quick fixes for your look</p>
       </div>
 
       {!result && (
         <>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Where are you heading?</label>
-            <div className="flex flex-wrap gap-2">
+            <label className="text-xs sm:text-sm font-medium">Where are you heading?</label>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {occasions.map(occasion => (
                 <Badge
                   key={occasion}
                   variant={selectedOccasion === occasion ? "default" : "outline"}
-                  className="cursor-pointer"
+                  className="cursor-pointer text-[11px] sm:text-xs px-2 sm:px-3 py-1 min-h-[32px] active:scale-95"
                   onClick={() => setSelectedOccasion(occasion)}
                 >
                   {occasion}
@@ -431,20 +431,20 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               }
               if (!loading) fileInputRef.current?.click();
             }}
-            className={`glass-card rounded-2xl p-8 border-2 border-dashed text-center space-y-4 transition-all ${
+            className={`glass-card rounded-2xl p-6 sm:p-8 border-2 border-dashed text-center space-y-3 sm:space-y-4 transition-all active:scale-[0.98] ${
               selectedOccasion 
                 ? "border-accent/50 hover:border-accent cursor-pointer" 
                 : "border-border/30 opacity-60 cursor-not-allowed"
             }`}
           >
-            <div className="mx-auto w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center">
-              <Camera className="w-8 h-8 text-accent" />
+            <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-accent/20 flex items-center justify-center">
+              <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
             </div>
             <div>
-              <h3 className="font-semibold mb-1">
+              <h3 className="text-sm sm:text-base font-semibold mb-1">
                 {selectedOccasion ? "Upload Your Outfit" : "Select Context First"}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[11px] sm:text-xs text-muted-foreground">
                 {selectedOccasion ? "Snap or select from gallery" : "Choose where you're heading above"}
               </p>
             </div>
@@ -456,68 +456,68 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex-1 overflow-auto space-y-4"
+          className="flex-1 overflow-auto space-y-3 sm:space-y-4"
         >
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <div className="relative rounded-xl overflow-hidden">
+          <div className="glass-card rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+            <div className="relative rounded-xl overflow-hidden max-w-sm mx-auto">
               <img src={result.image_url} alt="Your outfit" className="w-full aspect-square object-cover" />
-              <div className="absolute top-4 right-4 glass-card px-4 py-2 rounded-full">
-                <span className="text-2xl font-bold text-gradient-accent">{result.overall_score.toFixed(1)}</span>
+              <div className="absolute top-3 right-3 glass-card px-3 py-1.5 sm:px-4 sm:py-2 rounded-full">
+                <span className="text-xl sm:text-2xl font-bold text-gradient-accent">{result.overall_score.toFixed(1)}</span>
               </div>
             </div>
 
             <div className="text-center">
-              <h3 className="text-2xl font-bold text-gradient-primary mb-1">{result.outfit_name}</h3>
-              <p className="text-sm text-muted-foreground">Here's your outfit score</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-gradient-primary mb-1">{result.outfit_name}</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Here's your outfit score</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {[
                 { label: "Color", score: result.color_score },
                 { label: "Fit", score: result.fit_score },
                 { label: "Texture", score: result.texture_score },
                 { label: "Occasion", score: result.occasion_score },
               ].map((item) => (
-                <div key={item.label} className="bg-muted/20 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                  <p className="text-lg font-bold text-accent">{item.score.toFixed(1)}</p>
+                <div key={item.label} className="bg-muted/20 rounded-lg p-2.5 sm:p-3">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground mb-1">{item.label}</p>
+                  <p className="text-lg sm:text-xl font-bold text-accent">{item.score.toFixed(1)}</p>
                 </div>
               ))}
             </div>
 
-            <div className="pt-4 border-t border-border/50 space-y-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-base font-semibold mb-2 text-accent">What works</p>
-                  <p className="text-sm leading-relaxed">{result.what_works || result.verdict_positive}</p>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+                  <h4 className="text-sm sm:text-base font-semibold">What Works</h4>
                 </div>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {result.what_works || result.verdict_positive || "Overall, your outfit has strong elements."}
+                </p>
               </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-6 h-6 text-muted-foreground mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-base font-semibold mb-2">What could be better</p>
-                  <p className="text-sm leading-relaxed">{result.what_could_be_better || result.verdict_improvements}</p>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  <h4 className="text-sm sm:text-base font-semibold">Could Be Better</h4>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-6 h-6 text-primary mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-base font-semibold mb-2 text-primary">Quick fixes</p>
-                  <p className="text-sm leading-relaxed">{result.quick_fixes || ''}</p>
-                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."}
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-4">
-              <Button variant="outline" onClick={extractToWardrobe} disabled={loading}>
-                <Package className="w-4 h-4" />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 min-h-[44px] text-sm" onClick={handleShare}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
               </Button>
-              <Button variant="outline" onClick={handleShare}>
-                <Share2 className="w-4 h-4" />
-              </Button>
-              <Button onClick={() => { setResult(null); setUploadedImage(null); }}>
-                Try Another
+              <Button variant="default" className="flex-1 min-h-[44px] text-sm" onClick={() => {
+                setResult(null);
+                setUploadedImage(null);
+                setSelectedOccasion(null);
+              }}>
+                Check Another
               </Button>
             </div>
           </div>

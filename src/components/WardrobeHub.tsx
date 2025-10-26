@@ -1,6 +1,7 @@
 import { Camera, Sparkles, Calendar, Upload } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -55,6 +56,7 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       description: "Click or upload to digitize your wardrobe.",
       action: () => onNavigate('upload'),
       disabled: false,
+      comingSoon: false,
       emptyMessage: itemCount === 0 ? "Your wardrobe is empty. Add items (don't be lazy :P)" : null,
       gradient: "from-primary/20 to-primary/5",
       showCount: true
@@ -65,6 +67,7 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       description: "Auto-create looks by style, occasion, and items.",
       action: () => onNavigate('generate'),
       disabled: categoryCount.tops < 3 || categoryCount.bottoms < 3,
+      comingSoon: false,
       disabledTooltip: `Need ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock`,
       emptyMessage: (categoryCount.tops < 3 || categoryCount.bottoms < 3) 
         ? `Add ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock this feature.`
@@ -75,10 +78,11 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       icon: Calendar,
       title: "Plan your looks",
       description: "Schedule outfits on your calendar.",
-      action: () => onNavigate('calendar'),
-      disabled: false,
+      action: () => {},
+      disabled: true,
+      comingSoon: true,
       disabledTooltip: undefined,
-      emptyMessage: outfitCount === 0 ? "No saved looks yet — you can still plan and generate inline." : null,
+      emptyMessage: null,
       gradient: "from-secondary/20 to-secondary/5"
     }
   ];
@@ -122,8 +126,13 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
                       <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <CardTitle className="text-base sm:text-lg flex items-center gap-2 flex-wrap">
                         {card.title}
+                        {card.comingSoon && (
+                          <Badge variant="secondary" className="text-[10px] sm:text-xs px-2 py-0.5">
+                            Coming Soon
+                          </Badge>
+                        )}
                         {card.showCount && (
                           <span className="text-xs text-muted-foreground font-normal">
                             {itemCount} {itemCount === 1 ? 'item' : 'items'}
@@ -146,8 +155,9 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
                     variant="secondary"
                     className="w-full glow-accent min-h-[44px] text-sm"
                     onClick={card.action}
+                    disabled={card.disabled}
                   >
-                    Get Started
+                    {card.comingSoon ? "Coming Soon" : "Get Started"}
                   </Button>
                 </CardContent>
               </Card>
