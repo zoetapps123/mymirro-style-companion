@@ -66,6 +66,13 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
     letter-spacing: -0.01em;
     overflow-x: hidden;
+    /* Native mobile styling */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent pull-to-refresh */
+    overscroll-behavior-y: none;
+    /* Safe area support for notched devices */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -82,14 +89,29 @@ All colors MUST be HSL.
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
-  /* Hide scrollbar but keep functionality */
+  /* Native mobile scrolling */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Disable tap highlight on mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Native button feel */
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
   }
 }
 

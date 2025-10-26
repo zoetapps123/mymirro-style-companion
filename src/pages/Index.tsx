@@ -132,20 +132,20 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Header */}
-      <header className="glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between min-h-[56px]">
+    <div className="flex flex-col h-screen bg-background overflow-hidden fixed inset-0">
+      {/* Fixed Header */}
+      <header className="glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between min-h-[56px] flex-shrink-0 sticky top-0 z-50">
         <h1 className="text-xl font-bold text-gradient-primary">MyMirro</h1>
         <p className="text-xs text-muted-foreground hidden sm:block">Your AI Stylist Companion</p>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Scrollable Main Content */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
         {renderContent()}
       </main>
 
-      {/* Bottom Navigation - Mobile Optimized */}
-      <nav className="glass-card border-t border-border/50 px-2 py-2 flex items-center justify-around safe-area-bottom">
+      {/* Fixed Bottom Navigation - Mobile Native */}
+      <nav className="glass-card border-t border-border/50 px-2 flex items-center justify-around flex-shrink-0 sticky bottom-0 z-50" style={{ paddingTop: '0.5rem', paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -153,10 +153,10 @@ const Index = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-[64px] min-h-[56px] ${
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-[64px] min-h-[56px] active:scale-95 ${
                 isActive
                   ? "text-primary glow-primary"
-                  : "text-muted-foreground hover:text-foreground active:scale-95"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Icon className={`w-6 h-6 ${isActive ? "scale-110" : ""} transition-transform`} />
