@@ -47,7 +47,18 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
   useEffect(() => {
     if (wardrobeItems.length >= 6) {
-      generateAllOutfits();
+      // Load previously generated outfits from localStorage
+      const savedStyleOutfits = localStorage.getItem('auto_generated_style_outfits');
+      const savedOccasionOutfits = localStorage.getItem('auto_generated_occasion_outfits');
+      
+      if (savedStyleOutfits && savedOccasionOutfits) {
+        // Load saved outfits
+        setStyleOutfits(JSON.parse(savedStyleOutfits));
+        setOccasionOutfits(JSON.parse(savedOccasionOutfits));
+      } else {
+        // Generate for the first time only
+        generateAllOutfits();
+      }
     }
   }, [wardrobeItems]);
 
@@ -71,6 +82,10 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
       setStyleOutfits(data.styleOutfits || []);
       setOccasionOutfits(data.occasionOutfits || []);
+      
+      // Save to localStorage
+      localStorage.setItem('auto_generated_style_outfits', JSON.stringify(data.styleOutfits || []));
+      localStorage.setItem('auto_generated_occasion_outfits', JSON.stringify(data.occasionOutfits || []));
     } catch (error) {
       console.error('Error generating outfits:', error);
       toast({
@@ -120,11 +135,24 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
   return (
     <div className="flex flex-col h-full p-4 space-y-6 overflow-y-auto">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-gradient-primary">Auto-Generate Outfits</h2>
-        <p className="text-sm text-muted-foreground">
-          Smart outfit combinations created just for you
-        </p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-gradient-primary">Auto-Generate Outfits</h2>
+          <p className="text-sm text-muted-foreground">
+            Smart outfit combinations created just for you
+          </p>
+        </div>
+        {!loading && (styleOutfits.length > 0 || occasionOutfits.length > 0) && (
+          <Button 
+            onClick={generateAllOutfits}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            Regenerate
+          </Button>
+        )}
       </div>
 
       {loading ? (
