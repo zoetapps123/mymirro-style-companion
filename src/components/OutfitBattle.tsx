@@ -482,7 +482,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex-1 overflow-auto space-y-4"
+          className="flex-1 overflow-auto space-y-4 pb-24"
         >
           <div className="glass-card rounded-2xl p-6 space-y-4">
             <div className="text-center space-y-4">

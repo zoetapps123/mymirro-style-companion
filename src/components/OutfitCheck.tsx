@@ -526,7 +526,7 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex-1 overflow-auto space-y-3 sm:space-y-4"
+          className="flex-1 overflow-auto space-y-3 sm:space-y-4 pb-24"
         >
           <div className="glass-card rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
             <div className="relative rounded-xl overflow-hidden max-w-sm mx-auto">
