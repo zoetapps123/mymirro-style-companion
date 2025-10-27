@@ -130,7 +130,7 @@ const Index = () => {
       <TopAppBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Scrollable Main Content with proper spacing */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-[104px]" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
         {renderContent()}
       </main>
     </div>

@@ -63,7 +63,7 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
       </div>
 
       {/* Bottom row: Navigation */}
-      <nav className="flex items-center justify-center gap-2 px-3 py-2 border-t border-border/20">
+      <nav className="flex items-center justify-around px-4 py-3 border-t border-border/20">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -72,15 +72,16 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
               key={item.id}
               onClick={() => onTabChange(item.id)}
               aria-label={item.label}
-              className={`h-10 w-10 grid place-items-center rounded-xl transition-all duration-300 active:scale-95 relative ${
+              className={`flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition-all duration-300 active:scale-95 relative min-w-[80px] ${
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Icon className={`w-5 h-5 ${isActive ? "scale-110" : ""} transition-transform`} />
+              <span className="text-[11px] font-medium leading-tight whitespace-nowrap">{item.label}</span>
               {isActive && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-gradient-to-r from-[#C86CF6] to-[#00D7C0]" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 rounded-full bg-gradient-to-r from-[#C86CF6] to-[#00D7C0]" />
               )}
             </button>
           );
