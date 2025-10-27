@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Home, Sparkles, Shirt, User } from "lucide-react";
 import AICompanion from "@/components/AICompanion";
 import Wardrobe from "@/components/Wardrobe";
 import StyleCheck from "@/components/StyleCheck";
@@ -7,9 +6,11 @@ import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
 import Auth from "@/components/Auth";
+import TopAppBar from "@/components/TopAppBar";
+import Battles from "@/components/Battles";
 import { supabase } from "@/integrations/supabase/client";
 
-type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
+type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -109,13 +110,6 @@ const Index = () => {
     );
   }
 
-  const tabs = [
-    { id: "home" as Tab, icon: Home, label: "AI Companion" },
-    { id: "wardrobe" as Tab, icon: Shirt, label: "Wardrobe" },
-    { id: "stylecheck" as Tab, icon: Sparkles, label: "Style Check" },
-    { id: "profile" as Tab, icon: User, label: "Profile" },
-  ];
-
   const renderContent = () => {
     switch (activeTab) {
       case "home":
@@ -124,6 +118,8 @@ const Index = () => {
         return <Wardrobe />;
       case "stylecheck":
         return <StyleCheck />;
+      case "battles":
+        return <Battles />;
       case "profile":
         return <Profile />;
       default:
@@ -133,38 +129,13 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Fixed Header */}
-      <header className="glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between min-h-[56px] flex-shrink-0 fixed top-0 left-0 right-0 z-50">
-        <h1 className="text-xl font-bold text-gradient-primary">MyMirro</h1>
-        <p className="text-xs text-muted-foreground hidden sm:block">Your AI Stylist Companion</p>
-      </header>
+      {/* Top App Bar */}
+      <TopAppBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Scrollable Main Content with proper spacing */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-[56px] pb-[72px]" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-[60px]" style={{ WebkitOverflowScrolling: 'touch' }}>
         {renderContent()}
       </main>
-
-      {/* Fixed Bottom Navigation - Mobile Native */}
-      <nav className="glass-card border-t border-border/50 px-2 flex items-center justify-around flex-shrink-0 fixed bottom-0 left-0 right-0 z-50" style={{ paddingTop: '0.5rem', paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-[64px] min-h-[56px] active:scale-95 ${
-                isActive
-                  ? "text-primary glow-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className={`w-6 h-6 ${isActive ? "scale-110" : ""} transition-transform`} />
-              <span className="text-[10px] sm:text-xs font-medium leading-tight">{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
     </div>
   );
 };
