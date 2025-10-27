@@ -602,9 +602,9 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
                     ? result.what_works 
                     : [result.what_works || result.verdict_positive || "Overall, your outfit has strong elements."]
                   ).map((item: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
                       <span className="text-green-500 mt-0.5">✓</span>
-                      <span className="leading-relaxed">{item}</span>
+                      <span className="leading-relaxed text-foreground">{item}</span>
                     </li>
                   ))}
                 </ul>
