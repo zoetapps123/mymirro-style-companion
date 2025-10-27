@@ -7,10 +7,9 @@ import Onboarding from "@/components/Onboarding";
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
 import Auth from "@/components/Auth";
 import TopAppBar from "@/components/TopAppBar";
-import Battles from "@/components/Battles";
 import { supabase } from "@/integrations/supabase/client";
 
-type Tab = "home" | "wardrobe" | "stylecheck" | "battles" | "profile";
+type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -118,8 +117,6 @@ const Index = () => {
         return <Wardrobe />;
       case "stylecheck":
         return <StyleCheck />;
-      case "battles":
-        return <Battles />;
       case "profile":
         return <Profile />;
       default:
@@ -133,7 +130,7 @@ const Index = () => {
       <TopAppBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Scrollable Main Content with proper spacing */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-[60px]" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pt-[104px]" style={{ WebkitOverflowScrolling: 'touch' }}>
         {renderContent()}
       </main>
     </div>
