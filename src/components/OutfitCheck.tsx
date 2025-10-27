@@ -641,9 +641,9 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
                       ? result.quick_fix 
                       : [result.quick_fix || result.quick_fixes]
                     ).map((item: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
                         <span className="text-accent mt-0.5">✨</span>
-                        <span className="leading-relaxed font-medium">{item}</span>
+                        <span className="leading-relaxed font-medium text-foreground">{item}</span>
                       </li>
                     ))}
                   </ul>
