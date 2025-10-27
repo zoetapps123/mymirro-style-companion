@@ -621,9 +621,9 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
                     ? result.what_didnt_work 
                     : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."]
                   ).map((item: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
                       <span className="text-amber-500 mt-0.5">⚠</span>
-                      <span className="leading-relaxed">{item}</span>
+                      <span className="leading-relaxed text-foreground">{item}</span>
                     </li>
                   ))}
                 </ul>
