@@ -1,4 +1,4 @@
-import { Upload, CheckCircle, Share2, Camera, Package, Shirt } from "lucide-react";
+import { Upload, CheckCircle, Share2, Camera, Package, Shirt, AlertCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRef, useState } from "react";
@@ -129,8 +129,8 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               texture_score: data.texture_score,
               occasion_score: data.occasion_score,
               outfit_name: data.outfit_name,
-              verdict_positive: data.what_works || data.verdict_positive,
-              verdict_improvements: data.what_could_be_better || data.verdict_improvements,
+              verdict_positive: Array.isArray(data.what_works) ? data.what_works.join(' | ') : (data.what_works || data.verdict_positive),
+              verdict_improvements: Array.isArray(data.what_didnt_work) ? data.what_didnt_work.join(' | ') : (data.what_didnt_work || data.what_could_be_better || data.verdict_improvements),
               occasion: selectedOccasion
             });
 
@@ -379,11 +379,13 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
     });
 
     // Positive message
-    const positiveText = result.what_works || result.verdict_positive || '';
+    const whatWorksText = Array.isArray(result.what_works) 
+      ? result.what_works.join(' • ') 
+      : (result.what_works || result.verdict_positive || '');
     ctx.fillStyle = 'hsl(180, 65%, 45%)';
     ctx.font = '28px sans-serif';
     ctx.textAlign = 'center';
-    const words = positiveText.split(' ');
+    const words = whatWorksText.split(' ');
     let line = '';
     let yPos = 1720;
     for (let i = 0; i < words.length && yPos < 1850; i++) {
@@ -589,25 +591,64 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
             </div>
 
             <div className="space-y-3">
+              {/* What Works */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
-                  <h4 className="text-sm sm:text-base font-semibold">What Works</h4>
+                <div className="flex items-center gap-2 pb-1 border-b border-gradient-accent/20">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                  <h4 className="text-sm sm:text-base font-semibold text-gradient-accent">What Works</h4>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  {result.what_works || result.verdict_positive || "Overall, your outfit has strong elements."}
-                </p>
+                <ul className="space-y-1.5 pl-1">
+                  {(Array.isArray(result.what_works) 
+                    ? result.what_works 
+                    : [result.what_works || result.verdict_positive || "Overall, your outfit has strong elements."]
+                  ).map((item: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
+              {/* What Didn't Work */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                  <h4 className="text-sm sm:text-base font-semibold">Could Be Better</h4>
+                <div className="flex items-center gap-2 pb-1 border-b border-amber-500/20">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
+                  <h4 className="text-sm sm:text-base font-semibold text-gradient-accent">What Didn't Work</h4>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  {result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."}
-                </p>
+                <ul className="space-y-1.5 pl-1">
+                  {(Array.isArray(result.what_didnt_work) 
+                    ? result.what_didnt_work 
+                    : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."]
+                  ).map((item: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <span className="text-amber-500 mt-0.5">⚠</span>
+                      <span className="leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
+
+              {/* Quick Fix */}
+              {(result.quick_fix || result.quick_fixes) && (
+                <div className="space-y-2 glass-card rounded-xl p-3 border border-accent/20">
+                  <div className="flex items-center gap-2 pb-1 border-b border-accent/20">
+                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+                    <h4 className="text-sm sm:text-base font-semibold text-gradient-accent">Quick Fix</h4>
+                  </div>
+                  <ul className="space-y-1.5 pl-1">
+                    {(Array.isArray(result.quick_fix) 
+                      ? result.quick_fix 
+                      : [result.quick_fix || result.quick_fixes]
+                    ).map((item: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                        <span className="text-accent mt-0.5">✨</span>
+                        <span className="leading-relaxed font-medium">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">

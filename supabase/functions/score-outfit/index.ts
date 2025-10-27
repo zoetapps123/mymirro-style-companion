@@ -63,20 +63,16 @@ serve(async (req) => {
               content: [
                 {
                   type: 'text',
-                  text: `As a professional fashion stylist with deep expertise in fabrics, cuts, and styling, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
+                  text: `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
 
-1. A creative, context-aware outfit name (2-4 words, e.g., "Neo-Classic Finisher", "Sunset Boardwalk Vibes")
-2. Scores across these dimensions (scale 1.0-5.0):
-   - Color Harmony (how well the colors work together)
-   - Fit (how well the clothes fit the body)
-   - Texture/Fabric Mix (cohesiveness of materials)
-   - Style/Occasion Match (appropriateness for the context)
+1. A creative outfit name (2-4 words)
+2. Scores across these dimensions (scale 1.0-5.0): Color Harmony, Fit, Texture/Fabric Mix, Style/Occasion Match
 3. Overall average score
-4. WHAT WORKS: Compliment the good parts - be technical about fabrics, textures, color theory, and silhouette. Keep it brief but sophisticated.
-5. WHAT COULD BE BETTER: Technical feedback on how different parts of the outfit could improve - cut, proportion, styling choices.
-6. QUICK FIXES: Life-saving accessible changes that dramatically elevate the look WITHOUT changing the outfit much - could include hair styling, accessories, makeup, shoes, tucking, cuffing, layering, etc.
+4. What Works: 2-3 short, factual observations (max 12-15 words each) on what's strong about the outfit.
+5. What Didn't Work: 2-3 short, factual critiques (max 12-15 words each). Be direct, no soft language.
+6. Quick Fix: 2-4 easy, high-impact tweaks (max 12-15 words each) that will instantly improve the look — e.g., adding/removing items, adjusting fit, accessories, makeup, or hairstyle.
 
-Be precise, constructive, and technically detailed like a professional stylist. Return ONLY valid JSON.`
+Keep language direct, professional, and under 15 words per point. Use action verbs for Quick Fix.`
                 },
                 {
                   type: 'image_url',
@@ -100,11 +96,29 @@ Be precise, constructive, and technically detailed like a professional stylist. 
                     texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                     occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
                     overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                    what_works: { type: 'string', description: 'Technical compliments about fabrics, textures, colors' },
-                    what_could_be_better: { type: 'string', description: 'Technical feedback on improvements' },
-                    quick_fixes: { type: 'string', description: 'Accessible quick changes to elevate the look' }
+                    what_works: { 
+                      type: 'array', 
+                      items: { type: 'string' },
+                      description: '2-3 short observations (max 15 words each)',
+                      minItems: 2,
+                      maxItems: 3
+                    },
+                    what_didnt_work: { 
+                      type: 'array', 
+                      items: { type: 'string' },
+                      description: '2-3 short critiques (max 15 words each)',
+                      minItems: 2,
+                      maxItems: 3
+                    },
+                    quick_fix: { 
+                      type: 'array', 
+                      items: { type: 'string' },
+                      description: '2-4 actionable tweaks with action verbs (max 15 words each)',
+                      minItems: 2,
+                      maxItems: 4
+                    }
                   },
-                  required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_could_be_better', 'quick_fixes']
+                  required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_didnt_work', 'quick_fix']
                 }
               }
             }
