@@ -20,10 +20,35 @@ interface UserProfile {
   location?: string;
 }
 
-const QUICK_PROMPTS = [
-  "How do I style this better?",
-  "Outfit ideas for dinner?",
-  "What can I pair this with?",
+const QUERY_CARDS = [
+  {
+    id: 'outfit-check',
+    icon: '👗',
+    title: 'Outfit Check',
+    subtitle: 'Rate my outfit & get quick tips',
+    query: 'Can you review my outfit?'
+  },
+  {
+    id: 'build-look',
+    icon: '🧥',
+    title: 'Build My Look',
+    subtitle: 'Mix wardrobe pieces into a full outfit',
+    query: 'Help me build an outfit from my wardrobe.'
+  },
+  {
+    id: 'color-pairing',
+    icon: '🎨',
+    title: 'Color Pairing',
+    subtitle: 'Find what colors go well together',
+    query: 'What color goes best with this top?'
+  },
+  {
+    id: 'find-similar',
+    icon: '🛍️',
+    title: 'Find Similar',
+    subtitle: 'Search Indian stores for a similar style',
+    query: 'Where can I find this outfit online?'
+  }
 ];
 
 const SESSION_DURATION = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
@@ -46,15 +71,15 @@ const AICompanion = () => {
 
   // Load user profile from onboarding
   useEffect(() => {
-    const onboardingData = localStorage.getItem("onboardingData");
-    if (onboardingData) {
-      try {
-        const profile = JSON.parse(onboardingData);
-        setUserProfile(profile);
-      } catch (e) {
-        console.error("Failed to parse onboarding data", e);
-      }
-    }
+    const name = localStorage.getItem("onboard_name");
+    const gender = localStorage.getItem("onboard_gender");
+    const location = localStorage.getItem("onboard_location");
+    
+    setUserProfile({
+      name: name || undefined,
+      gender: gender || undefined,
+      location: location || undefined,
+    });
   }, []);
 
   // Check session and initialize greeting
@@ -85,13 +110,12 @@ const AICompanion = () => {
   }, [userProfile]);
 
   const initializeSession = () => {
-    const genderTone = userProfile.gender === "male" ? "bro" : userProfile.gender === "female" ? "girl" : "friend";
     const userName = userProfile.name || "there";
     
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName} 👋 ready to style something up today, ${genderTone}?`,
+      content: `Hey ${userName} 👋, what's on your mind today?\nYou can start by choosing one of these.`,
       timestamp: new Date(),
     };
 
@@ -245,11 +269,11 @@ const AICompanion = () => {
     }
   };
 
-  const handlePromptClick = (prompt: string) => {
-    setInputValue(prompt);
+  const handleCardClick = (query: string) => {
+    setInputValue(query);
     setShowPrompts(false);
-    trackEvent("prompt_clicked", { prompt });
-    // Auto-send after selecting prompt
+    trackEvent("query_card_clicked", { query });
+    // Auto-send after selecting card
     setTimeout(() => {
       const btn = document.querySelector('[data-send-button]') as HTMLButtonElement;
       btn?.click();
@@ -330,20 +354,46 @@ const AICompanion = () => {
         </div>
       </ScrollArea>
 
-      {/* Quick Start Prompts - Always visible at top */}
+      {/* Interactive Query Cards */}
       {showPrompts && (
-        <div className="px-4 py-2 border-t border-border/50">
-          <div className="flex gap-2 max-w-2xl mx-auto overflow-x-auto pb-1 scrollbar-hide">
-            {QUICK_PROMPTS.map((prompt) => (
-              <Button
-                key={prompt}
-                variant="outline"
-                size="sm"
-                onClick={() => handlePromptClick(prompt)}
-                className="glass-card border-border/50 whitespace-nowrap text-xs min-h-[36px]"
+        <div className="px-4 py-3 border-t border-border/50">
+          <div className="grid grid-cols-2 gap-3 max-w-2xl mx-auto">
+            {QUERY_CARDS.map((card, index) => (
+              <motion.button
+                key={card.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.15 }}
+                onClick={() => handleCardClick(card.query)}
+                className="relative h-[150px] rounded-2xl p-4 flex flex-col items-start justify-between text-left overflow-hidden backdrop-blur-xl bg-[#1B1B22]/60 hover:scale-[1.03] active:scale-[0.97] transition-transform duration-300 group border border-transparent hover:border-primary/30"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(27, 27, 34, 0.6), rgba(27, 27, 34, 0.8))',
+                }}
               >
-                {prompt}
-              </Button>
+                {/* Gradient border effect */}
+                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" 
+                     style={{
+                       background: 'linear-gradient(135deg, rgba(200, 108, 246, 0.2), rgba(0, 215, 192, 0.2))',
+                       padding: '1px',
+                       WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                       WebkitMaskComposite: 'xor',
+                       maskComposite: 'exclude',
+                     }}
+                />
+                
+                {/* Gradient shimmer animation */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent animate-shimmer" />
+                </div>
+
+                <div className="relative z-10 flex flex-col h-full justify-between">
+                  <div className="text-3xl mb-2">{card.icon}</div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-1">{card.title}</h3>
+                    <p className="text-xs text-muted-foreground leading-tight">{card.subtitle}</p>
+                  </div>
+                </div>
+              </motion.button>
             ))}
           </div>
         </div>
