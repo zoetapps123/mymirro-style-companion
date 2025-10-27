@@ -24,10 +24,6 @@ const StyleCheckHub = ({
     buttonText: "Let's Battle"
   }];
   return <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
-      <div className="space-y-1">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gradient-accent">Style Check</h2>
-        
-      </div>
 
       <p className="text-[10px] sm:text-xs text-muted-foreground italic">
         Please use a clear full-length photo in good lighting.
