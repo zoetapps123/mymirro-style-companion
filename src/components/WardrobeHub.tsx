@@ -5,96 +5,88 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-
 interface WardrobeHubProps {
   onNavigate: (view: 'upload' | 'generate' | 'calendar') => void;
 }
-
-const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
+const WardrobeHub = ({
+  onNavigate
+}: WardrobeHubProps) => {
   const [itemCount, setItemCount] = useState(0);
   const [outfitCount, setOutfitCount] = useState(0);
-  const [categoryCount, setCategoryCount] = useState({ tops: 0, bottoms: 0 });
-
+  const [categoryCount, setCategoryCount] = useState({
+    tops: 0,
+    bottoms: 0
+  });
   useEffect(() => {
     fetchCounts();
   }, []);
-
   const fetchCounts = async () => {
-    const { count: itemsCount, error: itemsError } = await supabase
-      .from('wardrobe_items')
-      .select('id', { count: 'exact', head: true });
-    
-    const { count: outfitsCount, error: outfitsError } = await supabase
-      .from('outfits')
-      .select('id', { count: 'exact', head: true });
+    const {
+      count: itemsCount,
+      error: itemsError
+    } = await supabase.from('wardrobe_items').select('id', {
+      count: 'exact',
+      head: true
+    });
+    const {
+      count: outfitsCount,
+      error: outfitsError
+    } = await supabase.from('outfits').select('id', {
+      count: 'exact',
+      head: true
+    });
 
     // Get category counts
-    const { data: categoryData } = await supabase
-      .from('wardrobe_items')
-      .select('category');
-    
-    const tops = categoryData?.filter(item => 
-      item.category === 'Tops' || item.category === 'Shirts'
-    ).length || 0;
-    
-    const bottoms = categoryData?.filter(item => 
-      item.category === 'Bottoms' || item.category === 'Pants' || item.category === 'Skirts'
-    ).length || 0;
-
+    const {
+      data: categoryData
+    } = await supabase.from('wardrobe_items').select('category');
+    const tops = categoryData?.filter(item => item.category === 'Tops' || item.category === 'Shirts').length || 0;
+    const bottoms = categoryData?.filter(item => item.category === 'Bottoms' || item.category === 'Pants' || item.category === 'Skirts').length || 0;
     if (itemsError) console.error('Failed to count wardrobe_items:', itemsError);
     if (outfitsError) console.error('Failed to count outfits:', outfitsError);
-
     setItemCount(itemsCount || 0);
     setOutfitCount(outfitsCount || 0);
-    setCategoryCount({ tops, bottoms });
+    setCategoryCount({
+      tops,
+      bottoms
+    });
   };
-
-  const cards = [
-    {
-      icon: Upload,
-      title: "Your Wardrobe",
-      description: "Click or upload to digitize your wardrobe.",
-      action: () => onNavigate('upload'),
-      disabled: false,
-      comingSoon: false,
-      emptyMessage: itemCount === 0 ? "Your wardrobe is empty. Add items (don't be lazy :P)" : null,
-      gradient: "from-primary/20 to-primary/5",
-      showCount: true
-    },
-    {
-      icon: Sparkles,
-      title: "Generate Outfits",
-      description: "Auto-create looks by style, occasion, and items.",
-      action: () => onNavigate('generate'),
-      disabled: categoryCount.tops < 3 || categoryCount.bottoms < 3,
-      comingSoon: false,
-      disabledTooltip: `Need ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock`,
-      emptyMessage: (categoryCount.tops < 3 || categoryCount.bottoms < 3) 
-        ? `Add ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock this feature.`
-        : null,
-      gradient: "from-accent/20 to-accent/5"
-    },
-    {
-      icon: Calendar,
-      title: "Plan your looks",
-      description: "Schedule outfits on your calendar.",
-      action: () => {},
-      disabled: true,
-      comingSoon: true,
-      disabledTooltip: undefined,
-      emptyMessage: null,
-      gradient: "from-secondary/20 to-secondary/5"
-    }
-  ];
-
-  return (
-    <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
+  const cards = [{
+    icon: Upload,
+    title: "Your Wardrobe",
+    description: "Click or upload to digitize your wardrobe.",
+    action: () => onNavigate('upload'),
+    disabled: false,
+    comingSoon: false,
+    emptyMessage: itemCount === 0 ? "Your wardrobe is empty. Add items (don't be lazy :P)" : null,
+    gradient: "from-primary/20 to-primary/5",
+    showCount: true
+  }, {
+    icon: Sparkles,
+    title: "Generate Outfits",
+    description: "Auto-create looks by style, occasion, and items.",
+    action: () => onNavigate('generate'),
+    disabled: categoryCount.tops < 3 || categoryCount.bottoms < 3,
+    comingSoon: false,
+    disabledTooltip: `Need ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock`,
+    emptyMessage: categoryCount.tops < 3 || categoryCount.bottoms < 3 ? `Add ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock this feature.` : null,
+    gradient: "from-accent/20 to-accent/5"
+  }, {
+    icon: Calendar,
+    title: "Plan your looks",
+    description: "Schedule outfits on your calendar.",
+    action: () => {},
+    disabled: true,
+    comingSoon: true,
+    disabledTooltip: undefined,
+    emptyMessage: null,
+    gradient: "from-secondary/20 to-secondary/5"
+  }];
+  return <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
       {/* Header */}
       <div className="space-y-1">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gradient-primary">Your Wardrobe</h2>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Your closet, upgraded. Build, style, and plan your perfect looks.
-        </p>
+        
+        
       </div>
 
       {/* Sly Copy */}
@@ -105,20 +97,17 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
       {/* Feature Cards */}
       <div className="flex-1 grid gap-3 overflow-y-auto">
         {cards.map((card, index) => {
-          const Icon = card.icon;
-          return (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card 
-                className={`glass-card hover:glow-primary transition-all relative overflow-hidden ${
-                  card.disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'
-                }`}
-                onClick={card.disabled ? undefined : card.action}
-              >
+        const Icon = card.icon;
+        return <motion.div key={card.title} initial={{
+          opacity: 0,
+          y: 20
+        }} animate={{
+          opacity: 1,
+          y: 0
+        }} transition={{
+          delay: index * 0.1
+        }}>
+              <Card className={`glass-card hover:glow-primary transition-all relative overflow-hidden ${card.disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}`} onClick={card.disabled ? undefined : card.action}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-50`} />
                 <CardHeader className="relative pb-3">
                   <div className="flex items-start gap-3">
@@ -128,16 +117,12 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base sm:text-lg flex items-center gap-2 flex-wrap">
                         {card.title}
-                        {card.comingSoon && (
-                          <Badge variant="secondary" className="text-[10px] sm:text-xs px-2 py-0.5">
+                        {card.comingSoon && <Badge variant="secondary" className="text-[10px] sm:text-xs px-2 py-0.5">
                             Coming Soon
-                          </Badge>
-                        )}
-                        {card.showCount && (
-                          <span className="text-xs text-muted-foreground font-normal">
+                          </Badge>}
+                        {card.showCount && <span className="text-xs text-muted-foreground font-normal">
                             {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                          </span>
-                        )}
+                          </span>}
                       </CardTitle>
                       <CardDescription className="mt-0.5 text-xs sm:text-sm">
                         {card.description}
@@ -146,29 +131,20 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
                   </div>
                 </CardHeader>
                 <CardContent className="relative pt-0">
-                  {card.emptyMessage && (
-                    <div className="mb-3 p-2.5 rounded-lg bg-muted/20 border border-border/50">
+                  {card.emptyMessage && <div className="mb-3 p-2.5 rounded-lg bg-muted/20 border border-border/50">
                       <p className="text-[10px] sm:text-xs text-muted-foreground">{card.emptyMessage}</p>
-                    </div>
-                  )}
-                  <Button
-                    variant="secondary"
-                    className="w-full glow-accent min-h-[44px] text-sm"
-                    onClick={card.action}
-                    disabled={card.disabled}
-                  >
+                    </div>}
+                  <Button variant="secondary" className="w-full glow-accent min-h-[44px] text-sm" onClick={card.action} disabled={card.disabled}>
                     {card.comingSoon ? "Coming Soon" : "Get Started"}
                   </Button>
                 </CardContent>
               </Card>
-            </motion.div>
-          );
-        })}
+            </motion.div>;
+      })}
       </div>
 
       {/* Stats */}
-      {itemCount > 0 && (
-        <div className="flex gap-3 text-center flex-shrink-0">
+      {itemCount > 0 && <div className="flex gap-3 text-center flex-shrink-0">
           <div className="flex-1 p-3 glass-card rounded-xl">
             <p className="text-xl sm:text-2xl font-bold text-gradient-primary">{itemCount}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground">Items</p>
@@ -177,10 +153,7 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
             <p className="text-xl sm:text-2xl font-bold text-gradient-accent">{outfitCount}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground">Outfits</p>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        </div>}
+    </div>;
 };
-
 export default WardrobeHub;
