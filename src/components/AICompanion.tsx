@@ -175,7 +175,7 @@ const AICompanion = () => {
         }),
       });
 
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         if (response.status === 429) {
           toast({
             title: "Rate Limit Reached",
@@ -197,12 +197,6 @@ const AICompanion = () => {
         throw new Error('Failed to start chat stream');
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
-      let assistantMessage = '';
-      let streamDone = false;
-
       // Add empty assistant message to update
       const assistantMsgId = Date.now().toString();
       setMessages(prev => {
@@ -215,46 +209,115 @@ const AICompanion = () => {
         return updated;
       });
 
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      let assistantMessage = '';
 
-        textBuffer += decoder.decode(value, { stream: true });
+      // Safari-compatible streaming with fallback
+      if (response.body && typeof response.body.getReader === 'function') {
+        // Try using ReadableStream (modern browsers)
+        try {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let textBuffer = '';
+          let streamDone = false;
 
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
+          while (!streamDone) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
+            textBuffer += decoder.decode(value, { stream: true });
 
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') {
-            streamDone = true;
-            break;
+            let newlineIndex: number;
+            while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+              let line = textBuffer.slice(0, newlineIndex);
+              textBuffer = textBuffer.slice(newlineIndex + 1);
+
+              if (line.endsWith('\r')) line = line.slice(0, -1);
+              if (line.startsWith(':') || line.trim() === '') continue;
+              if (!line.startsWith('data: ')) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') {
+                streamDone = true;
+                break;
+              }
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  assistantMessage += content;
+                  setMessages(prev => {
+                    const updated = prev.map(m =>
+                      m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+                    );
+                    localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+              } catch {
+                textBuffer = line + '\n' + textBuffer;
+                break;
+              }
+            }
           }
-
+        } catch (streamError) {
+          console.error('Stream reading failed, trying text fallback:', streamError);
+          // Fallback for Safari - read entire response as text
+          const fullText = await response.text();
+          const lines = fullText.split('\n');
+          
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') break;
+            
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                assistantMessage += content;
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+          
+          setMessages(prev => {
+            const updated = prev.map(m =>
+              m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+            );
+            localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+            return updated;
+          });
+        }
+      } else {
+        // Fallback: read entire response at once
+        const fullText = await response.text();
+        const lines = fullText.split('\n');
+        
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+          
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantMessage += content;
-              setMessages(prev => {
-                const updated = prev.map(m =>
-                  m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
-                );
-                // Save to localStorage for session persistence
-                localStorage.setItem("chat_session_messages", JSON.stringify(updated));
-                return updated;
-              });
             }
-          } catch {
-            textBuffer = line + '\n' + textBuffer;
-            break;
+          } catch (e) {
+            // Skip invalid JSON
           }
         }
+        
+        setMessages(prev => {
+          const updated = prev.map(m =>
+            m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+          );
+          localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+          return updated;
+        });
       }
       
       trackEvent("reply_delivered");

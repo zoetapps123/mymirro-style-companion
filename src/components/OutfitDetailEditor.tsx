@@ -41,6 +41,7 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
   const [selectedItems, setSelectedItems] = useState<WardrobeItem[]>(outfit.items);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [outfitName, setOutfitName] = useState("");
+  const [showTemplate, setShowTemplate] = useState(true);
 
   const removeItem = (itemId: string) => {
     setSelectedItems(prev => prev.filter(item => item.id !== itemId));
@@ -111,6 +112,49 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
   const relatedItems = wardrobeItems.filter(
     item => !selectedItems.find(selected => selected.id === item.id)
   );
+
+  // Template preview view
+  if (showTemplate) {
+    return (
+      <div className="flex flex-col h-full p-4 space-y-6 overflow-y-auto">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-gradient-primary">{outfit.label}</h2>
+          <p className="text-sm text-muted-foreground">Preview your outfit template</p>
+        </div>
+
+        {/* Large Template Preview */}
+        <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="grid grid-cols-2 gap-4">
+            {selectedItems.slice(0, 4).map((item, idx) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: idx * 0.1 }}
+                className="aspect-square bg-gray-50 rounded-xl overflow-hidden p-4"
+              >
+                <img
+                  src={item.processed_image_url}
+                  alt={item.name}
+                  className="w-full h-full object-contain"
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 sticky bottom-0 bg-background pt-4">
+          <Button variant="outline" onClick={onBack} className="flex-1">
+            Back
+          </Button>
+          <Button onClick={() => setShowTemplate(false)} className="flex-1">
+            Edit & Customize
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full p-4 space-y-4 overflow-y-auto">
