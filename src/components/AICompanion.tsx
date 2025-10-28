@@ -158,11 +158,17 @@ const AICompanion = () => {
   const streamChat = async (userMessages: Message[]) => {
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+    // Detect Mobile Safari (known streaming issues after multiple requests)
+    const ua = navigator.userAgent;
+    const isIOS = /iP(hone|od|ad)/i.test(ua);
+    const isMobileSafari = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+
     try {
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
@@ -173,6 +179,9 @@ const AICompanion = () => {
           })),
           userProfile,
         }),
+        cache: 'no-store',
+        keepalive: true,
+        mode: 'cors',
       });
 
       if (!response.ok) {
@@ -211,9 +220,41 @@ const AICompanion = () => {
 
       let assistantMessage = '';
 
-      // Safari-compatible streaming with fallback
+      // Always force non-stream fallback on Mobile Safari
+      if (isMobileSafari) {
+        try {
+          const fullText = await response.text();
+          const lines = fullText.split('\n');
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) assistantMessage += content;
+            } catch {}
+          }
+        } catch (e) {
+          console.error('Safari fallback text read failed', e);
+        }
+
+        setMessages(prev => {
+          const updated = prev.map(m =>
+            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
+          );
+          localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+          return updated;
+        });
+        trackEvent("reply_delivered");
+        return; // Done for Mobile Safari
+      }
+
+      // Non-Safari: Try streaming first with a clone for safe fallback
+      const responseClone = response.clone();
+
+      // Streaming path
       if (response.body && typeof response.body.getReader === 'function') {
-        // Try using ReadableStream (modern browsers)
         try {
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -255,71 +296,46 @@ const AICompanion = () => {
                   });
                 }
               } catch {
+                // If parsing fails mid-stream, push back and let next chunk complete
                 textBuffer = line + '\n' + textBuffer;
                 break;
               }
             }
           }
         } catch (streamError) {
-          console.error('Stream reading failed, trying text fallback:', streamError);
-          // Fallback for Safari - read entire response as text
-          const fullText = await response.text();
+          console.error('Stream reading failed, will use text fallback:', streamError);
+          assistantMessage = '';
+        }
+      }
+
+      // If we didn't get any streamed content, use text fallback (covers odd Safari cases)
+      if (!assistantMessage) {
+        try {
+          const fullText = await responseClone.text();
           const lines = fullText.split('\n');
-          
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const jsonStr = line.slice(6).trim();
             if (jsonStr === '[DONE]') break;
-            
             try {
               const parsed = JSON.parse(jsonStr);
               const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
+              if (content) assistantMessage += content;
+            } catch {}
           }
-          
-          setMessages(prev => {
-            const updated = prev.map(m =>
-              m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
-            );
-            localStorage.setItem("chat_session_messages", JSON.stringify(updated));
-            return updated;
-          });
+        } catch (e) {
+          console.error('Text fallback failed:', e);
         }
-      } else {
-        // Fallback: read entire response at once
-        const fullText = await response.text();
-        const lines = fullText.split('\n');
-        
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-          
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantMessage += content;
-            }
-          } catch (e) {
-            // Skip invalid JSON
-          }
-        }
-        
+
         setMessages(prev => {
           const updated = prev.map(m =>
-            m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
           );
           localStorage.setItem("chat_session_messages", JSON.stringify(updated));
           return updated;
         });
       }
-      
+
       trackEvent("reply_delivered");
     } catch (error) {
       console.error('Chat error:', error);
