@@ -63,6 +63,7 @@ const AICompanion = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Analytics helper
   const trackEvent = (eventName: string, metadata?: any) => {
@@ -134,9 +135,16 @@ const AICompanion = () => {
           top: scrollContainer.scrollHeight,
           behavior: 'smooth'
         });
+        }
       }
-    }
-  }, [messages]);
+    }, [messages]);
+
+    // Abort any inflight chat request on unmount
+    useEffect(() => {
+      return () => {
+        abortControllerRef.current?.abort();
+      };
+    }, []);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -163,6 +171,12 @@ const AICompanion = () => {
     const isIOS = /iP(hone|od|ad)/i.test(ua);
     const isMobileSafari = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
 
+    // Abort any previous inflight request and start a new controller
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    let timeoutId: number | undefined;
+
     try {
       const response = await fetch(CHAT_URL, {
         method: 'POST',
@@ -180,8 +194,9 @@ const AICompanion = () => {
           userProfile,
         }),
         cache: 'no-store',
-        keepalive: true,
+        keepalive: !isMobileSafari,
         mode: 'cors',
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -204,6 +219,14 @@ const AICompanion = () => {
           return;
         }
         throw new Error('Failed to start chat stream');
+      }
+
+      // Safety timeout to prevent hanging connections on mobile
+      if (!timeoutId) {
+        const ms = isMobileSafari ? 30000 : 60000;
+        timeoutId = window.setTimeout(() => {
+          try { controller.abort(); } catch {}
+        }, ms);
       }
 
       // Add empty assistant message to update
@@ -247,6 +270,9 @@ const AICompanion = () => {
           return updated;
         });
         trackEvent("reply_delivered");
+        // Cleanup controller/timeout for Safari path
+        if (timeoutId) clearTimeout(timeoutId);
+        abortControllerRef.current = null;
         return; // Done for Mobile Safari
       }
 
@@ -337,6 +363,9 @@ const AICompanion = () => {
       }
 
       trackEvent("reply_delivered");
+      // Cleanup controller/timeout
+      if (timeoutId) clearTimeout(timeoutId);
+      abortControllerRef.current = null;
     } catch (error) {
       console.error('Chat error:', error);
       toast({
@@ -345,6 +374,9 @@ const AICompanion = () => {
         variant: "destructive",
       });
       trackEvent("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
+      // Cleanup on error
+      try { if (timeoutId) clearTimeout(timeoutId); } catch {}
+      abortControllerRef.current = null;
     }
   };
 
