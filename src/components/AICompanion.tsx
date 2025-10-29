@@ -381,18 +381,15 @@ const AICompanion = () => {
   };
 
   const handleCardClick = (query: string) => {
-    setInputValue(query);
     setShowPrompts(false);
     trackEvent("query_card_clicked", { query });
-    // Auto-send after selecting card
-    setTimeout(() => {
-      const btn = document.querySelector('[data-send-button]') as HTMLButtonElement;
-      btn?.click();
-    }, 100);
+    // Directly send the card query
+    handleSend(query);
   };
 
-  const handleSend = async () => {
-    if ((!inputValue.trim() && selectedImages.length === 0) || isLoading) return;
+  const handleSend = async (messageText?: string) => {
+    const textToSend = messageText || inputValue;
+    if ((!textToSend.trim() && selectedImages.length === 0) || isLoading) return;
 
     const hasImages = selectedImages.length > 0;
     trackEvent("sent_message", { hasImages, messageLength: inputValue.length });
@@ -401,7 +398,7 @@ const AICompanion = () => {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: inputValue || "What do you think about this outfit?",
+      content: textToSend || "What do you think about this outfit?",
       images: selectedImages.length > 0 ? selectedImages : undefined,
       timestamp: new Date(),
     };
@@ -555,10 +552,10 @@ const AICompanion = () => {
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                 className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
               />
-              <Button
+            <Button
                 data-send-button
                 size="icon"
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
                 className="glow-primary flex-shrink-0 min-w-[44px] min-h-[44px]"
                 title="Send message"
