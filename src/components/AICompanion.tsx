@@ -122,8 +122,7 @@ const AICompanion = () => {
 
     setMessages([greeting]);
     setShowPrompts(true);
-    localStorage.setItem("chat_last_session", Date.now().toString());
-    localStorage.setItem("chat_session_messages", JSON.stringify([greeting]));
+    persistMessages([greeting]);
     trackEvent("session_started", { userName });
   };
 
@@ -145,6 +144,17 @@ const AICompanion = () => {
         abortControllerRef.current?.abort();
       };
     }, []);
+
+    // Persist messages safely without large image payloads
+    const persistMessages = (msgs: Message[]) => {
+      try {
+        const sanitized = msgs.map((m) => ({ ...m, images: undefined }));
+        localStorage.setItem("chat_last_session", Date.now().toString());
+        localStorage.setItem("chat_session_messages", JSON.stringify(sanitized));
+      } catch (e) {
+        console.warn("Persist messages failed:", e);
+      }
+    };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -269,7 +279,7 @@ const AICompanion = () => {
           const updated = prev.map(m =>
             m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
           );
-          localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+          persistMessages(updated);
           return updated;
         });
         trackEvent("reply_delivered");
@@ -320,7 +330,7 @@ const AICompanion = () => {
                     const updated = prev.map(m =>
                       m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
                     );
-                    localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+                    persistMessages(updated);
                     return updated;
                   });
                 }
@@ -360,7 +370,7 @@ const AICompanion = () => {
           const updated = prev.map(m =>
             m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
           );
-          localStorage.setItem("chat_session_messages", JSON.stringify(updated));
+          persistMessages(updated);
           return updated;
         });
       }
@@ -414,8 +424,7 @@ const AICompanion = () => {
     setIsLoading(true);
 
     // Update session
-    localStorage.setItem("chat_last_session", Date.now().toString());
-    localStorage.setItem("chat_session_messages", JSON.stringify(newMessages));
+    persistMessages(newMessages);
 
     try {
       await streamChat(newMessages);
