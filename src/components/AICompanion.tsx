@@ -200,6 +200,9 @@ const AICompanion = () => {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Chat API error:', response.status, errorText);
+        
         if (response.status === 429) {
           toast({
             title: "Rate Limit Reached",
@@ -207,7 +210,7 @@ const AICompanion = () => {
             variant: "destructive",
           });
           trackEvent("rate_limit_error");
-          return;
+          throw new Error('Rate limit exceeded');
         }
         if (response.status === 402) {
           toast({
@@ -216,9 +219,9 @@ const AICompanion = () => {
             variant: "destructive",
           });
           trackEvent("payment_required_error");
-          return;
+          throw new Error('Payment required');
         }
-        throw new Error('Failed to start chat stream');
+        throw new Error(`Failed to start chat stream: ${response.status}`);
       }
 
       // Safety timeout to prevent hanging connections on mobile
@@ -414,8 +417,15 @@ const AICompanion = () => {
     localStorage.setItem("chat_last_session", Date.now().toString());
     localStorage.setItem("chat_session_messages", JSON.stringify(newMessages));
 
-    await streamChat(newMessages);
-    setIsLoading(false);
+    try {
+      await streamChat(newMessages);
+    } catch (error) {
+      console.error("Stream chat error:", error);
+      // Remove the failed user message if stream completely failed
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
