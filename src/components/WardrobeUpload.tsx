@@ -1,4 +1,4 @@
-import { Shirt, Search, Camera } from "lucide-react";
+import { Shirt, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -210,17 +210,17 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleImageUpload}
           className="hidden"
           disabled={loading}
         />
         <Button 
-          className="glow-primary"
+          className="glow-primary gap-2"
           onClick={() => fileInputRef.current?.click()}
           disabled={loading}
         >
-          <Camera className="w-5 h-5" />
+          <Plus className="w-5 h-5" />
+          Add Items
         </Button>
       </div>
 
