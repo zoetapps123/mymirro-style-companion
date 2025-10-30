@@ -1,7 +1,9 @@
-import { Shirt, Search, Plus } from "lucide-react";
+import { Shirt, Search, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +26,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     fetchWardrobeItems();
@@ -49,6 +52,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
     const file = files[0];
     setLoading(true);
+    setProgress(10);
 
     try {
       // Get current session
@@ -79,15 +83,13 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;
-
-        toast({
-          title: "Processing image...",
-          description: "Extracting your item...",
-        });
+        setProgress(30);
 
         const { data, error } = await supabase.functions.invoke('process-wardrobe', {
           body: { imageData }
         });
+        
+        setProgress(60);
 
         if (error) {
           console.error('Process wardrobe error:', error);
@@ -104,6 +106,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
         let addedCount = 0;
         let skippedCount = 0;
+        setProgress(70);
 
         // Upload and save all detected items with duplicate checking
         for (const item of itemsDetected) {
@@ -161,6 +164,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             addedCount++;
           }
         }
+        
+        setProgress(90);
 
         toast({
           title: addedCount > 0 ? "Added to your wardrobe!" : "Items already exist",
@@ -169,6 +174,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             : `All detected items already exist in your wardrobe.`,
         });
 
+        setProgress(100);
         fetchWardrobeItems();
       };
 
@@ -182,6 +188,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       });
     } finally {
       setLoading(false);
+      setProgress(0);
     }
   };
 
@@ -190,7 +197,46 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
     : items.filter(item => item.category.toLowerCase() === selectedCategory);
 
   return (
-    <div className="flex flex-col h-full p-4 space-y-4">
+    <div className="flex flex-col h-full p-4 space-y-4 relative">
+      {/* Processing Overlay */}
+      {loading && (
+        <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center">
+          <div className="glass-card p-8 rounded-3xl max-w-md w-full mx-4 space-y-6 animate-scale-in">
+            <div className="flex items-center justify-center">
+              <div className="relative">
+                <Sparkles className="w-16 h-16 text-primary animate-pulse" />
+                <div className="absolute inset-0 bg-primary/20 blur-xl animate-pulse" />
+              </div>
+            </div>
+            
+            <div className="space-y-2 text-center">
+              <h3 className="text-xl font-semibold text-gradient-primary">
+                Extracting Items
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                AI is analyzing your image and isolating each clothing item...
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Progress value={progress} className="h-2" />
+              <p className="text-xs text-center text-muted-foreground">
+                {progress < 30 && "Reading image..."}
+                {progress >= 30 && progress < 60 && "Detecting items..."}
+                {progress >= 60 && progress < 90 && "Processing items..."}
+                {progress >= 90 && "Almost done..."}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Skeleton className="aspect-square rounded-xl" />
+              <Skeleton className="aspect-square rounded-xl" />
+              <Skeleton className="aspect-square rounded-xl" />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <h2 className="text-2xl font-bold text-gradient-primary">Your Items</h2>
         <p className="text-sm text-muted-foreground">
@@ -235,11 +281,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         </TabsList>
 
         <TabsContent value={selectedCategory} className="flex-1 mt-4">
-          {loading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Processing your image...
-            </div>
-          ) : filteredItems.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="text-center py-12 space-y-4">
               <Shirt className="w-16 h-16 mx-auto text-muted-foreground" />
               <p className="text-muted-foreground">No items yet. Upload your first piece!</p>
