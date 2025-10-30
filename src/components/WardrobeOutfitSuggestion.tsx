@@ -1,18 +1,27 @@
 import { useState, useEffect } from "react";
+import { DoorOpen, Sparkles, Calendar, Shirt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 interface WardrobeOutfitSuggestionProps {
   onBack: () => void;
+  onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
 }
 
-const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => {
+const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggestionProps) => {
   const [selectedOccasion, setSelectedOccasion] = useState<string>("Daily");
   const [selectedStyle, setSelectedStyle] = useState<string>("Casual");
   const [myItems, setMyItems] = useState<any[]>([]);
 
   const occasions = ["Daily", "School", "Work", "Travel", "Party", "Wedding"];
   const styles = ["Casual", "Classic", "Street", "Minimal", "Athleisure"];
+
+  const features = [
+    { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
+    { icon: Sparkles, title: "Outfit\nSuggestion", view: 'suggestion' as const, active: true },
+    { icon: Calendar, title: "Plan Your\nLook", view: 'calendar' as const, active: false },
+    { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
+  ];
 
   useEffect(() => {
     fetchMyItems();
@@ -28,6 +37,40 @@ const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => 
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
+      {/* Feature Icons */}
+      <div className="px-4 pt-6 pb-4">
+        <div className="grid grid-cols-4 gap-4">
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            const isActive = feature.active;
+            return (
+              <button
+                key={feature.title}
+                onClick={() => onNavigate(feature.view)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                    isActive
+                      ? "bg-primary border-2 border-primary"
+                      : "bg-background border-2 border-border"
+                  }`}
+                >
+                  <Icon
+                    className={`w-7 h-7 ${
+                      isActive ? "text-primary-foreground" : "text-muted-foreground"
+                    }`}
+                  />
+                </div>
+                <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
+                  {feature.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="p-4 space-y-6">
         {/* Title */}
         <h2 className="text-2xl font-bold text-primary">Outfit Suggestions</h2>
@@ -35,7 +78,7 @@ const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => 
         {/* Occasion */}
         <div>
           <h3 className="text-lg font-semibold text-primary mb-3">Occasion</h3>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap mb-4">
             {occasions.map((occasion) => (
               <Button
                 key={occasion}
@@ -54,16 +97,16 @@ const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => 
           </div>
 
           {/* Placeholder Outfit Cards */}
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="aspect-[3/4] rounded-2xl bg-muted" />
-            <div className="aspect-[3/4] rounded-2xl bg-muted" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="aspect-[3/4] rounded-2xl bg-muted border border-border" />
+            <div className="aspect-[3/4] rounded-2xl bg-muted border border-border" />
           </div>
         </div>
 
         {/* Style */}
         <div>
           <h3 className="text-lg font-semibold text-primary mb-3">Style</h3>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap mb-4">
             {styles.map((style) => (
               <Button
                 key={style}
@@ -82,9 +125,9 @@ const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => 
           </div>
 
           {/* Placeholder Outfit Cards */}
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="aspect-[3/4] rounded-2xl bg-muted" />
-            <div className="aspect-[3/4] rounded-2xl bg-muted" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="aspect-[3/4] rounded-2xl bg-muted border border-border" />
+            <div className="aspect-[3/4] rounded-2xl bg-muted border border-border" />
           </div>
         </div>
 
@@ -95,7 +138,7 @@ const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => 
             {myItems.map((item) => (
               <div
                 key={item.id}
-                className="aspect-square rounded-lg overflow-hidden bg-muted"
+                className="aspect-square rounded-lg overflow-hidden bg-muted border border-border"
               >
                 <img
                   src={item.processed_image_url || item.image_url}
@@ -104,12 +147,15 @@ const WardrobeOutfitSuggestion = ({ onBack }: WardrobeOutfitSuggestionProps) => 
                 />
               </div>
             ))}
+            {Array.from({ length: Math.max(0, 4 - myItems.length) }).map((_, i) => (
+              <div key={`placeholder-${i}`} className="aspect-square rounded-lg bg-muted border border-border" />
+            ))}
           </div>
 
           {/* Placeholder Outfit Cards */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="aspect-[3/4] rounded-2xl bg-muted" />
-            <div className="aspect-[3/4] rounded-2xl bg-muted" />
+            <div className="aspect-[3/4] rounded-2xl bg-muted border border-border" />
+            <div className="aspect-[3/4] rounded-2xl bg-muted border border-border" />
           </div>
         </div>
       </div>

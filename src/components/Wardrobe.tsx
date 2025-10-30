@@ -23,11 +23,11 @@ const Wardrobe = () => {
       case 'generate':
         return <AutoGenerateOutfits onBack={() => setCurrentView('hub')} />;
       case 'items':
-        return <WardrobeMyItems onBack={() => setCurrentView('hub')} />;
+        return <WardrobeMyItems onBack={() => setCurrentView('hub')} onNavigate={setCurrentView} />;
       case 'suggestion':
-        return <WardrobeOutfitSuggestion onBack={() => setCurrentView('hub')} />;
+        return <WardrobeOutfitSuggestion onBack={() => setCurrentView('hub')} onNavigate={setCurrentView} />;
       case 'lookbook':
-        return <WardrobeLookbook onBack={() => setCurrentView('hub')} />;
+        return <WardrobeLookbook onBack={() => setCurrentView('hub')} onNavigate={setCurrentView} />;
       case 'calendar':
         return <WardrobeComingSoon onBack={() => setCurrentView('hub')} />;
       default:

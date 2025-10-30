@@ -467,7 +467,17 @@ const AICompanion = () => {
                   </div>
                 )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {message.content || (message.role === "assistant" && isLoading ? "..." : "")}
+                  {message.id === "greeting" && message.role === "assistant" ? (
+                    <>
+                      <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        {message.content.split('\n')[0]}
+                      </span>
+                      <br />
+                      {message.content.split('\n').slice(1).join('\n')}
+                    </>
+                  ) : (
+                    message.content || (message.role === "assistant" && isLoading ? "..." : "")
+                  )}
                 </p>
                 <span className="text-xs opacity-60 mt-1 block">
                   {new Date(message.timestamp).toLocaleTimeString([], {
@@ -565,12 +575,12 @@ const AICompanion = () => {
               <Camera className="w-5 h-5" />
             </Button>
             <Input
-              placeholder="Ask about your style..."
+              placeholder="What are we wearing today?"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
-              />
+              className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
+            />
             <Button
                 data-send-button
                 size="icon"

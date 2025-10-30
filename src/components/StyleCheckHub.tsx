@@ -40,8 +40,8 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       <div className="p-4 space-y-6">
         {/* Title */}
         <div>
-          <h1 className="text-3xl font-bold text-primary">Style Check</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-4xl font-bold text-primary">Style Check</h1>
+          <p className="text-muted-foreground mt-1 text-base">
             Pro score and quick fixes for your look
           </p>
         </div>
@@ -58,10 +58,10 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 variant={selectedOccasion === occasion ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedOccasion(occasion)}
-                className={`rounded-full ${
+                className={`rounded-full border-2 ${
                   selectedOccasion === occasion
-                    ? "bg-black text-white"
-                    : "bg-transparent border-border"
+                    ? "bg-white text-black border-black"
+                    : "bg-transparent border-border text-foreground"
                 }`}
               >
                 {occasion}
@@ -82,7 +82,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 />
               ) : (
                 <>
-                  <Camera className="w-16 h-16 text-primary" />
+                  <Camera className="w-16 h-16 text-primary" strokeWidth={1.5} />
                   <div className="text-center">
                     <p className="font-semibold text-lg">Upload an Image</p>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -108,21 +108,33 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             Battle of the fits
           </h2>
           <Card
-            className="p-6 cursor-pointer hover:border-primary transition-colors relative overflow-hidden"
+            className="p-6 cursor-pointer hover:border-primary transition-colors relative overflow-hidden border-2 border-primary rounded-2xl"
             onClick={() => onNavigate('outfit-battle')}
           >
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-20">
-              <div className="text-8xl font-bold text-primary transform rotate-12">
-                VS
-              </div>
+            <div className="absolute top-4 right-6 opacity-30">
+              <svg width="120" height="100" viewBox="0 0 120 100" fill="none">
+                <text
+                  x="0"
+                  y="70"
+                  fill="currentColor"
+                  className="text-primary"
+                  style={{
+                    fontSize: "72px",
+                    fontWeight: "bold",
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                  }}
+                >
+                  VS
+                </text>
+              </svg>
             </div>
             <h3 className="text-2xl font-bold text-primary mb-2">
               Outfit Battle
             </h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-4 text-sm">
               Upload, compare, and crown the best outfit.
             </p>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full">
               Lets Fight!
             </Button>
           </Card>
@@ -131,7 +143,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         {/* Start Check Button */}
         {canStartCheck && (
           <Button
-            className="w-full h-12 text-lg"
+            className="w-full h-12 text-lg rounded-full"
             onClick={() => onNavigate('outfit-check')}
           >
             Start Style Check

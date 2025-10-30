@@ -1,19 +1,27 @@
 import { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, DoorOpen, Sparkles, Calendar, Shirt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface WardrobeMyItemsProps {
   onBack: () => void;
+  onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
 }
 
-const WardrobeMyItems = ({ onBack }: WardrobeMyItemsProps) => {
+const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
   const [items, setItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const { toast } = useToast();
 
   const categories = ["All", "Tops", "Bottoms", "Layers", "Dresses", "Shoes"];
+
+  const features = [
+    { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: true },
+    { icon: Sparkles, title: "Outfit\nGenerator", view: 'suggestion' as const, active: false },
+    { icon: Calendar, title: "Daily\nCalendar", view: 'calendar' as const, active: false },
+    { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
+  ];
 
   useEffect(() => {
     fetchItems();
@@ -44,9 +52,43 @@ const WardrobeMyItems = ({ onBack }: WardrobeMyItemsProps) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Feature Icons */}
+      <div className="px-4 pt-6 pb-4">
+        <div className="grid grid-cols-4 gap-4">
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            const isActive = feature.active;
+            return (
+              <button
+                key={feature.title}
+                onClick={() => onNavigate(feature.view)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                    isActive
+                      ? "bg-primary border-2 border-primary"
+                      : "bg-background border-2 border-border"
+                  }`}
+                >
+                  <Icon
+                    className={`w-7 h-7 ${
+                      isActive ? "text-primary-foreground" : "text-muted-foreground"
+                    }`}
+                  />
+                </div>
+                <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
+                  {feature.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Title */}
-      <div className="p-4 pb-3">
-        <h2 className="text-xl font-bold">My Items</h2>
+      <div className="px-4 pb-3">
+        <h2 className="text-3xl font-bold">My Items</h2>
       </div>
 
       {/* Category Filter */}
@@ -76,7 +118,7 @@ const WardrobeMyItems = ({ onBack }: WardrobeMyItemsProps) => {
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="aspect-[3/4] rounded-2xl overflow-hidden border border-border/50 relative"
+              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative"
             >
               <img
                 src={item.processed_image_url || item.image_url}
@@ -94,7 +136,7 @@ const WardrobeMyItems = ({ onBack }: WardrobeMyItemsProps) => {
           {/* Add Item Card */}
           <button
             onClick={onBack}
-            className="aspect-[3/4] rounded-2xl border-2 border-dashed border-border/50 flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
+            className="aspect-[3/4] rounded-2xl border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
           >
             <div className="w-16 h-16 rounded-full bg-black flex items-center justify-center">
               <Plus className="w-8 h-8 text-white" />
