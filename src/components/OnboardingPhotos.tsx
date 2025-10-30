@@ -183,16 +183,18 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md mx-auto"
       >
-        {/* Header with Back Button */}
-        <div className="flex items-center gap-4 mb-8">
-          <button 
-            onClick={onBack}
-            className="p-2 hover:bg-white/50 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
-          </button>
-          <img src={logo} alt="MyMirro" className="h-8" />
+        {/* Logo */}
+        <div className="text-center pt-4 mb-8">
+          <img src={logo} alt="MyMirro" className="h-16 mx-auto" />
         </div>
+        
+        {/* Back Button */}
+        <button 
+          onClick={onBack}
+          className="p-2 hover:bg-white/50 rounded-full transition-colors mb-4"
+        >
+          <ArrowLeft className="w-6 h-6 text-gray-700" />
+        </button>
 
         <div className="space-y-6">
           <div>

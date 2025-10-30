@@ -75,16 +75,18 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
         className="w-full max-w-md mx-auto"
       >
         <div className="space-y-8">
-          {/* Header with Back Button */}
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={onBack}
-              className="p-2 hover:bg-white/50 rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-700" />
-            </button>
-            <img src={logo} alt="MyMirro" className="h-8" />
+          {/* Logo */}
+          <div className="text-center pt-4">
+            <img src={logo} alt="MyMirro" className="h-16 mx-auto" />
           </div>
+          
+          {/* Back Button */}
+          <button 
+            onClick={onBack}
+            className="p-2 hover:bg-white/50 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
+          </button>
 
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-gray-900">Hey there, Style Icon!</h2>

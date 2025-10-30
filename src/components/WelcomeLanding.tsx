@@ -49,13 +49,13 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-200 via-purple-300 to-pink-200 p-6">
       {/* Logo */}
-      <div className="text-center pt-8 pb-12">
-        <img src={logo} alt="MyMirro" className="h-12 mx-auto" />
+      <div className="text-center pt-4 pb-4">
+        <img src={logo} alt="MyMirro" className="h-16 mx-auto" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,0.2))' }} />
       </div>
 
       {/* Carousel */}
-      <div className="flex-1 flex flex-col items-center justify-center space-y-8">
-        <div className="relative w-full max-w-md h-96 flex items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center space-y-4 max-w-md mx-auto w-full">
+        <div className="relative w-full h-80 flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -65,8 +65,8 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
               transition={{ duration: 0.5 }}
               className="w-full h-full flex items-center justify-center"
             >
-              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-white/30 w-full">
-                <div className="aspect-[9/16] rounded-2xl bg-white/50 flex items-center justify-center overflow-hidden">
+              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-6 shadow-2xl border border-white/30 w-full h-full">
+                <div className="aspect-[9/16] h-full rounded-2xl bg-white/50 flex items-center justify-center overflow-hidden">
                   <img 
                     src={slides[currentSlide].image} 
                     alt={slides[currentSlide].title} 
@@ -112,14 +112,14 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
           key={`title-${currentSlide}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-white text-2xl font-semibold text-center px-4"
+          className="text-white text-xl font-semibold text-center px-4"
         >
           {slides[currentSlide].title}
         </motion.p>
       </div>
 
       {/* CTAs */}
-      <div className="space-y-4 pb-8">
+      <div className="space-y-4 pb-8 max-w-md mx-auto w-full">
         <Button
           onClick={onSignUp}
           className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl"

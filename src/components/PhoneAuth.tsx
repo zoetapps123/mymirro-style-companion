@@ -129,15 +129,19 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
       <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        {/* Logo */}
+        <div className="text-center pt-4 mb-8">
+          <img src={logo} alt="MyMirro" className="h-16 mx-auto" />
+        </div>
+        
+        {/* Back Button */}
+        <div className="flex items-center gap-4 mb-4">
           <button 
             onClick={onBack}
             className="p-2 hover:bg-white/50 rounded-full transition-colors"
           >
             <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <img src={logo} alt="MyMirro" className="h-8" />
         </div>
 
         {/* Form */}
