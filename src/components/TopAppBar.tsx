@@ -1,7 +1,8 @@
-import { MessageCircle, Shirt, Sparkles } from "lucide-react";
+import { MessageCircle, Shirt, Sparkles, Menu } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import logo from "@/assets/logo.png";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
@@ -33,17 +34,23 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
 
   return (
     <header 
-      className="sticky top-0 z-[100] backdrop-blur-xl bg-[#0D0D10]/70 shadow-lg"
+      className="sticky top-0 z-[100] backdrop-blur-xl bg-background/80 shadow-sm border-b border-border"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       {/* Top row: Logo + Profile */}
       <div className="flex items-center justify-between px-4 py-2">
-        <div className="flex-1" />
+        {/* Left: Menu Icon */}
+        <div className="flex-1">
+          <button
+            aria-label="Menu"
+            className="p-2 hover:bg-muted/50 rounded-lg transition-colors active:scale-95"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
         
         {/* Center: Logo */}
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight select-none text-gradient-primary">
-          MYMIRRO
-        </h1>
+        <img src={logo} alt="MyMirro" className="h-8" />
 
         {/* Right: Profile */}
         <div className="flex-1 flex justify-end">
@@ -63,7 +70,7 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
       </div>
 
       {/* Bottom row: Navigation */}
-      <nav className="flex items-center justify-around px-4 py-3 border-t border-border/20">
+      <nav className="flex items-center justify-around px-4 py-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -74,14 +81,16 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
               aria-label={item.label}
               className={`flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition-all duration-300 active:scale-95 relative min-w-[80px] ${
                 isActive
-                  ? "text-primary"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "scale-110" : ""} transition-transform`} />
-              <span className="text-[11px] font-medium leading-tight whitespace-nowrap">{item.label}</span>
+              <Icon className={`w-6 h-6 ${isActive ? "scale-110" : ""} transition-transform`} />
+              <span className="text-xs font-medium leading-tight whitespace-nowrap">
+                {item.id === "home" ? "Chat" : item.id === "wardrobe" ? "Wardrobe" : "Style Check"}
+              </span>
               {isActive && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 rounded-full bg-gradient-to-r from-[#C86CF6] to-[#00D7C0]" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 rounded-full bg-foreground" />
               )}
             </button>
           );
