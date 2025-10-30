@@ -101,12 +101,12 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
                 type="text"
                 placeholder="What should we call you?"
                 value={data.name}
-                onChange={(e) => {
-                  const capitalized = e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1);
-                  setData({ ...data, name: capitalized });
-                }}
-                className="h-12 bg-white border-gray-200 text-base"
-                maxLength={50}
+                  onChange={(e) => {
+                    const capitalized = e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1);
+                    setData({ ...data, name: capitalized });
+                  }}
+                  className="h-12 bg-white border-gray-200 text-gray-900 text-base"
+                  maxLength={50}
               />
             </div>
 
@@ -121,7 +121,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
                     className={`p-3 rounded-xl border-2 transition-all ${
                       data.gender === option.id
                         ? "border-black bg-black text-white"
-                        : "border-gray-200 bg-white hover:border-gray-300"
+                        : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
                     }`}
                   >
                     <span className="text-sm font-medium">{option.label}</span>
@@ -141,7 +141,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
                     className={`p-3 rounded-xl border-2 transition-all ${
                       data.ageRange === range.id
                         ? "border-black bg-black text-white"
-                        : "border-gray-200 bg-white hover:border-gray-300"
+                        : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
                     }`}
                   >
                     <span className="text-sm font-medium">{range.label}</span>

@@ -182,7 +182,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                     setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
                     setError("");
                   }}
-                  className="h-12 bg-white border-gray-200"
+                  className="h-12 bg-white border-gray-200 text-gray-900"
                   disabled={loading}
                 />
               </div>
@@ -200,7 +200,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                     setPassword(e.target.value);
                     setError("");
                   }}
-                  className="h-12 bg-white border-gray-200 pr-10"
+                  className="h-12 bg-white border-gray-200 text-gray-900 pr-10"
                   disabled={loading}
                 />
                 <button
