@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingData {
   name: string;
   gender: string;
+  ageRange: string;
 }
 
 interface OnboardingProps {
@@ -18,111 +18,135 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   const [data, setData] = useState<OnboardingData>({
     name: "",
     gender: "",
+    ageRange: "",
   });
 
   const genderOptions = [
-    { id: "male", label: "♂️ Male" },
-    { id: "female", label: "♀️ Female" },
-    { id: "non-binary", label: "🧑 Non-Binary" },
-    { id: "prefer-not-to-say", label: "💫 Prefer not to say" },
+    { id: "female", label: "Female" },
+    { id: "male", label: "Male" },
+    { id: "other", label: "Other" },
+  ];
+
+  const ageRanges = [
+    { id: "<18", label: "<18" },
+    { id: "18-25", label: "18-25" },
+    { id: "26-35", label: "26-35" },
+    { id: "36-45", label: "36-45" },
   ];
 
   const handleSubmit = async () => {
     localStorage.setItem("onboard_name", data.name);
     localStorage.setItem("onboard_gender", data.gender);
-    localStorage.setItem("onboardingComplete", "true");
+    localStorage.setItem("onboard_age_range", data.ageRange);
     
-    // Also store in Supabase user metadata for persistence across devices
+    // Also store in Supabase user metadata and profiles table
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.auth.updateUser({
         data: {
           name: data.name,
           gender: data.gender,
-          onboarding_complete: true
+          age_range: data.ageRange,
         }
+      });
+
+      // Update profiles table
+      await supabase.from('user_profiles').upsert({
+        id: user.id,
+        name: data.name,
+        gender: data.gender,
+        age_range: data.ageRange,
       });
     }
     
     onComplete();
   };
 
-  const canProceed = data.name.trim() && data.gender;
+  const canProceed = data.name.trim() && data.gender && data.ageRange;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl"
+        className="w-full max-w-md mx-auto"
       >
-        <div className="glass-card rounded-2xl p-8 space-y-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-gradient-primary">
-              Let's Get to Know You
-            </h1>
+        <div className="space-y-8">
+          {/* Logo */}
+          <h1 className="text-4xl font-bold text-center" style={{ fontFamily: 'cursive' }}>
+            MyMirro
+          </h1>
+
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold">Hey there, Style Icon!</h2>
             <p className="text-muted-foreground">
-              Tell us a bit about yourself to personalize your experience
+              Start by telling us a bit about you.
             </p>
           </div>
 
           <div className="space-y-6">
             {/* Name Input */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="space-y-2"
-            >
-              <label className="text-sm font-medium flex items-center gap-2">
-                <User className="w-4 h-4 text-primary" />
-                Your Name
-              </label>
+            <div className="space-y-2">
               <Input
                 type="text"
-                placeholder="Enter your name"
+                placeholder="What should we call you?"
                 value={data.name}
                 onChange={(e) => {
                   const capitalized = e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1);
                   setData({ ...data, name: capitalized });
                 }}
-                className="glass-card border-border/50 h-12"
+                className="h-12 bg-white border-gray-200 text-base"
                 maxLength={50}
               />
-            </motion.div>
+            </div>
 
             {/* Gender Selection */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="space-y-3"
-            >
-              <label className="text-sm font-medium">Select Your Gender</label>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
+              <label className="text-xl font-bold">Gender</label>
+              <div className="grid grid-cols-3 gap-3">
                 {genderOptions.map((option) => (
                   <button
                     key={option.id}
                     onClick={() => setData({ ...data, gender: option.id })}
-                    className={`p-4 rounded-xl border-2 transition-all min-h-[60px] ${
+                    className={`p-3 rounded-xl border-2 transition-all ${
                       data.gender === option.id
-                        ? "border-primary bg-primary/10 glow-primary"
-                        : "border-border/50 hover:border-primary/50"
+                        ? "border-black bg-black text-white"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                   >
                     <span className="text-sm font-medium">{option.label}</span>
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
+
+            {/* Age Selection */}
+            <div className="space-y-3">
+              <label className="text-xl font-bold">Age</label>
+              <div className="grid grid-cols-3 gap-3">
+                {ageRanges.map((range) => (
+                  <button
+                    key={range.id}
+                    onClick={() => setData({ ...data, ageRange: range.id })}
+                    className={`p-3 rounded-xl border-2 transition-all ${
+                      data.ageRange === range.id
+                        ? "border-black bg-black text-white"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{range.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <Button
             onClick={handleSubmit}
             disabled={!canProceed}
-            className="w-full glow-primary text-lg h-12"
+            className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl mt-8"
           >
-            Start My Fashion Journey ✨
+            Next
           </Button>
         </div>
       </motion.div>

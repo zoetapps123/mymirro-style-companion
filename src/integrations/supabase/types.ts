@@ -268,6 +268,42 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          age_range: string | null
+          body_shape: string | null
+          created_at: string | null
+          demo_stylecheck_image_url: string | null
+          gender: string | null
+          id: string
+          name: string | null
+          skin_tone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age_range?: string | null
+          body_shape?: string | null
+          created_at?: string | null
+          demo_stylecheck_image_url?: string | null
+          gender?: string | null
+          id: string
+          name?: string | null
+          skin_tone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age_range?: string | null
+          body_shape?: string | null
+          created_at?: string | null
+          demo_stylecheck_image_url?: string | null
+          gender?: string | null
+          id?: string
+          name?: string | null
+          skin_tone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       wardrobe_items: {
         Row: {
           category: string

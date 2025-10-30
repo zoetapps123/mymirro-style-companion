@@ -4,8 +4,10 @@ import Wardrobe from "@/components/Wardrobe";
 import StyleCheck from "@/components/StyleCheck";
 import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
+import OnboardingPhotos from "@/components/OnboardingPhotos";
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
-import Auth from "@/components/Auth";
+import WelcomeLanding from "@/components/WelcomeLanding";
+import PhoneAuth from "@/components/PhoneAuth";
 import TopAppBar from "@/components/TopAppBar";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,8 +15,11 @@ type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  const [showEmailCapture, setShowEmailCapture] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   useEffect(() => {
@@ -22,53 +27,37 @@ const Index = () => {
   }, []);
 
   const checkAuthAndFlow = async () => {
-    // Check if user has valid session
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      // No session - show auth
-      setShowEmailCapture(true);
+      setShowWelcome(true);
       return;
     }
 
-    // Check if session is within 7 days
     const lastLogin = localStorage.getItem("last_login");
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     
     if (!lastLogin || parseInt(lastLogin) <= sevenDaysAgo) {
-      // Session expired - show auth
       await supabase.auth.signOut();
       localStorage.clear();
-      setShowEmailCapture(true);
+      setShowWelcome(true);
       return;
     }
 
-    // Valid session - check onboarding status
-    // First check user metadata (persists across devices/sessions)
     const user = session.user;
     const onboardingCompleteInMetadata = user?.user_metadata?.onboarding_complete === true;
     const onboardingCompleteInStorage = localStorage.getItem("onboardingComplete") === "true";
     const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
     const isSignIn = localStorage.getItem("is_signin") === "true";
 
-    // If onboarding was completed before (in metadata), sync to localStorage
     if (onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
       localStorage.setItem("onboardingComplete", "true");
-      if (user?.user_metadata?.name) {
-        localStorage.setItem("onboard_name", user.user_metadata.name);
-      }
-      if (user?.user_metadata?.gender) {
-        localStorage.setItem("onboard_gender", user.user_metadata.gender);
-      }
     }
 
-    // Clear the signin flag after checking
     if (isSignIn) {
       localStorage.removeItem("is_signin");
     }
 
-    // Show onboarding only for new signups (not sign-ins)
-    // Skip onboarding if user is signing in (not signing up)
     if (!isSignIn && !onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
       setShowOnboarding(true);
     } else if (!walkthroughComplete) {
@@ -76,22 +65,55 @@ const Index = () => {
     }
   };
 
-  const handleEmailCaptured = (email: string) => {
-    localStorage.setItem("onboard_email", email);
-    setShowEmailCapture(false);
-    setShowOnboarding(true);
-  };
+  if (showWelcome) {
+    return (
+      <WelcomeLanding
+        onSignUp={() => {
+          setIsSignUp(true);
+          setShowWelcome(false);
+          setShowAuth(true);
+        }}
+        onLogIn={() => {
+          setIsSignUp(false);
+          setShowWelcome(false);
+          setShowAuth(true);
+        }}
+      />
+    );
+  }
 
-  if (showEmailCapture) {
-    return <Auth onEmailCaptured={handleEmailCaptured} />;
+  if (showAuth) {
+    return (
+      <PhoneAuth
+        isSignUp={isSignUp}
+        onBack={() => {
+          setShowAuth(false);
+          setShowWelcome(true);
+        }}
+        onSuccess={() => {
+          setShowAuth(false);
+          setShowOnboarding(true);
+        }}
+      />
+    );
   }
 
   if (showOnboarding) {
     return (
       <Onboarding
         onComplete={() => {
-          localStorage.setItem("onboardingComplete", "true");
           setShowOnboarding(false);
+          setShowPhotos(true);
+        }}
+      />
+    );
+  }
+
+  if (showPhotos) {
+    return (
+      <OnboardingPhotos
+        onComplete={() => {
+          setShowPhotos(false);
           setShowWalkthrough(true);
         }}
       />
