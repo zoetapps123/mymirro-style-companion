@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import logo from "@/assets/logo.svg";
+import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingData {
