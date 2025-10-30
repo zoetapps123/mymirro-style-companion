@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Upload, X, Loader2, ArrowLeft } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -190,9 +191,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           >
             <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'cursive' }}>
-            MyMirro
-          </h1>
+          <img src={logo} alt="MyMirro" className="h-8" />
         </div>
 
         <div className="space-y-6">

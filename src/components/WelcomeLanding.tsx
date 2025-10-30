@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import slideChat from "@/assets/slide-chat.png";
 import slideWardrobe from "@/assets/slide-wardrobe.png";
 import slideStylecheck from "@/assets/slide-stylecheck.png";
@@ -49,9 +50,7 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-200 via-purple-300 to-pink-200 p-6">
       {/* Logo */}
       <div className="text-center pt-8 pb-12">
-        <h1 className="text-5xl font-bold text-white tracking-wide" style={{ fontFamily: 'cursive' }}>
-          MyMirro
-        </h1>
+        <img src={logo} alt="MyMirro" className="h-12 mx-auto" />
       </div>
 
       {/* Carousel */}

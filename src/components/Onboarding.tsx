@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingData {
@@ -82,9 +83,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
             >
               <ArrowLeft className="w-6 h-6 text-gray-700" />
             </button>
-            <h1 className="text-4xl font-bold" style={{ fontFamily: 'cursive', color: '#1a1a1a' }}>
-              MyMirro
-            </h1>
+            <img src={logo} alt="MyMirro" className="h-8" />
           </div>
 
           <div className="space-y-2">

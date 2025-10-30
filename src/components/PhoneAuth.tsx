@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
@@ -136,9 +137,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           >
             <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'cursive' }}>
-            MyMirro
-          </h1>
+          <img src={logo} alt="MyMirro" className="h-8" />
         </div>
 
         {/* Form */}
@@ -165,7 +164,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               <label className="text-sm font-medium text-gray-900">Phone Number</label>
               <div className="flex gap-2">
                 <Select value={countryCode} onValueChange={setCountryCode}>
-                  <SelectTrigger className="w-24 h-12 bg-white border-gray-200">
+                  <SelectTrigger className="w-24 h-12 bg-white border-gray-200 text-gray-900">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
