@@ -8,52 +8,53 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Neo-Futurism Minimal Luxe - MyMirro Design System */
-    /* Onyx Background */
-    --background: 240 10% 8%;
-    --foreground: 240 5% 98%;
+    /* MyMirro Light Design System - Purple/Pink Accents */
+    /* Clean White Background */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
 
-    /* Frosted Glass Cards */
-    --card: 240 8% 12%;
-    --card-foreground: 240 5% 98%;
+    /* Light Cards */
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 240 8% 12%;
-    --popover-foreground: 240 5% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
 
-    /* Electric Orchid - Brand Energy */
-    --primary: 295 75% 58%;
-    --primary-foreground: 240 5% 98%;
+    /* Purple/Pink Primary - #C66CF6 approximate */
+    --primary: 282 89% 69%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Tech Teal - Accent */
-    --secondary: 180 65% 45%;
-    --secondary-foreground: 240 5% 98%;
+    /* Gray Secondary */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
 
     /* Muted States */
-    --muted: 240 8% 18%;
-    --muted-foreground: 240 5% 40%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 180 65% 45%;
-    --accent-foreground: 240 5% 98%;
+    /* Pink Accent */
+    --accent: 328 100% 74%;
+    --accent-foreground: 0 0% 10%;
 
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 240 5% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 18%;
-    --input: 240 8% 12%;
-    --ring: 295 75% 58%;
+    --border: 0 0% 88%;
+    --input: 0 0% 96%;
+    --ring: 282 89% 69%;
 
     --radius: 1rem;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(295 75% 58%) 0%, hsl(280 70% 48%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(180 65% 45%) 0%, hsl(190 70% 40%) 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(282 89% 69%) 0%, hsl(328 100% 74%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(328 100% 74%) 0%, hsl(282 89% 69%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%);
 
     /* Glows & Shadows */
-    --glow-primary: 0 8px 32px hsla(295, 75%, 58%, 0.3);
-    --glow-accent: 0 8px 32px hsla(180, 65%, 45%, 0.3);
-    --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.4);
-    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --glow-primary: 0 8px 32px hsla(282, 89%, 69%, 0.3);
+    --glow-accent: 0 8px 32px hsla(328, 100%, 74%, 0.3);
+    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-glass: 0 4px 16px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -117,29 +118,29 @@ All colors MUST be HSL.
 
 @layer utilities {
   .glass-card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(249, 249, 249, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
   }
 
   .glow-primary {
-    box-shadow: 0 8px 32px hsla(295, 75%, 58%, 0.3);
+    box-shadow: 0 8px 32px hsla(282, 89%, 69%, 0.2);
   }
 
   .glow-accent {
-    box-shadow: 0 8px 32px hsla(180, 65%, 45%, 0.3);
+    box-shadow: 0 8px 32px hsla(328, 100%, 74%, 0.2);
   }
 
   .text-gradient-primary {
-    background: linear-gradient(135deg, hsl(295 75% 68%) 0%, hsl(280 70% 58%) 100%);
+    background: linear-gradient(135deg, hsl(282 89% 69%) 0%, hsl(328 100% 74%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-accent {
-    background: linear-gradient(135deg, hsl(180 65% 55%) 0%, hsl(190 70% 50%) 100%);
+    background: linear-gradient(135deg, hsl(328 100% 74%) 0%, hsl(282 89% 69%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

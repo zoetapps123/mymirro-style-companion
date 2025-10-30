@@ -451,7 +451,7 @@ const AICompanion = () => {
                 className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "glass-card text-foreground"
+                    : "bg-muted/50 text-foreground border border-border"
                 }`}
               >
                 {message.images && message.images.length > 0 && (
@@ -502,31 +502,12 @@ const AICompanion = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.15 }}
                 onClick={() => handleCardClick(card.query)}
-                className="relative h-[150px] rounded-2xl p-4 flex flex-col items-start justify-between text-left overflow-hidden backdrop-blur-xl bg-[#1B1B22]/60 hover:scale-[1.03] active:scale-[0.97] transition-transform duration-300 group border border-transparent hover:border-primary/30"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(27, 27, 34, 0.6), rgba(27, 27, 34, 0.8))',
-                }}
+                className="relative h-[150px] rounded-2xl p-4 flex flex-col items-start justify-between text-left overflow-hidden bg-purple-50 hover:bg-purple-100 active:scale-[0.97] transition-all duration-300 border border-purple-100"
               >
-                {/* Gradient border effect */}
-                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" 
-                     style={{
-                       background: 'linear-gradient(135deg, rgba(200, 108, 246, 0.2), rgba(0, 215, 192, 0.2))',
-                       padding: '1px',
-                       WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                       WebkitMaskComposite: 'xor',
-                       maskComposite: 'exclude',
-                     }}
-                />
-                
-                {/* Gradient shimmer animation */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent animate-shimmer" />
-                </div>
-
                 <div className="relative z-10 flex flex-col h-full justify-between">
                   <div className="text-3xl mb-2">{card.icon}</div>
                   <div>
-                    <h3 className="text-sm font-semibold text-foreground mb-1">{card.title}</h3>
+                    <h3 className="text-base font-semibold text-primary mb-1">{card.title}</h3>
                     <p className="text-xs text-muted-foreground leading-tight">{card.subtitle}</p>
                   </div>
                 </div>
@@ -537,7 +518,7 @@ const AICompanion = () => {
       )}
 
       {/* Input Area */}
-      <div className="px-4 py-3 border-t border-border/50 glass-card safe-area-bottom">
+      <div className="px-4 py-3 border-t border-border bg-background safe-area-bottom">
         <div className="space-y-2 max-w-2xl mx-auto">
           {/* Image Preview */}
           {selectedImages.length > 0 && (
@@ -568,7 +549,7 @@ const AICompanion = () => {
             <Button
               size="icon"
               variant="outline"
-              className="glass-card border-border/50 flex-shrink-0 min-w-[44px] min-h-[44px]"
+              className="border-border flex-shrink-0 min-w-[44px] min-h-[44px] bg-background"
               onClick={() => fileInputRef.current?.click()}
               title="Upload outfit image"
             >
@@ -579,18 +560,18 @@ const AICompanion = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              className="flex-1 glass-card border-border/50 min-h-[44px] text-sm"
+              className="flex-1 border-border min-h-[44px] text-sm bg-background"
             />
             <Button
-                data-send-button
-                size="icon"
-                onClick={() => handleSend()}
-                disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
-                className="glow-primary flex-shrink-0 min-w-[44px] min-h-[44px]"
-                title="Send message"
-              >
-                <Send className="w-5 h-5" />
-              </Button>
+              data-send-button
+              size="icon"
+              onClick={() => handleSend()}
+              disabled={(!inputValue.trim() && selectedImages.length === 0) || isLoading}
+              className="flex-shrink-0 min-w-[44px] min-h-[44px] bg-foreground text-background hover:bg-foreground/90"
+              title="Send message"
+            >
+              <Send className="w-5 h-5" />
+            </Button>
             </div>
             
             {/* Guided tip after first message */}
