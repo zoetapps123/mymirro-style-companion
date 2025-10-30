@@ -22,32 +22,32 @@ interface UserProfile {
 
 const QUERY_CARDS = [
   {
-    id: 'outfit-check',
-    icon: '👗',
-    title: 'Outfit Check',
-    subtitle: 'Rate my outfit & get quick tips',
-    query: 'Can you review my outfit?'
-  },
-  {
-    id: 'build-look',
-    icon: '🧥',
-    title: 'Build My Look',
-    subtitle: 'Mix wardrobe pieces into a full outfit',
-    query: 'Help me build an outfit from my wardrobe.'
-  },
-  {
-    id: 'color-pairing',
-    icon: '🎨',
-    title: 'Color Pairing',
-    subtitle: 'Find what colors go well together',
-    query: 'What color goes best with this top?'
-  },
-  {
-    id: 'find-similar',
+    id: 'shop-smarter',
     icon: '🛍️',
-    title: 'Find Similar',
-    subtitle: 'Search Indian stores for a similar style',
-    query: 'Where can I find this outfit online?'
+    title: 'Shop Smarter',
+    subtitle: "Let's Find pieces that feel like you",
+    query: 'Help me find pieces that match my style.'
+  },
+  {
+    id: 'mix-match',
+    icon: '🎨',
+    title: 'Mix & Match',
+    subtitle: 'See what works together.',
+    query: 'What outfits can I create with what I have?'
+  },
+  {
+    id: 'wardrobe-fit',
+    icon: '👔',
+    title: 'Wardrobe Fit',
+    subtitle: "I'll pull looks straight from your wardrobe.",
+    query: 'Create an outfit from my wardrobe items.'
+  },
+  {
+    id: 'plan-fit',
+    icon: '📅',
+    title: 'Plan My Fit',
+    subtitle: "Styling for your next occasion? I've got you.",
+    query: 'Help me plan my outfit for an upcoming event.'
   }
 ];
 
@@ -116,7 +116,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName} 👋, what's on your mind today?\nYou can start by choosing one of these.`,
+      content: `Hey ${userName},\nWelcome to your personal style lab. 👋\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
 

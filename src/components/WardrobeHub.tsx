@@ -1,159 +1,81 @@
-import { Camera, Sparkles, Calendar, Upload } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { DoorOpen, Sparkles, Calendar, Shirt } from "lucide-react";
 import { motion } from "framer-motion";
+
 interface WardrobeHubProps {
-  onNavigate: (view: 'upload' | 'generate' | 'calendar') => void;
+  onNavigate: (view: 'upload' | 'generate' | 'calendar' | 'items' | 'suggestion' | 'lookbook') => void;
 }
-const WardrobeHub = ({
-  onNavigate
-}: WardrobeHubProps) => {
-  const [itemCount, setItemCount] = useState(0);
-  const [outfitCount, setOutfitCount] = useState(0);
-  const [categoryCount, setCategoryCount] = useState({
-    tops: 0,
-    bottoms: 0
-  });
-  useEffect(() => {
-    fetchCounts();
-  }, []);
-  const fetchCounts = async () => {
-    const {
-      count: itemsCount,
-      error: itemsError
-    } = await supabase.from('wardrobe_items').select('id', {
-      count: 'exact',
-      head: true
-    });
-    const {
-      count: outfitsCount,
-      error: outfitsError
-    } = await supabase.from('outfits').select('id', {
-      count: 'exact',
-      head: true
-    });
+const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
+  const features = [
+    {
+      icon: DoorOpen,
+      title: "Your Closet",
+      subtitle: "",
+      action: () => onNavigate('items'),
+      active: true,
+    },
+    {
+      icon: Sparkles,
+      title: "Outfit Suggestion",
+      subtitle: "",
+      action: () => onNavigate('suggestion'),
+      active: false,
+    },
+    {
+      icon: Calendar,
+      title: "Plan Your Look",
+      subtitle: "",
+      action: () => onNavigate('calendar'),
+      active: false,
+    },
+    {
+      icon: Shirt,
+      title: "Your Lookbook",
+      subtitle: "",
+      action: () => onNavigate('lookbook'),
+      active: false,
+    },
+  ];
 
-    // Get category counts
-    const {
-      data: categoryData
-    } = await supabase.from('wardrobe_items').select('category');
-    const tops = categoryData?.filter(item => item.category === 'Tops' || item.category === 'Shirts').length || 0;
-    const bottoms = categoryData?.filter(item => item.category === 'Bottoms' || item.category === 'Pants' || item.category === 'Skirts').length || 0;
-    if (itemsError) console.error('Failed to count wardrobe_items:', itemsError);
-    if (outfitsError) console.error('Failed to count outfits:', outfitsError);
-    setItemCount(itemsCount || 0);
-    setOutfitCount(outfitsCount || 0);
-    setCategoryCount({
-      tops,
-      bottoms
-    });
-  };
-  const cards = [{
-    icon: Upload,
-    title: "Your Wardrobe",
-    description: "Click or upload to digitize your wardrobe.",
-    action: () => onNavigate('upload'),
-    disabled: false,
-    comingSoon: false,
-    emptyMessage: itemCount === 0 ? "Your wardrobe is empty. Add items (don't be lazy :P)" : null,
-    gradient: "from-primary/20 to-primary/5",
-    showCount: true
-  }, {
-    icon: Sparkles,
-    title: "Generate Outfits",
-    description: "Auto-create looks by style, occasion, and items.",
-    action: () => onNavigate('generate'),
-    disabled: categoryCount.tops < 3 || categoryCount.bottoms < 3,
-    comingSoon: false,
-    disabledTooltip: `Need ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock`,
-    emptyMessage: categoryCount.tops < 3 || categoryCount.bottoms < 3 ? `Add ${Math.max(0, 3 - categoryCount.tops)} more tops and ${Math.max(0, 3 - categoryCount.bottoms)} more bottoms to unlock this feature.` : null,
-    gradient: "from-accent/20 to-accent/5"
-  }, {
-    icon: Calendar,
-    title: "Plan your looks",
-    description: "Schedule outfits on your calendar.",
-    action: () => {},
-    disabled: true,
-    comingSoon: true,
-    disabledTooltip: undefined,
-    emptyMessage: null,
-    gradient: "from-secondary/20 to-secondary/5"
-  }];
-  return <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
-      {/* Header */}
-      <div className="space-y-1">
-        
-        
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Feature Icons */}
+      <div className="px-4 pt-6 pb-4">
+        <div className="grid grid-cols-4 gap-4">
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            const isActive = index === 0;
+            return (
+              <motion.button
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                onClick={feature.action}
+                className="flex flex-col items-center gap-2"
+              >
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                    isActive
+                      ? "bg-primary border-2 border-primary"
+                      : "bg-background border-2 border-border"
+                  }`}
+                >
+                  <Icon
+                    className={`w-7 h-7 ${
+                      isActive ? "text-primary-foreground" : "text-primary"
+                    }`}
+                  />
+                </div>
+                <span className="text-xs font-medium text-center leading-tight">
+                  {feature.title}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
-
-      {/* Sly Copy */}
-      <p className="text-[10px] sm:text-xs text-muted-foreground italic">
-        Please don't be lazy — take pictures in good lighting or upload a clear photo :P
-      </p>
-
-      {/* Feature Cards */}
-      <div className="flex-1 grid gap-3 overflow-y-auto">
-        {cards.map((card, index) => {
-        const Icon = card.icon;
-        return <motion.div key={card.title} initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          delay: index * 0.1
-        }}>
-              <Card className={`glass-card hover:glow-primary transition-all relative overflow-hidden ${card.disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}`} onClick={card.disabled ? undefined : card.action}>
-                <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-50`} />
-                <CardHeader className="relative pb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2.5 rounded-xl bg-card/50 backdrop-blur flex-shrink-0">
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base sm:text-lg flex items-center gap-2 flex-wrap">
-                        {card.title}
-                        {card.comingSoon && <Badge variant="secondary" className="text-[10px] sm:text-xs px-2 py-0.5">
-                            Coming Soon
-                          </Badge>}
-                        {card.showCount && <span className="text-xs text-muted-foreground font-normal">
-                            {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                          </span>}
-                      </CardTitle>
-                      <CardDescription className="mt-0.5 text-xs sm:text-sm">
-                        {card.description}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="relative pt-0">
-                  {card.emptyMessage && <div className="mb-3 p-2.5 rounded-lg bg-muted/20 border border-border/50">
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">{card.emptyMessage}</p>
-                    </div>}
-                  <Button variant="secondary" className="w-full glow-accent min-h-[44px] text-sm" onClick={card.action} disabled={card.disabled}>
-                    {card.comingSoon ? "Coming Soon" : "Get Started"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>;
-      })}
-      </div>
-
-      {/* Stats */}
-      {itemCount > 0 && <div className="flex gap-3 text-center flex-shrink-0">
-          <div className="flex-1 p-3 glass-card rounded-xl">
-            <p className="text-xl sm:text-2xl font-bold text-gradient-primary">{itemCount}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Items</p>
-          </div>
-          <div className="flex-1 p-3 glass-card rounded-xl">
-            <p className="text-xl sm:text-2xl font-bold text-gradient-accent">{outfitCount}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Outfits</p>
-          </div>
-        </div>}
-    </div>;
+    </div>
+  );
 };
+
 export default WardrobeHub;

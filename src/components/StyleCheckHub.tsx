@@ -1,70 +1,145 @@
-import { Target, Swords } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { Card } from "@/components/ui/card";
+import { Camera } from "lucide-react";
+
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
 }
-const StyleCheckHub = ({
-  onNavigate
-}: StyleCheckHubProps) => {
-  const features = [{
-    icon: Target,
-    title: "Outfit Check",
-    description: "Get a pro score and quick fixes for your look.",
-    action: () => onNavigate('outfit-check'),
-    gradient: "from-accent/20 to-accent/5",
-    buttonText: "Start Check"
-  }, {
-    icon: Swords,
-    title: "Outfit Battle",
-    description: "Pit outfits head-to-head. Winner gets the crown.",
-    action: () => onNavigate('outfit-battle'),
-    gradient: "from-primary/20 to-primary/5",
-    buttonText: "Let's Battle"
-  }];
-  return <div className="flex flex-col h-full p-4 space-y-4 pb-safe">
 
-      <p className="text-[10px] sm:text-xs text-muted-foreground italic">
-        Please use a clear full-length photo in good lighting.
-      </p>
+const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
+  const [selectedOccasion, setSelectedOccasion] = useState<string>("");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-      <div className="flex-1 grid gap-3 overflow-y-auto">
-        {features.map((feature, index) => {
-        const Icon = feature.icon;
-        return <motion.div key={feature.title} initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          delay: index * 0.1
-        }}>
-              <Card className="glass-card hover:glow-accent transition-all cursor-pointer relative overflow-hidden h-full active:scale-[0.98]" onClick={feature.action}>
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-50`} />
-                <CardHeader className="relative pb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2.5 rounded-xl bg-card/50 backdrop-blur flex-shrink-0">
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg sm:text-xl">{feature.title}</CardTitle>
-                      <CardDescription className="mt-1 text-xs sm:text-sm">
-                        {feature.description}
-                      </CardDescription>
-                    </div>
+  const occasions = [
+    "Casual Day Out",
+    "Office",
+    "Date",
+    "Party",
+    "Wedding",
+    "Travel",
+    "Interview",
+    "Gym",
+  ];
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const canStartCheck = uploadedImage && selectedOccasion;
+
+  return (
+    <div className="flex flex-col h-full bg-background overflow-y-auto">
+      <div className="p-4 space-y-6">
+        {/* Title */}
+        <div>
+          <h1 className="text-3xl font-bold text-primary">Style Check</h1>
+          <p className="text-muted-foreground mt-1">
+            Pro score and quick fixes for your look
+          </p>
+        </div>
+
+        {/* Where are you heading? */}
+        <div>
+          <h2 className="text-xl font-semibold text-primary mb-3">
+            Where are you heading?
+          </h2>
+          <div className="flex gap-2 flex-wrap">
+            {occasions.map((occasion) => (
+              <Button
+                key={occasion}
+                variant={selectedOccasion === occasion ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedOccasion(occasion)}
+                className={`rounded-full ${
+                  selectedOccasion === occasion
+                    ? "bg-black text-white"
+                    : "bg-transparent border-border"
+                }`}
+              >
+                {occasion}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Upload Image */}
+        <div>
+          <label htmlFor="outfit-upload">
+            <div className="bg-muted/30 rounded-2xl p-12 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-muted/50 transition-colors min-h-[280px]">
+              {uploadedImage ? (
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded outfit"
+                  className="max-h-64 rounded-lg object-contain"
+                />
+              ) : (
+                <>
+                  <Camera className="w-16 h-16 text-primary" />
+                  <div className="text-center">
+                    <p className="font-semibold text-lg">Upload an Image</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Choose where you're heading above
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent className="relative pt-0 pb-3">
-                  <Button variant="secondary" className="w-full glow-accent min-h-[44px] text-sm">
-                    {feature.buttonText}
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>;
-      })}
+                </>
+              )}
+            </div>
+          </label>
+          <input
+            id="outfit-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+        </div>
+
+        {/* Battle of the fits */}
+        <div>
+          <h2 className="text-xl font-semibold text-primary mb-3">
+            Battle of the fits
+          </h2>
+          <Card
+            className="p-6 cursor-pointer hover:border-primary transition-colors relative overflow-hidden"
+            onClick={() => onNavigate('outfit-battle')}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 opacity-20">
+              <div className="text-8xl font-bold text-primary transform rotate-12">
+                VS
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold text-primary mb-2">
+              Outfit Battle
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Upload, compare, and crown the best outfit.
+            </p>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Lets Fight!
+            </Button>
+          </Card>
+        </div>
+
+        {/* Start Check Button */}
+        {canStartCheck && (
+          <Button
+            className="w-full h-12 text-lg"
+            onClick={() => onNavigate('outfit-check')}
+          >
+            Start Style Check
+          </Button>
+        )}
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default StyleCheckHub;

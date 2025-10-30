@@ -2,11 +2,14 @@ import { useState } from "react";
 import WardrobeHub from "./WardrobeHub";
 import WardrobeUpload from "./WardrobeUpload";
 import AutoGenerateOutfits from "./AutoGenerateOutfits";
-import PlanLooks from "./PlanLooks";
+import WardrobeMyItems from "./WardrobeMyItems";
+import WardrobeOutfitSuggestion from "./WardrobeOutfitSuggestion";
+import WardrobeLookbook from "./WardrobeLookbook";
+import WardrobeComingSoon from "./WardrobeComingSoon";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type WardrobeView = 'hub' | 'upload' | 'generate' | 'calendar';
+type WardrobeView = 'hub' | 'upload' | 'generate' | 'calendar' | 'items' | 'suggestion' | 'lookbook';
 
 const Wardrobe = () => {
   const [currentView, setCurrentView] = useState<WardrobeView>('hub');
@@ -19,8 +22,14 @@ const Wardrobe = () => {
         return <WardrobeUpload onBack={() => setCurrentView('hub')} />;
       case 'generate':
         return <AutoGenerateOutfits onBack={() => setCurrentView('hub')} />;
+      case 'items':
+        return <WardrobeMyItems onBack={() => setCurrentView('hub')} />;
+      case 'suggestion':
+        return <WardrobeOutfitSuggestion onBack={() => setCurrentView('hub')} />;
+      case 'lookbook':
+        return <WardrobeLookbook onBack={() => setCurrentView('hub')} />;
       case 'calendar':
-        return <PlanLooks onBack={() => setCurrentView('hub')} />;
+        return <WardrobeComingSoon onBack={() => setCurrentView('hub')} />;
       default:
         return <WardrobeHub onNavigate={setCurrentView} />;
     }

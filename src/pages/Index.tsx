@@ -117,23 +117,12 @@ const Index = () => {
     return (
       <OnboardingPhotos
         onComplete={() => {
+          localStorage.setItem("walkthroughComplete", "true");
           setShowPhotos(false);
-          setShowWalkthrough(true);
         }}
         onBack={() => {
           setShowPhotos(false);
           setShowOnboarding(true);
-        }}
-      />
-    );
-  }
-
-  if (showWalkthrough) {
-    return (
-      <FeatureWalkthrough
-        onComplete={() => {
-          localStorage.setItem("walkthroughComplete", "true");
-          setShowWalkthrough(false);
         }}
       />
     );
