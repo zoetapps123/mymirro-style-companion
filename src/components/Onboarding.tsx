@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingData {
@@ -12,9 +13,10 @@ interface OnboardingData {
 
 interface OnboardingProps {
   onComplete: () => void;
+  onBack: () => void;
 }
 
-const Onboarding = ({ onComplete }: OnboardingProps) => {
+const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
   const [data, setData] = useState<OnboardingData>({
     name: "",
     gender: "",
@@ -72,14 +74,22 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         className="w-full max-w-md mx-auto"
       >
         <div className="space-y-8">
-          {/* Logo */}
-          <h1 className="text-4xl font-bold text-center" style={{ fontFamily: 'cursive' }}>
-            MyMirro
-          </h1>
+          {/* Header with Back Button */}
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="p-2 hover:bg-white/50 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
+            <h1 className="text-4xl font-bold" style={{ fontFamily: 'cursive', color: '#1a1a1a' }}>
+              MyMirro
+            </h1>
+          </div>
 
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold">Hey there, Style Icon!</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-3xl font-bold text-gray-900">Hey there, Style Icon!</h2>
+            <p className="text-gray-600">
               Start by telling us a bit about you.
             </p>
           </div>
@@ -102,7 +112,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
             {/* Gender Selection */}
             <div className="space-y-3">
-              <label className="text-xl font-bold">Gender</label>
+              <label className="text-xl font-bold text-gray-900">Gender</label>
               <div className="grid grid-cols-3 gap-3">
                 {genderOptions.map((option) => (
                   <button
@@ -122,7 +132,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
             {/* Age Selection */}
             <div className="space-y-3">
-              <label className="text-xl font-bold">Age</label>
+              <label className="text-xl font-bold text-gray-900">Age</label>
               <div className="grid grid-cols-3 gap-3">
                 {ageRanges.map((range) => (
                   <button

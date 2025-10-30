@@ -134,9 +134,9 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
             onClick={onBack}
             className="p-2 hover:bg-white/50 rounded-full transition-colors"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-4xl font-bold" style={{ fontFamily: 'cursive' }}>
+          <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'cursive' }}>
             MyMirro
           </h1>
         </div>
@@ -148,10 +148,10 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           className="space-y-6"
         >
           <div>
-            <h2 className="text-3xl font-bold mb-2">
+            <h2 className="text-3xl font-bold mb-2 text-gray-900">
               {isSignUp ? "Create Account" : "Welcome Back"}
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-gray-600">
               {isSignUp 
                 ? "Start your fashion journey with MyMirro"
                 : "Sign in to continue your style evolution"
@@ -162,7 +162,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Phone Number */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Phone Number</label>
+              <label className="text-sm font-medium text-gray-900">Phone Number</label>
               <div className="flex gap-2">
                 <Select value={countryCode} onValueChange={setCountryCode}>
                   <SelectTrigger className="w-24 h-12 bg-white border-gray-200">
@@ -190,7 +190,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
+              <label className="text-sm font-medium text-gray-900">Password</label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}

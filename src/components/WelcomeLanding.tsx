@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import welcomeDemo from "@/assets/welcome-demo.png";
+import slideChat from "@/assets/slide-chat.png";
+import slideWardrobe from "@/assets/slide-wardrobe.png";
+import slideStylecheck from "@/assets/slide-stylecheck.png";
 
 interface WelcomeLandingProps {
   onSignUp: () => void;
@@ -15,15 +17,15 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
   const slides = [
     {
       title: "Ask your stylist anything",
-      image: welcomeDemo
+      image: slideChat
     },
     {
       title: "Create looks from your wardrobe",
-      description: "Mix and match items to discover new outfit combinations"
+      image: slideWardrobe
     },
     {
       title: "Improve your style using Style Check",
-      description: "Get AI-powered feedback on your outfits"
+      image: slideStylecheck
     }
   ];
 
@@ -65,18 +67,12 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
               className="w-full h-full flex items-center justify-center"
             >
               <div className="bg-white/20 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-white/30 w-full">
-                <div className="aspect-square rounded-2xl bg-white/50 flex items-center justify-center mb-4">
-                  {currentSlide === 0 && slides[0].image ? (
-                    <img 
-                      src={slides[0].image} 
-                      alt="Style preview" 
-                      className="w-full h-full object-cover rounded-2xl"
-                    />
-                  ) : (
-                    <div className="text-center p-6">
-                      <p className="text-lg text-gray-700">{slides[currentSlide].description}</p>
-                    </div>
-                  )}
+                <div className="aspect-[9/16] rounded-2xl bg-white/50 flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={slides[currentSlide].image} 
+                    alt={slides[currentSlide].title} 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
             </motion.div>

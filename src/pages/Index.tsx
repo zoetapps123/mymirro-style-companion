@@ -105,6 +105,10 @@ const Index = () => {
           setShowOnboarding(false);
           setShowPhotos(true);
         }}
+        onBack={() => {
+          setShowOnboarding(false);
+          setShowAuth(true);
+        }}
       />
     );
   }
@@ -115,6 +119,10 @@ const Index = () => {
         onComplete={() => {
           setShowPhotos(false);
           setShowWalkthrough(true);
+        }}
+        onBack={() => {
+          setShowPhotos(false);
+          setShowOnboarding(true);
         }}
       />
     );

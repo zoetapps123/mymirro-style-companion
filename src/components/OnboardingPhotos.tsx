@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Upload, X, Loader2, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
 interface OnboardingPhotosProps {
   onComplete: () => void;
+  onBack: () => void;
 }
 
-const OnboardingPhotos = ({ onComplete }: OnboardingPhotosProps) => {
+const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   const [photos, setPhotos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -20,10 +21,13 @@ const OnboardingPhotos = ({ onComplete }: OnboardingPhotosProps) => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newPhotos = [...photos, ...files];
-    setPhotos(newPhotos);
+    
+    if (files.length === 0) return;
+    
+    setPhotos(files);
+    setPreviews([]);
 
-    // Create previews
+    // Create previews for all selected files
     files.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -178,58 +182,71 @@ const OnboardingPhotos = ({ onComplete }: OnboardingPhotosProps) => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md mx-auto"
       >
-        {/* Logo */}
-        <h1 className="text-4xl font-bold text-center mb-8" style={{ fontFamily: 'cursive' }}>
-          MyMirro
-        </h1>
+        {/* Header with Back Button */}
+        <div className="flex items-center gap-4 mb-8">
+          <button 
+            onClick={onBack}
+            className="p-2 hover:bg-white/50 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
+          </button>
+          <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'cursive' }}>
+            MyMirro
+          </h1>
+        </div>
 
         <div className="space-y-6">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Drop your fits here</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-3xl font-bold mb-2 text-gray-900">Drop your fits here</h2>
+            <p className="text-gray-600">
               Upload at least 3 outfit pics – the more you share, the better I get at styling you.
             </p>
           </div>
 
-          {/* Photo Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-              <div key={index} className="relative aspect-square">
-                {previews[index] ? (
-                  <div className="relative w-full h-full">
-                    <img
-                      src={previews[index]}
-                      alt={`Upload ${index + 1}`}
-                      className="w-full h-full object-cover rounded-2xl"
-                    />
-                    <button
-                      onClick={() => removePhoto(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                      disabled={loading}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="w-full h-full bg-white border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-                    <Plus className="w-8 h-8 text-gray-400" />
-                    <span className="text-xs text-gray-500 mt-1">{index + 1}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      disabled={loading}
-                    />
-                  </label>
-                )}
-              </div>
-            ))}
-          </div>
+          {/* Batch Upload Button */}
+          <label className="w-full h-32 bg-white border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors group">
+            <Upload className="w-12 h-12 text-gray-400 group-hover:text-gray-500 mb-2" />
+            <span className="text-lg font-semibold text-gray-700">Upload Photos</span>
+            <span className="text-sm text-gray-500 mt-1">Select multiple outfit images</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={loading}
+            />
+          </label>
 
-          {photos.length >= 3 && (
-            <p className="text-sm text-green-600 font-medium">
-              ✓ {photos.length} photos uploaded
+          {/* Photo Preview Grid */}
+          {previews.length > 0 && (
+            <div className="grid grid-cols-3 gap-3">
+              {previews.map((preview, index) => (
+                <div key={index} className="relative aspect-square">
+                  <img
+                    src={preview}
+                    alt={`Upload ${index + 1}`}
+                    className="w-full h-full object-cover rounded-2xl"
+                  />
+                  <button
+                    onClick={() => removePhoto(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    disabled={loading}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {photos.length > 0 && (
+            <p className="text-sm font-medium text-gray-700">
+              {photos.length >= 3 ? (
+                <span className="text-green-600">✓ {photos.length} photos uploaded</span>
+              ) : (
+                <span className="text-gray-600">{photos.length} photos uploaded (need {3 - photos.length} more)</span>
+              )}
             </p>
           )}
 
