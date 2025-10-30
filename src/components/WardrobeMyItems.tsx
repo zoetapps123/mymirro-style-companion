@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface WardrobeMyItemsProps {
   onBack: () => void;
-  onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
+  onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook' | 'upload') => void;
 }
 
 const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
@@ -113,12 +113,12 @@ const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
       </div>
 
       {/* Items Grid */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-24">
         <div className="grid grid-cols-2 gap-3">
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative"
+              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-muted/30"
             >
               <img
                 src={item.processed_image_url || item.image_url}
@@ -132,18 +132,17 @@ const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
               </div>
             </div>
           ))}
-
-          {/* Add Item Card */}
-          <button
-            onClick={onBack}
-            className="aspect-[3/4] rounded-2xl border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
-          >
-            <div className="w-16 h-16 rounded-full bg-black flex items-center justify-center">
-              <Plus className="w-8 h-8 text-white" />
-            </div>
-          </button>
         </div>
       </div>
+
+      {/* Floating Add Button */}
+      <button
+        onClick={() => onNavigate('upload')}
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-black flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95 z-50"
+        aria-label="Add wardrobe item"
+      >
+        <Plus className="w-8 h-8 text-white" />
+      </button>
     </div>
   );
 };

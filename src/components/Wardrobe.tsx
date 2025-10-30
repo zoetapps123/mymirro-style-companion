@@ -23,7 +23,7 @@ const Wardrobe = () => {
       case 'generate':
         return <AutoGenerateOutfits onBack={() => setCurrentView('hub')} />;
       case 'items':
-        return <WardrobeMyItems onBack={() => setCurrentView('hub')} onNavigate={setCurrentView} />;
+        return <WardrobeMyItems onBack={() => setCurrentView('upload')} onNavigate={setCurrentView} />;
       case 'suggestion':
         return <WardrobeOutfitSuggestion onBack={() => setCurrentView('hub')} onNavigate={setCurrentView} />;
       case 'lookbook':
