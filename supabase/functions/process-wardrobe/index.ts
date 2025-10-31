@@ -37,7 +37,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-pro',
           modalities: ['image', 'text'],
           messages: [
             {
@@ -110,19 +110,76 @@ serve(async (req) => {
     }
 
     if (!clothingItems || clothingItems.length === 0) {
-      // Return empty list to avoid 500s; client will handle messaging
+      // Fallback attempt with a simpler prompt and no tool calling
+      const fallbackResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-pro',
+          modalities: ['image', 'text'],
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: 'List all clothing items in JSON as {"items":[{"name":"","category":"","color":""}...]}. Categories: Tops, Bottoms, Layers, Dresses, Shoes, Accessories.' },
+                { type: 'image_url', image_url: { url: inputUrl } }
+              ]
+            }
+          ]
+        }),
+      });
+      const fbData = await fallbackResp.json();
+      try {
+        const text = fbData.choices?.[0]?.message?.content;
+        if (typeof text === 'string') {
+          const parsed = JSON.parse(text);
+          clothingItems = parsed?.items || [];
+        }
+      } catch {}
+    }
+
+    if (!clothingItems || clothingItems.length === 0) {
       return new Response(
         JSON.stringify({ items: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // For each detected item, use the original image as the processed image
-    // Background removal and item extraction will be handled by a separate process
-    const processedItems = clothingItems.map((item: any) => ({
-      ...item,
-      processedImageUrl: inputUrl
-    }));
+    // Generate clean cutouts per item with fallback to source image
+    const processedItems = await Promise.all(
+      clothingItems.map(async (item: any) => {
+        try {
+          const genResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash-image-preview',
+              modalities: ['image', 'text'],
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: `Cut out this single item: ${item.name}. Remove background and other objects. Center on white background, high quality PNG.` },
+                    { type: 'image_url', image_url: { url: inputUrl } }
+                  ]
+                }
+              ]
+            }),
+          });
+          const genData = await genResp.json();
+          const cutoutUrl = genData.choices?.[0]?.message?.images?.[0]?.image_url?.url || inputUrl;
+          return { ...item, processedImageUrl: cutoutUrl, sourceUrl: inputUrl };
+        } catch {
+          return { ...item, processedImageUrl: inputUrl, sourceUrl: inputUrl };
+        }
+      })
+    );
 
     console.log(`Processed ${processedItems.length} items`);
 

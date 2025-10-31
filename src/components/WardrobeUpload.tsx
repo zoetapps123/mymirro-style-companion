@@ -187,11 +187,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             : `All detected items already exist in your wardrobe.`,
         });
 
-        setProgress(100);
-        fetchWardrobeItems();
-      };
-
-      reader.readAsDataURL(file);
+      setProgress(100);
+      fetchWardrobeItems();
     } catch (error) {
       console.error('Error processing image:', error);
       toast({
