@@ -118,14 +118,28 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       if (error) {
         console.error('Process error:', error);
-        throw error;
+        toast({
+          title: "Processing failed",
+          description: "Couldn’t analyze the photo. Try another image with clear items.",
+          variant: "destructive",
+        });
+        setProcessingItems([]);
+        setLoading(false);
+        setProgress(0);
+        return;
       }
       
-      const itemsDetected = data.items || [];
-        
-        if (itemsDetected.length === 0) {
-          throw new Error('No clothing items detected');
-        }
+      const itemsDetected = data?.items || [];
+      if (!itemsDetected || itemsDetected.length === 0) {
+        toast({
+          title: "No items detected",
+          description: "Try a clearer outfit photo with items fully visible.",
+        });
+        setProcessingItems([]);
+        setLoading(false);
+        setProgress(0);
+        return;
+      }
 
         // Update processing tiles with actual items
         setProcessingItems(itemsDetected.map((item: any, idx: number) => ({

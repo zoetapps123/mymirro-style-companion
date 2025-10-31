@@ -93,15 +93,28 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
         if (error) {
           console.error('Process wardrobe error:', error);
-          throw error;
+          toast({
+            title: "Processing failed",
+            description: "Couldn’t analyze the photo. Try another image with clear items.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          setProgress(0);
+          return;
         }
         
         console.log('Wardrobe processing response:', data);
 
-        const itemsDetected = data.items || [];
+        const itemsDetected = data?.items || [];
         
-        if (itemsDetected.length === 0) {
-          throw new Error('No clothing items detected');
+        if (!itemsDetected || itemsDetected.length === 0) {
+          toast({
+            title: "No items detected",
+            description: "Try a clearer outfit photo with items fully visible.",
+          });
+          setLoading(false);
+          setProgress(0);
+          return;
         }
 
         let addedCount = 0;
