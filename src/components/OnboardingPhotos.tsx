@@ -124,35 +124,43 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              // Upload processed image
-              const fileName = `${user.id}/wardrobe_${Date.now()}_${item.name.replace(/\s+/g, '-')}.png`;
-              const base64Image = item.processedImageUrl.split(',')[1];
-              const binaryData = atob(base64Image);
-              const bytes = new Uint8Array(binaryData.length);
-              for (let j = 0; j < binaryData.length; j++) {
-                bytes[j] = binaryData.charCodeAt(j);
+              // Determine processed image URL
+              let finalProcessedUrl: string | null = null;
+              if (item.processedImageUrl && typeof item.processedImageUrl === 'string') {
+                if (item.processedImageUrl.startsWith('data:')) {
+                  const fileName = `${user.id}/wardrobe_${Date.now()}_${item.name.replace(/\s+/g, '-')}.png`;
+                  const base64Image = item.processedImageUrl.split(',')[1];
+                  const binaryData = atob(base64Image);
+                  const bytes = new Uint8Array(binaryData.length);
+                  for (let j = 0; j < binaryData.length; j++) {
+                    bytes[j] = binaryData.charCodeAt(j);
+                  }
+                  const imageBlob = new Blob([bytes], { type: 'image/png' });
+
+                  const { error: uploadError } = await supabase.storage
+                    .from('outfits')
+                    .upload(fileName, imageBlob);
+
+                  if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    continue;
+                  }
+
+                  const { data: { publicUrl: processedUrl } } = supabase.storage
+                    .from('outfits')
+                    .getPublicUrl(fileName);
+                  finalProcessedUrl = processedUrl;
+                } else {
+                  finalProcessedUrl = item.processedImageUrl;
+                }
               }
-              const imageBlob = new Blob([bytes], { type: 'image/png' });
-
-              const { error: uploadError } = await supabase.storage
-                .from('outfits')
-                .upload(fileName, imageBlob);
-
-              if (uploadError) {
-                console.error('Upload error:', uploadError);
-                continue;
-              }
-
-              const { data: { publicUrl } } = supabase.storage
-                .from('outfits')
-                .getPublicUrl(fileName);
 
               await supabase.from('wardrobe_items').insert({
                 user_id: user.id,
                 name: item.name,
                 category: item.category,
                 color: item.color,
-                processed_image_url: publicUrl,
+                processed_image_url: finalProcessedUrl || url,
                 image_url: url,
               });
 
