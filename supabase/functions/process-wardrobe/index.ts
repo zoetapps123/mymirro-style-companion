@@ -29,69 +29,86 @@ serve(async (req) => {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Analyze this image and detect ALL distinct clothing items visible. For each item, provide: 1) Item name (e.g., "White Oxford Shirt"), 2) Category (choose from: Tops, Bottoms, Layers, Dresses, Shoes, Accessories), 3) Primary color. Return an array of all detected items.'
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageData }
-              }
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'extract_clothing_items',
-              description: 'Extract all clothing items from the image',
-              parameters: {
-                type: 'object',
-                properties: {
-                  items: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        name: { type: 'string', description: 'Name of the clothing item' },
-                        category: { 
-                          type: 'string', 
-                          enum: ['Tops', 'Bottoms', 'Layers', 'Dresses', 'Shoes', 'Accessories'],
-                          description: 'Category of clothing' 
-                        },
-                        color: { type: 'string', description: 'Primary color as hex code' }
-                      },
-                      required: ['name', 'category', 'color']
-                    }
-                  }
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          modalities: ['image', 'text'],
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Analyze this image and detect ALL distinct clothing items visible. For each item, provide: 1) item name (e.g., "White Oxford Shirt"), 2) category (one of: Tops, Bottoms, Layers, Dresses, Shoes, Accessories), 3) primary color as a simple name (e.g., white, black, blue). Return an object {"items": [{"name":"...","category":"...","color":"..."} ...]}.'
                 },
-                required: ['items']
+                {
+                  type: 'image_url',
+                  image_url: { url: imageData }
+                }
+              ]
+            }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'extract_clothing_items',
+                description: 'Extract all clothing items from the image',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    items: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string', description: 'Name of the clothing item' },
+                          category: { 
+                            type: 'string', 
+                            enum: ['Tops', 'Bottoms', 'Layers', 'Dresses', 'Shoes', 'Accessories'],
+                            description: 'Category of clothing' 
+                          },
+                          color: { type: 'string', description: 'Primary color (simple name)' }
+                        },
+                        required: ['name', 'category', 'color']
+                      }
+                    }
+                  },
+                  required: ['items']
+                }
               }
             }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'extract_clothing_items' } }
-      }),
+          ],
+          tool_choice: { type: 'function', function: { name: 'extract_clothing_items' } }
+        }),
     });
 
     const analysisData = await analysisResponse.json();
     console.log('Analysis response:', analysisData);
 
     const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
-    const detectionResult = toolCall ? JSON.parse(toolCall.function.arguments) : null;
-
-    if (!detectionResult || !detectionResult.items || detectionResult.items.length === 0) {
-      throw new Error('No clothing items detected in the image');
+    let clothingItems: any[] = [];
+    try {
+      if (toolCall?.function?.arguments) {
+        const detectionResult = JSON.parse(toolCall.function.arguments);
+        clothingItems = detectionResult?.items || [];
+      } else {
+        const content = analysisData.choices?.[0]?.message?.content;
+        if (typeof content === 'string') {
+          const parsed = JSON.parse(content);
+          clothingItems = parsed?.items || [];
+        }
+      }
+    } catch (e) {
+      console.warn('Fallback parse failed', e);
     }
 
-    const clothingItems = detectionResult.items;
+    if (!clothingItems || clothingItems.length === 0) {
+      // Return empty list to avoid 500s; client will handle messaging
+      return new Response(
+        JSON.stringify({ items: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // For each detected item, use the original image as the processed image
     // Background removal and item extraction will be handled by a separate process

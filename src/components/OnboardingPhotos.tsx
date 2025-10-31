@@ -97,16 +97,16 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
       for (let i = 0; i < uploadedUrls.length; i++) {
         const url = uploadedUrls[i];
         const blob = await fetch(url).then(r => r.blob());
-        const base64data = await new Promise<string>((resolve) => {
+        const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result?.toString().split(',')[1] || '');
+          reader.onloadend = () => resolve((reader.result as string) || '');
           reader.readAsDataURL(blob);
         });
         
         try {
           const { data: processData, error: processError } = await supabase.functions.invoke(
             'process-wardrobe',
-            { body: { imageData: base64data } }
+            { body: { imageData: dataUrl } }
           );
 
           if (processError) {
