@@ -18,7 +18,7 @@ const Wardrobe = () => {
       case 'lookbook':
         return <WardrobeLookbook onBack={() => setCurrentView('items')} onNavigate={setCurrentView} />;
       case 'calendar':
-        return <WardrobeComingSoon onBack={() => setCurrentView('items')} />;
+        return <WardrobeComingSoon onBack={() => setCurrentView('items')} onNavigate={setCurrentView} />;
       default:
         return <WardrobeMyItems onNavigate={setCurrentView} />;
     }

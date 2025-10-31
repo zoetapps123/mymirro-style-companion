@@ -93,45 +93,12 @@ serve(async (req) => {
 
     const clothingItems = detectionResult.items;
 
-    // Process each detected item - generate clean images
-    const processedItems = await Promise.all(
-      clothingItems.map(async (item: any) => {
-        const imageGenResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image-preview',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'text',
-                    text: `Extract the ${item.name} from this image and place it on a clean white background. Remove any person, background, or other clothing items. Keep only this specific item centered and well-lit.`
-                  },
-                  {
-                    type: 'image_url',
-                    image_url: { url: imageData }
-                  }
-                ]
-              }
-            ],
-            modalities: ['image', 'text']
-          }),
-        });
-
-        const imageGenData = await imageGenResponse.json();
-        const processedImageUrl = imageGenData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-        return {
-          ...item,
-          processedImageUrl
-        };
-      })
-    );
+    // For each detected item, use the original image as the processed image
+    // Background removal and item extraction will be handled by a separate process
+    const processedItems = clothingItems.map((item: any) => ({
+      ...item,
+      processedImageUrl: imageData
+    }));
 
     console.log(`Processed ${processedItems.length} items`);
 
