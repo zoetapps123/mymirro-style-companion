@@ -97,23 +97,31 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         .select('name, category, color')
         .eq('user_id', user.id);
 
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setProgress(30);
+      // Upload the original image first to get a public URL
+      const ext = file.name.split('.').pop() || 'png';
+      const sourceName = `${user.id}/wardrobe_src_${Date.now()}.${ext}`;
+      const { error: srcUploadError } = await supabase.storage
+        .from('outfits')
+        .upload(sourceName, file);
+      if (srcUploadError) throw srcUploadError;
+      const { data: { publicUrl: sourceUrl } } = supabase.storage
+        .from('outfits')
+        .getPublicUrl(sourceName);
 
-        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-          body: { imageData }
-        });
-        
-        setProgress(60);
+      setProgress(30);
 
-        if (error) {
-          console.error('Process error:', error);
-          throw error;
-        }
-        
-        const itemsDetected = data.items || [];
+      const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+        body: { imageUrl: sourceUrl }
+      });
+      
+      setProgress(60);
+
+      if (error) {
+        console.error('Process error:', error);
+        throw error;
+      }
+      
+      const itemsDetected = data.items || [];
         
         if (itemsDetected.length === 0) {
           throw new Error('No clothing items detected');
@@ -209,9 +217,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         setTimeout(() => {
           setProcessingItems([]);
         }, 2000);
-      };
-
-      reader.readAsDataURL(file);
     } catch (error: any) {
       console.error('Error:', error);
       toast({

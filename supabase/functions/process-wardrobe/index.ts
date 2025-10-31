@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData } = await req.json();
+    const { imageData, imageUrl } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -21,6 +21,13 @@ serve(async (req) => {
     }
 
     console.log('Processing wardrobe item...');
+
+    const inputUrl = imageUrl || (typeof imageData === 'string' 
+      ? (imageData.startsWith('data:') ? imageData : `data:image/png;base64,${imageData}`)
+      : '');
+    if (!inputUrl) {
+      return new Response(JSON.stringify({ items: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     // First, detect all clothing items in the image
     const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -40,10 +47,10 @@ serve(async (req) => {
                   type: 'text',
                   text: 'Analyze this image and detect ALL distinct clothing items visible. For each item, provide: 1) item name (e.g., "White Oxford Shirt"), 2) category (one of: Tops, Bottoms, Layers, Dresses, Shoes, Accessories), 3) primary color as a simple name (e.g., white, black, blue). Return an object {"items": [{"name":"...","category":"...","color":"..."} ...]}.'
                 },
-                {
-                  type: 'image_url',
-                  image_url: { url: imageData }
-                }
+              {
+                type: 'image_url',
+                image_url: { url: inputUrl }
+              }
               ]
             }
           ],
@@ -114,7 +121,7 @@ serve(async (req) => {
     // Background removal and item extraction will be handled by a separate process
     const processedItems = clothingItems.map((item: any) => ({
       ...item,
-      processedImageUrl: imageData
+      processedImageUrl: inputUrl
     }));
 
     console.log(`Processed ${processedItems.length} items`);
