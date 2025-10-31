@@ -37,8 +37,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          modalities: ['image', 'text'],
+          model: 'google/gemini-2.5-flash',
           messages: [
             {
               role: 'user',
@@ -118,8 +117,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          modalities: ['image', 'text'],
+          model: 'google/gemini-2.5-flash',
           messages: [
             {
               role: 'user',
@@ -160,16 +158,13 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: 'google/gemini-2.5-flash-image-preview',
-              modalities: ['image', 'text'],
               messages: [
                 {
                   role: 'user',
-                  content: [
-                    { type: 'text', text: `Cut out this single item: ${item.name}. Remove background and other objects. Center on white background, high quality PNG.` },
-                    { type: 'image_url', image_url: { url: inputUrl } }
-                  ]
+                  content: `Cut out this single item: ${item.name}. Remove background and other objects. Center on white background, high quality PNG.`
                 }
-              ]
+              ],
+              modalities: ['image', 'text']
             }),
           });
           const genData = await genResp.json();
