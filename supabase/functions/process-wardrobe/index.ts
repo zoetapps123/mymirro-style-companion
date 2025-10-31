@@ -29,63 +29,155 @@ serve(async (req) => {
       return new Response(JSON.stringify({ items: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // First, detect all clothing items in the image
+    // Step 0: Validate human presence
+    const validationResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Analyze the image and return true only if it contains at least one real, non-AI human. Reject images that include only animals, objects, cartoons, or AI-generated humans.'
+              },
+              {
+                type: 'image_url',
+                image_url: { url: inputUrl }
+              }
+            ]
+          }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'validate_human_presence',
+              description: 'Checks if the image includes real-life human(s) only',
+              parameters: {
+                type: 'object',
+                properties: {
+                  isRealHumanPresent: { type: 'boolean', description: 'true if image contains a real human, otherwise false' }
+                },
+                required: ['isRealHumanPresent']
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'validate_human_presence' } }
+      }),
+    });
+
+    const validationData = await validationResponse.json();
+    
+    if (validationResponse.status === 429 || validationData?.type === 'rate_limited') {
+      return new Response(
+        JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (validationResponse.status === 402 || validationData?.type === 'payment_required') {
+      return new Response(
+        JSON.stringify({ error: 'Payment required, please add credits to Lovable AI.' }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const validationCall = validationData.choices?.[0]?.message?.tool_calls?.[0];
+    let isHumanPresent = false;
+    try {
+      if (validationCall?.function?.arguments) {
+        const result = JSON.parse(validationCall.function.arguments);
+        isHumanPresent = result?.isRealHumanPresent || false;
+      }
+    } catch (e) {
+      console.warn('Validation parse failed', e);
+    }
+
+    if (!isHumanPresent) {
+      return new Response(
+        JSON.stringify({ error: 'Please upload an image with a real human wearing clothing.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step 1: Detect all clothing items in the image
     const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Analyze this image and detect ONLY clearly visible and identifiable clothing items. SKIP any items that are blurry, partially visible, occluded, or unclear. For each clearly visible item, provide: 1) Specific item name (e.g., "White Cotton T-Shirt", "Dark Blue Denim Jeans"), 2) Category - must be EXACTLY one of: Tops, Bottoms, Layers, Dresses, Shoes, Accessories, 3) Primary dominant color as a simple, accurate color name (e.g., white, black, navy blue, light gray, beige). Be precise with colors - distinguish between similar shades (e.g., navy vs royal blue, cream vs white). Return JSON: {"items": [{"name":"...","category":"...","color":"..."} ...]}.'
-                },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analyze this image and detect ALL distinct clothing items visible on the human subject. Only include items that meet ALL of the following:
+- Clearly visible
+- The clothing category (e.g., Tops, Bottoms, Dresses, Accessories) and the design (e.g., pattern, cut, style) can both be confidently identified
+
+Ignore items that are:
+- Too small (e.g., rings, tiny earrings)
+- Visually unclear (e.g., blurry, poorly lit, or obstructed)
+- Partially visible (e.g., only a bag strap is shown without the full bag)
+
+For each valid item, return:
+1) Item name (e.g., "White Oxford Shirt")
+2) Category (choose from: Tops, Bottoms, Layers, Dresses, Shoes, Accessories)
+3) Primary color (as hex code)
+
+Set needsReupload=true if any item is excluded due to visibility, clarity, incompleteness, or missing category/design.`
+              },
               {
                 type: 'image_url',
                 image_url: { url: inputUrl }
               }
-              ]
-            }
-          ],
-          tools: [
-            {
-              type: 'function',
-              function: {
-                name: 'extract_clothing_items',
-                description: 'Extract all clothing items from the image',
-                parameters: {
-                  type: 'object',
-                  properties: {
+            ]
+          }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'extract_clothing_items',
+              description: 'Extract only full, clearly visible clothing items where category and design are identifiable. Ignore small, unclear, or incomplete items. Request reupload if needed.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  items: {
+                    type: 'array',
                     items: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          name: { type: 'string', description: 'Name of the clothing item' },
-                          category: { 
-                            type: 'string', 
-                            enum: ['Tops', 'Bottoms', 'Layers', 'Dresses', 'Shoes', 'Accessories'],
-                            description: 'Category of clothing' 
-                          },
-                          color: { type: 'string', description: 'Primary color (simple name)' }
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string', description: 'Name of clothing item' },
+                        category: { 
+                          type: 'string', 
+                          enum: ['Tops', 'Bottoms', 'Layers', 'Dresses', 'Shoes', 'Accessories'],
+                          description: 'Category of clothing' 
                         },
-                        required: ['name', 'category', 'color']
-                      }
+                        color: { type: 'string', description: 'Primary color as hex code' }
+                      },
+                      required: ['name', 'category', 'color']
                     }
                   },
-                  required: ['items']
-                }
+                  needsReupload: { type: 'boolean', description: 'true if any item is excluded due to visibility, clarity, incompleteness, or missing category/design' }
+                },
+                required: ['items', 'needsReupload']
               }
             }
-          ],
-          tool_choice: { type: 'function', function: { name: 'extract_clothing_items' } }
-        }),
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'extract_clothing_items' } }
+      }),
     });
 
     const analysisData = await analysisResponse.json();
@@ -107,19 +199,29 @@ serve(async (req) => {
 
     const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
     let clothingItems: any[] = [];
+    let needsReupload = false;
     try {
       if (toolCall?.function?.arguments) {
         const detectionResult = JSON.parse(toolCall.function.arguments);
         clothingItems = detectionResult?.items || [];
+        needsReupload = detectionResult?.needsReupload || false;
       } else {
         const content = analysisData.choices?.[0]?.message?.content;
         if (typeof content === 'string') {
           const parsed = JSON.parse(content);
           clothingItems = parsed?.items || [];
+          needsReupload = parsed?.needsReupload || false;
         }
       }
     } catch (e) {
       console.warn('Fallback parse failed', e);
+    }
+
+    if (needsReupload) {
+      return new Response(
+        JSON.stringify({ error: 'Some items were not clear. Please upload a clearer image with better lighting and visibility.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (!clothingItems || clothingItems.length === 0) {
@@ -173,7 +275,7 @@ serve(async (req) => {
       );
     }
 
-    // Generate clean cutouts per item with fallback to source image
+    // Step 2: Generate clean cutouts per item with proper presentation
     const processedItems = await Promise.all(
       clothingItems.map(async (item: any) => {
         try {
@@ -188,7 +290,23 @@ serve(async (req) => {
               messages: [
                 {
                   role: 'user',
-                  content: `Cut out this single item: ${item.name}. Remove background and other objects. Center on white background, high quality PNG.`
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Extract the ${item.name} from this image and display it in a straight, front-facing position with the garment fully unfolded and clearly visible. Place the item on a clean white background.
+
+Ensure the following:
+- No human, background, or other items are present
+- The item is neatly aligned, not folded, crumpled, or worn
+- Lighting is even and shadows are minimal
+- The clothing is centered and fully in frame
+- Presentation matches a product catalog photo suitable for e-commerce or wardrobe management`
+                    },
+                    {
+                      type: 'image_url',
+                      image_url: { url: inputUrl }
+                    }
+                  ]
                 }
               ],
               modalities: ['image', 'text']

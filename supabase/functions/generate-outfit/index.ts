@@ -147,6 +147,20 @@ Return your response as a structured outfit plan.`;
     const data = await response.json();
     console.log('Outfit generation response received');
 
+    // Surface rate limit and credits errors to the client
+    if (response.status === 429 || data?.type === 'rate_limited') {
+      return new Response(
+        JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (response.status === 402 || data?.type === 'payment_required') {
+      return new Response(
+        JSON.stringify({ error: 'Payment required, please add credits to Lovable AI.' }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     const outfitData = toolCall ? JSON.parse(toolCall.function.arguments) : null;
 

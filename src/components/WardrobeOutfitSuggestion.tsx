@@ -88,7 +88,18 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        const status = (error as any)?.context?.response?.status;
+        if (status === 429) {
+          toast.error('Rate limited. Please try again in a minute.');
+          return null;
+        }
+        if (status === 402) {
+          toast.error('AI credits exhausted. Please try again later.');
+          return null;
+        }
+        throw error;
+      }
       return data as GeneratedOutfit;
     } catch (error) {
       console.error('Error generating outfit:', error);
