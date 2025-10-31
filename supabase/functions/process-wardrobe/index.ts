@@ -323,9 +323,25 @@ Ensure the following:
 
     console.log(`Processed ${processedItems.length} items`);
 
+    // Deduplicate items based on similarity (same category + similar name/color)
+    const deduplicatedItems = [];
+    const seen = new Set();
+    
+    for (const item of processedItems) {
+      // Create a normalized key: lowercase category + first 10 chars of name + color
+      const key = `${item.category.toLowerCase()}_${item.name.toLowerCase().substring(0, 10)}_${item.color}`;
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicatedItems.push(item);
+      }
+    }
+
+    console.log(`After deduplication: ${deduplicatedItems.length} items`);
+
     return new Response(
       JSON.stringify({
-        items: processedItems
+        items: deduplicatedItems
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

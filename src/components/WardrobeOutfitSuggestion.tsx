@@ -60,6 +60,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   useEffect(() => {
     if (selectedAnchor && allItems.length > 0) {
+      console.log('Triggering outfit generation for anchor:', selectedAnchor.name);
       generateOutfitForAnchor();
     }
   }, [selectedAnchor]);
@@ -80,6 +81,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   const generateOutfit = async (occasion: string, style?: string, anchorItem?: any) => {
     try {
+      console.log('Generating outfit with:', { occasion, style, anchorItem: anchorItem?.name, itemsCount: allItems.length });
+      
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
           occasion: style || occasion,
@@ -89,6 +92,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       });
 
       if (error) {
+        console.error('Generate outfit error:', error);
         const status = (error as any)?.context?.response?.status;
         if (status === 429) {
           toast.error('Rate limited. Please try again in a minute.');
@@ -100,6 +104,15 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         }
         throw error;
       }
+      
+      console.log('Generated outfit data:', data);
+      
+      if (!data || !data.outfit) {
+        console.error('Invalid outfit data received:', data);
+        toast.error('Invalid outfit data received');
+        return null;
+      }
+      
       return data as GeneratedOutfit;
     } catch (error) {
       console.error('Error generating outfit:', error);
