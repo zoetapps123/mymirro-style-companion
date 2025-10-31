@@ -105,6 +105,28 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
           if (processError) {
             console.error("Process error:", processError);
+            const status = (processError as any)?.context?.response?.status;
+            if (status === 429) {
+              toast({
+                title: "Rate limited",
+                description: "Too many requests. Please try again in a minute.",
+                variant: "destructive",
+              });
+              break;
+            }
+            if (status === 402) {
+              toast({
+                title: "Service temporarily unavailable",
+                description: "AI credits exhausted. Please try again later.",
+                variant: "destructive",
+              });
+              break;
+            }
+            toast({
+              title: "Processing failed",
+              description: "Couldn't analyze this photo. Try a clearer image.",
+              variant: "destructive",
+            });
             continue;
           }
 

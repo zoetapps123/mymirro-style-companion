@@ -91,6 +91,20 @@ serve(async (req) => {
     const analysisData = await analysisResponse.json();
     console.log('Analysis response:', analysisData);
 
+    // Surface rate limit and credits errors to the client
+    if (analysisResponse.status === 429 || analysisData?.type === 'rate_limited') {
+      return new Response(
+        JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (analysisResponse.status === 402 || analysisData?.type === 'payment_required') {
+      return new Response(
+        JSON.stringify({ error: 'Payment required, please add credits to Lovable AI.' }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
     let clothingItems: any[] = [];
     try {
@@ -130,6 +144,19 @@ serve(async (req) => {
         }),
       });
       const fbData = await fallbackResp.json();
+      // Surface rate limit and credits errors to the client for fallback as well
+      if (fallbackResp.status === 429 || fbData?.type === 'rate_limited') {
+        return new Response(
+          JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (fallbackResp.status === 402 || fbData?.type === 'payment_required') {
+        return new Response(
+          JSON.stringify({ error: 'Payment required, please add credits to Lovable AI.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       try {
         const text = fbData.choices?.[0]?.message?.content;
         if (typeof text === 'string') {
