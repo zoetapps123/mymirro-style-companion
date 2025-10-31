@@ -25,6 +25,7 @@ interface GeneratedOutfit {
     accessories?: OutfitPiece;
   };
   reasoning: string;
+  outfitImageUrl?: string;
 }
 
 const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggestionProps) => {
@@ -259,26 +260,41 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     const pieces = Object.entries(outfit.outfit).filter(([_, piece]) => piece);
 
     return (
-      <div className="relative aspect-[3/4] rounded-2xl bg-gradient-to-br from-background to-muted border border-border p-3 flex flex-col">
-        <div className="flex-1 space-y-2 overflow-y-auto">
-          {pieces.map(([type, piece]) => (
-            <div key={type} className="text-xs">
-              <span className="font-semibold capitalize text-primary">{type}:</span>{' '}
-              <span className="text-muted-foreground">
-                {piece.useExisting ? piece.itemName : piece.aiSuggestion}
-              </span>
-            </div>
-          ))}
+      <div className="relative aspect-[3/4] rounded-2xl bg-background border border-border overflow-hidden flex flex-col">
+        {/* Outfit Image */}
+        {outfit.outfitImageUrl ? (
+          <div className="flex-1 relative">
+            <img
+              src={outfit.outfitImageUrl}
+              alt="Generated outfit"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="flex-1 p-3 overflow-y-auto bg-gradient-to-br from-background to-muted">
+            {pieces.map(([type, piece]) => (
+              <div key={type} className="text-xs mb-2">
+                <span className="font-semibold capitalize text-primary">{type}:</span>{' '}
+                <span className="text-muted-foreground">
+                  {piece.useExisting ? piece.itemName : piece.aiSuggestion}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Save Button */}
+        <div className="p-2 bg-background border-t border-border">
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full"
+            onClick={() => saveOutfit(outfit, `${section} Outfit ${index + 1}`)}
+          >
+            <Save className="w-3 h-3 mr-1" />
+            Save
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full mt-2"
-          onClick={() => saveOutfit(outfit, `${section} Outfit ${index + 1}`)}
-        >
-          <Save className="w-3 h-3 mr-1" />
-          Save
-        </Button>
       </div>
     );
   };

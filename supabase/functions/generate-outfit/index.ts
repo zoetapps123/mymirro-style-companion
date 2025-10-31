@@ -168,8 +168,72 @@ Return your response as a structured outfit plan.`;
       throw new Error('Failed to generate outfit');
     }
 
+    // Step 2: Generate a visual image of the complete outfit
+    console.log('Generating outfit image...');
+    
+    // Build a description of all the pieces in the outfit
+    const pieceDescriptions: string[] = [];
+    if (outfitData.outfit.top) {
+      const piece = outfitData.outfit.top;
+      pieceDescriptions.push(piece.useExisting ? piece.itemName : piece.aiSuggestion);
+    }
+    if (outfitData.outfit.bottom) {
+      const piece = outfitData.outfit.bottom;
+      pieceDescriptions.push(piece.useExisting ? piece.itemName : piece.aiSuggestion);
+    }
+    if (outfitData.outfit.layer) {
+      const piece = outfitData.outfit.layer;
+      pieceDescriptions.push(piece.useExisting ? piece.itemName : piece.aiSuggestion);
+    }
+    if (outfitData.outfit.shoes) {
+      const piece = outfitData.outfit.shoes;
+      pieceDescriptions.push(piece.useExisting ? piece.itemName : piece.aiSuggestion);
+    }
+    if (outfitData.outfit.accessories) {
+      const piece = outfitData.outfit.accessories;
+      pieceDescriptions.push(piece.useExisting ? piece.itemName : piece.aiSuggestion);
+    }
+
+    const imagePrompt = `Create a professional flat lay outfit composition on a clean white background showing these clothing items arranged aesthetically:
+
+${pieceDescriptions.join('\n')}
+
+Requirements:
+- Arrange all items in a visually appealing flat lay style
+- Clean white background
+- Items should be neatly laid out as if for a fashion catalog
+- No human model, just the clothing items
+- Professional product photography style
+- Items should be clearly visible and well-lit`;
+
+    const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: imagePrompt
+          }
+        ],
+        modalities: ['image', 'text']
+      }),
+    });
+
+    const imageData = await imageResponse.json();
+    const outfitImageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    console.log('Outfit image generated:', outfitImageUrl ? 'success' : 'failed');
+
     return new Response(
-      JSON.stringify(outfitData),
+      JSON.stringify({
+        ...outfitData,
+        outfitImageUrl
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
