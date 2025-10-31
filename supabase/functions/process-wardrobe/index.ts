@@ -44,7 +44,7 @@ serve(async (req) => {
               content: [
                 {
                   type: 'text',
-                  text: 'Analyze this image and detect ALL distinct clothing items visible. For each item, provide: 1) item name (e.g., "White Oxford Shirt"), 2) category (one of: Tops, Bottoms, Layers, Dresses, Shoes, Accessories), 3) primary color as a simple name (e.g., white, black, blue). Return an object {"items": [{"name":"...","category":"...","color":"..."} ...]}.'
+                  text: 'Analyze this image and detect ONLY clearly visible and identifiable clothing items. SKIP any items that are blurry, partially visible, occluded, or unclear. For each clearly visible item, provide: 1) Specific item name (e.g., "White Cotton T-Shirt", "Dark Blue Denim Jeans"), 2) Category - must be EXACTLY one of: Tops, Bottoms, Layers, Dresses, Shoes, Accessories, 3) Primary dominant color as a simple, accurate color name (e.g., white, black, navy blue, light gray, beige). Be precise with colors - distinguish between similar shades (e.g., navy vs royal blue, cream vs white). Return JSON: {"items": [{"name":"...","category":"...","color":"..."} ...]}.'
                 },
               {
                 type: 'image_url',
@@ -122,7 +122,7 @@ serve(async (req) => {
             {
               role: 'user',
               content: [
-                { type: 'text', text: 'List all clothing items in JSON as {"items":[{"name":"","category":"","color":""}...]}. Categories: Tops, Bottoms, Layers, Dresses, Shoes, Accessories.' },
+                { type: 'text', text: 'Extract ONLY clearly visible clothing items from this image. Skip blurry or partially visible items. For each item: provide specific name, exact category (Tops, Bottoms, Layers, Dresses, Shoes, Accessories), and accurate primary color name. Return JSON: {"items":[{"name":"","category":"","color":""}...]}.' },
                 { type: 'image_url', image_url: { url: inputUrl } }
               ]
             }
