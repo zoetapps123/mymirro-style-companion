@@ -86,45 +86,93 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
       setProgress(40);
       setStatusText("Analyzing photos...");
 
-      // Process each photo for wardrobe items
-      for (const url of uploadedUrls) {
-        const reader = new FileReader();
+      // Get existing wardrobe items for duplicate checking
+      const { data: existingItems } = await supabase
+        .from('wardrobe_items')
+        .select('name, category, color')
+        .eq('user_id', user.id);
+
+      // Process each photo for wardrobe items (await all properly)
+      let totalAdded = 0;
+      for (let i = 0; i < uploadedUrls.length; i++) {
+        const url = uploadedUrls[i];
         const blob = await fetch(url).then(r => r.blob());
+        const base64data = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result?.toString().split(',')[1] || '');
+          reader.readAsDataURL(blob);
+        });
         
-        reader.onloadend = async () => {
-          const base64data = reader.result?.toString().split(',')[1];
-          
-          try {
-            const { data: processData, error: processError } = await supabase.functions.invoke(
-              'process-wardrobe',
-              { body: { image: base64data } }
-            );
+        try {
+          const { data: processData, error: processError } = await supabase.functions.invoke(
+            'process-wardrobe',
+            { body: { imageData: base64data } }
+          );
 
-            if (processError) {
-              console.error("Process error:", processError);
-              return;
-            }
-
-            // Store detected items in wardrobe
-            if (processData?.items) {
-              for (const item of processData.items) {
-                await supabase.from('wardrobe_items').insert({
-                  user_id: user.id,
-                  name: item.name,
-                  category: item.category,
-                  color: item.color,
-                  processed_image_url: item.processed_image_url,
-                  image_url: url,
-                });
-              }
-            }
-          } catch (err) {
-            console.error("Error processing wardrobe:", err);
+          if (processError) {
+            console.error("Process error:", processError);
+            continue;
           }
-        };
-        
-        reader.readAsDataURL(blob);
+
+          // Store detected items in wardrobe with duplicate checking
+          if (processData?.items) {
+            for (const item of processData.items) {
+              // Check for duplicates
+              const isDuplicate = existingItems?.some(existing => 
+                existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+                (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+                 item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+                 (existing.color?.toLowerCase() === item.color?.toLowerCase()))
+              );
+
+              if (isDuplicate) {
+                console.log(`Skipping duplicate: ${item.name}`);
+                continue;
+              }
+
+              // Upload processed image
+              const fileName = `${user.id}/wardrobe_${Date.now()}_${item.name.replace(/\s+/g, '-')}.png`;
+              const base64Image = item.processedImageUrl.split(',')[1];
+              const binaryData = atob(base64Image);
+              const bytes = new Uint8Array(binaryData.length);
+              for (let j = 0; j < binaryData.length; j++) {
+                bytes[j] = binaryData.charCodeAt(j);
+              }
+              const imageBlob = new Blob([bytes], { type: 'image/png' });
+
+              const { error: uploadError } = await supabase.storage
+                .from('outfits')
+                .upload(fileName, imageBlob);
+
+              if (uploadError) {
+                console.error('Upload error:', uploadError);
+                continue;
+              }
+
+              const { data: { publicUrl } } = supabase.storage
+                .from('outfits')
+                .getPublicUrl(fileName);
+
+              await supabase.from('wardrobe_items').insert({
+                user_id: user.id,
+                name: item.name,
+                category: item.category,
+                color: item.color,
+                processed_image_url: publicUrl,
+                image_url: url,
+              });
+
+              totalAdded++;
+            }
+          }
+        } catch (err) {
+          console.error("Error processing wardrobe:", err);
+        }
+
+        setProgress(40 + ((i + 1) / uploadedUrls.length) * 30);
       }
+
+      console.log(`Added ${totalAdded} items to wardrobe`);
 
       setProgress(70);
       setStatusText("Detecting body shape and skin tone...");

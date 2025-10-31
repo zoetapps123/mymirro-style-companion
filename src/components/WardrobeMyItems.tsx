@@ -1,17 +1,29 @@
-import { useState, useEffect } from "react";
-import { Plus, DoorOpen, Sparkles, Calendar, Shirt } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, DoorOpen, Sparkles, Calendar, Shirt, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface WardrobeMyItemsProps {
-  onBack: () => void;
-  onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook' | 'upload') => void;
+  onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
 }
 
-const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
+interface ProcessingItem {
+  id: string;
+  status: 'processing' | 'done';
+  name?: string;
+  preview?: string;
+}
+
+const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const [items, setItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [processingItems, setProcessingItems] = useState<ProcessingItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const categories = ["All", "Tops", "Bottoms", "Layers", "Dresses", "Shoes"];
@@ -42,7 +54,179 @@ const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
       return;
     }
 
-    setItems(data || []);
+    // Remove duplicates based on name, category, and color
+    const uniqueItems = data?.reduce((acc: any[], current: any) => {
+      const isDuplicate = acc.some(item => 
+        item.category?.toLowerCase() === current.category?.toLowerCase() &&
+        item.name?.toLowerCase() === current.name?.toLowerCase() &&
+        item.color?.toLowerCase() === current.color?.toLowerCase()
+      );
+      if (!isDuplicate) {
+        acc.push(current);
+      }
+      return acc;
+    }, []);
+
+    setItems(uniqueItems || []);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    setLoading(true);
+    setProgress(10);
+
+    // Initialize processing tiles
+    const tempId = Date.now().toString();
+    setProcessingItems([{ id: tempId, status: 'processing' }]);
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        throw new Error("Authentication required");
+      }
+
+      const user = session.user;
+
+      // Fetch existing items for duplicate checking
+      const { data: existingItems } = await supabase
+        .from('wardrobe_items')
+        .select('name, category, color')
+        .eq('user_id', user.id);
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const imageData = reader.result as string;
+        setProgress(30);
+
+        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+          body: { imageData }
+        });
+        
+        setProgress(60);
+
+        if (error) {
+          console.error('Process error:', error);
+          throw error;
+        }
+        
+        const itemsDetected = data.items || [];
+        
+        if (itemsDetected.length === 0) {
+          throw new Error('No clothing items detected');
+        }
+
+        // Update processing tiles with actual items
+        setProcessingItems(itemsDetected.map((item: any, idx: number) => ({
+          id: `${tempId}-${idx}`,
+          status: 'processing',
+          name: item.name,
+          preview: item.processedImageUrl
+        })));
+
+        let addedCount = 0;
+        let skippedCount = 0;
+        setProgress(70);
+
+        // Process all items
+        for (let idx = 0; idx < itemsDetected.length; idx++) {
+          const item = itemsDetected[idx];
+          
+          // Check for duplicates
+          const isDuplicate = existingItems?.some(existing => 
+            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+             (existing.color?.toLowerCase() === item.color?.toLowerCase()))
+          );
+
+          if (isDuplicate) {
+            console.log(`Skipping duplicate: ${item.name}`);
+            skippedCount++;
+            continue;
+          }
+
+          const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}.png`;
+          const base64Data = item.processedImageUrl.split(',')[1];
+          const binaryData = atob(base64Data);
+          const bytes = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'image/png' });
+
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, blob);
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
+
+          const { error: dbError } = await supabase
+            .from('wardrobe_items')
+            .insert({
+              user_id: user.id,
+              name: item.name,
+              category: item.category,
+              color: item.color,
+              image_url: publicUrl,
+              processed_image_url: publicUrl,
+            });
+
+          if (dbError) {
+            console.error('DB error:', dbError);
+          } else {
+            addedCount++;
+            // Mark as done
+            setProcessingItems(prev => prev.map(p => 
+              p.id === `${tempId}-${idx}` ? { ...p, status: 'done' } : p
+            ));
+          }
+        }
+        
+        setProgress(90);
+
+        toast({
+          title: addedCount > 0 ? "Added to wardrobe!" : "Items already exist",
+          description: addedCount > 0
+            ? `${addedCount} new item${addedCount > 1 ? 's' : ''} added${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`
+            : `All detected items already exist in your wardrobe.`,
+        });
+
+        setProgress(100);
+        fetchItems();
+        
+        // Clear processing tiles after 2 seconds
+        setTimeout(() => {
+          setProcessingItems([]);
+        }, 2000);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process image",
+        variant: "destructive",
+      });
+      setProcessingItems([]);
+    } finally {
+      setLoading(false);
+      setProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const filteredItems =
@@ -52,6 +236,43 @@ const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Processing Tiles */}
+      {processingItems.length > 0 && (
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            {processingItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex-shrink-0 w-20 h-20 rounded-xl border-2 border-border overflow-hidden relative bg-muted/30"
+              >
+                {item.preview ? (
+                  <img src={item.preview} alt={item.name || 'Processing'} className="w-full h-full object-cover" />
+                ) : (
+                  <Skeleton className="w-full h-full" />
+                )}
+                {item.status === 'processing' && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {item.status === 'done' && (
+                  <div className="absolute inset-0 bg-green-500/50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {loading && (
+            <div className="mt-2">
+              <Progress value={progress} className="h-1" />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Feature Icons */}
       <div className="px-4 pt-6 pb-4">
         <div className="grid grid-cols-4 gap-4">
@@ -135,13 +356,28 @@ const WardrobeMyItems = ({ onBack, onNavigate }: WardrobeMyItemsProps) => {
         </div>
       </div>
 
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+        disabled={loading}
+      />
+
       {/* Floating Add Button */}
       <button
-        onClick={() => onNavigate('upload')}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-black flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95 z-50"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={loading}
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-black flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95 z-50 disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label="Add wardrobe item"
       >
-        <Plus className="w-8 h-8 text-white" />
+        {loading ? (
+          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Plus className="w-8 h-8 text-white" />
+        )}
       </button>
     </div>
   );
