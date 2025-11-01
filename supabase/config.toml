@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.auto-generate-outfits]
 verify_jwt = false
+
+[functions.recommend-items]
+verify_jwt = false
+
+[functions.weather-search]
+verify_jwt = false
