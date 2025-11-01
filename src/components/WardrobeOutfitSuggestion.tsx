@@ -1,46 +1,52 @@
-import { useState, useEffect } from "react";
-import { DoorOpen, Sparkles, Calendar, Shirt, Loader2, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Heart, Loader2, Sparkles, Shirt, Calendar, Palette, DoorOpen } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import useEmblaCarousel from 'embla-carousel-react';
+import { OutfitDetailView } from './OutfitDetailView';
+
+interface WardrobeItem {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
+  fabric?: string;
+  pattern?: string;
+  style_notes?: string;
+  processed_image_url?: string;
+  image_url: string;
+}
+
+interface GeneratedOutfit {
+  id?: string;
+  name: string;
+  occasion?: string;
+  style_tag?: string;
+  preview_image_url?: string;
+  items: WardrobeItem[];
+  reasoning?: string;
+}
 
 interface WardrobeOutfitSuggestionProps {
   onBack: () => void;
   onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
 }
 
-interface OutfitPiece {
-  useExisting: boolean;
-  itemId?: string;
-  itemName?: string;
-  aiSuggestion?: string;
-}
-
-interface GeneratedOutfit {
-  outfit: {
-    top?: OutfitPiece;
-    bottom?: OutfitPiece;
-    layer?: OutfitPiece;
-    shoes?: OutfitPiece;
-    accessories?: OutfitPiece;
-  };
-  reasoning: string;
-  outfitImageUrl?: string;
-}
+const OCCASIONS = ['Wedding', 'Casual', 'Date Night', 'Office', 'Party'];
+const STYLES = ['Minimalist', 'Boho', 'Streetwear', 'Elegant', 'Sporty'];
 
 const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggestionProps) => {
-  const [selectedOccasion, setSelectedOccasion] = useState<string>("Daily");
-  const [selectedStyle, setSelectedStyle] = useState<string>("Casual");
-  const [myItems, setMyItems] = useState<any[]>([]);
-  const [allItems, setAllItems] = useState<any[]>([]);
-  const [selectedAnchor, setSelectedAnchor] = useState<any | null>(null);
-  const [occasionOutfits, setOccasionOutfits] = useState<GeneratedOutfit[]>([]);
-  const [styleOutfits, setStyleOutfits] = useState<GeneratedOutfit[]>([]);
+  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [selectedAnchorItem, setSelectedAnchorItem] = useState<WardrobeItem | null>(null);
+  const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
+  const [occasionOutfits, setOccasionOutfits] = useState<Record<string, GeneratedOutfit[]>>({});
+  const [styleOutfits, setStyleOutfits] = useState<Record<string, GeneratedOutfit[]>>({});
   const [anchorOutfits, setAnchorOutfits] = useState<GeneratedOutfit[]>([]);
-  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
-
-  const occasions = ["Daily", "School", "Work", "Travel", "Party", "Wedding"];
-  const styles = ["Casual", "Classic", "Street", "Minimal", "Athleisure"];
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [hasNewItems, setHasNewItems] = useState(false);
+  const [selectedOutfit, setSelectedOutfit] = useState<GeneratedOutfit | null>(null);
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
@@ -50,261 +56,225 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   ];
 
   useEffect(() => {
-    fetchAllItems();
+    fetchWardrobeItems();
+    checkForNewItems();
   }, []);
 
-  useEffect(() => {
-    if (allItems.length > 0 && !selectedAnchor) {
-      setSelectedAnchor(allItems[0]);
+  const checkForNewItems = async () => {
+    const lastGen = localStorage.getItem('last_outfit_generation');
+    if (!lastGen) {
+      setHasNewItems(true);
+      return;
     }
-  }, [allItems]);
 
-  useEffect(() => {
-    if (selectedAnchor && allItems.length > 0) {
-      console.log('Triggering outfit generation for anchor:', selectedAnchor.name);
-      generateOutfitForAnchor();
-    }
-  }, [selectedAnchor]);
-
-  const fetchAllItems = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
-      .from("wardrobe_items")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    
-    setAllItems(data || []);
-    setMyItems((data || []).slice(0, 4));
+    const { data: items } = await supabase
+      .from('wardrobe_items')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .gt('created_at', lastGen);
+
+    setHasNewItems((items?.length || 0) > 0);
   };
 
-  const generateOutfit = async (occasion: string, style?: string, anchorItem?: any) => {
+  const fetchWardrobeItems = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('wardrobe_items')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (error) {
+      toast.error('Failed to load wardrobe');
+      return;
+    }
+
+    setWardrobeItems(data || []);
+  };
+
+  const generateOutfits = async (type: 'occasion' | 'style' | 'anchor', value: string, anchorItem?: WardrobeItem) => {
+    const key = `${type}-${value}`;
+    setLoading(prev => ({ ...prev, [key]: true }));
+
     try {
-      console.log('Generating outfit with:', { occasion, style, anchorItem: anchorItem?.name, itemsCount: allItems.length });
-      
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
-          occasion: style || occasion,
-          selectedItem: anchorItem || allItems[0],
-          userItems: allItems,
+          generationType: type,
+          occasion: type === 'occasion' ? value : undefined,
+          style: type === 'style' ? value : undefined,
+          anchorItem: anchorItem,
+          wardrobeItems,
+          maxOutfits: 5
         }
       });
 
-      if (error) {
-        console.error('Generate outfit error:', error);
-        const status = (error as any)?.context?.response?.status;
-        if (status === 429) {
-          toast.error('Rate limited. Please try again in a minute.');
-          return null;
-        }
-        if (status === 402) {
-          toast.error('AI credits exhausted. Please try again later.');
-          return null;
-        }
-        throw error;
+      if (error) throw error;
+
+      const outfits = data.outfits || [];
+
+      if (type === 'occasion') {
+        setOccasionOutfits(prev => ({ ...prev, [value]: outfits }));
+      } else if (type === 'style') {
+        setStyleOutfits(prev => ({ ...prev, [value]: outfits }));
+      } else {
+        setAnchorOutfits(outfits);
       }
-      
-      console.log('Generated outfit data:', data);
-      
-      if (!data || !data.outfit) {
-        console.error('Invalid outfit data received:', data);
-        toast.error('Invalid outfit data received');
-        return null;
-      }
-      
-      return data as GeneratedOutfit;
+
+      toast.success(`Generated ${outfits.length} outfit${outfits.length > 1 ? 's' : ''}`);
     } catch (error) {
-      console.error('Error generating outfit:', error);
-      toast.error('Failed to generate outfit');
-      return null;
-    }
-  };
-
-  const generateOutfitsForOccasion = async (occasion: string) => {
-    setLoading(prev => ({ ...prev, [occasion]: true }));
-    try {
-      const outfit1 = await generateOutfit(occasion);
-      const outfit2 = await generateOutfit(occasion);
-      
-      const outfits = [outfit1, outfit2].filter(Boolean) as GeneratedOutfit[];
-      setOccasionOutfits(outfits);
+      console.error(error);
+      toast.error('Failed to generate outfits');
     } finally {
-      setLoading(prev => ({ ...prev, [occasion]: false }));
+      setLoading(prev => ({ ...prev, [key]: false }));
     }
   };
 
-  const generateOutfitsForStyle = async (style: string) => {
-    setLoading(prev => ({ ...prev, [style]: true }));
-    try {
-      const outfit1 = await generateOutfit(`${style} style`);
-      const outfit2 = await generateOutfit(`${style} style`);
-      
-      const outfits = [outfit1, outfit2].filter(Boolean) as GeneratedOutfit[];
-      setStyleOutfits(outfits);
-    } finally {
-      setLoading(prev => ({ ...prev, [style]: false }));
-    }
-  };
+  const regenerateAllOutfits = async () => {
+    setLoading(prev => ({ ...prev, 'regenerate-all': true }));
 
-  const generateOutfitForAnchor = async () => {
-    if (!selectedAnchor) return;
-    
-    setLoading(prev => ({ ...prev, anchor: true }));
-    try {
-      const outfit1 = await generateOutfit('Casual', undefined, selectedAnchor);
-      const outfit2 = await generateOutfit('Casual', undefined, selectedAnchor);
-      
-      const outfits = [outfit1, outfit2].filter(Boolean) as GeneratedOutfit[];
-      setAnchorOutfits(outfits);
-    } finally {
-      setLoading(prev => ({ ...prev, anchor: false }));
-    }
-  };
-
-  const saveOutfit = async (generatedOutfit: GeneratedOutfit, name: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!user) return;
 
-      // Create outfit record
-      const { data: outfit, error: outfitError } = await supabase
+      // Delete all non-saved outfits
+      await supabase
+        .from('outfits')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('saved_to_lookbook', false);
+
+      // Clear local state
+      setOccasionOutfits({});
+      setStyleOutfits({});
+      setAnchorOutfits([]);
+
+      toast.success('Creating fresh outfit suggestions');
+
+      localStorage.setItem('last_outfit_generation', new Date().toISOString());
+      setHasNewItems(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to regenerate outfits');
+    } finally {
+      setLoading(prev => ({ ...prev, 'regenerate-all': false }));
+    }
+  };
+
+  const saveToLookbook = async (outfit: GeneratedOutfit) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: newOutfit, error: outfitError } = await supabase
         .from('outfits')
         .insert({
           user_id: user.id,
-          name: name,
-          occasion: selectedOccasion,
+          name: outfit.name,
+          occasion: outfit.occasion,
+          style_tag: outfit.style_tag,
+          preview_image_url: outfit.preview_image_url,
+          saved_to_lookbook: true
         })
         .select()
         .single();
 
       if (outfitError) throw outfitError;
 
-      // Insert outfit items
-      const itemsToInsert = [];
-      const outfitData = generatedOutfit.outfit;
-
-      if (outfitData.top) {
-        itemsToInsert.push({
-          outfit_id: outfit.id,
-          item_id: outfitData.top.useExisting ? outfitData.top.itemId : null,
-          item_type: 'Tops',
-          ai_virtual: !outfitData.top.useExisting,
-          ai_meta: outfitData.top.useExisting ? null : { suggestion: outfitData.top.aiSuggestion }
-        });
-      }
-
-      if (outfitData.bottom) {
-        itemsToInsert.push({
-          outfit_id: outfit.id,
-          item_id: outfitData.bottom.useExisting ? outfitData.bottom.itemId : null,
-          item_type: 'Bottoms',
-          ai_virtual: !outfitData.bottom.useExisting,
-          ai_meta: outfitData.bottom.useExisting ? null : { suggestion: outfitData.bottom.aiSuggestion }
-        });
-      }
-
-      if (outfitData.layer) {
-        itemsToInsert.push({
-          outfit_id: outfit.id,
-          item_id: outfitData.layer.useExisting ? outfitData.layer.itemId : null,
-          item_type: 'Layers',
-          ai_virtual: !outfitData.layer.useExisting,
-          ai_meta: outfitData.layer.useExisting ? null : { suggestion: outfitData.layer.aiSuggestion }
-        });
-      }
-
-      if (outfitData.shoes) {
-        itemsToInsert.push({
-          outfit_id: outfit.id,
-          item_id: outfitData.shoes.useExisting ? outfitData.shoes.itemId : null,
-          item_type: 'Shoes',
-          ai_virtual: !outfitData.shoes.useExisting,
-          ai_meta: outfitData.shoes.useExisting ? null : { suggestion: outfitData.shoes.aiSuggestion }
-        });
-      }
-
-      if (outfitData.accessories) {
-        itemsToInsert.push({
-          outfit_id: outfit.id,
-          item_id: outfitData.accessories.useExisting ? outfitData.accessories.itemId : null,
-          item_type: 'Accessories',
-          ai_virtual: !outfitData.accessories.useExisting,
-          ai_meta: outfitData.accessories.useExisting ? null : { suggestion: outfitData.accessories.aiSuggestion }
-        });
-      }
+      const itemInserts = outfit.items.map(item => ({
+        outfit_id: newOutfit.id,
+        item_id: item.id,
+        item_type: item.category,
+        ai_virtual: false
+      }));
 
       const { error: itemsError } = await supabase
         .from('outfit_items')
-        .insert(itemsToInsert);
+        .insert(itemInserts);
 
       if (itemsError) throw itemsError;
 
-      toast.success('Outfit saved to your lookbook!');
+      toast.success('Outfit added to your lookbook');
     } catch (error) {
-      console.error('Error saving outfit:', error);
+      console.error(error);
       toast.error('Failed to save outfit');
     }
   };
 
-  const renderOutfitCard = (outfit: GeneratedOutfit | null, index: number, section: string) => {
-    if (!outfit) {
-      return (
-        <div className="aspect-[3/4] rounded-2xl bg-muted border border-border flex items-center justify-center">
-          {loading[section] && <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />}
-        </div>
-      );
-    }
+  const OutfitCarousel = ({ outfits, sectionKey }: { outfits: GeneratedOutfit[], sectionKey: string }) => {
+    const [emblaRef] = useEmblaCarousel({ loop: false, align: 'start' });
 
-    const pieces = Object.entries(outfit.outfit).filter(([_, piece]) => piece);
+    if (outfits.length === 0) return null;
 
     return (
-      <div className="relative aspect-[3/4] rounded-2xl bg-background border border-border overflow-hidden flex flex-col">
-        {/* Outfit Image */}
-        {outfit.outfitImageUrl ? (
-          <div className="flex-1 relative">
-            <img
-              src={outfit.outfitImageUrl}
-              alt="Generated outfit"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="flex-1 p-3 overflow-y-auto bg-gradient-to-br from-background to-muted">
-            {pieces.map(([type, piece]) => (
-              <div key={type} className="text-xs mb-2">
-                <span className="font-semibold capitalize text-primary">{type}:</span>{' '}
-                <span className="text-muted-foreground">
-                  {piece.useExisting ? piece.itemName : piece.aiSuggestion}
-                </span>
+      <div className="overflow-hidden" ref={emblaRef}>
+        <div className="flex gap-4">
+          {outfits.map((outfit, idx) => (
+            <div
+              key={idx}
+              className="flex-shrink-0 w-[280px] cursor-pointer"
+              onClick={() => setSelectedOutfit(outfit)}
+            >
+              <div className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
+                {outfit.preview_image_url ? (
+                  <div className="aspect-square bg-muted">
+                    <img
+                      src={outfit.preview_image_url}
+                      alt={outfit.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-square bg-muted flex items-center justify-center">
+                    <Shirt className="w-16 h-16 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="p-4">
+                  <h4 className="font-semibold mb-1">{outfit.name}</h4>
+                  <p className="text-sm text-muted-foreground mb-3">{outfit.style_tag}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveToLookbook(outfit);
+                    }}
+                  >
+                    <Heart className="w-4 h-4 mr-2" />
+                    Save to Lookbook
+                  </Button>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-        
-        {/* Save Button */}
-        <div className="p-2 bg-background border-t border-border">
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full"
-            onClick={() => saveOutfit(outfit, `${section} Outfit ${index + 1}`)}
-          >
-            <Save className="w-3 h-3 mr-1" />
-            Save
-          </Button>
+            </div>
+          ))}
         </div>
       </div>
     );
   };
+
+  if (selectedOutfit) {
+    return (
+      <OutfitDetailView
+        outfit={selectedOutfit}
+        onBack={() => setSelectedOutfit(null)}
+        onSave={(saved) => {
+          setSelectedOutfit(null);
+          toast.success('Saved to lookbook!');
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Feature Icons */}
       <div className="px-4 pt-6 pb-4">
         <div className="grid grid-cols-4 gap-4">
-          {features.map((feature, index) => {
+          {features.map((feature) => {
             const Icon = feature.icon;
             const isActive = feature.active;
             return (
@@ -335,102 +305,135 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
-        {/* Title */}
-        <h2 className="text-2xl font-bold text-primary">Outfit Suggestions</h2>
+      {/* Main Content */}
+      <div className="flex-1 p-6 space-y-8">
+        {/* Regenerate Button */}
+        {hasNewItems && (
+          <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">New items detected!</h3>
+              <p className="text-sm text-muted-foreground">Regenerate outfits with your latest pieces</p>
+            </div>
+            <Button
+              onClick={regenerateAllOutfits}
+              disabled={loading['regenerate-all']}
+              className="gap-2"
+            >
+              {loading['regenerate-all'] ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              Regenerate
+            </Button>
+          </div>
+        )}
 
-        {/* Occasion */}
-        <div>
-          <h3 className="text-lg font-semibold text-primary mb-3">Occasion</h3>
-          <div className="flex gap-2 flex-wrap mb-4">
-            {occasions.map((occasion) => (
+        {/* By Occasion */}
+        <section>
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
+            <Calendar className="w-6 h-6" />
+            By Occasion
+          </h2>
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            {OCCASIONS.map(occasion => (
               <Button
                 key={occasion}
-                variant={selectedOccasion === occasion ? "default" : "outline"}
-                size="sm"
+                variant={selectedOccasion === occasion ? 'default' : 'outline'}
                 onClick={() => {
                   setSelectedOccasion(occasion);
-                  generateOutfitsForOccasion(occasion);
+                  if (!occasionOutfits[occasion]) {
+                    generateOutfits('occasion', occasion);
+                  }
                 }}
-                disabled={loading[occasion]}
+                disabled={loading[`occasion-${occasion}`]}
                 className="rounded-full"
               >
-                {loading[occasion] && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                {loading[`occasion-${occasion}`] && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {occasion}
               </Button>
             ))}
           </div>
+          {selectedOccasion && (
+            <OutfitCarousel
+              outfits={occasionOutfits[selectedOccasion] || []}
+              sectionKey={`occasion-${selectedOccasion}`}
+            />
+          )}
+        </section>
 
-          {/* Outfit Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            {renderOutfitCard(occasionOutfits[0] || null, 0, selectedOccasion)}
-            {renderOutfitCard(occasionOutfits[1] || null, 1, selectedOccasion)}
-          </div>
-        </div>
-
-        {/* Style */}
-        <div>
-          <h3 className="text-lg font-semibold text-primary mb-3">Style</h3>
-          <div className="flex gap-2 flex-wrap mb-4">
-            {styles.map((style) => (
+        {/* By Style */}
+        <section>
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
+            <Palette className="w-6 h-6" />
+            By Style
+          </h2>
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            {STYLES.map(style => (
               <Button
                 key={style}
-                variant={selectedStyle === style ? "default" : "outline"}
-                size="sm"
+                variant={selectedStyle === style ? 'default' : 'outline'}
                 onClick={() => {
                   setSelectedStyle(style);
-                  generateOutfitsForStyle(style);
+                  if (!styleOutfits[style]) {
+                    generateOutfits('style', style);
+                  }
                 }}
-                disabled={loading[style]}
+                disabled={loading[`style-${style}`]}
                 className="rounded-full"
               >
-                {loading[style] && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                {loading[`style-${style}`] && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {style}
               </Button>
             ))}
           </div>
+          {selectedStyle && (
+            <OutfitCarousel
+              outfits={styleOutfits[selectedStyle] || []}
+              sectionKey={`style-${selectedStyle}`}
+            />
+          )}
+        </section>
 
-          {/* Outfit Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            {renderOutfitCard(styleOutfits[0] || null, 0, selectedStyle)}
-            {renderOutfitCard(styleOutfits[1] || null, 1, selectedStyle)}
-          </div>
-        </div>
-
-        {/* From my items */}
-        {allItems.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-primary mb-3">From my items</h3>
-            <div className="grid grid-cols-4 gap-2 mb-3">
-              {myItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedAnchor(item)}
-                  className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedAnchor?.id === item.id
-                      ? 'border-primary ring-2 ring-primary ring-offset-2'
-                      : 'border-border'
-                  }`}
-                >
+        {/* From My Items */}
+        <section>
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
+            <Shirt className="w-6 h-6" />
+            From My Items
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Select an item to build outfits around
+          </p>
+          <div className="flex gap-4 overflow-x-auto pb-4 mb-4">
+            {wardrobeItems.slice(0, 10).map(item => (
+              <div
+                key={item.id}
+                className={`flex-shrink-0 w-24 cursor-pointer ${
+                  selectedAnchorItem?.id === item.id ? 'ring-2 ring-primary rounded-lg' : ''
+                }`}
+                onClick={() => {
+                  setSelectedAnchorItem(item);
+                  generateOutfits('anchor', item.id, item);
+                }}
+              >
+                <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2">
                   <img
                     src={item.processed_image_url || item.image_url}
                     alt={item.name}
                     className="w-full h-full object-cover"
                   />
-                </button>
-              ))}
-              {Array.from({ length: Math.max(0, 4 - myItems.length) }).map((_, i) => (
-                <div key={`placeholder-${i}`} className="aspect-square rounded-lg bg-muted border border-border" />
-              ))}
-            </div>
-
-            {/* Outfit Cards based on selected item */}
-            <div className="grid grid-cols-2 gap-3">
-              {renderOutfitCard(anchorOutfits[0] || null, 0, 'anchor')}
-              {renderOutfitCard(anchorOutfits[1] || null, 1, 'anchor')}
-            </div>
+                </div>
+                <p className="text-xs text-center truncate">{item.name}</p>
+              </div>
+            ))}
           </div>
-        )}
+          {selectedAnchorItem && (
+            <OutfitCarousel
+              outfits={anchorOutfits}
+              sectionKey="anchor"
+            />
+          )}
+        </section>
       </div>
     </div>
   );

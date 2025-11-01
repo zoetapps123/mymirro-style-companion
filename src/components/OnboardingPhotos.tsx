@@ -182,6 +182,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 name: item.name,
                 category: item.category,
                 color: item.color,
+                fabric: item.fabric,
+                texture: item.texture,
+                pattern: item.pattern,
+                style_notes: item.style_notes,
                 processed_image_url: finalProcessedUrl || url,
                 image_url: url,
               });

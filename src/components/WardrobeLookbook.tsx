@@ -1,7 +1,26 @@
-import { useState, useEffect } from "react";
-import { DoorOpen, Sparkles, Calendar, Shirt } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { Heart, Shirt, Calendar, Sparkles, Filter, DoorOpen } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+interface WardrobeItem {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
+  processed_image_url?: string;
+  image_url: string;
+}
+
+interface Outfit {
+  id: string;
+  name: string;
+  occasion?: string;
+  style_tag?: string;
+  preview_image_url?: string;
+  items?: WardrobeItem[];
+}
 
 interface WardrobeLookbookProps {
   onBack: () => void;
@@ -9,8 +28,9 @@ interface WardrobeLookbookProps {
 }
 
 const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
-  const [outfits, setOutfits] = useState<any[]>([]);
   const { toast } = useToast();
+  const [outfits, setOutfits] = useState<Outfit[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState<string>('All');
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
@@ -20,33 +40,76 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
   ];
 
   useEffect(() => {
-    fetchOutfits();
+    fetchLookbookOutfits();
   }, []);
 
-  const fetchOutfits = async () => {
-    const { data, error } = await supabase
-      .from("outfits")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const fetchLookbookOutfits = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('outfits')
+        .select(`
+          id,
+          name,
+          occasion,
+          style_tag,
+          preview_image_url,
+          outfit_items (
+            wardrobe_items (*)
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('saved_to_lookbook', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data to include items
+      const transformedOutfits = (data || []).map(outfit => ({
+        ...outfit,
+        items: outfit.outfit_items?.map((oi: any) => oi.wardrobe_items).filter(Boolean) || []
+      }));
+
+      setOutfits(transformedOutfits);
+    } catch (error) {
+      console.error(error);
       toast({
-        title: "Error",
-        description: "Failed to load outfits.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to load lookbook',
+        variant: 'destructive'
       });
-      return;
     }
-
-    setOutfits(data || []);
   };
 
+  // Group outfits by occasion/style
+  const groupedOutfits = useMemo(() => {
+    const filtered = selectedFilter === 'All'
+      ? outfits
+      : outfits.filter(o => o.occasion === selectedFilter || o.style_tag === selectedFilter);
+
+    return filtered.reduce((acc, outfit) => {
+      const key = outfit.occasion || outfit.style_tag || 'Other';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(outfit);
+      return acc;
+    }, {} as Record<string, Outfit[]>);
+  }, [outfits, selectedFilter]);
+
+  // Get unique filters
+  const filters = useMemo(() => {
+    const uniqueOccasions = new Set(outfits.map(o => o.occasion).filter(Boolean));
+    const uniqueStyles = new Set(outfits.map(o => o.style_tag).filter(Boolean));
+    return ['All', ...Array.from(uniqueOccasions), ...Array.from(uniqueStyles)];
+  }, [outfits]);
+
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Feature Icons */}
       <div className="px-4 pt-6 pb-4">
         <div className="grid grid-cols-4 gap-4">
-          {features.map((feature, index) => {
+          {features.map((feature) => {
             const Icon = feature.icon;
             const isActive = feature.active;
             return (
@@ -77,51 +140,82 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
         </div>
       </div>
 
-      {/* Title */}
-      <div className="px-4 pb-3">
-        <h2 className="text-3xl font-bold text-primary">My Items</h2>
+      {/* Filters */}
+      <div className="p-4 border-b">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-primary">Filter by:</span>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {filters.map(filter => (
+            <Button
+              key={filter}
+              variant={selectedFilter === filter ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedFilter(filter)}
+              className="rounded-full"
+            >
+              {filter}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {/* Outfits Grid */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        <div className="grid grid-cols-2 gap-3">
-          {outfits.map((outfit, index) => (
-            <div
-              key={outfit.id}
-              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative"
-            >
-              {outfit.preview_image_url ? (
-                <img
-                  src={outfit.preview_image_url}
-                  alt={outfit.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-muted" />
-              )}
-              <div className="absolute bottom-0 left-0 right-0 p-3">
-                <p className="text-primary text-lg font-semibold">
-                  {index === 0 ? "Outfit Name" : ""}
-                </p>
-              </div>
+      {/* Main Content */}
+      <div className="flex-1 p-6 space-y-8">
+        {Object.keys(groupedOutfits).length === 0 ? (
+          <div className="text-center py-12 space-y-4">
+            <Heart className="w-16 h-16 mx-auto text-muted-foreground" />
+            <div>
+              <h3 className="text-lg font-semibold mb-2">No saved outfits yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Start by generating outfits and saving your favorites!
+              </p>
+              <Button onClick={() => onNavigate('suggestion')}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Get Suggestions
+              </Button>
             </div>
-          ))}
-
-          {/* Placeholder cards if no outfits */}
-          {outfits.length === 0 &&
-            Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-[3/4] rounded-2xl bg-muted border-2 border-border/50 relative"
-              >
-                {i === 0 && (
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-primary text-lg font-semibold">Outfit Name</p>
+          </div>
+        ) : (
+          Object.entries(groupedOutfits).map(([group, groupOutfits]) => (
+            <section key={group}>
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
+                📍 {group}
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                {groupOutfits.map(outfit => (
+                  <div
+                    key={outfit.id}
+                    className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                  >
+                    {outfit.preview_image_url ? (
+                      <div className="aspect-square bg-muted relative">
+                        <img
+                          src={outfit.preview_image_url}
+                          alt={outfit.name}
+                          className="w-full h-full object-contain"
+                        />
+                        <Heart className="absolute top-2 right-2 w-6 h-6 fill-primary text-primary" />
+                      </div>
+                    ) : (
+                      <div className="aspect-square bg-muted flex items-center justify-center relative">
+                        <Shirt className="w-16 h-16 text-muted-foreground" />
+                        <Heart className="absolute top-2 right-2 w-6 h-6 fill-primary text-primary" />
+                      </div>
+                    )}
+                    <div className="p-3">
+                      <h4 className="font-semibold truncate">{outfit.name}</h4>
+                      {outfit.style_tag && (
+                        <p className="text-xs text-muted-foreground truncate">{outfit.style_tag}</p>
+                      )}
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-        </div>
+            </section>
+          ))
+        )}
       </div>
     </div>
   );

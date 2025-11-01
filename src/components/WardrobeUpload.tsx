@@ -178,6 +178,10 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
               name: item.name,
               category: item.category,
               color: item.color,
+              fabric: item.fabric,
+              texture: item.texture,
+              pattern: item.pattern,
+              style_notes: item.style_notes,
               image_url: finalProcessedUrl || '',
               processed_image_url: finalProcessedUrl || '',
             });
