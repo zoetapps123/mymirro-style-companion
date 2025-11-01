@@ -24,6 +24,7 @@ interface Outfit {
   preview_image_url?: string;
   items: WardrobeItem[];
   reasoning?: string;
+  saved_to_lookbook?: boolean;
 }
 
 interface OutfitDetailViewProps {
@@ -207,6 +208,33 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      console.log('Saving outfit to lookbook...', { outfit, selectedItems });
+
+      // If outfit already exists, update it
+      if (outfit.id) {
+        const { error: updateError } = await supabase
+          .from('outfits')
+          .update({
+            saved_to_lookbook: true,
+            preview_image_url: currentOutfitImage
+          })
+          .eq('id', outfit.id);
+
+        if (updateError) {
+          console.error('Update error:', updateError);
+          throw updateError;
+        }
+
+        toast({
+          title: "Saved!",
+          description: "Outfit added to your lookbook"
+        });
+
+        onSave({ ...outfit, items: selectedItems, saved_to_lookbook: true });
+        return;
+      }
+
+      // Create new outfit
       const { data: newOutfit, error: outfitError } = await supabase
         .from('outfits')
         .insert({
@@ -220,7 +248,10 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
         .select()
         .single();
 
-      if (outfitError) throw outfitError;
+      if (outfitError) {
+        console.error('Outfit insert error:', outfitError);
+        throw outfitError;
+      }
 
       const itemInserts = selectedItems.map(item => ({
         outfit_id: newOutfit.id,
@@ -233,7 +264,10 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
         .from('outfit_items')
         .insert(itemInserts);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('Items insert error:', itemsError);
+        throw itemsError;
+      }
 
       toast({
         title: "Saved!",
@@ -242,10 +276,10 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
 
       onSave({ ...newOutfit, items: selectedItems });
     } catch (error) {
-      console.error(error);
+      console.error('Save error:', error);
       toast({
         title: "Error",
-        description: "Failed to save outfit",
+        description: error instanceof Error ? error.message : "Failed to save outfit",
         variant: "destructive"
       });
     } finally {

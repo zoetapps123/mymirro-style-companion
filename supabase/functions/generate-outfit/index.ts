@@ -132,32 +132,26 @@ serve(async (req) => {
 
     console.log(`Generated ${result.totalGenerated} outfits`);
 
-    // Step 2: Generate combined images for each outfit
-    const outfitsWithImages = [];
-
-    for (const outfit of result.outfits) {
+    // Step 2: Map outfit items (no image generation)
+    const outfitsWithItems = result.outfits.map((outfit: any) => {
       const outfitItems = outfit.pieces.map((piece: any) => 
         wardrobeItems.find((item: any) => item.id === piece.wardrobeItemId)
       ).filter(Boolean);
 
-      const outfitImageUrl = await generateCombinedOutfitImage(
-        outfitItems, 
-        occasion || style, 
-        outfit.styleTag,
-        LOVABLE_API_KEY
-      );
-
-      outfitsWithImages.push({
-        ...outfit,
+      return {
+        name: `${occasion || style || 'Styled'} Look`,
+        styleTag: outfit.styleTag,
+        reasoning: outfit.reasoning,
         items: outfitItems,
-        preview_image_url: outfitImageUrl
-      });
-    }
+        occasion: occasion,
+        style_tag: outfit.styleTag
+      };
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
-        outfits: outfitsWithImages
+        outfits: outfitsWithItems
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
