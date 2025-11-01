@@ -159,25 +159,37 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          metadata: Json | null
           name: string
+          needs_regeneration: boolean | null
           occasion: string | null
           preview_image_url: string | null
+          saved_to_lookbook: boolean | null
+          style_tag: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          metadata?: Json | null
           name: string
+          needs_regeneration?: boolean | null
           occasion?: string | null
           preview_image_url?: string | null
+          saved_to_lookbook?: boolean | null
+          style_tag?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          metadata?: Json | null
           name?: string
+          needs_regeneration?: boolean | null
           occasion?: string | null
           preview_image_url?: string | null
+          saved_to_lookbook?: boolean | null
+          style_tag?: string | null
           user_id?: string
         }
         Relationships: []
@@ -309,10 +321,14 @@ export type Database = {
           category: string
           color: string | null
           created_at: string
+          fabric: string | null
           id: string
           image_url: string
           name: string
+          pattern: string | null
           processed_image_url: string | null
+          style_notes: string | null
+          texture: string | null
           updated_at: string
           user_id: string
         }
@@ -320,10 +336,14 @@ export type Database = {
           category: string
           color?: string | null
           created_at?: string
+          fabric?: string | null
           id?: string
           image_url: string
           name: string
+          pattern?: string | null
           processed_image_url?: string | null
+          style_notes?: string | null
+          texture?: string | null
           updated_at?: string
           user_id: string
         }
@@ -331,10 +351,14 @@ export type Database = {
           category?: string
           color?: string | null
           created_at?: string
+          fabric?: string | null
           id?: string
           image_url?: string
           name?: string
+          pattern?: string | null
           processed_image_url?: string | null
+          style_notes?: string | null
+          texture?: string | null
           updated_at?: string
           user_id?: string
         }
