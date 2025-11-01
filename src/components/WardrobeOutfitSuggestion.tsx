@@ -99,7 +99,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
     if (!outfits) return;
 
-    // Group outfits by occasion/style/metadata
+    // Group outfits by occasion/style with sensible fallbacks
     const byOccasion: Record<string, GeneratedOutfit[]> = {};
     const byStyle: Record<string, GeneratedOutfit[]> = {};
     const anchor: GeneratedOutfit[] = [];
@@ -118,19 +118,39 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       };
 
       if (metadata?.type === 'occasion' && outfit.occasion) {
-        if (!byOccasion[outfit.occasion]) byOccasion[outfit.occasion] = [];
-        byOccasion[outfit.occasion].push(generatedOutfit);
+        (byOccasion[outfit.occasion] ||= []).push(generatedOutfit);
       } else if (metadata?.type === 'style' && outfit.style_tag) {
-        if (!byStyle[outfit.style_tag]) byStyle[outfit.style_tag] = [];
-        byStyle[outfit.style_tag].push(generatedOutfit);
+        (byStyle[outfit.style_tag] ||= []).push(generatedOutfit);
       } else if (metadata?.type === 'anchor') {
         anchor.push(generatedOutfit);
+      } else {
+        // Fallback grouping when metadata is missing
+        if (outfit.occasion) {
+          (byOccasion[outfit.occasion] ||= []).push(generatedOutfit);
+        } else if (outfit.style_tag) {
+          (byStyle[outfit.style_tag] ||= []).push(generatedOutfit);
+        } else {
+          anchor.push(generatedOutfit);
+        }
       }
     });
+
+    // Persist and restore last selections or pick first available
+    const savedOcc = localStorage.getItem('last_selected_occasion');
+    const savedStyle = localStorage.getItem('last_selected_style');
+
+    const occKeys = Object.keys(byOccasion);
+    const styleKeys = Object.keys(byStyle);
+
+    const nextOcc = savedOcc && byOccasion[savedOcc]?.length ? savedOcc : (occKeys[0] || null);
+    const nextStyle = savedStyle && byStyle[savedStyle]?.length ? savedStyle : (styleKeys[0] || null);
 
     setOccasionOutfits(byOccasion);
     setStyleOutfits(byStyle);
     setAnchorOutfits(anchor);
+
+    if (!selectedOccasion && nextOcc) setSelectedOccasion(nextOcc);
+    if (!selectedStyle && nextStyle) setSelectedStyle(nextStyle);
   };
 
   const fetchWardrobeItems = async () => {
@@ -329,8 +349,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                   </div>
                 </div>
                 <div className="p-4">
-                  <h4 className="font-semibold mb-1">{outfit.name}</h4>
-                  <p className="text-sm text-muted-foreground mb-3">{outfit.style_tag}</p>
+                  <h4 className="font-semibold mb-3 truncate">{outfit.style_tag || outfit.name}</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -438,6 +457,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 variant={selectedOccasion === occasion ? 'default' : 'outline'}
                 onClick={() => {
                   setSelectedOccasion(occasion);
+                  localStorage.setItem('last_selected_occasion', occasion);
                   if (!occasionOutfits[occasion]) {
                     generateOutfits('occasion', occasion);
                   }
@@ -471,6 +491,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 variant={selectedStyle === style ? 'default' : 'outline'}
                 onClick={() => {
                   setSelectedStyle(style);
+                  localStorage.setItem('last_selected_style', style);
                   if (!styleOutfits[style]) {
                     generateOutfits('style', style);
                   }
@@ -502,7 +523,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           </p>
           <div className="flex gap-4 overflow-x-auto pb-4 mb-4">
             {wardrobeItems
-              .filter(item => ['Tops', 'Bottoms', 'Dresses'].includes(item.category))
+              .filter(item => ['Tops', 'Bottoms'].includes(item.category))
               .slice(0, 10)
               .map(item => (
                 <div

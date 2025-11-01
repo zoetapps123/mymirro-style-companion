@@ -193,14 +193,22 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                       <div className="aspect-square bg-muted relative">
                         <img
                           src={outfit.preview_image_url}
-                          alt={outfit.name}
+                          alt={outfit.style_tag || outfit.name}
                           className="w-full h-full object-contain"
                         />
                         <Heart className="absolute top-2 right-2 w-6 h-6 fill-primary text-primary" />
                       </div>
                     ) : (
-                      <div className="aspect-square bg-muted flex items-center justify-center relative">
-                        <Shirt className="w-16 h-16 text-muted-foreground" />
+                      <div className="aspect-square bg-white p-3 grid grid-cols-2 gap-2 relative">
+                        {(outfit.items || []).slice(0, 4).map((item, i) => (
+                          <div key={i} className="flex items-center justify-center bg-white">
+                            <img
+                              src={item.processed_image_url || item.image_url}
+                              alt={item.name}
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        ))}
                         <Heart className="absolute top-2 right-2 w-6 h-6 fill-primary text-primary" />
                       </div>
                     )}
