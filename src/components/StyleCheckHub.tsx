@@ -339,17 +339,17 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
     try {
       const quickFixText = result?.quick_fix?.join('. ') || '';
       
-      const { data, error } = await supabase.functions.invoke('tryon-outfit', {
+      const { data, error } = await supabase.functions.invoke('elevate-style', {
         body: {
           imageData: uploadedImage,
-          prompt: `Apply these styling improvements to the person in the image while keeping the person and background exactly the same: ${quickFixText}. Make subtle, realistic adjustments to clothing fit, accessories, and styling details.`
+          improvements: quickFixText
         }
       });
 
       if (error) throw error;
       
-      if (data?.editedImage) {
-        setElevatedImage(data.editedImage);
+      if (data?.enhancedImage) {
+        setElevatedImage(data.enhancedImage);
         toast({
           title: "AI styling complete!",
           description: "Check out your elevated look",
@@ -592,6 +592,22 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         {result && !elevatedImage && (
           <div className="space-y-6 animate-fade-in">
             <div className="glass-card rounded-2xl p-6 space-y-4">
+              {/* Image with overlay button - FIRST */}
+              <div className="relative">
+                <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
+                
+                <Button
+                  variant="default"
+                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg"
+                  onClick={extractToWardrobe}
+                  disabled={extracting}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
+                </Button>
+              </div>
+
+              {/* Scores and Name */}
               <div className="text-center space-y-2">
                 <h3 className="text-2xl font-bold text-primary">{result.outfit_name}</h3>
                 <div className="flex items-center justify-center gap-2">
@@ -674,21 +690,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Image with overlay button */}
-              <div className="relative">
-                <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
-                
-                <Button
-                  variant="default"
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/80 backdrop-blur-sm hover:bg-primary/90 rounded-full"
-                  onClick={extractToWardrobe}
-                  disabled={extracting}
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
-                </Button>
               </div>
 
               <Button
