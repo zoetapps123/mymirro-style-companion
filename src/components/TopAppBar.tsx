@@ -1,4 +1,4 @@
-import { MessageCircle, Shirt, Sparkles, Menu } from "lucide-react";
+import { MessageCircle, Shirt, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,21 +39,13 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
     >
       {/* Top row: Logo + Profile */}
       <div className="flex items-center justify-between px-4 py-2">
-        {/* Left: Menu Icon */}
-        <div className="flex-1">
-          <button
-            aria-label="Menu"
-            className="p-2 hover:bg-muted/50 rounded-lg transition-colors active:scale-95"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
-        
         {/* Center: Logo */}
-        <img src={logo} alt="MyMirro" className="h-8" />
+        <div className="flex-1 flex justify-center">
+          <img src={logo} alt="MyMirro" className="h-8" />
+        </div>
 
         {/* Right: Profile */}
-        <div className="flex-1 flex justify-end">
+        <div className="absolute right-4">
           <button
             onClick={() => onTabChange("profile" as Tab)}
             aria-label="Profile"

@@ -80,23 +80,69 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           .getPublicUrl(fileName);
 
         uploadedUrls.push(publicUrl);
-        setProgress(10 + (i / photos.length) * 30);
+        setProgress(10 + (i / photos.length) * 80);
       }
 
-      setProgress(40);
-      setStatusText("Analyzing photos...");
+      setProgress(90);
+      setStatusText("Setting up your profile...");
 
+      // Set up basic profile immediately
+      const demoImage = uploadedUrls[0];
+      await supabase.from('user_profiles').upsert({
+        id: user.id,
+        demo_stylecheck_image_url: demoImage,
+        body_shape: 'rectangle',
+        skin_tone: 'medium',
+      });
+
+      await supabase.auth.updateUser({
+        data: {
+          onboarding_complete: true,
+          demo_stylecheck_image_url: demoImage,
+        }
+      });
+
+      setProgress(100);
+      localStorage.setItem("onboardingComplete", "true");
+
+      toast({
+        title: "Welcome to MyMirro! 🎉",
+        description: "We're analyzing your wardrobe in the background",
+      });
+
+      // Let user proceed to app immediately
+      setTimeout(() => {
+        onComplete();
+      }, 500);
+
+      // Process images in the background (non-blocking)
+      processImagesInBackground(uploadedUrls, user.id);
+
+    } catch (error: any) {
+      console.error('Onboarding photos error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to process photos",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setProgress(0);
+      setStatusText("");
+    }
+  };
+
+  // Background processing function
+  const processImagesInBackground = async (urls: string[], userId: string) => {
+    try {
       // Get existing wardrobe items for duplicate checking
       const { data: existingItems } = await supabase
         .from('wardrobe_items')
         .select('name, category, color')
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
-      // Process each photo for wardrobe items (await all properly)
       let totalAdded = 0;
-      for (let i = 0; i < uploadedUrls.length; i++) {
-        const url = uploadedUrls[i];
-        
+      for (const url of urls) {
         try {
           const { data: processData, error: processError } = await supabase.functions.invoke(
             'process-wardrobe',
@@ -104,36 +150,12 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           );
 
           if (processError) {
-            console.error("Process error:", processError);
-            const status = (processError as any)?.context?.response?.status;
-            if (status === 429) {
-              toast({
-                title: "Rate limited",
-                description: "Too many requests. Please try again in a minute.",
-                variant: "destructive",
-              });
-              break;
-            }
-            if (status === 402) {
-              toast({
-                title: "Service temporarily unavailable",
-                description: "AI credits exhausted. Please try again later.",
-                variant: "destructive",
-              });
-              break;
-            }
-            toast({
-              title: "Processing failed",
-              description: "Couldn't analyze this photo. Try a clearer image.",
-              variant: "destructive",
-            });
+            console.error("Background process error:", processError);
             continue;
           }
 
-          // Store detected items in wardrobe with duplicate checking
           if (processData?.items) {
             for (const item of processData.items) {
-              // Check for duplicates
               const isDuplicate = existingItems?.some(existing => 
                 existing.category?.toLowerCase() === item.category?.toLowerCase() &&
                 (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
@@ -146,11 +168,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              // Determine processed image URL
               let finalProcessedUrl: string | null = null;
               if (item.processedImageUrl && typeof item.processedImageUrl === 'string') {
                 if (item.processedImageUrl.startsWith('data:')) {
-                  const fileName = `${user.id}/wardrobe_${Date.now()}_${item.name.replace(/\s+/g, '-')}.png`;
+                  const fileName = `${userId}/wardrobe_${Date.now()}_${item.name.replace(/\s+/g, '-')}.png`;
                   const base64Image = item.processedImageUrl.split(',')[1];
                   const binaryData = atob(base64Image);
                   const bytes = new Uint8Array(binaryData.length);
@@ -163,22 +184,19 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                     .from('outfits')
                     .upload(fileName, imageBlob);
 
-                  if (uploadError) {
-                    console.error('Upload error:', uploadError);
-                    continue;
+                  if (!uploadError) {
+                    const { data: { publicUrl: processedUrl } } = supabase.storage
+                      .from('outfits')
+                      .getPublicUrl(fileName);
+                    finalProcessedUrl = processedUrl;
                   }
-
-                  const { data: { publicUrl: processedUrl } } = supabase.storage
-                    .from('outfits')
-                    .getPublicUrl(fileName);
-                  finalProcessedUrl = processedUrl;
                 } else {
                   finalProcessedUrl = item.processedImageUrl;
                 }
               }
 
               await supabase.from('wardrobe_items').insert({
-                user_id: user.id,
+                user_id: userId,
                 name: item.name,
                 category: item.category,
                 color: item.color,
@@ -194,61 +212,13 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             }
           }
         } catch (err) {
-          console.error("Error processing wardrobe:", err);
+          console.error("Error processing wardrobe item:", err);
         }
-
-        setProgress(40 + ((i + 1) / uploadedUrls.length) * 30);
       }
 
-      console.log(`Added ${totalAdded} items to wardrobe`);
-
-      setProgress(70);
-      setStatusText("Detecting body shape and skin tone...");
-
-      // Select the first clear photo as demo stylecheck image
-      const demoImage = uploadedUrls[0];
-
-      // TODO: In production, call an AI service to detect body shape and skin tone
-      // For now, we'll store placeholder values
-      await supabase.from('user_profiles').update({
-        demo_stylecheck_image_url: demoImage,
-        body_shape: 'rectangle', // Placeholder
-        skin_tone: 'medium', // Placeholder
-      }).eq('id', user.id);
-
-      setProgress(90);
-      setStatusText("Finalizing...");
-
-      await supabase.auth.updateUser({
-        data: {
-          onboarding_complete: true,
-          demo_stylecheck_image_url: demoImage,
-        }
-      });
-
-      setProgress(100);
-      localStorage.setItem("onboardingComplete", "true");
-
-      toast({
-        title: "Profile Complete! 🎉",
-        description: "Your wardrobe has been analyzed",
-      });
-
-      setTimeout(() => {
-        onComplete();
-      }, 1000);
-
-    } catch (error: any) {
-      console.error('Onboarding photos error:', error);
-      toast({
-        title: "Upload Failed",
-        description: error.message || "Failed to process photos",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setProgress(0);
-      setStatusText("");
+      console.log(`Background processing complete: Added ${totalAdded} items to wardrobe`);
+    } catch (error) {
+      console.error("Background processing failed:", error);
     }
   };
 

@@ -52,12 +52,19 @@ IMPORTANT: When suggesting accessories or additional items, ONLY suggest items f
 ${improvements}
 ${wardrobeContext}
 
-CRITICAL REQUIREMENTS FOR IMAGE ORIENTATION:
-- The person in the original image is standing UPRIGHT/VERTICAL in portrait orientation
-- You MUST maintain this EXACT VERTICAL/UPRIGHT orientation
-- DO NOT rotate the image 90 degrees or any other angle
-- The person must remain in the SAME VERTICAL STANDING POSITION as the original
-- Keep the person's face, body, pose, background, and image dimensions EXACTLY the same
+🚨 ABSOLUTELY CRITICAL - IMAGE ORIENTATION REQUIREMENTS 🚨
+YOU MUST FOLLOW THESE ORIENTATION RULES EXACTLY:
+
+1. The original image shows a person in PORTRAIT orientation (VERTICAL/UPRIGHT/STANDING)
+2. The person's HEAD is at the TOP of the image
+3. The person's FEET are at the BOTTOM of the image
+4. You MUST generate the enhanced image in the EXACT SAME PORTRAIT orientation
+5. DO NOT rotate the output image by ANY angle (not 90°, not 180°, not any degrees)
+6. The enhanced image MUST have the person STANDING VERTICALLY just like the input
+7. If you see the person sideways or horizontal, you are doing it WRONG
+8. The person must be UPRIGHT with head at top and feet at bottom
+9. Keep the aspect ratio and orientation IDENTICAL to the input image
+10. PORTRAIT MODE ONLY - The image should be TALLER than it is wide
 
 STYLING REQUIREMENTS:
 - ONLY apply the specific quick fixes mentioned (adding accessories, layering, minor adjustments)
