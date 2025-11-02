@@ -589,23 +589,65 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         )}
 
         {/* Results Display */}
-        {result && !elevatedImage && (
+        {result && (
           <div className="space-y-6 animate-fade-in">
             <div className="glass-card rounded-2xl p-6 space-y-4">
-              {/* Image with overlay button - FIRST */}
-              <div className="relative">
-                <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
-                
-                <Button
-                  variant="default"
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg"
-                  onClick={extractToWardrobe}
-                  disabled={extracting}
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
-                </Button>
-              </div>
+              {/* Image Comparison - Show side by side if AI is processing or done */}
+              {(elevating || elevatedImage) ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-center text-muted-foreground">Original</p>
+                    <div className="relative">
+                      <img
+                        src={result.image_url}
+                        alt="Original outfit"
+                        className="w-full aspect-square object-cover rounded-xl border-2 border-border"
+                      />
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg text-xs"
+                        onClick={extractToWardrobe}
+                        disabled={extracting}
+                      >
+                        <Package className="w-3 h-3 mr-1" />
+                        {extracting ? 'Extracting...' : 'Extract'}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-center text-accent">AI Enhanced ✨</p>
+                    <div className="relative w-full aspect-square rounded-xl border-2 border-accent overflow-hidden">
+                      {elevating ? (
+                        <div className="absolute inset-0 bg-muted/30 backdrop-blur-sm flex flex-col items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-accent animate-spin mb-2" />
+                          <p className="text-xs text-muted-foreground">Processing...</p>
+                        </div>
+                      ) : elevatedImage ? (
+                        <img
+                          src={elevatedImage}
+                          alt="AI enhanced outfit"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
+                  
+                  <Button
+                    variant="default"
+                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg"
+                    onClick={extractToWardrobe}
+                    disabled={extracting}
+                  >
+                    <Package className="w-4 h-4 mr-2" />
+                    {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
+                  </Button>
+                </div>
+              )}
 
               {/* Scores and Name */}
               <div className="text-center space-y-2">
@@ -635,6 +677,54 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 </div>
               </div>
 
+              {/* Elevate Through AI button - RIGHT AFTER SCORES */}
+              <Button
+                variant="default"
+                className="w-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                onClick={elevateWithAI}
+                disabled={elevating || elevatedImage !== null}
+              >
+                {elevating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    AI is Working Magic...
+                  </>
+                ) : elevatedImage ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    AI Enhanced
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Elevate Through AI
+                  </>
+                )}
+              </Button>
+
+              {/* Download/Share buttons for AI enhanced image */}
+              {elevatedImage && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-full"
+                    onClick={() => downloadImage(elevatedImage, 'ai-enhanced-style.png')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-full"
+                    onClick={handleShare}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                </div>
+              )}
+
+              {/* What Works, Doesn't Work, Quick Fixes - ALWAYS VISIBLE */}
               <div className="space-y-3">
                 <div className="bg-accent/10 rounded-xl p-4">
                   <div className="flex items-start gap-2">
@@ -692,25 +782,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 )}
               </div>
 
-              <Button
-                variant="default"
-                className="w-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                onClick={elevateWithAI}
-                disabled={elevating}
-              >
-                {elevating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    AI is Working Magic...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Elevate Through AI
-                  </>
-                )}
-              </Button>
-
               {extractedItems.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-semibold">Extracted Items:</p>
@@ -733,64 +804,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                   setResult(null);
                   setUploadedImage(null);
                   setExtractedItems([]);
-                }}
-              >
-                Check Another Outfit
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* AI Comparison View */}
-        {elevatedImage && (
-          <div className="space-y-6 animate-fade-in">
-            <div className="glass-card rounded-2xl p-6 space-y-4">
-              <h2 className="text-2xl font-bold text-center text-primary">Style Comparison</h2>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-center text-muted-foreground">Original</p>
-                  <img
-                    src={uploadedImage}
-                    alt="Original outfit"
-                    className="w-full aspect-square object-cover rounded-xl border-2 border-border"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-center text-accent">AI Enhanced ✨</p>
-                  <img
-                    src={elevatedImage}
-                    alt="AI enhanced outfit"
-                    className="w-full aspect-square object-cover rounded-xl border-2 border-accent"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 rounded-full"
-                  onClick={() => downloadImage(elevatedImage, 'ai-enhanced-style.png')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 rounded-full"
-                  onClick={handleShare}
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-              </div>
-
-              <Button
-                className="w-full rounded-full"
-                onClick={() => {
-                  setResult(null);
-                  setUploadedImage(null);
-                  setExtractedItems([]);
                   setElevatedImage(null);
                 }}
               >
@@ -799,6 +812,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             </div>
           </div>
         )}
+
 
         {/* Battle of the fits */}
         {!result && (

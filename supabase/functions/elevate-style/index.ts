@@ -38,16 +38,19 @@ serve(async (req) => {
 
     console.log('Elevating style with AI...');
 
-    const editPrompt = `Apply these styling improvements to the outfit in this image while keeping the person, background, and overall scene exactly the same:
+    const editPrompt = `Apply ONLY these QUICK STYLING FIXES to the outfit - DO NOT change the clothes completely:
 
 ${improvements}
 
-Important:
-- Keep the person's face, body, pose, and background completely unchanged
-- Only modify clothing items, accessories, and styling details as suggested
+CRITICAL REQUIREMENTS:
+- Keep the person's face, body, pose, background, and image orientation EXACTLY the same
+- ONLY apply the specific quick fixes mentioned (adding accessories, layering, minor adjustments)
+- DO NOT change the main clothing items completely
+- DO NOT rotate or flip the image - maintain the exact same orientation
+- Apply SUBTLE, under-1-minute fixes that would increase the style score to at least 4/5
 - Make changes look natural and realistic
-- Maintain original lighting and photo quality
-- Apply subtle, professional styling enhancements`;
+- Maintain original lighting, photo quality, and composition
+- Goal: Show how quick styling fixes can elevate the existing outfit, not replace it`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
