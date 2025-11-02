@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, improvements } = await req.json();
+    const { imageData, improvements, wardrobeItems } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -38,19 +38,36 @@ serve(async (req) => {
 
     console.log('Elevating style with AI...');
 
+    // Build wardrobe context
+    let wardrobeContext = '';
+    if (wardrobeItems && wardrobeItems.length > 0) {
+      wardrobeContext = `\n\nAVAILABLE WARDROBE ITEMS (ONLY use these items for suggestions):
+${wardrobeItems.map((item: any, idx: number) => `${idx + 1}. ${item.name} (${item.category}) - ${item.color || 'color not specified'}`).join('\n')}
+
+IMPORTANT: When suggesting accessories or additional items, ONLY suggest items from the available wardrobe list above. DO NOT suggest random items that don't exist in the wardrobe.`;
+    }
+
     const editPrompt = `Apply ONLY these QUICK STYLING FIXES to the outfit - DO NOT change the clothes completely:
 
 ${improvements}
+${wardrobeContext}
 
-CRITICAL REQUIREMENTS:
-- Keep the person's face, body, pose, background, and image orientation EXACTLY the same
+CRITICAL REQUIREMENTS FOR IMAGE ORIENTATION:
+- The person in the original image is standing UPRIGHT/VERTICAL in portrait orientation
+- You MUST maintain this EXACT VERTICAL/UPRIGHT orientation
+- DO NOT rotate the image 90 degrees or any other angle
+- The person must remain in the SAME VERTICAL STANDING POSITION as the original
+- Keep the person's face, body, pose, background, and image dimensions EXACTLY the same
+
+STYLING REQUIREMENTS:
 - ONLY apply the specific quick fixes mentioned (adding accessories, layering, minor adjustments)
+- If suggesting accessories (bags, sunglasses, jewelry, etc.), ONLY use items from the "AVAILABLE WARDROBE ITEMS" list above
+- DO NOT add random items that are not in the wardrobe
 - DO NOT change the main clothing items completely
-- DO NOT rotate or flip the image - maintain the exact same orientation
 - Apply SUBTLE, under-1-minute fixes that would increase the style score to at least 4/5
 - Make changes look natural and realistic
 - Maintain original lighting, photo quality, and composition
-- Goal: Show how quick styling fixes can elevate the existing outfit, not replace it`;
+- Goal: Show how quick styling fixes from their existing wardrobe can elevate the outfit, not replace it`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);

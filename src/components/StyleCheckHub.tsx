@@ -339,10 +339,18 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
     try {
       const quickFixText = result?.quick_fix?.join('. ') || '';
       
+      // Prepare wardrobe items for AI to use
+      const wardrobeItemsList = wardrobeItems.map(item => ({
+        name: item.name,
+        category: item.category,
+        color: item.color
+      }));
+      
       const { data, error } = await supabase.functions.invoke('elevate-style', {
         body: {
           imageData: uploadedImage,
-          improvements: quickFixText
+          improvements: quickFixText,
+          wardrobeItems: wardrobeItemsList
         }
       });
 
