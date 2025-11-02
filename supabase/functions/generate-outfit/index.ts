@@ -22,7 +22,8 @@ serve(async (req) => {
       wardrobeItems, 
       maxOutfits,
       items, // For regenerate_image_only
-      styleTag
+      styleTag,
+      userLocation
     } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -44,7 +45,7 @@ serve(async (req) => {
     console.log('Generating outfits:', { generationType, occasion, style, anchorItem: anchorItem?.name });
 
     // Step 1: Generate outfit combinations
-    const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits);
+    const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -173,7 +174,8 @@ function buildOutfitGenerationPrompt(
   style?: string,
   anchorItem?: any,
   wardrobeItems?: any[],
-  maxOutfits?: number
+  maxOutfits?: number,
+  userLocation?: { temp: number; weather: string; lat: number } | null
 ): string {
   const targetText = generationType === 'occasion' 
     ? `OCCASION: ${occasion}`
@@ -182,10 +184,17 @@ function buildOutfitGenerationPrompt(
     : `FEATURING THIS ANCHOR ITEM: ${anchorItem.name}`;
 
   const items = wardrobeItems || [];
+  
+  const weatherContext = userLocation 
+    ? `\n\nCURRENT WEATHER CONTEXT:
+- Temperature: ${userLocation.temp}°C
+- Conditions: ${userLocation.weather}
+- ${userLocation.temp < 15 ? 'COLD - Consider layering' : userLocation.temp < 25 ? 'MODERATE - Light layering optional' : 'WARM - Minimal layers'}`
+    : '';
 
   return `You are a professional fashion stylist. Create ${maxOutfits || 'as many as viable'} DISTINCT, HIGH-QUALITY outfit combinations for:
 
-${targetText}
+${targetText}${weatherContext}
 
 AVAILABLE WARDROBE ITEMS:
 ${items.map((item: any) => `
@@ -200,7 +209,18 @@ OUTFIT CREATION RULES:
 ✅ Each outfit MUST include:
    - At least 1 item (for dresses/co-ords) OR
    - At least 2 items (top + bottom minimum)
-   - Maximum 1 item per category (1 top, 1 bottom, 1 layer, 1 shoes, 1 accessory)
+   - **CRITICAL: ONLY ONE item from each category group:**
+     * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
+     * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
+     * LAYERS: Only 1 jacket/cardigan/coat/blazer
+     * FOOTWEAR: Only 1 pair of shoes
+     * ACCESSORIES: Multiple allowed but keep minimal
+
+✅ Layering Rules (Weather-Based):
+   - Temperature < 15°C: Include jackets, cardigans, or coats for warmth
+   - Temperature 15-25°C: Optional light layers (cardigan, blazer)
+   - Temperature > 25°C: NO heavy layers, prioritize breathable fabrics
+   - Layering = wearing jacket/cardigan OVER a top (this is the ONLY acceptable way to have 2 upperwear items)
 
 ✅ Fashion Quality Standards:
    - Color coordination (complementary, analogous, or monochromatic)
@@ -217,9 +237,12 @@ OUTFIT CREATION RULES:
 
 ❌ REJECT outfits that:
    - Clash in color or style
-   - Are inappropriate for the occasion
+   - Are inappropriate for the occasion or weather
    - Repeat too many items from previous outfits
-   - Break the 1-per-category rule
+   - Have 2+ tops without proper layering (jacket over top)
+   - Have 2+ bottoms (NEVER acceptable)
+   - Have heavy layers in warm weather
+   - Lack warmth in cold weather
 
 Return outfit combinations with pieces (wardrobeItemId, category, role), reasoning, and styleTag.`;
 }

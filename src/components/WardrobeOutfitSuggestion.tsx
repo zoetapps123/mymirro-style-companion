@@ -47,6 +47,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [hasNewItems, setHasNewItems] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState<GeneratedOutfit | null>(null);
+  const [userLocation, setUserLocation] = useState<{ temp: number; weather: string; lat: number } | null>(null);
+  const [isLoadingOutfits, setIsLoadingOutfits] = useState(true);
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
@@ -56,9 +58,15 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   ];
 
   useEffect(() => {
-    fetchWardrobeItems();
-    checkForNewItems();
-    loadExistingOutfits();
+    const initializeData = async () => {
+      setIsLoadingOutfits(true);
+      await fetchWardrobeItems();
+      await checkForNewItems();
+      await loadExistingOutfits();
+      await getUserLocation();
+      setIsLoadingOutfits(false);
+    };
+    initializeData();
   }, []);
 
   const checkForNewItems = async () => {
@@ -80,6 +88,32 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     setHasNewItems((items?.length || 0) > 0);
   };
 
+  const getUserLocation = async () => {
+    try {
+      // Try to get from localStorage first
+      const savedLocation = localStorage.getItem('user_location');
+      if (savedLocation) {
+        const parsed = JSON.parse(savedLocation);
+        const ageInHours = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
+        if (ageInHours < 6) {
+          setUserLocation(parsed.data);
+          return;
+        }
+      }
+
+      // For now, use a default moderate temperature if location not available
+      // In production, this would integrate with a weather API
+      const defaultLocation = {
+        temp: 20,
+        weather: 'Clear',
+        lat: 0
+      };
+      setUserLocation(defaultLocation);
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
+
   const loadExistingOutfits = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -97,7 +131,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       .eq('user_id', user.id)
       .eq('saved_to_lookbook', false);
 
-    if (!outfits) return;
+    if (!outfits || outfits.length === 0) return;
 
     // Group outfits by occasion/style with sensible fallbacks
     const byOccasion: Record<string, GeneratedOutfit[]> = {};
@@ -172,6 +206,21 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   const generateOutfits = async (type: 'occasion' | 'style' | 'anchor', value: string, anchorItem?: WardrobeItem) => {
     const key = `${type}-${value}`;
+    
+    // Check if outfits already exist
+    if (type === 'occasion' && occasionOutfits[value]?.length > 0) {
+      console.log(`Outfits for ${value} already loaded from database`);
+      return;
+    }
+    if (type === 'style' && styleOutfits[value]?.length > 0) {
+      console.log(`Outfits for ${value} already loaded from database`);
+      return;
+    }
+    if (type === 'anchor' && anchorOutfits.length > 0) {
+      console.log('Anchor outfits already loaded');
+      return;
+    }
+
     setLoading(prev => ({ ...prev, [key]: true }));
 
     try {
@@ -185,7 +234,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           style: type === 'style' ? value : undefined,
           anchorItem: anchorItem,
           wardrobeItems,
-          maxOutfits: 5
+          maxOutfits: 5,
+          userLocation
         }
       });
 
@@ -458,7 +508,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 onClick={() => {
                   setSelectedOccasion(occasion);
                   localStorage.setItem('last_selected_occasion', occasion);
-                  if (!occasionOutfits[occasion]) {
+                  if (!occasionOutfits[occasion] || occasionOutfits[occasion].length === 0) {
                     generateOutfits('occasion', occasion);
                   }
                 }}
@@ -492,7 +542,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 onClick={() => {
                   setSelectedStyle(style);
                   localStorage.setItem('last_selected_style', style);
-                  if (!styleOutfits[style]) {
+                  if (!styleOutfits[style] || styleOutfits[style].length === 0) {
                     generateOutfits('style', style);
                   }
                 }}
