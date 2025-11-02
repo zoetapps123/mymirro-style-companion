@@ -69,10 +69,14 @@ serve(async (req) => {
 2. Scores across these dimensions (scale 1.0-5.0): Color Harmony, Fit, Texture/Fabric Mix, Style/Occasion Match
 3. Overall average score
 4. What Works: 2-3 short, factual observations (max 12-15 words each) on what's strong about the outfit.
-5. What Didn't Work: 2-3 short, factual critiques (max 12-15 words each). Be direct, no soft language.
-6. Quick Fix: 2-4 easy, high-impact tweaks (max 12-15 words each) that will instantly improve the look — e.g., adding/removing items, adjusting fit, accessories, makeup, or hairstyle.
+5. What Doesn't Work: 2-3 short, factual critiques (max 12-15 words each). Be direct, no soft language.
+6. Quick Fixes (Under 1 Minute): 4-6 actionable styling tips (max 12-15 words each) that can be done in under 60 seconds. Focus on:
+   - Immediate adjustments (tuck shirt, roll sleeves, unbutton collar, adjust hem)
+   - Quick additions (add watch, swap shoes, add belt, layer jacket)
+   - Styling tweaks (fix hair, adjust accessories, straighten posture)
+   Use strong action verbs and be very specific.
 
-Keep language direct, professional, and under 15 words per point. Use action verbs for Quick Fix.`
+Keep language direct, professional, and under 15 words per point.`
                 },
                 {
                   type: 'image_url',
@@ -113,9 +117,9 @@ Keep language direct, professional, and under 15 words per point. Use action ver
                     quick_fix: { 
                       type: 'array', 
                       items: { type: 'string' },
-                      description: '2-4 actionable tweaks with action verbs (max 15 words each)',
-                      minItems: 2,
-                      maxItems: 4
+                      description: '4-6 quick under-60-second actions with specific verbs (max 15 words each)',
+                      minItems: 4,
+                      maxItems: 6
                     }
                   },
                   required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_didnt_work', 'quick_fix']

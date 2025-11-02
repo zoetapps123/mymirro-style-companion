@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CheckCircle, Share2, Package, AlertCircle } from "lucide-react";
+import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,6 +19,30 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   const [result, setResult] = useState<any>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractedItems, setExtractedItems] = useState<any[]>([]);
+  const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
+  const [elevating, setElevating] = useState(false);
+  const [elevatedImage, setElevatedImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadWardrobeItems();
+  }, []);
+
+  const loadWardrobeItems = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('wardrobe_items')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setWardrobeItems(data || []);
+    } catch (error) {
+      console.error('Error loading wardrobe:', error);
+    }
+  };
 
   const occasions = [
     "Casual Day Out",
@@ -100,7 +124,11 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       }
 
       setScanning(false);
-      setResult({ ...data, image_url: uploadedImage });
+      
+      // Enhance quick fixes with wardrobe suggestions
+      const enhancedQuickFixes = await enhanceQuickFixesWithWardrobe(data.quick_fix || []);
+      
+      setResult({ ...data, quick_fix: enhancedQuickFixes, image_url: uploadedImage });
       setLoading(false);
       toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
 
@@ -285,6 +313,67 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const enhanceQuickFixesWithWardrobe = async (quickFixes: string[]): Promise<string[]> => {
+    if (!wardrobeItems.length) return quickFixes;
+
+    const relevantItems = wardrobeItems.filter(item => 
+      ['Accessories', 'Shoes', 'Outerwear'].includes(item.category)
+    );
+
+    if (!relevantItems.length) return quickFixes;
+
+    const wardrobeSuggestion = relevantItems
+      .slice(0, 2)
+      .map(item => `Add your ${item.category.toLowerCase()}: ${item.name}`)
+      .join(' | ');
+
+    return [...quickFixes.slice(0, 4), wardrobeSuggestion, ...quickFixes.slice(4)];
+  };
+
+  const elevateWithAI = async () => {
+    if (!uploadedImage) return;
+
+    setElevating(true);
+    try {
+      const quickFixText = result?.quick_fix?.join('. ') || '';
+      
+      const { data, error } = await supabase.functions.invoke('tryon-outfit', {
+        body: {
+          imageData: uploadedImage,
+          prompt: `Apply these styling improvements to the person in the image while keeping the person and background exactly the same: ${quickFixText}. Make subtle, realistic adjustments to clothing fit, accessories, and styling details.`
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.editedImage) {
+        setElevatedImage(data.editedImage);
+        toast({
+          title: "AI styling complete!",
+          description: "Check out your elevated look",
+        });
+      } else {
+        throw new Error('No image returned');
+      }
+    } catch (error: any) {
+      console.error('Error elevating style:', error);
+      toast({
+        title: "Failed to elevate style",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setElevating(false);
+    }
+  };
+
+  const downloadImage = (imageData: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = imageData;
+    link.download = filename;
+    link.click();
   };
 
   const handleShare = async () => {
@@ -500,11 +589,9 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         )}
 
         {/* Results Display */}
-        {result && (
-          <div className="space-y-6">
+        {result && !elevatedImage && (
+          <div className="space-y-6 animate-fade-in">
             <div className="glass-card rounded-2xl p-6 space-y-4">
-              <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
-              
               <div className="text-center space-y-2">
                 <h3 className="text-2xl font-bold text-primary">{result.outfit_name}</h3>
                 <div className="flex items-center justify-center gap-2">
@@ -536,13 +623,16 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 <div className="bg-accent/10 rounded-xl p-4">
                   <div className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-accent mb-1">What Works</p>
-                      <p className="text-sm text-muted-foreground">
-                        {Array.isArray(result.what_works) 
-                          ? result.what_works.join(' • ') 
-                          : (result.what_works || result.verdict_positive || 'Looking good!')}
-                      </p>
+                    <div className="w-full">
+                      <p className="font-semibold text-accent mb-2">What Works</p>
+                      <ul className="space-y-1">
+                        {(Array.isArray(result.what_works) ? result.what_works : [result.what_works || result.verdict_positive]).map((item: string, idx: number) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 </div>
@@ -551,38 +641,74 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                   <div className="bg-destructive/10 rounded-xl p-4">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-destructive mb-1">Room for Improvement</p>
-                        <p className="text-sm text-muted-foreground">
-                          {Array.isArray(result.what_didnt_work) 
-                            ? result.what_didnt_work.join(' • ') 
-                            : (result.what_didnt_work || result.what_could_be_better || result.verdict_improvements)}
-                        </p>
+                      <div className="w-full">
+                        <p className="font-semibold text-destructive mb-2">What Doesn't Work</p>
+                        <ul className="space-y-1">
+                          {(Array.isArray(result.what_didnt_work) ? result.what_didnt_work : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements]).map((item: string, idx: number) => (
+                            <li key={idx} className="text-sm text-muted-foreground flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {result.quick_fix && (
+                  <div className="bg-blue-500/10 rounded-xl p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <p className="font-semibold text-blue-500 mb-2">Quick Fixes (Under 1 Minute)</p>
+                        <ul className="space-y-1">
+                          {(Array.isArray(result.quick_fix) ? result.quick_fix : [result.quick_fix]).map((item: string, idx: number) => (
+                            <li key={idx} className="text-sm text-muted-foreground flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-2">
+              {/* Image with overlay button */}
+              <div className="relative">
+                <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
+                
                 <Button
-                  variant="outline"
-                  className="flex-1 rounded-full"
+                  variant="default"
+                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/80 backdrop-blur-sm hover:bg-primary/90 rounded-full"
                   onClick={extractToWardrobe}
                   disabled={extracting}
                 >
                   <Package className="w-4 h-4 mr-2" />
                   {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 rounded-full"
-                  onClick={handleShare}
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
               </div>
+
+              <Button
+                variant="default"
+                className="w-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                onClick={elevateWithAI}
+                disabled={elevating}
+              >
+                {elevating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    AI is Working Magic...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Elevate Through AI
+                  </>
+                )}
+              </Button>
 
               {extractedItems.length > 0 && (
                 <div className="space-y-2">
@@ -600,11 +726,71 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
               )}
 
               <Button
+                variant="outline"
                 className="w-full rounded-full"
                 onClick={() => {
                   setResult(null);
                   setUploadedImage(null);
                   setExtractedItems([]);
+                }}
+              >
+                Check Another Outfit
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* AI Comparison View */}
+        {elevatedImage && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="glass-card rounded-2xl p-6 space-y-4">
+              <h2 className="text-2xl font-bold text-center text-primary">Style Comparison</h2>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-center text-muted-foreground">Original</p>
+                  <img
+                    src={uploadedImage}
+                    alt="Original outfit"
+                    className="w-full aspect-square object-cover rounded-xl border-2 border-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-center text-accent">AI Enhanced ✨</p>
+                  <img
+                    src={elevatedImage}
+                    alt="AI enhanced outfit"
+                    className="w-full aspect-square object-cover rounded-xl border-2 border-accent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-full"
+                  onClick={() => downloadImage(elevatedImage, 'ai-enhanced-style.png')}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-full"
+                  onClick={handleShare}
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+              </div>
+
+              <Button
+                className="w-full rounded-full"
+                onClick={() => {
+                  setResult(null);
+                  setUploadedImage(null);
+                  setExtractedItems([]);
+                  setElevatedImage(null);
                 }}
               >
                 Check Another Outfit
