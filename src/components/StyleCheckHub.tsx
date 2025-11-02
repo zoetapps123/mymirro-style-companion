@@ -23,10 +23,34 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   const [elevating, setElevating] = useState(false);
   const [elevatedImage, setElevatedImage] = useState<string | null>(null);
 
+  // Restore Style Check state for this session
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('style_check_state');
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (typeof s.selectedOccasion === 'string') setSelectedOccasion(s.selectedOccasion);
+        if (typeof s.uploadedImage === 'string' || s.uploadedImage === null) setUploadedImage(s.uploadedImage);
+        if (s.result) setResult(s.result);
+        if (Array.isArray(s.extractedItems)) setExtractedItems(s.extractedItems);
+        if (typeof s.elevatedImage === 'string' || s.elevatedImage === null) setElevatedImage(s.elevatedImage);
+      }
+    } catch (e) {
+      console.warn('Failed to restore style check state', e);
+    }
+  }, []);
+
+  // Persist while tab is open (clears on session close)
+  useEffect(() => {
+    const state = { selectedOccasion, uploadedImage, result, extractedItems, elevatedImage };
+    try {
+      sessionStorage.setItem('style_check_state', JSON.stringify(state));
+    } catch {}
+  }, [selectedOccasion, uploadedImage, result, extractedItems, elevatedImage]);
+
   useEffect(() => {
     loadWardrobeItems();
   }, []);
-
   const loadWardrobeItems = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -338,40 +362,80 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
     setElevating(true);
     try {
       const quickFixText = result?.quick_fix?.join('. ') || '';
-      
+
+      // Helpers scoped here to keep changes minimal
+      const getImageDimensions = (src: string) => new Promise<{ width: number; height: number }>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+        img.onerror = reject;
+        img.src = src;
+      });
+
+      const rotate90 = (src: string) => new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.height;
+          canvas.height = img.width;
+          const ctx = canvas.getContext('2d')!;
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(Math.PI / 2);
+          ctx.drawImage(img, -img.width / 2, -img.height / 2);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = src;
+      });
+
+      const ensureMatchingOrientation = async (originalUrl: string, enhancedUrl: string) => {
+        try {
+          const [o, e] = await Promise.all([getImageDimensions(originalUrl), getImageDimensions(enhancedUrl)]);
+          const origPortrait = o.height >= o.width;
+          const enhPortrait = e.height >= e.width;
+          if (origPortrait !== enhPortrait) {
+            // Rotate enhanced to match original orientation
+            return await rotate90(enhancedUrl);
+          }
+          return enhancedUrl;
+        } catch {
+          return enhancedUrl;
+        }
+      };
+
+      // Compute original orientation and dimensions to guide the model
+      const { width, height } = await getImageDimensions(uploadedImage);
+      const orientation = width >= height ? 'landscape' : 'portrait';
+
       // Prepare wardrobe items for AI to use
       const wardrobeItemsList = wardrobeItems.map(item => ({
         name: item.name,
         category: item.category,
         color: item.color
       }));
-      
+
       const { data, error } = await supabase.functions.invoke('elevate-style', {
         body: {
           imageData: uploadedImage,
           improvements: quickFixText,
-          wardrobeItems: wardrobeItemsList
+          wardrobeItems: wardrobeItemsList,
+          orientation,
+          width,
+          height,
         }
       });
 
       if (error) throw error;
-      
+
       if (data?.enhancedImage) {
-        setElevatedImage(data.enhancedImage);
-        toast({
-          title: "AI styling complete!",
-          description: "Check out your elevated look",
-        });
+        const fixed = await ensureMatchingOrientation(uploadedImage, data.enhancedImage);
+        setElevatedImage(fixed);
+        toast({ title: 'AI styling complete!', description: 'Check out your elevated look' });
       } else {
         throw new Error('No image returned');
       }
     } catch (error: any) {
       console.error('Error elevating style:', error);
-      toast({
-        title: "Failed to elevate style",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
+      toast({ title: 'Failed to elevate style', description: error.message || 'Please try again', variant: 'destructive' });
     } finally {
       setElevating(false);
     }
