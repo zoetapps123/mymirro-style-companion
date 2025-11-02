@@ -382,7 +382,9 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
       <div className="space-y-2">
         <h2 className="text-2xl font-bold text-gradient-primary">Outfit Battle</h2>
-        <p className="text-sm text-muted-foreground">Pit outfits head-to-head. Winner gets the crown.</p>
+        <p className="text-sm text-muted-foreground">
+          Upload outfits, watch them compete. Winner gets the crown 👑
+        </p>
       </div>
 
       {!results && (

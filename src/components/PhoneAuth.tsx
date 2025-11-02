@@ -150,17 +150,21 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          <div>
-            <h2 className="text-3xl font-bold mb-2 text-gray-900">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               {isSignUp ? "Create Account" : "Welcome Back"}
             </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-base">
               {isSignUp 
-                ? "Start your fashion journey with MyMirro"
-                : "Sign in to continue your style evolution"
+                ? "Start your fashion journey with MyMirro ✨"
+                : "Your style journey continues"
               }
             </p>
-          </div>
+          </motion.div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Phone Number */}
@@ -220,13 +224,15 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               <p className="text-sm text-destructive">{error}</p>
             )}
 
-            <Button
-              type="submit"
-              className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl mt-6"
-              disabled={loading}
-            >
-              {loading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                type="submit"
+                className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg font-semibold rounded-2xl mt-6 shadow-lg"
+                disabled={loading}
+              >
+                {loading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
+              </Button>
+            </motion.div>
           </form>
         </motion.div>
       </div>

@@ -126,10 +126,20 @@ All colors MUST be HSL.
 
   .glow-primary {
     box-shadow: 0 8px 32px hsla(282, 89%, 69%, 0.2);
+    transition: box-shadow 0.3s ease-in-out;
+  }
+
+  .glow-primary:hover {
+    box-shadow: 0 12px 40px hsla(282, 89%, 69%, 0.3);
   }
 
   .glow-accent {
     box-shadow: 0 8px 32px hsla(328, 100%, 74%, 0.2);
+    transition: box-shadow 0.3s ease-in-out;
+  }
+
+  .glow-accent:hover {
+    box-shadow: 0 12px 40px hsla(328, 100%, 74%, 0.3);
   }
 
   .text-gradient-primary {

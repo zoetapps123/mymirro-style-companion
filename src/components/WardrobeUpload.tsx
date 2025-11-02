@@ -306,6 +306,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           <TabsTrigger value="layers">Layers</TabsTrigger>
           <TabsTrigger value="dresses">Dresses</TabsTrigger>
           <TabsTrigger value="shoes">Shoes</TabsTrigger>
+          <TabsTrigger value="accessories">Accessories</TabsTrigger>
         </TabsList>
 
         <TabsContent value={selectedCategory} className="flex-1 mt-4">

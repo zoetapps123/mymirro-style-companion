@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
 
 interface WardrobeMyItemsProps {
   onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
@@ -26,7 +27,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const categories = ["All", "Tops", "Bottoms", "Layers", "Dresses", "Shoes"];
+  const categories = ["All", "Tops", "Bottoms", "Layers", "Dresses", "Shoes", "Accessories"];
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: true },
@@ -316,15 +317,20 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             const Icon = feature.icon;
             const isActive = feature.active;
             return (
-              <button
+              <motion.button
                 key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
                 onClick={() => onNavigate(feature.view)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 className="flex flex-col items-center gap-2"
               >
                 <div
-                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
                     isActive
-                      ? "bg-primary border-2 border-primary"
+                      ? "bg-primary border-2 border-primary shadow-lg"
                       : "bg-background border-2 border-border"
                   }`}
                 >
@@ -337,7 +343,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
                 <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
                   {feature.title}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -352,19 +358,20 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max">
           {categories.map((category) => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-full min-h-[36px] ${
-                selectedCategory === category
-                  ? "bg-black text-white hover:bg-black/90"
-                  : "bg-transparent border-border text-foreground hover:bg-muted"
-              }`}
-            >
-              {category}
-            </Button>
+            <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant={selectedCategory === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(category)}
+                className={`rounded-full min-h-[36px] transition-all duration-300 ${
+                  selectedCategory === category
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg"
+                    : "bg-transparent border-border text-foreground hover:bg-muted"
+                }`}
+              >
+                {category}
+              </Button>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -403,10 +410,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       />
 
       {/* Floating Add Button */}
-      <button
+      <motion.button
         onClick={() => fileInputRef.current?.click()}
         disabled={loading}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-black flex items-center justify-center shadow-lg hover:scale-105 transition-transform active:scale-95 z-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center shadow-2xl hover:shadow-3xl transition-all z-50 disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label="Add wardrobe item"
       >
         {loading ? (
@@ -414,7 +423,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         ) : (
           <Plus className="w-8 h-8 text-white" />
         )}
-      </button>
+      </motion.button>
     </div>
   );
 };

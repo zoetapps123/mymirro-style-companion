@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import logo from "@/assets/logo.png";
 import slideChat from "@/assets/slide-chat.png";
 import slideWardrobe from "@/assets/slide-wardrobe.png";
@@ -59,10 +58,10 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              transition={{ duration: 0.5 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
               className="w-full h-full flex items-center justify-center"
             >
               <div className="bg-white/20 backdrop-blur-md rounded-3xl p-6 shadow-2xl border border-white/30 w-full h-full">
@@ -76,31 +75,19 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
               </div>
             </motion.div>
           </AnimatePresence>
-
-          {/* Swipe Buttons */}
-          <button 
-            onClick={() => handleSwipe('left')}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-sm p-2 rounded-full hover:bg-white/50 transition-all"
-          >
-            <ChevronLeft className="w-6 h-6 text-white" />
-          </button>
-          <button 
-            onClick={() => handleSwipe('right')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-sm p-2 rounded-full hover:bg-white/50 transition-all"
-          >
-            <ChevronRight className="w-6 h-6 text-white" />
-          </button>
         </div>
 
         {/* Slide Indicators */}
         <div className="flex gap-2">
           {slides.map((_, index) => (
-            <button
+            <motion.button
               key={index}
               onClick={() => setCurrentSlide(index)}
-              className={`h-2 rounded-full transition-all ${
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
+              className={`h-2 rounded-full transition-all duration-300 ${
                 index === currentSlide 
-                  ? 'w-12 bg-white' 
+                  ? 'w-12 bg-gradient-to-r from-purple-600 to-pink-600' 
                   : 'w-2 bg-white/50'
               }`}
             />
@@ -120,18 +107,21 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
 
       {/* CTAs */}
       <div className="space-y-4 pb-8 max-w-md mx-auto w-full">
-        <Button
-          onClick={onSignUp}
-          className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl"
-        >
-          Sign Up
-        </Button>
-        <button
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Button
+            onClick={onSignUp}
+            className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg font-semibold rounded-2xl shadow-xl"
+          >
+            Sign Up
+          </Button>
+        </motion.div>
+        <motion.button
           onClick={onLogIn}
-          className="w-full text-black text-lg font-semibold"
+          whileHover={{ scale: 1.05 }}
+          className="w-full text-white text-lg font-semibold hover:underline underline-offset-4 transition-all"
         >
           Log In
-        </button>
+        </motion.button>
       </div>
     </div>
   );

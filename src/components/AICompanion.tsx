@@ -492,25 +492,29 @@ const AICompanion = () => {
       </ScrollArea>
 
       {/* Interactive Query Cards */}
-      {showPrompts && (
+      {showPrompts && messages.length <= 2 && (
         <div className="px-4 py-3 border-t border-border/50">
           <div className="grid grid-cols-2 gap-3 max-w-2xl mx-auto">
             {QUERY_CARDS.map((card, index) => (
               <motion.button
                 key={card.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.15 }}
+                transition={{ delay: index * 0.1 }}
                 onClick={() => handleCardClick(card.query)}
-                className="relative h-[150px] rounded-2xl p-4 flex flex-col items-start justify-between text-left overflow-hidden bg-purple-50 hover:bg-purple-100 active:scale-[0.97] transition-all duration-300 border border-purple-100"
+                className="glass-card p-4 rounded-2xl text-left hover:glow-primary transition-all duration-300 group"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className="relative z-10 flex flex-col h-full justify-between">
-                  <div className="text-3xl mb-2">{card.icon}</div>
-                  <div>
-                    <h3 className="text-base font-semibold text-primary mb-1">{card.title}</h3>
-                    <p className="text-xs text-muted-foreground leading-tight">{card.subtitle}</p>
-                  </div>
-                </div>
+                <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform">
+                  {card.icon}
+                </span>
+                <h3 className="font-semibold text-sm mb-1 text-foreground">
+                  {card.title}
+                </h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {card.subtitle}
+                </p>
               </motion.button>
             ))}
           </div>

@@ -32,9 +32,10 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
 
   const ageRanges = [
     { id: "<18", label: "<18" },
-    { id: "18-25", label: "18-25" },
-    { id: "26-35", label: "26-35" },
-    { id: "36-45", label: "36-45" },
+    { id: "18-21", label: "18–21" },
+    { id: "22-26", label: "22–26" },
+    { id: "27-30", label: "27–30" },
+    { id: ">30", label: ">30" },
   ];
 
   const handleSubmit = async () => {
@@ -116,17 +117,19 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
               <label className="text-xl font-bold text-gray-900">Gender</label>
               <div className="grid grid-cols-3 gap-3">
                 {genderOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setData({ ...data, gender: option.id })}
-                    className={`p-3 rounded-xl border-2 transition-all ${
-                      data.gender === option.id
-                        ? "border-black bg-black text-white"
-                        : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
-                    }`}
-                  >
-                    <span className="text-sm font-medium">{option.label}</span>
-                  </button>
+            <motion.button
+                key={option.id}
+                onClick={() => setData({ ...data, gender: option.id })}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`p-3 rounded-xl border-2 transition-all duration-300 ${
+                  data.gender === option.id
+                    ? "border-black bg-black text-white shadow-lg"
+                    : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
+                }`}
+              >
+                <span className="text-sm font-medium">{option.label}</span>
+              </motion.button>
                 ))}
               </div>
             </div>
@@ -134,31 +137,35 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
             {/* Age Selection */}
             <div className="space-y-3">
               <label className="text-xl font-bold text-gray-900">Age</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {ageRanges.map((range) => (
-                  <button
+                  <motion.button
                     key={range.id}
                     onClick={() => setData({ ...data, ageRange: range.id })}
-                    className={`p-3 rounded-xl border-2 transition-all ${
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`p-3 rounded-full border-2 transition-all duration-300 ${
                       data.ageRange === range.id
-                        ? "border-black bg-black text-white"
-                        : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
+                        ? "border-black bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
+                        : "border-gray-200 bg-white text-gray-900 hover:border-gray-400"
                     }`}
                   >
                     <span className="text-sm font-medium">{range.label}</span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
           </div>
 
-          <Button
-            onClick={handleSubmit}
-            disabled={!canProceed}
-            className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl mt-8"
-          >
-            Next
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              onClick={handleSubmit}
+              disabled={!canProceed}
+              className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg font-semibold rounded-2xl mt-8 shadow-lg"
+            >
+              Next
+            </Button>
+          </motion.div>
         </div>
       </motion.div>
     </div>
