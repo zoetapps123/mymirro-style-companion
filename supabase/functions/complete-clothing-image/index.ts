@@ -48,7 +48,7 @@ Complete this ${itemType || 'clothing item'} to show its full, uncut form on a c
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
+        model: "google/gemini-2.5-flash-image",
         messages: [
           {
             role: "user",
@@ -93,10 +93,21 @@ Complete this ${itemType || 'clothing item'} to show its full, uncut form on a c
 
     const data = await response.json();
     console.log('AI response received');
+    console.log('Full AI response structure:', JSON.stringify(data, null, 2));
+    console.log('Available response keys:', Object.keys(data));
+    if (data.choices?.[0]) {
+      console.log('First choice structure:', JSON.stringify(data.choices[0], null, 2));
+    }
 
     const completedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!completedImageUrl) {
+      console.error('Image extraction failed. Response structure:', {
+        hasChoices: !!data.choices,
+        hasMessage: !!data.choices?.[0]?.message,
+        hasImages: !!data.choices?.[0]?.message?.images,
+        imageCount: data.choices?.[0]?.message?.images?.length || 0
+      });
       throw new Error('No image generated in response');
     }
 
