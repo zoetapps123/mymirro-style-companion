@@ -109,7 +109,13 @@ const Index = () => {
         }}
         onSuccess={() => {
           setShowAuth(false);
-          setShowOnboarding(true);
+          if (isSignUp) {
+            // New user - show onboarding
+            setShowOnboarding(true);
+          } else {
+            // Existing user logging in - check what they need
+            checkAuthAndFlow();
+          }
         }}
       />
     );
