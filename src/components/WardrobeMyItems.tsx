@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, DoorOpen, Sparkles, Calendar, Shirt, Upload, X, Trash2 } from "lucide-react";
+import { Plus, DoorOpen, Sparkles, Calendar, Shirt, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { cropCompositeImage } from "@/lib/imageProcessing";
 
@@ -12,19 +10,10 @@ interface WardrobeMyItemsProps {
   onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
 }
 
-interface ProcessingItem {
-  id: string;
-  status: 'processing' | 'done';
-  name?: string;
-  preview?: string;
-}
-
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const [items, setItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [processingItems, setProcessingItems] = useState<ProcessingItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -108,12 +97,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    setLoading(true);
-    setProgress(10);
-
-    // Initialize processing tiles
-    const tempId = Date.now().toString();
-    setProcessingItems([{ id: tempId, status: 'processing' }]);
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -124,12 +107,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       const user = session.user;
 
-      // Fetch existing items for duplicate checking
-      const { data: existingItems } = await supabase
-        .from('wardrobe_items')
-        .select('name, category, color')
-        .eq('user_id', user.id);
-
       // Upload the original image first to get a public URL
       const ext = file.name.split('.').pop() || 'png';
       const sourceName = `${user.id}/wardrobe_src_${Date.now()}.${ext}`;
@@ -137,71 +114,76 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         .from('outfits')
         .upload(sourceName, file);
       if (srcUploadError) throw srcUploadError;
+      
       const { data: { publicUrl: sourceUrl } } = supabase.storage
         .from('outfits')
         .getPublicUrl(sourceName);
 
-      setProgress(30);
+      // Show immediate feedback
+      toast({
+        title: "Upload started! 🎨",
+        description: "We're analyzing your wardrobe in the background. You can continue using the app!",
+      });
+
+      setIsProcessing(true);
+
+      // Process in background (non-blocking)
+      processImageInBackground(sourceUrl, user.id);
+
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Background processing function
+  const processImageInBackground = async (sourceUrl: string, userId: string) => {
+    try {
+      // Fetch existing items for duplicate checking
+      const { data: existingItems } = await supabase
+        .from('wardrobe_items')
+        .select('name, category, color')
+        .eq('user_id', userId);
 
       const { data, error } = await supabase.functions.invoke('process-wardrobe', {
         body: { imageUrl: sourceUrl }
       });
-      
-      setProgress(60);
 
       if (error) {
-        console.error('Process error:', error);
-        toast({
-          title: "Processing failed",
-          description: "Couldn’t analyze the photo. Try another image with clear items.",
-          variant: "destructive",
-        });
-        setProcessingItems([]);
-        setLoading(false);
-        setProgress(0);
+        console.error('Background process error:', error);
+        setIsProcessing(false);
         return;
       }
-      
+
       const itemsDetected = data?.items || [];
       if (!itemsDetected || itemsDetected.length === 0) {
-        toast({
-          title: "No items detected",
-          description: "Try a clearer outfit photo with items fully visible.",
-        });
-        setProcessingItems([]);
-        setLoading(false);
-        setProgress(0);
+        console.log('No items detected in background processing');
+        setIsProcessing(false);
         return;
       }
 
       if (!data?.compositeImageUrl || !data?.gridLayout) {
-        toast({
-          title: "Processing incomplete",
-          description: "Failed to process composite image. Please try again.",
-          variant: "destructive",
-        });
-        setProcessingItems([]);
-        setLoading(false);
-        setProgress(0);
+        console.log('No composite image in background processing');
+        setIsProcessing(false);
         return;
       }
-
-      // Update processing tiles with actual items
-      setProcessingItems(itemsDetected.map((item: any, idx: number) => ({
-        id: `${tempId}-${idx}`,
-        status: 'processing',
-        name: item.name,
-      })));
-
-      let addedCount = 0;
-      let skippedCount = 0;
-      setProgress(70);
 
       // Crop the composite image
       const croppedBlobs = await cropCompositeImage(
         data.compositeImageUrl,
         data.gridLayout
       );
+
+      let addedCount = 0;
+      let skippedCount = 0;
 
       // Process all items
       for (let idx = 0; idx < itemsDetected.length; idx++) {
@@ -245,28 +227,26 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           }
         });
 
-        let finalBlob = croppedBlob; // Default to cropped if completion fails
+        let finalBlob = croppedBlob;
 
         if (!completionError && completionData?.completedImageUrl) {
-          // Convert completed base64 image back to blob
           const base64Response = await fetch(completionData.completedImageUrl);
           let completedBlob = await base64Response.blob();
           
-          // Trim borders from the completed image
           try {
             const { trimImageBorders } = await import('@/lib/imageProcessing');
             finalBlob = await trimImageBorders(completedBlob);
             console.log(`Successfully completed and trimmed image for: ${item.name}`);
           } catch (trimError) {
             console.error('Failed to trim completed image:', trimError);
-            finalBlob = completedBlob; // Use untrimmed if trimming fails
+            finalBlob = completedBlob;
           }
         } else {
           console.log(`Using original cropped image for: ${item.name}`, completionError);
         }
 
         // Upload completed/cropped image
-        const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+        const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
         const { error: uploadError } = await supabase.storage
           .from('outfits')
           .upload(fileName, finalBlob);
@@ -283,7 +263,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         const { error: dbError } = await supabase
           .from('wardrobe_items')
           .insert({
-            user_id: user.id,
+            user_id: userId,
             name: item.name,
             category: item.category,
             color: item.color,
@@ -295,47 +275,20 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             processed_image_url: publicUrl,
           });
 
-        if (dbError) {
-          console.error('DB error:', dbError);
-        } else {
+        if (!dbError) {
           addedCount++;
-          // Mark as done
-          setProcessingItems(prev => prev.map(p => 
-            p.id === `${tempId}-${idx}` ? { ...p, status: 'done' } : p
-          ));
         }
       }
-        
-        setProgress(90);
 
-        toast({
-          title: addedCount > 0 ? "Added to wardrobe!" : "Items already exist",
-          description: addedCount > 0
-            ? `${addedCount} new item${addedCount > 1 ? 's' : ''} added${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`
-            : `All detected items already exist in your wardrobe.`,
-        });
+      console.log(`Background processing complete: Added ${addedCount} items${skippedCount > 0 ? `, skipped ${skippedCount} duplicates` : ''}`);
+      
+      // Refresh items list
+      await fetchItems();
+      setIsProcessing(false);
 
-        setProgress(100);
-        fetchItems();
-        
-        // Clear processing tiles after 2 seconds
-        setTimeout(() => {
-          setProcessingItems([]);
-        }, 2000);
-    } catch (error: any) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process image",
-        variant: "destructive",
-      });
-      setProcessingItems([]);
-    } finally {
-      setLoading(false);
-      setProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    } catch (error) {
+      console.error('Background processing failed:', error);
+      setIsProcessing(false);
     }
   };
 
@@ -346,40 +299,13 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Processing Tiles */}
-      {processingItems.length > 0 && (
+      {/* Processing Banner */}
+      {isProcessing && (
         <div className="px-4 pt-4 pb-2">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-            {processingItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex-shrink-0 w-20 h-20 rounded-xl border-2 border-border overflow-hidden relative bg-muted/30"
-              >
-                {item.preview ? (
-                  <img src={item.preview} alt={item.name || 'Processing'} className="w-full h-full object-cover" />
-                ) : (
-                  <Skeleton className="w-full h-full" />
-                )}
-                {item.status === 'processing' && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-                {item.status === 'done' && (
-                  <div className="absolute inset-0 bg-green-500/50 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-medium text-foreground">We're analyzing your wardrobe in the background...</p>
           </div>
-          {loading && (
-            <div className="mt-2">
-              <Progress value={progress} className="h-1" />
-            </div>
-          )}
         </div>
       )}
 
@@ -489,23 +415,16 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         accept="image/*"
         onChange={handleImageUpload}
         className="hidden"
-        disabled={loading}
       />
 
       {/* Floating Add Button */}
       <motion.button
         onClick={() => fileInputRef.current?.click()}
-        disabled={loading}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center shadow-2xl hover:shadow-3xl transition-all z-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label="Add wardrobe item"
+        className="fixed bottom-24 right-6 w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-lg z-50"
       >
-        {loading ? (
-          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <Plus className="w-8 h-8 text-white" />
-        )}
+        <Plus className="w-8 h-8 text-white" />
       </motion.button>
     </div>
   );
