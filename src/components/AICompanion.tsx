@@ -6,6 +6,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
+
+interface ToolCall {
+  type: 'show_wardrobe_items' | 'create_outfit_suggestion';
+  data: any;
+}
 
 interface Message {
   id: string;
@@ -13,6 +19,7 @@ interface Message {
   content: string;
   images?: string[];
   timestamp: Date;
+  toolCalls?: ToolCall[];
 }
 
 interface UserProfile {
@@ -296,11 +303,13 @@ const AICompanion = () => {
           role: 'assistant' as const,
           content: '',
           timestamp: new Date(),
+          toolCalls: [],
         }];
         return updated;
       });
 
       let assistantMessage = '';
+      let collectedToolCalls: ToolCall[] = [];
 
       // Always force non-stream fallback on Mobile Safari
       if (isMobileSafari) {
@@ -369,12 +378,38 @@ const AICompanion = () => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content;
+                const delta = parsed.choices?.[0]?.delta;
+                const content = delta?.content;
+                const toolCalls = delta?.tool_calls;
+
                 if (content) {
                   assistantMessage += content;
                   setMessages(prev => {
                     const updated = prev.map(m =>
-                      m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+                      m.id === assistantMsgId ? { ...m, content: assistantMessage, toolCalls: collectedToolCalls } : m
+                    );
+                    persistMessages(updated);
+                    return updated;
+                  });
+                }
+
+                if (toolCalls) {
+                  toolCalls.forEach((tc: any) => {
+                    if (tc.function?.name && tc.function?.arguments) {
+                      try {
+                        const args = JSON.parse(tc.function.arguments);
+                        collectedToolCalls.push({
+                          type: tc.function.name as any,
+                          data: args
+                        });
+                      } catch (e) {
+                        console.error('Failed to parse tool call args:', e);
+                      }
+                    }
+                  });
+                  setMessages(prev => {
+                    const updated = prev.map(m =>
+                      m.id === assistantMsgId ? { ...m, content: assistantMessage, toolCalls: collectedToolCalls } : m
                     );
                     persistMessages(updated);
                     return updated;
@@ -508,37 +543,68 @@ const AICompanion = () => {
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 ${
+                className={`max-w-[85%] sm:max-w-[80%] ${
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/50 text-foreground border border-border"
+                    ? ""
+                    : ""
                 }`}
               >
-                {message.images && message.images.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    {message.images.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt="Uploaded"
-                        className="rounded-lg w-full h-32 object-cover"
-                      />
+                {message.role === "user" ? (
+                  <div className="rounded-2xl px-4 py-3 bg-primary text-primary-foreground">
+                    {message.images && message.images.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        {message.images.map((img, idx) => (
+                          <img
+                            key={idx}
+                            src={img}
+                            alt="Uploaded"
+                            className="rounded-lg w-full h-32 object-cover"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {message.content}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {message.content && (
+                      <div className="rounded-2xl px-4 py-3 bg-muted/50 text-foreground border border-border">
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                          {message.id === "greeting" ? (
+                            <>
+                              <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                {message.content.split('\n')[0]}
+                              </span>
+                              <br />
+                              {message.content.split('\n').slice(1).join('\n')}
+                            </>
+                          ) : (
+                            message.content || (isLoading ? "..." : "")
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    {message.toolCalls?.map((tc, tcIdx) => (
+                      <div key={tcIdx}>
+                        {tc.type === 'show_wardrobe_items' && (
+                          <WardrobeItemsDisplay
+                            itemIds={tc.data.item_ids}
+                            context={tc.data.context}
+                          />
+                        )}
+                        {tc.type === 'create_outfit_suggestion' && (
+                          <OutfitSuggestionDisplay
+                            outfitName={tc.data.outfit_name}
+                            itemIds={tc.data.item_ids}
+                            reasoning={tc.data.reasoning}
+                          />
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {message.id === "greeting" && message.role === "assistant" ? (
-                    <>
-                      <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        {message.content.split('\n')[0]}
-                      </span>
-                      <br />
-                      {message.content.split('\n').slice(1).join('\n')}
-                    </>
-                  ) : (
-                    message.content || (message.role === "assistant" && isLoading ? "..." : "")
-                  )}
-                </p>
               </div>
             </div>
           ))}

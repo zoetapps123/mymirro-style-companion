@@ -36,10 +36,10 @@ serve(async (req) => {
         bodyShape = profile?.body_shape;
         skinTone = profile?.skin_tone;
 
-        // Fetch wardrobe summary (top 10 recent items)
+        // Fetch wardrobe summary (top 10 recent items with IDs)
         const { data: items } = await supabase
           .from('wardrobe_items')
-          .select('name, category, color')
+          .select('id, name, category, color')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(10);
@@ -79,6 +79,58 @@ serve(async (req) => {
       return msg;
     });
 
+    // Define tools for visual wardrobe responses
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "show_wardrobe_items",
+          description: "Display specific wardrobe items visually to the user",
+          parameters: {
+            type: "object",
+            properties: {
+              item_ids: {
+                type: "array",
+                items: { type: "string" },
+                description: "Array of wardrobe item IDs to display"
+              },
+              context: {
+                type: "string",
+                description: "Brief explanation of why these items are being shown"
+              }
+            },
+            required: ["item_ids", "context"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_outfit_suggestion",
+          description: "Create and display a visual outfit suggestion from wardrobe items",
+          parameters: {
+            type: "object",
+            properties: {
+              outfit_name: {
+                type: "string",
+                description: "Name of the outfit"
+              },
+              item_ids: {
+                type: "array",
+                items: { type: "string" },
+                description: "Array of wardrobe item IDs that make up the outfit"
+              },
+              reasoning: {
+                type: "string",
+                description: "Why this outfit works well"
+              }
+            },
+            required: ["outfit_name", "item_ids", "reasoning"]
+          }
+        }
+      }
+    ];
+
     const response = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -91,6 +143,7 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           ...processedMessages,
         ],
+        tools,
         stream: true,
       }),
     });
