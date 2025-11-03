@@ -371,7 +371,7 @@ ${itemsList}
 
 **LAYOUT REQUIREMENTS:**
 - Arrange items in a grid (2-3 items per row depending on total count)
-- Each item in its own cell with 40px padding on all sides
+- Each item in its own cell with ~40px internal whitespace (not borders)
 - Pure white background (#FFFFFF)
 - Equal-sized cells for consistency
 
@@ -379,7 +379,7 @@ ${itemsList}
 - Each item: front-facing, straight orientation
 - Fully unfolded and neatly arranged
 - Centered in its cell
-- Item fills 70% of cell space
+- Item fills ~70% of cell space
 - Even, soft lighting with no shadows
 - True-to-life colors
 - Professional e-commerce quality
@@ -387,8 +387,8 @@ ${itemsList}
 **GRID STRUCTURE:**
 - Maintain order: top-left to bottom-right
 - Consistent spacing between all items
-- No overlapping items
-- Clear visual separation between cells`
+- Do NOT draw borders, frames, grid lines, drop shadows, or outlines; separation must be whitespace only
+- Clear visual separation between cells via whitespace`
               },
               {
                 type: 'image_url',
