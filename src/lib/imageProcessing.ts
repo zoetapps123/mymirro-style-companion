@@ -137,15 +137,9 @@ export const cropCompositeImage = async (
             cellHeight
           );
 
-          // Trim white/black borders/frames inside the cell
-          const trimmedCanvas = trimBordersOnCanvas(cellCanvas, {
-            whiteThreshold: 245,
-            blackThreshold: 15,
-            margin: 4,
-          });
-
-          // Center the trimmed content in a square canvas
-          const maxDim = Math.max(trimmedCanvas.width, trimmedCanvas.height);
+          // No trimming here - will trim after AI completion
+          // Just center the content in a square canvas
+          const maxDim = Math.max(cellCanvas.width, cellCanvas.height);
           const centeredCanvas = document.createElement('canvas');
           centeredCanvas.width = maxDim;
           centeredCanvas.height = maxDim;
@@ -155,10 +149,10 @@ export const cropCompositeImage = async (
             centeredCtx.imageSmoothingEnabled = true;
             centeredCtx.imageSmoothingQuality = 'high';
             
-            // Draw trimmed content centered
-            const offsetX = (maxDim - trimmedCanvas.width) / 2;
-            const offsetY = (maxDim - trimmedCanvas.height) / 2;
-            centeredCtx.drawImage(trimmedCanvas, offsetX, offsetY);
+            // Draw cell centered
+            const offsetX = (maxDim - cellCanvas.width) / 2;
+            const offsetY = (maxDim - cellCanvas.height) / 2;
+            centeredCtx.drawImage(cellCanvas, offsetX, offsetY);
           }
 
           centeredCanvas.toBlob(
