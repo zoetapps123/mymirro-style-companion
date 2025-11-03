@@ -197,11 +197,49 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              // Upload cropped image
+              // Convert cropped blob to base64 for AI completion
+              let finalBlob = croppedBlob;
+              try {
+                const croppedImageData = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(croppedBlob);
+                });
+
+                // Call AI completion endpoint
+                const { data: completionData, error: completionError } = await supabase.functions.invoke(
+                  'complete-clothing-image',
+                  { 
+                    body: { 
+                      imageUrl: croppedImageData,
+                      itemType: item.category 
+                    }
+                  }
+                );
+
+                if (!completionError && completionData?.completedImageUrl) {
+                  const base64Response = await fetch(completionData.completedImageUrl);
+                  let completedBlob = await base64Response.blob();
+                  
+                  // Apply border trimming to completed image
+                  try {
+                    const { trimImageBorders } = await import('@/lib/imageProcessing');
+                    finalBlob = await trimImageBorders(completedBlob);
+                  } catch (trimError) {
+                    console.error('Failed to trim completed image:', trimError);
+                    finalBlob = completedBlob;
+                  }
+                }
+              } catch (processingError) {
+                console.error('Image processing error, using cropped blob:', processingError);
+              }
+
+              // Upload final processed image
               const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
               const { error: uploadError } = await supabase.storage
                 .from('outfits')
-                .upload(fileName, croppedBlob);
+                .upload(fileName, finalBlob);
 
               if (uploadError) {
                 console.error('Upload error:', uploadError);
