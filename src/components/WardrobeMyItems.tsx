@@ -381,12 +381,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-muted/30"
+              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-background"
             >
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               {/* Delete Button */}
               <motion.button

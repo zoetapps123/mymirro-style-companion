@@ -137,25 +137,8 @@ export const cropCompositeImage = async (
             cellHeight
           );
 
-          // No trimming here - will trim after AI completion
-          // Just center the content in a square canvas
-          const maxDim = Math.max(cellCanvas.width, cellCanvas.height);
-          const centeredCanvas = document.createElement('canvas');
-          centeredCanvas.width = maxDim;
-          centeredCanvas.height = maxDim;
-          const centeredCtx = centeredCanvas.getContext('2d');
-          
-          if (centeredCtx) {
-            centeredCtx.imageSmoothingEnabled = true;
-            centeredCtx.imageSmoothingQuality = 'high';
-            
-            // Draw cell centered
-            const offsetX = (maxDim - cellCanvas.width) / 2;
-            const offsetY = (maxDim - cellCanvas.height) / 2;
-            centeredCtx.drawImage(cellCanvas, offsetX, offsetY);
-          }
-
-          centeredCanvas.toBlob(
+          // Return the cell as-is without centering
+          cellCanvas.toBlob(
             (blob) => {
               if (blob) {
                 croppedBlobs.push(blob);
@@ -213,11 +196,11 @@ export const trimImageBorders = async (blob: Blob): Promise<Blob> => {
       
       ctx.drawImage(img, 0, 0);
       
-      // Trim borders
+      // Trim borders - more aggressive to remove grey frames
       const trimmed = trimBordersOnCanvas(canvas, {
-        whiteThreshold: 245,
-        blackThreshold: 30, // More aggressive black detection
-        margin: 4,
+        whiteThreshold: 200, // Catch light grey/beige backgrounds
+        blackThreshold: 60, // Catch dark grey backgrounds
+        margin: 2, // Minimal margin to avoid grey borders
       });
       
       // Convert to blob
