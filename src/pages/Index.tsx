@@ -45,22 +45,39 @@ const Index = () => {
     }
 
     const user = session.user;
-    const onboardingCompleteInMetadata = user?.user_metadata?.onboarding_complete === true;
-    const onboardingCompleteInStorage = localStorage.getItem("onboardingComplete") === "true";
-    const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
-    const isSignIn = localStorage.getItem("is_signin") === "true";
 
-    if (onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
-      localStorage.setItem("onboardingComplete", "true");
-    }
+    // Check if user profile has required basic info
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('name, age_range')
+      .eq('id', user.id)
+      .single();
 
-    if (isSignIn) {
-      localStorage.removeItem("is_signin");
-    }
+    const hasBasicInfo = profile?.name && profile?.age_range;
 
-    if (!isSignIn && !onboardingCompleteInMetadata && !onboardingCompleteInStorage) {
+    // Check if user has uploaded minimum wardrobe items
+    const { data: wardrobeItems } = await supabase
+      .from('wardrobe_items')
+      .select('id')
+      .eq('user_id', user.id);
+
+    const hasMinimumItems = (wardrobeItems?.length || 0) >= 3;
+
+    // Show onboarding only if basic info is missing
+    if (!hasBasicInfo) {
       setShowOnboarding(true);
-    } else if (!walkthroughComplete) {
+      return;
+    }
+
+    // Show photos page only if minimum items not uploaded
+    if (!hasMinimumItems) {
+      setShowPhotos(true);
+      return;
+    }
+
+    // Everything is complete
+    const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
+    if (!walkthroughComplete) {
       setShowWalkthrough(true);
     }
   };

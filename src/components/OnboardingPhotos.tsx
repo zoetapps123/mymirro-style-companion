@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Upload, X, Loader2, ArrowLeft } from "lucide-react";
@@ -19,7 +19,23 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState("");
+  const [existingItemsCount, setExistingItemsCount] = useState(0);
   const { toast } = useToast();
+
+  // Check existing wardrobe items count
+  useEffect(() => {
+    const checkExistingItems = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: items } = await supabase
+          .from('wardrobe_items')
+          .select('id')
+          .eq('user_id', user.id);
+        setExistingItemsCount(items?.length || 0);
+      }
+    };
+    checkExistingItems();
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -45,10 +61,11 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   };
 
   const handleSubmit = async () => {
-    if (photos.length < 3) {
+    const minRequired = Math.max(0, 3 - existingItemsCount);
+    if (photos.length < minRequired) {
       toast({
         title: "More photos needed",
-        description: "Please upload at least 3 photos",
+        description: `Please upload at least ${minRequired} more photo${minRequired !== 1 ? 's' : ''}`,
         variant: "destructive",
       });
       return;
@@ -246,7 +263,14 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           <div>
             <h2 className="text-3xl font-bold mb-2 text-gray-900">Drop your fits here</h2>
             <p className="text-gray-600">
-              Upload at least 3 outfit pics – the more you share, the better I get at styling you.
+              {existingItemsCount > 0 ? (
+                <>
+                  You have {existingItemsCount} item{existingItemsCount !== 1 ? 's' : ''} uploaded. 
+                  Upload {3 - existingItemsCount} more to continue – the more you share, the better I get at styling you.
+                </>
+              ) : (
+                <>Upload at least 3 outfit pics – the more you share, the better I get at styling you.</>
+              )}
             </p>
           </div>
 
@@ -289,11 +313,15 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
           {photos.length > 0 && (
             <p className="text-sm font-medium text-gray-700">
-              {photos.length >= 3 ? (
-                <span className="text-green-600">✓ {photos.length} photos uploaded</span>
-              ) : (
-                <span className="text-gray-600">{photos.length} photos uploaded (need {3 - photos.length} more)</span>
-              )}
+              {(() => {
+                const minRequired = Math.max(0, 3 - existingItemsCount);
+                const totalAfterUpload = existingItemsCount + photos.length;
+                return totalAfterUpload >= 3 ? (
+                  <span className="text-green-600">✓ {photos.length} photos selected (total: {totalAfterUpload} items)</span>
+                ) : (
+                  <span className="text-gray-600">{photos.length} photos selected (need {minRequired - photos.length} more)</span>
+                );
+              })()}
             </p>
           )}
 
@@ -306,7 +334,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
           <Button
             onClick={handleSubmit}
-            disabled={photos.length < 3 || loading}
+            disabled={(existingItemsCount + photos.length < 3) || loading}
             className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl"
           >
             {loading ? (
