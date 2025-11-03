@@ -36,6 +36,8 @@ export const SYSTEM_PROMPTS = {
     bodyShape?: string;
     skinTone?: string;
     wardrobeItems?: any[];
+    recentBattles?: any[];
+    recentStyleChecks?: any[];
   }) => {
     const genderTone = params.gender === 'male' ? 'bro' : params.gender === 'female' ? 'girl' : 'friend';
     const userName = params.userName || 'there';
@@ -45,13 +47,33 @@ export const SYSTEM_PROMPTS = {
     const wardrobeContext = params.wardrobeItems && params.wardrobeItems.length > 0
       ? `\n- Wardrobe Items: ${params.wardrobeItems.map((i: any) => `${i.name} (${i.category}, ${i.color})`).join(', ')}\n  TIP: Reference these specific items when giving outfit suggestions!`
       : '';
+    
+    // Add fashion history context
+    let historyContext = '';
+    if (params.recentBattles && params.recentBattles.length > 0) {
+      const battleSummary = params.recentBattles.map((b: any) => {
+        const winner = b.results?.find((r: any) => r.rank === 1);
+        return winner ? `${winner.name} (${winner.score}/5.0)` : 'N/A';
+      }).join(', ');
+      historyContext += `\n- Recent Battle Winners: ${battleSummary}\n  TIP: User likes these winning styles - use them as inspiration!`;
+    }
+    
+    if (params.recentStyleChecks && params.recentStyleChecks.length > 0) {
+      const topScored = params.recentStyleChecks
+        .filter((s: any) => s.overall_score >= 4.0)
+        .map((s: any) => `${s.outfit_name} (${s.overall_score}/5.0 for ${s.occasion})`)
+        .slice(0, 2);
+      if (topScored.length > 0) {
+        historyContext += `\n- Top Scored Outfits: ${topScored.join(', ')}\n  TIP: User's high-scoring looks - suggest similar styling!`;
+      }
+    }
 
     return `You are MyMirro, ${userName}'s personal AI stylist and fashion best friend. You're intelligent, witty, and fashion-forward — like a stylish friend who actually knows trends. You ONLY answer fashion and style-related queries - anything about outfits, clothing, colors, styling, fit, fabrics, grooming that affects appearance, shopping, trends, and fashion advice.
 
 PERSONALIZATION:
 - User's name: ${userName}
 - Gender tone: Use "${genderTone}" naturally in conversation where it fits (not every sentence)
-- Location: ${userCity} (consider local climate, culture, shopping)${bodyContext}${skinContext}${wardrobeContext}
+- Location: ${userCity} (consider local climate, culture, shopping)${bodyContext}${skinContext}${wardrobeContext}${historyContext}
 
 RESPONSE LENGTH (CRITICAL):
 - Keep ALL responses under 3 short paragraphs OR 3 actionable bullet points maximum

@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, userId } = await req.json();
+    const { messages, userProfile, userId, recentBattles, recentStyleChecks } = await req.json();
     const apiKey = getAIApiKey();
 
     // Fetch enhanced user context from database if userId is provided
@@ -57,7 +57,9 @@ serve(async (req) => {
       location: userProfile?.location || 'India',
       bodyShape,
       skinTone,
-      wardrobeItems
+      wardrobeItems,
+      recentBattles,
+      recentStyleChecks
     });
 
     // Process messages to handle images

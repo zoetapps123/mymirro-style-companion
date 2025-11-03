@@ -194,6 +194,31 @@ const AICompanion = () => {
     // Get current user ID for enhanced context
     const { data: { user } } = await supabase.auth.getUser();
 
+    // Fetch recent fashion history for context
+    let recentBattles: any[] = [];
+    let recentStyleChecks: any[] = [];
+    if (user) {
+      try {
+        const { data: battles } = await supabase
+          .from('battles')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        recentBattles = battles || [];
+
+        const { data: checks } = await supabase
+          .from('style_checks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        recentStyleChecks = checks || [];
+      } catch (e) {
+        console.error('Failed to fetch fashion history:', e);
+      }
+    }
+
     // Detect Mobile Safari (known streaming issues after multiple requests)
     const ua = navigator.userAgent;
     const isIOS = /iP(hone|od|ad)/i.test(ua);
@@ -221,6 +246,8 @@ const AICompanion = () => {
           })),
           userProfile,
           userId: user?.id,
+          recentBattles,
+          recentStyleChecks,
         }),
         cache: 'no-store',
         keepalive: !isMobileSafari,

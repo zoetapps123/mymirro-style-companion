@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Crown, Trophy, Share2, Plus, X } from "lucide-react";
+import { Camera, Crown, Trophy, Share2, Plus, X, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -12,6 +12,10 @@ interface Participant {
   name: string;
   imageData: string;
   imageFile?: File;
+  occasion?: string;
+  brand?: string;
+  color?: string;
+  vibe?: string;
 }
 
 interface BattleResult {
@@ -38,15 +42,16 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [awaitingName, setAwaitingName] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ imageData: string, imageFile: File } | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [comparisonText, setComparisonText] = useState<string>("");
 
   const addParticipant = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (participants.length >= 5) {
+    // Support multiple file selection
+    Array.from(files).forEach((file, idx) => {
+      if (participants.length + idx >= 5) {
         toast({
           title: "Maximum reached",
           description: "You can add up to 5 outfits",
@@ -55,13 +60,16 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
         return;
       }
 
-      setPendingImage({
-        imageData: reader.result as string,
-        imageFile: file
-      });
-      setAwaitingName(true);
-    };
-    reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPendingImage({
+          imageData: reader.result as string,
+          imageFile: file
+        });
+        setAwaitingName(true);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const confirmParticipant = () => {
@@ -96,6 +104,29 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
     setParticipants(participants.filter((_, i) => i !== index));
   };
 
+  const updateParticipant = (index: number, field: keyof Participant, value: string) => {
+    setParticipants(prev => prev.map((p, i) => 
+      i === index ? { ...p, [field]: value } : p
+    ));
+  };
+
+  const simulateComparison = async () => {
+    const comparisons = [
+      `Analyzing Outfit A's color harmony...`,
+      `Outfit B has stronger fit proportions!`,
+      `Checking texture balance across all looks...`,
+      `Outfit C nails the occasion vibe!`,
+      `Comparing overall style coherence...`,
+      `Final verdict incoming... 🔥`
+    ];
+    
+    for (const text of comparisons) {
+      setComparisonText(text);
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+    setComparisonText("");
+  };
+
   const startBattle = async () => {
     if (participants.length < 2) {
       toast({
@@ -108,6 +139,9 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
 
     setLoading(true);
     setScanning(true);
+
+    // Start comparison dialogue
+    simulateComparison();
 
     // Show scanning animation for 2 seconds
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -172,16 +206,23 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       setResults({ ...data, results: resultsWithImages });
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
+      setComparisonText("");
       toast({ title: 'Battle complete!', description: `${data.results[0].name} takes the crown! 👑` });
 
       // Persist battle in background (non-blocking)
-      (async () => {
+          (async () => {
         try {
           const { error: battleError } = await supabase
             .from('battles')
             .insert({
               user_id: user.id,
-              participants: participants.map(p => ({ name: p.name })),
+              participants: participants.map(p => ({ 
+                name: p.name, 
+                occasion: p.occasion,
+                brand: p.brand,
+                color: p.color,
+                vibe: p.vibe
+              })),
               results: data.results
             });
           if (battleError) throw battleError;
@@ -363,8 +404,18 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
               ))}
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Analyzing All Outfits</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">Comparing style, fit, and overall vibe...</p>
+              <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Let's settle this fashion face-off 💅</h3>
+              {comparisonText && (
+                <motion.p 
+                  key={comparisonText}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-sm text-muted-foreground italic"
+                >
+                  {comparisonText}
+                </motion.p>
+              )}
             </div>
           </div>
         </div>
@@ -429,6 +480,7 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={addParticipant}
                 className="hidden"
               />
@@ -450,20 +502,80 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-4 rounded-xl flex items-center gap-4"
+                className="glass-card p-4 rounded-xl"
               >
-                <img src={participant.imageData} alt={participant.name} className="w-16 h-16 rounded-lg object-cover" />
-                <div className="flex-1">
-                  <p className="font-medium">{participant.name}</p>
-                  <p className="text-xs text-muted-foreground">Ready to battle</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeParticipant(index)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                {editingIndex === index ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <img src={participant.imageData} alt={participant.name} className="w-16 h-16 rounded-lg object-cover" />
+                      <Input
+                        placeholder="Name"
+                        value={participant.name}
+                        onChange={(e) => updateParticipant(index, 'name', e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Occasion (e.g., Party)"
+                        value={participant.occasion || ''}
+                        onChange={(e) => updateParticipant(index, 'occasion', e.target.value)}
+                      />
+                      <Input
+                        placeholder="Brand (optional)"
+                        value={participant.brand || ''}
+                        onChange={(e) => updateParticipant(index, 'brand', e.target.value)}
+                      />
+                      <Input
+                        placeholder="Color (e.g., Navy)"
+                        value={participant.color || ''}
+                        onChange={(e) => updateParticipant(index, 'color', e.target.value)}
+                      />
+                      <Input
+                        placeholder="Vibe (e.g., Edgy)"
+                        value={participant.vibe || ''}
+                        onChange={(e) => updateParticipant(index, 'vibe', e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setEditingIndex(null)}
+                      className="w-full"
+                    >
+                      Done
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <img src={participant.imageData} alt={participant.name} className="w-16 h-16 rounded-lg object-cover" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{participant.name}</p>
+                      <div className="flex gap-2 flex-wrap text-xs text-muted-foreground">
+                        {participant.occasion && <span className="px-2 py-0.5 bg-muted rounded-full">{participant.occasion}</span>}
+                        {participant.brand && <span className="px-2 py-0.5 bg-muted rounded-full">{participant.brand}</span>}
+                        {participant.color && <span className="px-2 py-0.5 bg-muted rounded-full">{participant.color}</span>}
+                        {participant.vibe && <span className="px-2 py-0.5 bg-muted rounded-full">{participant.vibe}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingIndex(index)}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeParticipant(index)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -492,7 +604,8 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
                 <motion.div
                   animate={{ 
                     y: [0, -10, 0],
-                    rotate: [0, 10, -10, 0]
+                    rotate: [0, 10, -10, 0],
+                    scale: [1, 1.1, 1]
                   }}
                   transition={{ 
                     repeat: Infinity,
