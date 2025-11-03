@@ -1,9 +1,10 @@
-/** Utility: trim white borders from a canvas, removing frames/margins introduced by the composite grid */
-function trimWhiteBordersOnCanvas(
+/** Utility: trim white OR black borders from a canvas, removing frames/margins introduced by the composite grid or AI completion */
+function trimBordersOnCanvas(
   sourceCanvas: HTMLCanvasElement,
-  options: { threshold?: number; margin?: number } = {}
+  options: { whiteThreshold?: number; blackThreshold?: number; margin?: number } = {}
 ): HTMLCanvasElement {
-  const threshold = options.threshold ?? 245; // 0-255, higher = stricter white
+  const whiteThreshold = options.whiteThreshold ?? 245; // 0-255, higher = stricter white
+  const blackThreshold = options.blackThreshold ?? 15; // 0-255, lower = stricter black
   const margin = options.margin ?? 6; // keep a small padding after trim
 
   const w = sourceCanvas.width;
@@ -18,16 +19,20 @@ function trimWhiteBordersOnCanvas(
     left = 0,
     right = w - 1;
 
-  const isWhite = (r: number, g: number, b: number, a: number) => {
+  const isBorderColor = (r: number, g: number, b: number, a: number) => {
     if (a < 10) return true; // transparent counts as background
-    return r >= threshold && g >= threshold && b >= threshold;
+    // Check if it's white
+    if (r >= whiteThreshold && g >= whiteThreshold && b >= whiteThreshold) return true;
+    // Check if it's black
+    if (r <= blackThreshold && g <= blackThreshold && b <= blackThreshold) return true;
+    return false;
   };
 
   // Find top
   findTop: for (; top < h; top++) {
     for (let x = 0; x < w; x++) {
       const i = (top * w + x) * 4;
-      if (!isWhite(data[i], data[i + 1], data[i + 2], data[i + 3])) break findTop;
+      if (!isBorderColor(data[i], data[i + 1], data[i + 2], data[i + 3])) break findTop;
     }
   }
 
@@ -35,7 +40,7 @@ function trimWhiteBordersOnCanvas(
   findBottom: for (; bottom >= 0; bottom--) {
     for (let x = 0; x < w; x++) {
       const i = (bottom * w + x) * 4;
-      if (!isWhite(data[i], data[i + 1], data[i + 2], data[i + 3])) break findBottom;
+      if (!isBorderColor(data[i], data[i + 1], data[i + 2], data[i + 3])) break findBottom;
     }
   }
 
@@ -43,7 +48,7 @@ function trimWhiteBordersOnCanvas(
   findLeft: for (; left < w; left++) {
     for (let y = 0; y < h; y++) {
       const i = (y * w + left) * 4;
-      if (!isWhite(data[i], data[i + 1], data[i + 2], data[i + 3])) break findLeft;
+      if (!isBorderColor(data[i], data[i + 1], data[i + 2], data[i + 3])) break findLeft;
     }
   }
 
@@ -51,11 +56,11 @@ function trimWhiteBordersOnCanvas(
   findRight: for (; right >= 0; right--) {
     for (let y = 0; y < h; y++) {
       const i = (y * w + right) * 4;
-      if (!isWhite(data[i], data[i + 1], data[i + 2], data[i + 3])) break findRight;
+      if (!isBorderColor(data[i], data[i + 1], data[i + 2], data[i + 3])) break findRight;
     }
   }
 
-  // If all white or invalid bounds, return original
+  // If all border color or invalid bounds, return original
   if (top > bottom || left > right) return sourceCanvas;
 
   const sx = Math.max(0, left - margin);
@@ -76,7 +81,7 @@ function trimWhiteBordersOnCanvas(
 
 /**
  * Crops individual items from a composite image grid
- * - Also auto-trims white borders to remove any frames/margins
+ * - Also auto-trims white and black borders to remove any frames/margins
  * @param compositeImageUrl - Base64 data URL of the composite image
  * @param gridLayout - Layout information (rows, columns, itemCount)
  * @returns Array of cropped image blobs
@@ -132,9 +137,10 @@ export const cropCompositeImage = async (
             cellHeight
           );
 
-          // Trim white borders/frames inside the cell
-          const trimmedCanvas = trimWhiteBordersOnCanvas(cellCanvas, {
-            threshold: 245,
+          // Trim white/black borders/frames inside the cell
+          const trimmedCanvas = trimBordersOnCanvas(cellCanvas, {
+            whiteThreshold: 245,
+            blackThreshold: 15,
             margin: 4,
           });
 
