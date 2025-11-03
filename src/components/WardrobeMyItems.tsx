@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, DoorOpen, Sparkles, Calendar, Shirt, Upload, X } from "lucide-react";
+import { Plus, DoorOpen, Sparkles, Calendar, Shirt, Upload, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +76,31 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     }, []);
 
     setItems(uniqueItems || []);
+  };
+
+  const handleDelete = async (itemId: string, itemName: string) => {
+    try {
+      const { error } = await supabase
+        .from('wardrobe_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Item removed",
+        description: `${itemName} has been removed from your wardrobe.`,
+      });
+
+      fetchItems();
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove item.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,13 +414,24 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-muted/30"
+              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-muted/30 group"
             >
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
                 className="w-full h-full object-cover"
               />
+              {/* Delete Button */}
+              <motion.button
+                initial={{ opacity: 0 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleDelete(item.id, item.name)}
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                aria-label="Delete item"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+              </motion.button>
               <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
                 <p className="text-white text-sm font-medium truncate">
                   {item.name}
