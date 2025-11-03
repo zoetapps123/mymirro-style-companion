@@ -138,7 +138,24 @@ export const cropCompositeImage = async (
             margin: 4,
           });
 
-          trimmedCanvas.toBlob(
+          // Center the trimmed content in a square canvas
+          const maxDim = Math.max(trimmedCanvas.width, trimmedCanvas.height);
+          const centeredCanvas = document.createElement('canvas');
+          centeredCanvas.width = maxDim;
+          centeredCanvas.height = maxDim;
+          const centeredCtx = centeredCanvas.getContext('2d');
+          
+          if (centeredCtx) {
+            centeredCtx.imageSmoothingEnabled = true;
+            centeredCtx.imageSmoothingQuality = 'high';
+            
+            // Draw trimmed content centered
+            const offsetX = (maxDim - trimmedCanvas.width) / 2;
+            const offsetY = (maxDim - trimmedCanvas.height) / 2;
+            centeredCtx.drawImage(trimmedCanvas, offsetX, offsetY);
+          }
+
+          centeredCanvas.toBlob(
             (blob) => {
               if (blob) {
                 croppedBlobs.push(blob);
