@@ -21,6 +21,12 @@ serve(async (req) => {
     }
 
     const actualImageUrl = imageUrl || imageData;
+    if (!actualImageUrl) {
+      return new Response(JSON.stringify({ error: 'No image provided' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     console.log('Processing image...');
 
     // STEP 0: Image Validation (Human OR Clothing)
@@ -97,9 +103,16 @@ serve(async (req) => {
     }
 
     const validationData = await validationResponse.json();
-    const validationResult = JSON.parse(
-      validationData.choices[0].message.tool_calls[0].function.arguments
-    );
+    console.log('Validation response structure:', JSON.stringify(validationData, null, 2));
+    const validationArgs = validationData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!validationArgs) {
+      console.error('Invalid validation response:', validationData);
+      return new Response(JSON.stringify({ error: 'Invalid validation response from AI' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    const validationResult = JSON.parse(validationArgs);
 
     console.log('Validation result:', validationResult);
 
@@ -228,9 +241,13 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
     }
 
     const detectionData = await detectionResponse.json();
-    const detectionResult = JSON.parse(
-      detectionData.choices[0].message.tool_calls[0].function.arguments
-    );
+    console.log('Detection response structure:', JSON.stringify(detectionData, null, 2));
+    const detectionArgs = detectionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!detectionArgs) {
+      console.error('Invalid detection response:', detectionData);
+      throw new Error('Invalid detection response from AI');
+    }
+    const detectionResult = JSON.parse(detectionArgs);
 
     console.log('Detected items:', detectionResult.items.length);
 
