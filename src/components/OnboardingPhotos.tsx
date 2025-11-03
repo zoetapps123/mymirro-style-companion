@@ -132,6 +132,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
         onComplete();
       }, 500);
 
+      // Set processing flag before calling background function
+      localStorage.setItem('wardrobe_processing', 'true');
+      localStorage.setItem('wardrobe_processing_started', Date.now().toString());
+
       // Process images in the background (non-blocking)
       processImagesInBackground(uploadedUrls, user.id);
 
@@ -236,8 +240,16 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
       }
 
       console.log(`Background processing complete: Added ${totalAdded} items to wardrobe`);
+      
+      // Clear processing flag
+      localStorage.removeItem('wardrobe_processing');
+      localStorage.removeItem('wardrobe_processing_started');
     } catch (error) {
       console.error("Background processing failed:", error);
+      
+      // Clear processing flag even on error
+      localStorage.removeItem('wardrobe_processing');
+      localStorage.removeItem('wardrobe_processing_started');
     }
   };
 

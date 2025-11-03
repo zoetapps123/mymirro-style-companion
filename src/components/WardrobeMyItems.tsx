@@ -14,6 +14,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const [items, setItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isOnboardingProcessing, setIsOnboardingProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -28,7 +29,43 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   useEffect(() => {
     fetchItems();
-  }, []);
+    
+    // Check if onboarding processing is ongoing
+    const checkProcessingStatus = () => {
+      const processingFlag = localStorage.getItem('wardrobe_processing');
+      const startedAt = localStorage.getItem('wardrobe_processing_started');
+      
+      if (processingFlag === 'true' && startedAt) {
+        const elapsed = Date.now() - parseInt(startedAt);
+        // Only show if processing started within last 5 minutes
+        if (elapsed < 5 * 60 * 1000) {
+          setIsOnboardingProcessing(true);
+        } else {
+          // Clear stale flag
+          localStorage.removeItem('wardrobe_processing');
+          localStorage.removeItem('wardrobe_processing_started');
+          setIsOnboardingProcessing(false);
+        }
+      } else {
+        setIsOnboardingProcessing(false);
+      }
+    };
+    
+    checkProcessingStatus();
+    
+    // Poll every 2 seconds while processing
+    const pollInterval = setInterval(() => {
+      const wasProcessing = isOnboardingProcessing;
+      checkProcessingStatus();
+      
+      // If processing just finished, refresh items
+      if (wasProcessing && !localStorage.getItem('wardrobe_processing')) {
+        fetchItems();
+      }
+    }, 2000);
+    
+    return () => clearInterval(pollInterval);
+  }, [isOnboardingProcessing]);
 
   const fetchItems = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -248,10 +285,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       // Refresh items list
       await fetchItems();
       setIsProcessing(false);
+      
+      // Clear processing flag if this was set during upload in this component
+      localStorage.removeItem('wardrobe_processing');
+      localStorage.removeItem('wardrobe_processing_started');
 
     } catch (error) {
       console.error('Background processing failed:', error);
       setIsProcessing(false);
+      
+      // Clear processing flag
+      localStorage.removeItem('wardrobe_processing');
+      localStorage.removeItem('wardrobe_processing_started');
     }
   };
 
@@ -263,7 +308,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Processing Banner */}
-      {isProcessing && (
+      {(isProcessing || isOnboardingProcessing) && (
         <div className="px-4 pt-4 pb-2">
           <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
