@@ -51,7 +51,7 @@ const QUERY_CARDS = [
   }
 ];
 
-const SESSION_DURATION = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+const SESSION_DURATION = Number.MAX_SAFE_INTEGER; // Indefinite session
 
 const AICompanion = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>({});
@@ -479,12 +479,6 @@ const AICompanion = () => {
                     message.content || (message.role === "assistant" && isLoading ? "..." : "")
                   )}
                 </p>
-                <span className="text-xs opacity-60 mt-1 block">
-                  {new Date(message.timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
               </div>
             </div>
           ))}

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { LoadingTile } from "@/components/ui/loading-tile";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -13,12 +14,9 @@ interface WardrobeMyItemsProps {
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const [items, setItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isOnboardingProcessing, setIsOnboardingProcessing] = useState(false);
+  const [processingItems, setProcessingItems] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  const categories = ["All", "Tops", "Bottoms", "Layers", "Dresses", "Shoes", "Accessories"];
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: true },
@@ -30,42 +28,27 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   useEffect(() => {
     fetchItems();
     
-    // Check if onboarding processing is ongoing
-    const checkProcessingStatus = () => {
-      const processingFlag = localStorage.getItem('wardrobe_processing');
-      const startedAt = localStorage.getItem('wardrobe_processing_started');
-      
-      if (processingFlag === 'true' && startedAt) {
-        const elapsed = Date.now() - parseInt(startedAt);
-        // Only show if processing started within last 5 minutes
-        if (elapsed < 5 * 60 * 1000) {
-          setIsOnboardingProcessing(true);
-        } else {
-          // Clear stale flag
-          localStorage.removeItem('wardrobe_processing');
-          localStorage.removeItem('wardrobe_processing_started');
-          setIsOnboardingProcessing(false);
+    // Check for items being processed from onboarding or other sources
+    const checkProcessingCount = () => {
+      const stored = localStorage.getItem('wardrobe_processing_count');
+      if (stored) {
+        const count = parseInt(stored);
+        if (count > 0) {
+          setProcessingItems(count);
         }
-      } else {
-        setIsOnboardingProcessing(false);
       }
     };
     
-    checkProcessingStatus();
+    checkProcessingCount();
     
-    // Poll every 2 seconds while processing
+    // Poll for processing updates
     const pollInterval = setInterval(() => {
-      const wasProcessing = isOnboardingProcessing;
-      checkProcessingStatus();
-      
-      // If processing just finished, refresh items
-      if (wasProcessing && !localStorage.getItem('wardrobe_processing')) {
-        fetchItems();
-      }
+      checkProcessingCount();
+      fetchItems();
     }, 2000);
     
     return () => clearInterval(pollInterval);
-  }, [isOnboardingProcessing]);
+  }, []);
 
   const fetchItems = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -156,13 +139,10 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         .from('outfits')
         .getPublicUrl(sourceName);
 
-      // Show immediate feedback
-      toast({
-        title: "Upload started! 🎨",
-        description: "We're analyzing your wardrobe in the background. You can continue using the app!",
-      });
-
-      setIsProcessing(true);
+      // Show immediate feedback with loading tile
+      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+      localStorage.setItem('wardrobe_processing_count', (currentCount + 1).toString());
+      setProcessingItems(prev => prev + 1);
 
       // Process in background (non-blocking)
       processImageInBackground(sourceUrl, user.id);
@@ -196,20 +176,26 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       if (error) {
         console.error('Background process error:', error);
-        setIsProcessing(false);
+        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+        setProcessingItems(prev => Math.max(0, prev - 1));
         return;
       }
 
       const itemsDetected = data?.items || [];
       if (!itemsDetected || itemsDetected.length === 0) {
         console.log('No items detected in background processing');
-        setIsProcessing(false);
+        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+        setProcessingItems(prev => Math.max(0, prev - 1));
         return;
       }
 
       if (!data?.compositeImageUrl) {
         console.log('No composite image in background processing');
-        setIsProcessing(false);
+        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+        setProcessingItems(prev => Math.max(0, prev - 1));
         return;
       }
 
@@ -284,21 +270,20 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       
       // Refresh items list
       await fetchItems();
-      setIsProcessing(false);
-      
-      // Clear processing flag if this was set during upload in this component
-      localStorage.removeItem('wardrobe_processing');
-      localStorage.removeItem('wardrobe_processing_started');
+      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+      localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+      setProcessingItems(prev => Math.max(0, prev - 1));
 
     } catch (error) {
       console.error('Background processing failed:', error);
-      setIsProcessing(false);
-      
-      // Clear processing flag
-      localStorage.removeItem('wardrobe_processing');
-      localStorage.removeItem('wardrobe_processing_started');
+      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+      localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+      setProcessingItems(prev => Math.max(0, prev - 1));
     }
   };
+
+  // Get dynamic categories from existing items
+  const dynamicCategories = ["All", ...Array.from(new Set(items.map(item => item.category).filter(Boolean)))];
 
   const filteredItems =
     selectedCategory === "All"
@@ -307,16 +292,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Processing Banner */}
-      {(isProcessing || isOnboardingProcessing) && (
-        <div className="px-4 pt-4 pb-2">
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium text-foreground">We're analyzing your wardrobe in the background...</p>
-          </div>
-        </div>
-      )}
-
       {/* Feature Icons */}
       <div className="px-4 pt-6 pb-4">
         <div className="grid grid-cols-4 gap-4">
@@ -364,7 +339,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       {/* Category Filter */}
       <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max">
-          {categories.map((category) => (
+          {dynamicCategories.map((category) => (
             <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant={selectedCategory === category ? "default" : "outline"}
@@ -386,9 +361,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       {/* Items Grid */}
       <div className="flex-1 overflow-y-auto px-4 pb-24">
         <div className="grid grid-cols-2 gap-3">
-          {filteredItems.map((item) => (
-            <div
+          {/* Loading tiles */}
+          {Array.from({ length: processingItems }).map((_, idx) => (
+            <LoadingTile key={`loading-${idx}`} />
+          ))}
+          
+          {/* Actual items */}
+          {filteredItems.map((item, idx) => (
+            <motion.div
               key={item.id}
+              initial={{ opacity: 0, scale: 0.9, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.05 }}
               className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-background"
             >
               <img
@@ -411,7 +395,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
                   {item.name}
                 </p>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

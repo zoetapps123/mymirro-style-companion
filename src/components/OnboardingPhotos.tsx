@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { advancedSmartCrop, trimImageBorders } from "@/lib/imageProcessing";
+import { LoadingTile } from "@/components/ui/loading-tile";
 
 interface OnboardingPhotosProps {
   onComplete: () => void;
@@ -20,6 +21,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState("");
   const [existingItemsCount, setExistingItemsCount] = useState(0);
+  const [processingCount, setProcessingCount] = useState(0);
   const { toast } = useToast();
 
   // Check existing wardrobe items count
@@ -124,20 +126,21 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
       toast({
         title: "Welcome to MyMirro! 🎉",
-        description: "We're analyzing your wardrobe in the background",
+        description: "Processing your wardrobe items...",
       });
 
-      // Let user proceed to app immediately
-      setTimeout(() => {
-        onComplete();
-      }, 500);
-
-      // Set processing flag before calling background function
-      localStorage.setItem('wardrobe_processing', 'true');
-      localStorage.setItem('wardrobe_processing_started', Date.now().toString());
+      // Set initial processing count
+      const processingCount = uploadedUrls.length;
+      localStorage.setItem('wardrobe_processing_count', processingCount.toString());
+      setProcessingCount(processingCount);
 
       // Process images in the background (non-blocking)
       processImagesInBackground(uploadedUrls, user.id);
+
+      // Let user proceed to app after a brief delay
+      setTimeout(() => {
+        onComplete();
+      }, 1500);
 
     } catch (error: any) {
       console.error('Onboarding photos error:', error);
@@ -163,7 +166,8 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
         .eq('user_id', userId);
 
       let totalAdded = 0;
-      for (const url of urls) {
+      for (let urlIdx = 0; urlIdx < urls.length; urlIdx++) {
+        const url = urls[urlIdx];
         try {
           const { data: processData, error: processError } = await supabase.functions.invoke(
             'process-wardrobe',
@@ -172,6 +176,9 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
           if (processError) {
             console.error("Background process error:", processError);
+            const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+            localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+            setProcessingCount(prev => Math.max(0, prev - 1));
             continue;
           }
 
@@ -236,20 +243,18 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           }
         } catch (err) {
           console.error("Error processing wardrobe item:", err);
+        } finally {
+          const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+          localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+          setProcessingCount(prev => Math.max(0, prev - 1));
         }
       }
 
       console.log(`Background processing complete: Added ${totalAdded} items to wardrobe`);
-      
-      // Clear processing flag
-      localStorage.removeItem('wardrobe_processing');
-      localStorage.removeItem('wardrobe_processing_started');
     } catch (error) {
       console.error("Background processing failed:", error);
-      
-      // Clear processing flag even on error
-      localStorage.removeItem('wardrobe_processing');
-      localStorage.removeItem('wardrobe_processing_started');
+      localStorage.setItem('wardrobe_processing_count', '0');
+      setProcessingCount(0);
     }
   };
 

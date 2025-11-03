@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import useEmblaCarousel from 'embla-carousel-react';
 import { OutfitDetailView } from './OutfitDetailView';
+import { OutfitLoadingTile } from '@/components/ui/loading-tile';
+import { motion } from 'framer-motion';
 
 interface WardrobeItem {
   id: string;
@@ -372,15 +374,25 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   const OutfitCarousel = ({ outfits, sectionKey }: { outfits: GeneratedOutfit[], sectionKey: string }) => {
     const [emblaRef] = useEmblaCarousel({ loop: false, align: 'start' });
-
-    if (outfits.length === 0) return null;
+    const isLoading = loading[sectionKey];
 
     return (
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex gap-4">
-          {outfits.map((outfit, idx) => (
-            <div
+          {/* Loading tiles */}
+          {isLoading && Array.from({ length: 3 }).map((_, idx) => (
+            <div key={`loading-${idx}`} className="flex-shrink-0 w-[280px]">
+              <OutfitLoadingTile />
+            </div>
+          ))}
+          
+          {/* Actual outfits */}
+          {!isLoading && outfits.map((outfit, idx) => (
+            <motion.div
               key={idx}
+              initial={{ opacity: 0, scale: 0.9, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.05 }}
               className="flex-shrink-0 w-[280px] cursor-pointer"
               onClick={() => setSelectedOutfit(outfit)}
             >
@@ -414,7 +426,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                   </Button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
