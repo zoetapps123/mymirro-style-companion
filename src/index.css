@@ -23,6 +23,7 @@ All colors MUST be HSL.
     /* Purple/Pink Primary - #C66CF6 approximate */
     --primary: 282 89% 69%;
     --primary-foreground: 0 0% 100%;
+    --primary-rgb: 198, 108, 246;
 
     /* Gray Secondary */
     --secondary: 0 0% 96%;

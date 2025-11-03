@@ -210,19 +210,52 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
       toast({ title: 'Battle complete!', description: `${data.results[0].name} takes the crown! 👑` });
 
       // Persist battle in background (non-blocking)
-          (async () => {
+      // Persist battle in background (non-blocking)
+      (async () => {
         try {
+          // Upload images to storage and get URLs
+          const participantsWithUrls = await Promise.all(
+            participants.map(async (p) => {
+              try {
+                const response = await fetch(p.imageData);
+                const blob = await response.blob();
+                const fileName = `${user.id}/battle_${Date.now()}_${p.name.replace(/\s+/g, '-')}.jpg`;
+                const { error: uploadError } = await supabase.storage
+                  .from('outfits')
+                  .upload(fileName, blob);
+                
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                  .from('outfits')
+                  .getPublicUrl(fileName);
+
+                return {
+                  name: p.name,
+                  occasion: p.occasion,
+                  brand: p.brand,
+                  color: p.color,
+                  vibe: p.vibe,
+                  image_url: publicUrl
+                };
+              } catch (e) {
+                console.error('Failed to upload image for', p.name, e);
+                return {
+                  name: p.name,
+                  occasion: p.occasion,
+                  brand: p.brand,
+                  color: p.color,
+                  vibe: p.vibe
+                };
+              }
+            })
+          );
+
           const { error: battleError } = await supabase
             .from('battles')
             .insert({
               user_id: user.id,
-              participants: participants.map(p => ({ 
-                name: p.name, 
-                occasion: p.occasion,
-                brand: p.brand,
-                color: p.color,
-                vibe: p.vibe
-              })),
+              participants: participantsWithUrls,
               results: data.results
             });
           if (battleError) throw battleError;
@@ -619,14 +652,34 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
               {results.results[0].imageData && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
+                  animate={{ 
+                    opacity: 1, 
+                    scale: 1
+                  }}
                   transition={{ delay: 0.3 }}
+                  className="relative"
                 >
-                  <img 
-                    src={results.results[0].imageData} 
-                    alt={results.results[0].name}
-                    className="w-48 h-48 mx-auto rounded-2xl object-cover border-4 border-primary/20"
-                  />
+                  <motion.div
+                    animate={{ 
+                      boxShadow: [
+                        '0 0 0 0 rgba(var(--primary-rgb), 0)',
+                        '0 0 0 8px rgba(var(--primary-rgb), 0.2)',
+                        '0 0 0 0 rgba(var(--primary-rgb), 0)'
+                      ]
+                    }}
+                    transition={{ 
+                      repeat: Infinity,
+                      duration: 2,
+                      ease: "easeInOut"
+                    }}
+                    className="rounded-2xl"
+                  >
+                    <img 
+                      src={results.results[0].imageData} 
+                      alt={results.results[0].name}
+                      className="w-48 h-48 mx-auto rounded-2xl object-cover border-4 border-primary/20"
+                    />
+                  </motion.div>
                 </motion.div>
               )}
               <div>
