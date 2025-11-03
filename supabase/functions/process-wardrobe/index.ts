@@ -244,10 +244,35 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
       });
     }
 
-    // STEP 2: Generate Composite Image with All Items
-    console.log('Step 2: Generating composite image with all items...');
+    // Deduplicate items BEFORE generating composite image
+    const deduplicatedItems = [];
+    const seen = new Set();
     
-    const itemsList = detectionResult.items.map((item: any, idx: number) => 
+    for (const item of detectionResult.items) {
+      const key = `${item.category.toLowerCase()}_${item.name.toLowerCase().substring(0, 15)}_${item.color}`;
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicatedItems.push(item);
+      }
+    }
+
+    console.log(`After deduplication: ${deduplicatedItems.length} items`);
+
+    if (deduplicatedItems.length === 0) {
+      return new Response(JSON.stringify({
+        error: 'No valid items found',
+        message: 'All detected items were duplicates or invalid'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // STEP 2: Generate Composite Image with Deduplicated Items
+    console.log('Step 2: Generating composite image with deduplicated items...');
+    
+    const itemsList = deduplicatedItems.map((item: any, idx: number) => 
       `${idx + 1}. ${item.name} (${item.category})`
     ).join('\n');
 
@@ -314,24 +339,9 @@ ${itemsList}
       throw new Error('No composite image generated');
     }
 
-    console.log(`Successfully generated composite image with ${detectionResult.items.length} items`);
+    console.log(`Successfully generated composite image with ${deduplicatedItems.length} items`);
 
-    // Deduplicate items based on category, color, and name
-    const deduplicatedItems = [];
-    const seen = new Set();
-    
-    for (const item of detectionResult.items) {
-      const key = `${item.category.toLowerCase()}_${item.name.toLowerCase().substring(0, 15)}_${item.color}`;
-      
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduplicatedItems.push(item);
-      }
-    }
-
-    console.log(`After deduplication: ${deduplicatedItems.length} items`);
-
-    // Calculate grid layout
+    // Calculate grid layout based on deduplicated items
     const itemCount = deduplicatedItems.length;
     const columns = Math.min(3, Math.ceil(Math.sqrt(itemCount)));
     const rows = Math.ceil(itemCount / columns);
