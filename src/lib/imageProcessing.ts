@@ -273,6 +273,229 @@ export const blobToDataURL = (blob: Blob): Promise<string> => {
 };
 
 /**
+ * Find distinct item regions using connected component analysis
+ */
+function findItemRegions(data: Uint8ClampedArray, width: number, height: number) {
+  const visited = new Array(width * height).fill(false);
+  const regions = [];
+  
+  // Threshold for non-white pixels (allowing some tolerance)
+  const isNonWhite = (r: number, g: number, b: number) => {
+    return r < 240 || g < 240 || b < 240;
+  };
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x;
+      
+      if (visited[index]) continue;
+      
+      const pixelIndex = index * 4;
+      const r = data[pixelIndex];
+      const g = data[pixelIndex + 1];
+      const b = data[pixelIndex + 2];
+      
+      if (!isNonWhite(r, g, b)) continue;
+      
+      // Found a non-white pixel, start flood fill to find the region
+      const region = floodFill(data, width, height, x, y, visited, isNonWhite);
+      
+      // Only consider regions with significant size
+      if (region.pixelCount > 500) {
+        regions.push(region);
+      }
+    }
+  }
+  
+  return regions;
+}
+
+/**
+ * Flood fill algorithm to find connected regions
+ */
+function floodFill(
+  data: Uint8ClampedArray, 
+  width: number, 
+  height: number, 
+  startX: number, 
+  startY: number, 
+  visited: boolean[],
+  isNonWhite: (r: number, g: number, b: number) => boolean
+) {
+  const stack = [{x: startX, y: startY}];
+  let minX = startX, maxX = startX, minY = startY, maxY = startY;
+  let pixelCount = 0;
+  
+  while (stack.length > 0) {
+    const {x, y} = stack.pop()!;
+    
+    if (x < 0 || x >= width || y < 0 || y >= height) continue;
+    
+    const index = y * width + x;
+    if (visited[index]) continue;
+    
+    const pixelIndex = index * 4;
+    const r = data[pixelIndex];
+    const g = data[pixelIndex + 1];
+    const b = data[pixelIndex + 2];
+    
+    if (!isNonWhite(r, g, b)) continue;
+    
+    visited[index] = true;
+    pixelCount++;
+    
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+    
+    // Add neighboring pixels
+    stack.push({x: x + 1, y});
+    stack.push({x: x - 1, y});
+    stack.push({x, y: y + 1});
+    stack.push({x, y: y - 1});
+  }
+  
+  return { minX, maxX, minY, maxY, pixelCount };
+}
+
+/**
+ * Advanced smart cropping using computer vision techniques
+ */
+export const advancedSmartCrop = (
+  compositeImageUrl: string,
+  itemIndex: number,
+  totalItems: number
+): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Find all non-white regions (potential items)
+        const regions = findItemRegions(data, canvas.width, canvas.height);
+        
+        // Sort regions by area (largest first) and position
+        regions.sort((a, b) => {
+          const areaA = (a.maxX - a.minX) * (a.maxY - a.minY);
+          const areaB = (b.maxX - b.minX) * (b.maxY - b.minY);
+          if (Math.abs(areaA - areaB) < 1000) {
+            // Similar areas, sort by position (top-left first)
+            return (a.minY * canvas.width + a.minX) - (b.minY * canvas.width + b.minX);
+          }
+          return areaB - areaA;
+        });
+        
+        // Select the region for this item
+        if (itemIndex >= regions.length) {
+          // Fallback to grid division if not enough regions found
+          const cols = Math.ceil(Math.sqrt(totalItems));
+          const rows = Math.ceil(totalItems / cols);
+          
+          const cellWidth = canvas.width / cols;
+          const cellHeight = canvas.height / rows;
+          const col = itemIndex % cols;
+          const row = Math.floor(itemIndex / cols);
+          
+          const padding = Math.min(cellWidth, cellHeight) * 0.1;
+          const cropX = Math.floor(col * cellWidth + padding);
+          const cropY = Math.floor(row * cellHeight + padding);
+          const cropWidth = Math.floor(cellWidth - padding * 2);
+          const cropHeight = Math.floor(cellHeight - padding * 2);
+          
+          const croppedCanvas = document.createElement('canvas');
+          const croppedCtx = croppedCanvas.getContext('2d');
+          
+          if (!croppedCtx) {
+            reject(new Error('Could not get cropped canvas context'));
+            return;
+          }
+          
+          croppedCanvas.width = cropWidth;
+          croppedCanvas.height = cropHeight;
+          
+          croppedCtx.fillStyle = '#FFFFFF';
+          croppedCtx.fillRect(0, 0, cropWidth, cropHeight);
+          
+          croppedCtx.drawImage(
+            canvas,
+            cropX, cropY, cropWidth, cropHeight,
+            0, 0, cropWidth, cropHeight
+          );
+          
+          croppedCanvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Failed to create blob'));
+          }, 'image/png', 1.0);
+          return;
+        }
+        
+        const region = regions[itemIndex];
+        
+        // Add padding around the detected region
+        const padding = 20;
+        const cropX = Math.max(0, region.minX - padding);
+        const cropY = Math.max(0, region.minY - padding);
+        const cropWidth = Math.min(canvas.width - cropX, region.maxX - region.minX + padding * 2);
+        const cropHeight = Math.min(canvas.height - cropY, region.maxY - region.minY + padding * 2);
+        
+        // Create cropped canvas
+        const croppedCanvas = document.createElement('canvas');
+        const croppedCtx = croppedCanvas.getContext('2d');
+        
+        if (!croppedCtx) {
+          reject(new Error('Could not get cropped canvas context'));
+          return;
+        }
+        
+        croppedCanvas.width = cropWidth;
+        croppedCanvas.height = cropHeight;
+        
+        // Fill with white background first
+        croppedCtx.fillStyle = '#FFFFFF';
+        croppedCtx.fillRect(0, 0, cropWidth, cropHeight);
+        
+        // Draw the cropped item
+        croppedCtx.drawImage(
+          canvas,
+          cropX, cropY, cropWidth, cropHeight,
+          0, 0, cropWidth, cropHeight
+        );
+        
+        croppedCanvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to create blob'));
+        }, 'image/png', 1.0);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    img.onerror = () => {
+      reject(new Error('Failed to load composite image'));
+    };
+    
+    img.src = compositeImageUrl;
+  });
+};
+
+/**
  * Trims borders from an image blob
  * @param blob - Image blob to process
  * @returns Trimmed image blob

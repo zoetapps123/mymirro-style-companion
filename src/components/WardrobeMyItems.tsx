@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { cropCompositeImage } from "@/lib/imageProcessing";
+// Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
   onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
@@ -170,27 +170,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         return;
       }
 
-      if (!data?.compositeImageUrl || !data?.gridLayout) {
+      if (!data?.compositeImageUrl) {
         console.log('No composite image in background processing');
         setIsProcessing(false);
         return;
       }
 
-      // Crop the composite image
-      const croppedBlobs = await cropCompositeImage(
-        data.compositeImageUrl,
-        data.gridLayout
-      );
-
       let addedCount = 0;
       let skippedCount = 0;
 
-      // Process all items
+      // Process all items using smart cropping
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
-        const croppedBlob = croppedBlobs[idx];
-        
-        if (!croppedBlob) continue;
 
         // Check for duplicates
         const isDuplicate = existingItems?.some(existing => 
@@ -206,46 +197,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        // Convert blob to base64 for completion
-        const reader = new FileReader();
-        const blobToBase64 = (): Promise<string> => {
-          return new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(croppedBlob);
-          });
-        };
+        // Smart crop this specific item
+        const { advancedSmartCrop, trimImageBorders } = await import('@/lib/imageProcessing');
+        const croppedBlob = await advancedSmartCrop(
+          data.compositeImageUrl,
+          idx,
+          itemsDetected.length
+        );
         
-        const croppedImageData = await blobToBase64();
+        // Apply border trimming
+        const finalBlob = await trimImageBorders(croppedBlob);
 
-        // Complete the clothing image to add missing parts
-        console.log(`Completing image for: ${item.name}`);
-        const { data: completionData, error: completionError } = await supabase.functions.invoke('complete-clothing-image', {
-          body: { 
-            imageUrl: croppedImageData,
-            itemType: item.category 
-          }
-        });
-
-        let finalBlob = croppedBlob;
-
-        if (!completionError && completionData?.completedImageUrl) {
-          const base64Response = await fetch(completionData.completedImageUrl);
-          let completedBlob = await base64Response.blob();
-          
-          try {
-            const { trimImageBorders } = await import('@/lib/imageProcessing');
-            finalBlob = await trimImageBorders(completedBlob);
-            console.log(`Successfully completed and trimmed image for: ${item.name}`);
-          } catch (trimError) {
-            console.error('Failed to trim completed image:', trimError);
-            finalBlob = completedBlob;
-          }
-        } else {
-          console.log(`Using original cropped image for: ${item.name}`, completionError);
-        }
-
-        // Upload completed/cropped image
+        // Upload cropped image
         const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
         const { error: uploadError } = await supabase.storage
           .from('outfits')

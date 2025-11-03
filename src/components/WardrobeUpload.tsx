@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { cropCompositeImage } from "@/lib/imageProcessing";
+// Image processing functions imported dynamically when needed
 
 interface WardrobeItem {
   id: string;
@@ -118,7 +118,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           return;
         }
 
-        if (!data?.compositeImageUrl || !data?.gridLayout) {
+        if (!data?.compositeImageUrl) {
           toast({
             title: "Processing incomplete",
             description: "Failed to process composite image. Please try again.",
@@ -133,18 +133,12 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         let skippedCount = 0;
         setProgress(70);
 
-        // Crop the composite image
-        const croppedBlobs = await cropCompositeImage(
-          data.compositeImageUrl,
-          data.gridLayout
-        );
+        // Import image processing functions
+        const { advancedSmartCrop, trimImageBorders } = await import('@/lib/imageProcessing');
 
         // Upload and save all detected items with duplicate checking
         for (let idx = 0; idx < itemsDetected.length; idx++) {
           const item = itemsDetected[idx];
-          const croppedBlob = croppedBlobs[idx];
-
-          if (!croppedBlob) continue;
 
           // Check for duplicates
           const isDuplicate = existingItems?.some(existing => 
@@ -161,11 +155,21 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          // Upload cropped image
+          // Smart crop this specific item
+          const croppedBlob = await advancedSmartCrop(
+            data.compositeImageUrl,
+            idx,
+            itemsDetected.length
+          );
+          
+          // Apply border trimming
+          const finalBlob = await trimImageBorders(croppedBlob);
+
+          // Upload final image
           const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
           const { error: uploadError } = await supabase.storage
             .from('outfits')
-            .upload(fileName, croppedBlob);
+            .upload(fileName, finalBlob);
 
           if (uploadError) {
             console.error('Upload error for item:', item.name, uploadError);
