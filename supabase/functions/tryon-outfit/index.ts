@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,11 +14,7 @@ serve(async (req) => {
 
   try {
     const { userImage, outfitItems } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    const apiKey = getAIApiKey();
 
     console.log('Processing virtual try-on...');
 
@@ -29,10 +26,10 @@ serve(async (req) => {
 
 Respond with a boolean 'suitable' and a 'reason' if not suitable.`;
 
-    const validationResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const validationResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -95,10 +92,10 @@ Maintain:
 - Realistic shadows and lighting
 - Professional fashion photography quality`;
 
-    const tryonResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const tryonResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

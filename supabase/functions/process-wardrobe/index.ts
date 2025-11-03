@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,11 +15,7 @@ serve(async (req) => {
 
   try {
     const { imageData, imageUrl } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    const apiKey = getAIApiKey();
 
     const actualImageUrl = imageUrl || imageData;
     if (!actualImageUrl) {
@@ -31,10 +28,10 @@ serve(async (req) => {
 
     // STEP 0: Image Validation (Human OR Clothing)
     console.log('Step 0: Validating image content...');
-    const validationResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const validationResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -142,10 +139,10 @@ serve(async (req) => {
     // 3) Fallback: make a JSON-only request
     if (!validationResult) {
       console.log('Falling back to JSON-only validation call...');
-      const fallbackResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const fallbackResp = await fetch(AI_API_ENDPOINT, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -210,10 +207,10 @@ serve(async (req) => {
 
     // STEP 1: Enhanced Item Detection
     console.log('Step 1: Detecting clothing items...');
-    const detectionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const detectionResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -375,10 +372,10 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
       `${idx + 1}. ${item.name} (${item.category})`
     ).join('\n');
 
-    const compositeResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const compositeResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

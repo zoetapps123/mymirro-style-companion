@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,16 +27,12 @@ serve(async (req) => {
       userLocation
     } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    const apiKey = getAIApiKey();
 
     // Handle regenerate image only action
     if (action === 'regenerate_image_only') {
       console.log('Regenerating outfit image only...');
-      const outfitImageUrl = await generateCombinedOutfitImage(items, occasion, styleTag, LOVABLE_API_KEY);
+      const outfitImageUrl = await generateCombinedOutfitImage(items, occasion, styleTag, apiKey);
       return new Response(
         JSON.stringify({ outfitImageUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -47,10 +44,10 @@ serve(async (req) => {
     // Step 1: Generate outfit combinations
     const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -295,7 +292,7 @@ VISUAL REQUIREMENTS:
 - Maintain consistent scale/perspective across items
 - Show fabric textures clearly`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(AI_API_ENDPOINT, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
