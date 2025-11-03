@@ -105,6 +105,18 @@ serve(async (req) => {
     const validationData = await validationResponse.json();
     console.log('Validation response structure:', JSON.stringify(validationData, null, 2));
 
+    // Check if AI returned an error response
+    if (validationData.error) {
+      console.error('AI API validation error:', validationData.error);
+      return new Response(JSON.stringify({ 
+        error: 'Image processing failed',
+        message: validationData.error.message || 'The AI could not process this image. Please try a different photo with better lighting and clarity.'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     let validationResult: any | null = null;
 
     // 1) Try tool-calls path
@@ -153,6 +165,19 @@ serve(async (req) => {
 
       const fallbackData = await fallbackResp.json();
       console.log('Validation fallback response:', JSON.stringify(fallbackData, null, 2));
+      
+      // Check for error in fallback response
+      if (fallbackData.error) {
+        console.error('AI API fallback validation error:', fallbackData.error);
+        return new Response(JSON.stringify({ 
+          error: 'Image processing failed',
+          message: 'Unable to analyze this image. Please ensure the photo is clear, well-lit, and contains visible clothing items or a person wearing clothes.'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
       const fallbackContent = fallbackData?.choices?.[0]?.message?.content;
       if (typeof fallbackContent === 'string') {
         try {
