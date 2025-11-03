@@ -104,15 +104,72 @@ serve(async (req) => {
 
     const validationData = await validationResponse.json();
     console.log('Validation response structure:', JSON.stringify(validationData, null, 2));
-    const validationArgs = validationData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (!validationArgs) {
-      console.error('Invalid validation response:', validationData);
+
+    let validationResult: any | null = null;
+
+    // 1) Try tool-calls path
+    try {
+      const validationArgs = validationData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      if (validationArgs) {
+        validationResult = JSON.parse(validationArgs);
+      }
+    } catch (e) {
+      console.warn('Failed to parse validation tool arguments:', e);
+    }
+
+    // 2) Fallback: try to parse JSON from content
+    if (!validationResult) {
+      const content = validationData?.choices?.[0]?.message?.content;
+      if (typeof content === 'string') {
+        try {
+          validationResult = JSON.parse(content);
+        } catch (_) {}
+      }
+    }
+
+    // 3) Fallback: make a JSON-only request
+    if (!validationResult) {
+      console.log('Falling back to JSON-only validation call...');
+      const fallbackResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'Respond with STRICT JSON only. No prose.' },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.' },
+                { type: 'image_url', image_url: { url: actualImageUrl } }
+              ]
+            }
+          ]
+        })
+      });
+
+      const fallbackData = await fallbackResp.json();
+      console.log('Validation fallback response:', JSON.stringify(fallbackData, null, 2));
+      const fallbackContent = fallbackData?.choices?.[0]?.message?.content;
+      if (typeof fallbackContent === 'string') {
+        try {
+          validationResult = JSON.parse(fallbackContent);
+        } catch (e) {
+          console.error('Failed to parse fallback validation JSON:', e);
+        }
+      }
+    }
+
+    if (!validationResult || typeof validationResult.isValidForExtraction !== 'boolean' || !validationResult.contentType) {
+      console.error('Invalid validation result after all strategies:', validationResult);
       return new Response(JSON.stringify({ error: 'Invalid validation response from AI' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    const validationResult = JSON.parse(validationArgs);
 
     console.log('Validation result:', validationResult);
 
