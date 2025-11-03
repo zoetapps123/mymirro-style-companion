@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Camera, X, Sparkles } from "lucide-react";
+import { Send, Camera, X, Sparkles, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -82,6 +83,20 @@ const AICompanion = () => {
       location: location || undefined,
     });
   }, []);
+
+  const resetChat = () => {
+    const userName = userProfile.name || "there";
+    const greeting: Message = {
+      id: "greeting",
+      role: "assistant",
+      content: `Hey ${userName},\nWelcome to your personal style lab. 👋\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      timestamp: new Date(),
+    };
+    setMessages([greeting]);
+    setShowPrompts(true);
+    persistMessages([greeting]);
+    trackEvent("chat_reset");
+  };
 
   // Check session and initialize greeting
   useEffect(() => {
@@ -176,6 +191,9 @@ const AICompanion = () => {
   const streamChat = async (userMessages: Message[]) => {
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+    // Get current user ID for enhanced context
+    const { data: { user } } = await supabase.auth.getUser();
+
     // Detect Mobile Safari (known streaming issues after multiple requests)
     const ua = navigator.userAgent;
     const isIOS = /iP(hone|od|ad)/i.test(ua);
@@ -202,6 +220,7 @@ const AICompanion = () => {
             images: m.images 
           })),
           userProfile,
+          userId: user?.id,
         }),
         cache: 'no-store',
         keepalive: !isMobileSafari,
@@ -439,6 +458,20 @@ const AICompanion = () => {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* New Chat Button */}
+      <div className="px-4 pt-4 pb-2 border-b border-border/50 flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Chat</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={resetChat}
+          className="gap-2"
+        >
+          <RotateCcw className="w-4 h-4" />
+          New Chat
+        </Button>
+      </div>
+      
       {/* Chat Messages */}
       <ScrollArea className="flex-1 px-4 py-4" ref={scrollRef}>
         <div className="space-y-3 max-w-2xl mx-auto">

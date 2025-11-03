@@ -14,14 +14,50 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile } = await req.json();
+    const { messages, userProfile, userId } = await req.json();
     const apiKey = getAIApiKey();
+
+    // Fetch enhanced user context from database if userId is provided
+    let bodyShape, skinTone, wardrobeItems;
+    if (userId) {
+      try {
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('body_shape, skin_tone')
+          .eq('id', userId)
+          .single();
+        
+        bodyShape = profile?.body_shape;
+        skinTone = profile?.skin_tone;
+
+        // Fetch wardrobe summary (top 10 recent items)
+        const { data: items } = await supabase
+          .from('wardrobe_items')
+          .select('name, category, color')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        wardrobeItems = items || [];
+      } catch (e) {
+        console.error('Failed to fetch user context:', e);
+      }
+    }
 
     // Build personalized system prompt with user context
     const systemPrompt = SYSTEM_PROMPTS[SystemRole.AI_COMPANION]({
       userName: userProfile?.name || 'there',
       gender: userProfile?.gender,
-      location: userProfile?.location || 'India'
+      location: userProfile?.location || 'India',
+      bodyShape,
+      skinTone,
+      wardrobeItems
     });
 
     // Process messages to handle images

@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2 } from "lucide-react";
+import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
@@ -12,6 +13,7 @@ interface StyleCheckHubProps {
 
 const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedOccasion, setSelectedOccasion] = useState<string>("");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -583,12 +585,23 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       )}
       
       <div className="p-4 space-y-6">
-        {/* Title */}
-        <div>
-          <h1 className="text-4xl font-bold text-primary">Style Check</h1>
-          <p className="text-muted-foreground mt-1 text-base">
-            Pro score and quick fixes for your look
-          </p>
+        {/* Title with History Button */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-primary">Style Check</h1>
+            <p className="text-muted-foreground mt-1 text-base">
+              Pro score and quick fixes for your look
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/history')}
+            className="gap-2 flex-shrink-0"
+          >
+            <HistoryIcon className="w-4 h-4" />
+            History
+          </Button>
         </div>
 
         {/* Where are you heading? */}
