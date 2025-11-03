@@ -42,8 +42,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     
     if (files.length === 0) return;
     
-    setPhotos(files);
-    setPreviews([]);
+    setPhotos(prev => [...prev, ...files]);
 
     // Create previews for all selected files
     files.forEach(file => {
