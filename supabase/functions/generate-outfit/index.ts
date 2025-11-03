@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { OUTFIT_GENERATION_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -174,74 +175,15 @@ function buildOutfitGenerationPrompt(
   maxOutfits?: number,
   userLocation?: { temp: number; weather: string; lat: number } | null
 ): string {
-  const targetText = generationType === 'occasion' 
-    ? `OCCASION: ${occasion}`
-    : generationType === 'style'
-    ? `STYLE: ${style}`
-    : `FEATURING THIS ANCHOR ITEM: ${anchorItem.name}`;
-
-  const items = wardrobeItems || [];
-  
-  const weatherContext = userLocation 
-    ? `\n\nCURRENT WEATHER CONTEXT:
-- Temperature: ${userLocation.temp}°C
-- Conditions: ${userLocation.weather}
-- ${userLocation.temp < 15 ? 'COLD - Consider layering' : userLocation.temp < 25 ? 'MODERATE - Light layering optional' : 'WARM - Minimal layers'}`
-    : '';
-
-  return `You are a professional fashion stylist. Create ${maxOutfits || 'as many as viable'} DISTINCT, HIGH-QUALITY outfit combinations for:
-
-${targetText}${weatherContext}
-
-AVAILABLE WARDROBE ITEMS:
-${items.map((item: any) => `
-- ID: ${item.id}, Name: ${item.name}
-  Category: ${item.category}
-  Color: ${item.color}
-  Fabric: ${item.fabric || 'N/A'}
-  Pattern: ${item.pattern || 'solid'}
-`).join('\n')}
-
-OUTFIT CREATION RULES:
-✅ Each outfit MUST include:
-   - At least 1 item (for dresses/co-ords) OR
-   - At least 2 items (top + bottom minimum)
-   - **CRITICAL: ONLY ONE item from each category group:**
-     * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
-     * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
-     * LAYERS: Only 1 jacket/cardigan/coat/blazer
-     * FOOTWEAR: Only 1 pair of shoes
-     * ACCESSORIES: Multiple allowed but keep minimal
-
-✅ Layering Rules (Weather-Based):
-   - Temperature < 15°C: Include jackets, cardigans, or coats for warmth
-   - Temperature 15-25°C: Optional light layers (cardigan, blazer)
-   - Temperature > 25°C: NO heavy layers, prioritize breathable fabrics
-   - Layering = wearing jacket/cardigan OVER a top (this is the ONLY acceptable way to have 2 upperwear items)
-
-✅ Fashion Quality Standards:
-   - Color coordination (complementary, analogous, or monochromatic)
-   - Fabric compatibility (don't mix overly casual with formal)
-   - Pattern balance (max 1-2 patterns per outfit)
-   - Occasion/style appropriateness
-   - Seasonal suitability
-
-✅ Variety Requirements:
-   - Each outfit must be VISUALLY DISTINCT
-   - Vary color palettes across outfits
-   - Don't reuse the same item in multiple outfits unless necessary
-   - Explore different silhouettes
-
-❌ REJECT outfits that:
-   - Clash in color or style
-   - Are inappropriate for the occasion or weather
-   - Repeat too many items from previous outfits
-   - Have 2+ tops without proper layering (jacket over top)
-   - Have 2+ bottoms (NEVER acceptable)
-   - Have heavy layers in warm weather
-   - Lack warmth in cold weather
-
-Return outfit combinations with pieces (wardrobeItemId, category, role), reasoning, and styleTag.`;
+  return OUTFIT_GENERATION_PROMPTS.BUILD_PROMPT({
+    generationType,
+    occasion,
+    style,
+    anchorItem,
+    wardrobeItems: wardrobeItems || [],
+    maxOutfits,
+    userLocation: userLocation ? { temp: userLocation.temp, weather: userLocation.weather } : undefined
+  });
 }
 
 async function generateCombinedOutfitImage(
@@ -252,45 +194,7 @@ async function generateCombinedOutfitImage(
 ): Promise<string> {
   console.log('Generating combined outfit image...');
 
-  const prompt = `Create a professional flat-lay outfit image for the following combination:
-
-OUTFIT ITEMS:
-${items.map((item: any) => `
-- ${item.name} (${item.category})
-  Color: ${item.color}
-  Fabric: ${item.fabric || 'N/A'}
-  Pattern: ${item.pattern || 'solid'}
-`).join('\n')}
-
-VISUAL REQUIREMENTS:
-
-**LAYOUT & ARRANGEMENT**
-- Pure white background (#FFFFFF)
-- All items arranged in a flat-lay composition
-- Items should be positioned to suggest how they'd be worn together
-- LAYERING ORDER (bottom to top):
-  1. Bottoms (jeans, skirts, pants) - positioned at bottom
-  2. Tops (shirts, blouses) - positioned above bottoms
-  3. Layers (jackets, cardigans) - positioned over tops if present
-  4. Shoes - positioned at the very bottom or sides
-  5. Accessories - positioned around main garments
-
-**SPACING & COMPOSITION**
-- Items should overlap slightly to show layering
-- Leave subtle spacing between items for clarity
-- Center the composition in the frame
-- Items fill 75-85% of canvas
-
-**LIGHTING & QUALITY**
-- Even, soft lighting with no harsh shadows
-- Colors accurate to hex codes provided
-- High resolution, sharp details
-- Professional e-commerce quality
-
-**STYLE CONSISTENCY**
-- All items should appear to be part of a cohesive outfit
-- Maintain consistent scale/perspective across items
-- Show fabric textures clearly`;
+  const prompt = OUTFIT_GENERATION_PROMPTS.GENERATE_FLATLAY(items, occasion, styleTag);
 
   const response = await fetch(AI_API_ENDPOINT, {
     method: 'POST',

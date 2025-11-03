@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { STYLING_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,30 +19,7 @@ serve(async (req) => {
 
     console.log('Generating recommendations for outfit...');
 
-    const prompt = `You are a professional fashion stylist. Given this outfit, recommend items from the wardrobe that would pair well.
-
-**CURRENT OUTFIT:**
-${currentOutfit.map((item: any) => `- ${item.name} (${item.category}, ${item.color}, ${item.fabric || 'N/A'})`).join('\n')}
-
-**OCCASION:** ${occasion || 'Any'}
-**STYLE:** ${styleTag || 'Any'}
-
-**AVAILABLE WARDROBE ITEMS:**
-${availableItems.map((item: any) => `- ID: ${item.id}, Name: ${item.name}, Category: ${item.category}, Color: ${item.color}, Fabric: ${item.fabric || 'N/A'}, Pattern: ${item.pattern || 'solid'}`).join('\n')}
-
-**RECOMMENDATION PRIORITIES:**
-1. **Missing categories** - If no shoes, recommend shoes; if no layer, recommend layers
-2. **Color compatibility** - Choose complementary or analogous colors
-3. **Style consistency** - Match the occasion and style tag
-4. **Fabric compatibility** - Don't mix overly casual with formal
-
-**RULES:**
-- DO NOT recommend items already in the current outfit
-- Recommend items that fill gaps in the outfit
-- Prioritize items that enhance the overall look
-- Consider the occasion and style when recommending
-
-Return the IDs of recommended items in order of best to worst fit (max 20 items).`;
+    const prompt = STYLING_PROMPTS.RECOMMEND_ITEMS(currentOutfit, availableItems, occasion, styleTag);
 
     const response = await fetch(AI_API_ENDPOINT, {
       method: 'POST',

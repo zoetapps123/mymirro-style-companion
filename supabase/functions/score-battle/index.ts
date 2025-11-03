@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,17 +66,7 @@ serve(async (req) => {
               content: [
                 {
                   type: 'text',
-                  text: `You are a professional fashion judge with a competitive edge and witty personality. Score these ${participants.length} outfits in a battle format. For each participant:
-
-1. Give them a competitive PERSONA NAME (2-3 words, fun and competitive, e.g., "Style Maverick", "Denim Destroyer", "Monochrome Master")
-2. Overall score (1.0-5.0) - be honest and differentiate scores clearly
-3. Rank (1 = best, 2 = second, etc.)
-4. FUN BANTER/ROAST: Write a competitive, playful roast comparing them to other participants. Be cheeky, mention specific style elements, reference their outfit details and how they stack up. Make it entertaining but not mean-spirited. Like a friendly fashion roast battle.
-
-Also provide:
-- winner_verdict: A celebratory sentence about why the winner dominated the competition
-
-Be detailed, competitive, entertaining, and reference specific outfit elements in your roasts. Return ONLY valid JSON.`
+                  text: SCORING_PROMPTS.SCORE_BATTLE(participants.length)
                 },
                 ...participants.map((p: any, idx: number) => [
                   { type: 'text', text: `Participant ${idx + 1}: ${p.name}` },

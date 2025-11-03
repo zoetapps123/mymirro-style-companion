@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { AUTO_OUTFIT_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,43 +26,7 @@ serve(async (req) => {
     const accessories = items.filter((item: any) => item.category === 'Accessories');
     const layers = items.filter((item: any) => item.category === 'Layers' || item.category === 'Jackets');
 
-    const prompt = `You are a professional fashion stylist with deep knowledge of fashion trends, color theory, and style principles. Create curated outfit combinations using the following wardrobe items:
-
-TOPS (${tops.length}): ${tops.map((t: any) => `ID:${t.id} - ${t.name} (${t.color})`).join(', ')}
-BOTTOMS (${bottoms.length}): ${bottoms.map((b: any) => `ID:${b.id} - ${b.name} (${b.color})`).join(', ')}
-SHOES (${shoes.length}): ${shoes.map((s: any) => `ID:${s.id} - ${s.name} (${s.color})`).join(', ')}
-ACCESSORIES (${accessories.length}): ${accessories.map((a: any) => `ID:${a.id} - ${a.name} (${a.color})`).join(', ')}
-LAYERS (${layers.length}): ${layers.map((l: any) => `ID:${l.id} - ${l.name} (${l.color})`).join(', ')}
-
-CRITICAL RULES:
-1. NEVER include more than ONE item from the same category in a single outfit (e.g., no two tops, no two bottoms)
-2. Each outfit must be complete and wearable
-3. Ensure color coordination and style consistency
-4. EVERY outfit MUST have a unique, creative, descriptive name (2-3 words max)
-
-Create 5 complete outfits for each category:
-
-1. STYLE-BASED OUTFITS - Give each a name like:
-   "Minimalist Maven", "Urban Edge", "Timeless Classic", "Everyday Ease", "Bold Statement"
-
-2. OCCASION-BASED OUTFITS - Give each a name like:
-   "Boardroom Boss", "Date Night Charm", "Weekend Warrior", "Party Ready", "Jet Setter"
-
-NAMING EXAMPLES:
-- "Coastal Breeze" (relaxed, breezy style)
-- "Midnight Elegance" (dark, sophisticated evening)
-- "Golden Hour" (warm-toned, glowing aesthetic)
-- "Monochrome Magic" (single color palette)
-- "Power Play" (confident, commanding presence)
-
-For each outfit:
-- Select 3-5 items from DIFFERENT categories only
-- Ensure excellent color coordination
-- Match the style aesthetic or occasion perfectly
-- Use item IDs from the wardrobe
-- REQUIRED: Give it a unique, creative name (2-3 words)
-
-Return structured outfit data with creative names for ALL outfits.`;
+    const prompt = AUTO_OUTFIT_PROMPTS.GENERATE_STYLE_AND_OCCASION({ tops, bottoms, shoes, accessories, layers });
 
     const response = await fetch(AI_API_ENDPOINT, {
       method: 'POST',

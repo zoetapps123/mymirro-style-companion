@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,20 +61,7 @@ serve(async (req) => {
               content: [
                 {
                   type: 'text',
-                  text: `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
-
-1. A creative outfit name (2-4 words)
-2. Scores across these dimensions (scale 1.0-5.0): Color Harmony, Fit, Texture/Fabric Mix, Style/Occasion Match
-3. Overall average score
-4. What Works: 2-3 short, factual observations (max 12-15 words each) on what's strong about the outfit.
-5. What Doesn't Work: 2-3 short, factual critiques (max 12-15 words each). Be direct, no soft language.
-6. Quick Fixes (Under 1 Minute): 4-6 actionable styling tips (max 12-15 words each) that can be done in under 60 seconds. Focus on:
-   - Immediate adjustments (tuck shirt, roll sleeves, unbutton collar, adjust hem)
-   - Quick additions (add watch, swap shoes, add belt, layer jacket)
-   - Styling tweaks (fix hair, adjust accessories, straighten posture)
-   Use strong action verbs and be very specific.
-
-Keep language direct, professional, and under 15 words per point.`
+                  text: SCORING_PROMPTS.SCORE_OUTFIT(occasion)
                 },
                 {
                   type: 'image_url',

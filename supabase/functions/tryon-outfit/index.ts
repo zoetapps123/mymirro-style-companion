@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { IMAGE_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,12 +20,7 @@ serve(async (req) => {
     console.log('Processing virtual try-on...');
 
     // Validate user image quality first
-    const validationPrompt = `Analyze this image for virtual try-on suitability:
-1. Is it a clear, full-length photo?
-2. Is the lighting good?
-3. Is the person visible and not cropped?
-
-Respond with a boolean 'suitable' and a 'reason' if not suitable.`;
+    const validationPrompt = IMAGE_PROMPTS.VALIDATE_TRYON_IMAGE;
 
     const validationResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
@@ -82,15 +78,7 @@ Respond with a boolean 'suitable' and a 'reason' if not suitable.`;
     }
 
     // Generate virtual try-on using Gemini image editing
-    const tryonPrompt = `Apply these clothing items to the person in the image realistically:
-${outfitItems.map((item: any) => `- ${item.category}: ${item.name} (${item.color})`).join('\n')}
-
-Maintain:
-- Natural fabric fit and drape
-- Correct perspective and body proportions
-- Original skin tone and features
-- Realistic shadows and lighting
-- Professional fashion photography quality`;
+    const tryonPrompt = IMAGE_PROMPTS.GENERATE_TRYON(outfitItems);
 
     const tryonResponse = await fetch(AI_API_ENDPOINT, {
       method: 'POST',
