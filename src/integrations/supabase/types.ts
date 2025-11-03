@@ -205,6 +205,7 @@ export type Database = {
           occasion_score: number
           outfit_name: string | null
           overall_score: number
+          quick_fix: string | null
           texture_score: number
           user_id: string
           verdict_improvements: string
@@ -220,6 +221,7 @@ export type Database = {
           occasion_score: number
           outfit_name?: string | null
           overall_score: number
+          quick_fix?: string | null
           texture_score: number
           user_id: string
           verdict_improvements: string
@@ -235,6 +237,7 @@ export type Database = {
           occasion_score?: number
           outfit_name?: string | null
           overall_score?: number
+          quick_fix?: string | null
           texture_score?: number
           user_id?: string
           verdict_improvements?: string

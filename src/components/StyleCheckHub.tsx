@@ -184,6 +184,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             outfit_name: data.outfit_name,
             verdict_positive: Array.isArray(data.what_works) ? data.what_works.join(' | ') : (data.what_works || data.verdict_positive),
             verdict_improvements: Array.isArray(data.what_didnt_work) ? data.what_didnt_work.join(' | ') : (data.what_didnt_work || data.what_could_be_better || data.verdict_improvements),
+            quick_fix: Array.isArray(data.quick_fix) ? data.quick_fix.join(' | ') : (data.quick_fix || ''),
             occasion: selectedOccasion
           });
 

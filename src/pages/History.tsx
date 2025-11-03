@@ -233,6 +233,16 @@ const History = () => {
                 <h4 className="font-semibold mb-2 text-sm">What Could Improve</h4>
                 <p className="text-sm text-muted-foreground">{selectedCheck.verdict_improvements}</p>
               </div>
+              {selectedCheck.quick_fix && (
+                <div>
+                  <h4 className="font-semibold mb-2 text-sm">Quick Fixes 🔧</h4>
+                  <ul className="space-y-1">
+                    {selectedCheck.quick_fix.split(' | ').map((fix: string, i: number) => (
+                      <li key={i} className="text-sm text-muted-foreground">• {fix}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="grid grid-cols-4 gap-2 text-center">
                 <div>
                   <p className="text-xs text-muted-foreground">Color</p>
