@@ -224,11 +224,43 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        // Upload cropped image
+        // Convert blob to base64 for completion
+        const reader = new FileReader();
+        const blobToBase64 = (): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(croppedBlob);
+          });
+        };
+        
+        const croppedImageData = await blobToBase64();
+
+        // Complete the clothing image to add missing parts
+        console.log(`Completing image for: ${item.name}`);
+        const { data: completionData, error: completionError } = await supabase.functions.invoke('complete-clothing-image', {
+          body: { 
+            imageUrl: croppedImageData,
+            itemType: item.category 
+          }
+        });
+
+        let finalBlob = croppedBlob; // Default to cropped if completion fails
+
+        if (!completionError && completionData?.completedImageUrl) {
+          // Convert completed base64 image back to blob
+          const base64Response = await fetch(completionData.completedImageUrl);
+          finalBlob = await base64Response.blob();
+          console.log(`Successfully completed image for: ${item.name}`);
+        } else {
+          console.log(`Using original cropped image for: ${item.name}`, completionError);
+        }
+
+        // Upload completed/cropped image
         const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
         const { error: uploadError } = await supabase.storage
           .from('outfits')
-          .upload(fileName, croppedBlob);
+          .upload(fileName, finalBlob);
 
         if (uploadError) {
           console.error('Upload error:', uploadError);

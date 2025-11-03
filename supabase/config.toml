@@ -3,6 +3,9 @@ project_id = "lwxpedwhtowjkhxrovzx"
 [functions.chat]
 verify_jwt = false
 
+[functions.complete-clothing-image]
+verify_jwt = false
+
 [functions.process-wardrobe]
 verify_jwt = false
 
