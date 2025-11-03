@@ -250,8 +250,17 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         if (!completionError && completionData?.completedImageUrl) {
           // Convert completed base64 image back to blob
           const base64Response = await fetch(completionData.completedImageUrl);
-          finalBlob = await base64Response.blob();
-          console.log(`Successfully completed image for: ${item.name}`);
+          let completedBlob = await base64Response.blob();
+          
+          // Trim borders from the completed image
+          try {
+            const { trimImageBorders } = await import('@/lib/imageProcessing');
+            finalBlob = await trimImageBorders(completedBlob);
+            console.log(`Successfully completed and trimmed image for: ${item.name}`);
+          } catch (trimError) {
+            console.error('Failed to trim completed image:', trimError);
+            finalBlob = completedBlob; // Use untrimmed if trimming fails
+          }
         } else {
           console.log(`Using original cropped image for: ${item.name}`, completionError);
         }

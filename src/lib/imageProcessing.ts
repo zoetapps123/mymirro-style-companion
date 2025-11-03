@@ -192,3 +192,55 @@ export const blobToDataURL = (blob: Blob): Promise<string> => {
     reader.readAsDataURL(blob);
   });
 };
+
+/**
+ * Trims borders from an image blob
+ * @param blob - Image blob to process
+ * @returns Trimmed image blob
+ */
+export const trimImageBorders = async (blob: Blob): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      
+      // Draw to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+      
+      ctx.drawImage(img, 0, 0);
+      
+      // Trim borders
+      const trimmed = trimBordersOnCanvas(canvas, {
+        whiteThreshold: 245,
+        blackThreshold: 30, // More aggressive black detection
+        margin: 4,
+      });
+      
+      // Convert to blob
+      trimmed.toBlob((resultBlob) => {
+        if (resultBlob) {
+          resolve(resultBlob);
+        } else {
+          reject(new Error('Failed to create blob'));
+        }
+      }, 'image/png', 1.0);
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image'));
+    };
+    
+    img.src = url;
+  });
+};
