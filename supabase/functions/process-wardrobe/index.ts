@@ -328,14 +328,23 @@ ${itemsList}
     });
 
     if (!compositeResponse.ok) {
-      console.error('Failed to generate composite image');
-      throw new Error('Failed to generate composite image');
+      const errorText = await compositeResponse.text();
+      console.error('Failed to generate composite image:', compositeResponse.status, errorText);
+      throw new Error(`Failed to generate composite image: ${compositeResponse.status} ${errorText}`);
     }
 
     const compositeData = await compositeResponse.json();
-    const compositeImageUrl = compositeData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    console.log('Composite response structure:', JSON.stringify(compositeData, null, 2));
+    
+    if (!compositeData || !compositeData.choices || compositeData.choices.length === 0) {
+      console.error('Invalid composite response structure:', compositeData);
+      throw new Error('Invalid response from composite image generation');
+    }
+    
+    const compositeImageUrl = compositeData.choices[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!compositeImageUrl) {
+      console.error('No composite image URL in response:', compositeData);
       throw new Error('No composite image generated');
     }
 
@@ -361,9 +370,11 @@ ${itemsList}
 
   } catch (error) {
     console.error('Error in process-wardrobe:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'An unexpected error occurred'
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+        details: error instanceof Error ? error.stack : String(error)
       }),
       {
         status: 500,
