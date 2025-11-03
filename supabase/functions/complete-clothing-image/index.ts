@@ -26,7 +26,17 @@ serve(async (req) => {
     }
 
     // Create instruction based on item type
-    const completionPrompt = `Complete this clothing item image by adding any missing parts like sleeves, full length, or other details. Make it look like a professional product photo on a clean white background. The clothing should be laid flat and fully visible with all parts (sleeves, full body, etc.) shown completely. Keep the same style, color, and texture of the original item.`;
+    const completionPrompt = `Complete ONLY this single clothing item by extending any cut-off or missing parts (like sleeves, full length, hem, collar). 
+
+IMPORTANT RULES:
+- Keep ONLY the single item shown - do NOT add any other clothing pieces
+- Do NOT add pants if showing a top, do NOT add tops if showing pants
+- Do NOT add accessories unless they are part of the original item
+- Just extend the existing item to show its complete form
+- Place on a clean white background
+- The item should be laid flat and photographed from above (flat lay style)
+
+Complete this ${itemType || 'clothing item'} to show its full, uncut form while keeping it isolated.`;
 
     console.log('Completing clothing image:', { imageUrl, itemType, prompt: completionPrompt });
 
