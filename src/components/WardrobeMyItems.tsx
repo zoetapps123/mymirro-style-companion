@@ -414,7 +414,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-muted/30 group"
+              className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-muted/30"
             >
               <img
                 src={item.processed_image_url || item.image_url}
@@ -423,11 +423,10 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
               />
               {/* Delete Button */}
               <motion.button
-                initial={{ opacity: 0 }}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleDelete(item.id, item.name)}
-                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 flex items-center justify-center shadow-lg z-10"
                 aria-label="Delete item"
               >
                 <Trash2 className="w-4 h-4 text-white" />
