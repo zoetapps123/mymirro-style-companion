@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { cropCompositeImage } from "@/lib/imageProcessing";
 
 interface WardrobeItem {
   id: string;
@@ -117,12 +118,34 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           return;
         }
 
+        if (!data?.compositeImageUrl || !data?.gridLayout) {
+          toast({
+            title: "Processing incomplete",
+            description: "Failed to process composite image. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          setProgress(0);
+          return;
+        }
+
         let addedCount = 0;
         let skippedCount = 0;
         setProgress(70);
 
+        // Crop the composite image
+        const croppedBlobs = await cropCompositeImage(
+          data.compositeImageUrl,
+          data.gridLayout
+        );
+
         // Upload and save all detected items with duplicate checking
-        for (const item of itemsDetected) {
+        for (let idx = 0; idx < itemsDetected.length; idx++) {
+          const item = itemsDetected[idx];
+          const croppedBlob = croppedBlobs[idx];
+
+          if (!croppedBlob) continue;
+
           // Check for duplicates
           const isDuplicate = existingItems?.some(existing => 
             existing.category?.toLowerCase() === item.category?.toLowerCase() &&
@@ -138,38 +161,20 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          // Determine processed image URL (data URL or public URL)
-          let finalProcessedUrl: string | null = null;
-          if (item.processedImageUrl && typeof item.processedImageUrl === 'string') {
-            if (item.processedImageUrl.startsWith('data:')) {
-              const fileName = `${Date.now()}-${item.name.replace(/\s+/g, '-')}.png`;
-              const base64Data = item.processedImageUrl.split(',')[1];
-              const binaryData = atob(base64Data);
-              const bytes = new Uint8Array(binaryData.length);
-              for (let i = 0; i < binaryData.length; i++) {
-                bytes[i] = binaryData.charCodeAt(i);
-              }
-              const blob = new Blob([bytes], { type: 'image/png' });
+          // Upload cropped image
+          const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, croppedBlob);
 
-              const { error: uploadError } = await supabase.storage
-                .from('outfits')
-                .upload(fileName, blob);
-
-              if (uploadError) {
-                console.error('Upload error for item:', item.name, uploadError);
-                continue;
-              }
-
-              const { data: { publicUrl } } = supabase.storage
-                .from('outfits')
-                .getPublicUrl(fileName);
-
-              finalProcessedUrl = publicUrl;
-            } else {
-              // Already a URL (from the edge function fallback)
-              finalProcessedUrl = item.processedImageUrl;
-            }
+          if (uploadError) {
+            console.error('Upload error for item:', item.name, uploadError);
+            continue;
           }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
 
           const { error: dbError } = await supabase
             .from('wardrobe_items')
@@ -182,8 +187,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
               texture: item.texture,
               pattern: item.pattern,
               style_notes: item.style_notes,
-              image_url: finalProcessedUrl || '',
-              processed_image_url: finalProcessedUrl || '',
+              image_url: publicUrl,
+              processed_image_url: publicUrl,
             });
 
           if (dbError) {

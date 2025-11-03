@@ -6,6 +6,7 @@ import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { cropCompositeImage } from "@/lib/imageProcessing";
 
 interface OnboardingPhotosProps {
   onComplete: () => void;
@@ -154,8 +155,19 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             continue;
           }
 
-          if (processData?.items) {
-            for (const item of processData.items) {
+          if (processData?.items && processData?.compositeImageUrl && processData?.gridLayout) {
+            // Crop the composite image into individual items
+            const croppedBlobs = await cropCompositeImage(
+              processData.compositeImageUrl,
+              processData.gridLayout
+            );
+
+            for (let idx = 0; idx < processData.items.length; idx++) {
+              const item = processData.items[idx];
+              const croppedBlob = croppedBlobs[idx];
+              
+              if (!croppedBlob) continue;
+
               const isDuplicate = existingItems?.some(existing => 
                 existing.category?.toLowerCase() === item.category?.toLowerCase() &&
                 (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
@@ -168,32 +180,20 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              let finalProcessedUrl: string | null = null;
-              if (item.processedImageUrl && typeof item.processedImageUrl === 'string') {
-                if (item.processedImageUrl.startsWith('data:')) {
-                  const fileName = `${userId}/wardrobe_${Date.now()}_${item.name.replace(/\s+/g, '-')}.png`;
-                  const base64Image = item.processedImageUrl.split(',')[1];
-                  const binaryData = atob(base64Image);
-                  const bytes = new Uint8Array(binaryData.length);
-                  for (let j = 0; j < binaryData.length; j++) {
-                    bytes[j] = binaryData.charCodeAt(j);
-                  }
-                  const imageBlob = new Blob([bytes], { type: 'image/png' });
+              // Upload cropped image
+              const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+              const { error: uploadError } = await supabase.storage
+                .from('outfits')
+                .upload(fileName, croppedBlob);
 
-                  const { error: uploadError } = await supabase.storage
-                    .from('outfits')
-                    .upload(fileName, imageBlob);
-
-                  if (!uploadError) {
-                    const { data: { publicUrl: processedUrl } } = supabase.storage
-                      .from('outfits')
-                      .getPublicUrl(fileName);
-                    finalProcessedUrl = processedUrl;
-                  }
-                } else {
-                  finalProcessedUrl = item.processedImageUrl;
-                }
+              if (uploadError) {
+                console.error('Upload error:', uploadError);
+                continue;
               }
+
+              const { data: { publicUrl } } = supabase.storage
+                .from('outfits')
+                .getPublicUrl(fileName);
 
               await supabase.from('wardrobe_items').insert({
                 user_id: userId,
@@ -204,7 +204,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 texture: item.texture,
                 pattern: item.pattern,
                 style_notes: item.style_notes,
-                processed_image_url: finalProcessedUrl || url,
+                processed_image_url: publicUrl,
                 image_url: url,
               });
 

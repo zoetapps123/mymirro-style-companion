@@ -244,85 +244,83 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
       });
     }
 
-    // STEP 2: Background Removal & Product Display
-    console.log('Step 2: Generating clean product images...');
-    const processedItems = [];
+    // STEP 2: Generate Composite Image with All Items
+    console.log('Step 2: Generating composite image with all items...');
+    
+    const itemsList = detectionResult.items.map((item: any, idx: number) => 
+      `${idx + 1}. ${item.name} (${item.category})`
+    ).join('\n');
 
-    for (const item of detectionResult.items) {
-      console.log(`Processing ${item.name}...`);
+    const compositeResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Create a composite image showing ALL detected clothing items arranged in a clean grid layout:
 
-      const cutoutResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Extract the ${item.name} and display it as a professional e-commerce product photo:
+**ITEMS TO EXTRACT:**
+${itemsList}
 
-**POSITIONING**
-- Front-facing, straight orientation
+**LAYOUT REQUIREMENTS:**
+- Arrange items in a grid (2-3 items per row depending on total count)
+- Each item in its own cell with 40px padding on all sides
+- Pure white background (#FFFFFF)
+- Equal-sized cells for consistency
+
+**ITEM PRESENTATION:**
+- Each item: front-facing, straight orientation
 - Fully unfolded and neatly arranged
-- Centered in frame
-- Item fills 70-80% of image space
+- Centered in its cell
+- Item fills 70% of cell space
+- Even, soft lighting with no shadows
+- True-to-life colors
+- Professional e-commerce quality
 
-**BACKGROUND**
-- Pure white (#FFFFFF)
-- No shadows, no humans, no other items
+**GRID STRUCTURE:**
+- Maintain order: top-left to bottom-right
+- Consistent spacing between all items
+- No overlapping items
+- Clear visual separation between cells`
+              },
+              {
+                type: 'image_url',
+                image_url: { url: actualImageUrl }
+              }
+            ]
+          }
+        ],
+        modalities: ['image', 'text']
+      })
+    });
 
-**LIGHTING & QUALITY**
-- Even, soft lighting
-- No harsh shadows or highlights
-- True-to-life colors matching hex code: ${item.color}
-- High resolution, sharp details
-
-**PRESENTATION**
-- Garment laid flat as if ready for sale
-- All details visible (buttons, zippers, patterns)
-- Natural drape preserved
-- Professional catalog quality`
-                },
-                {
-                  type: 'image_url',
-                  image_url: { url: actualImageUrl }
-                }
-              ]
-            }
-          ],
-          modalities: ['image', 'text']
-        })
-      });
-
-      if (!cutoutResponse.ok) {
-        console.error(`Failed to process ${item.name}`);
-        continue;
-      }
-
-      const cutoutData = await cutoutResponse.json();
-      const cutoutImageUrl = cutoutData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-      if (cutoutImageUrl) {
-        processedItems.push({
-          ...item,
-          processedImageUrl: cutoutImageUrl
-        });
-      }
+    if (!compositeResponse.ok) {
+      console.error('Failed to generate composite image');
+      throw new Error('Failed to generate composite image');
     }
 
-    console.log(`Successfully processed ${processedItems.length} items`);
+    const compositeData = await compositeResponse.json();
+    const compositeImageUrl = compositeData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    // Deduplicate items based on category, color (within 10% variance), and name (first 15 chars)
+    if (!compositeImageUrl) {
+      throw new Error('No composite image generated');
+    }
+
+    console.log(`Successfully generated composite image with ${detectionResult.items.length} items`);
+
+    // Deduplicate items based on category, color, and name
     const deduplicatedItems = [];
     const seen = new Set();
     
-    for (const item of processedItems) {
+    for (const item of detectionResult.items) {
       const key = `${item.category.toLowerCase()}_${item.name.toLowerCase().substring(0, 15)}_${item.color}`;
       
       if (!seen.has(key)) {
@@ -333,10 +331,17 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
 
     console.log(`After deduplication: ${deduplicatedItems.length} items`);
 
+    // Calculate grid layout
+    const itemCount = deduplicatedItems.length;
+    const columns = Math.min(3, Math.ceil(Math.sqrt(itemCount)));
+    const rows = Math.ceil(itemCount / columns);
+
     return new Response(
       JSON.stringify({
         success: true,
         items: deduplicatedItems,
+        compositeImageUrl,
+        gridLayout: { rows, columns, itemCount },
         contentType: validationResult.contentType
       }),
       {

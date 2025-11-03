@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { cropCompositeImage } from "@/lib/imageProcessing";
 
 interface WardrobeMyItemsProps {
   onNavigate: (view: 'items' | 'suggestion' | 'calendar' | 'lookbook') => void;
@@ -148,90 +149,96 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         return;
       }
 
-        // Update processing tiles with actual items
-        setProcessingItems(itemsDetected.map((item: any, idx: number) => ({
-          id: `${tempId}-${idx}`,
-          status: 'processing',
-          name: item.name,
-          preview: item.processedImageUrl
-        })));
+      if (!data?.compositeImageUrl || !data?.gridLayout) {
+        toast({
+          title: "Processing incomplete",
+          description: "Failed to process composite image. Please try again.",
+          variant: "destructive",
+        });
+        setProcessingItems([]);
+        setLoading(false);
+        setProgress(0);
+        return;
+      }
 
-        let addedCount = 0;
-        let skippedCount = 0;
-        setProgress(70);
+      // Update processing tiles with actual items
+      setProcessingItems(itemsDetected.map((item: any, idx: number) => ({
+        id: `${tempId}-${idx}`,
+        status: 'processing',
+        name: item.name,
+      })));
 
-        // Process all items
-        for (let idx = 0; idx < itemsDetected.length; idx++) {
-          const item = itemsDetected[idx];
-          
-          // Check for duplicates
-          const isDuplicate = existingItems?.some(existing => 
-            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-             (existing.color?.toLowerCase() === item.color?.toLowerCase()))
-          );
+      let addedCount = 0;
+      let skippedCount = 0;
+      setProgress(70);
 
-          if (isDuplicate) {
-            console.log(`Skipping duplicate: ${item.name}`);
-            skippedCount++;
-            continue;
-          }
+      // Crop the composite image
+      const croppedBlobs = await cropCompositeImage(
+        data.compositeImageUrl,
+        data.gridLayout
+      );
 
-          // Determine processed image URL
-          let finalProcessedUrl: string | null = null;
-          if (item.processedImageUrl && typeof item.processedImageUrl === 'string') {
-            if (item.processedImageUrl.startsWith('data:')) {
-              // Upload base64 image
-              const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}.png`;
-              const base64Data = item.processedImageUrl.split(',')[1];
-              const binaryData = atob(base64Data);
-              const bytes = new Uint8Array(binaryData.length);
-              for (let i = 0; i < binaryData.length; i++) {
-                bytes[i] = binaryData.charCodeAt(i);
-              }
-              const blob = new Blob([bytes], { type: 'image/png' });
+      // Process all items
+      for (let idx = 0; idx < itemsDetected.length; idx++) {
+        const item = itemsDetected[idx];
+        const croppedBlob = croppedBlobs[idx];
+        
+        if (!croppedBlob) continue;
 
-              const { error: uploadError } = await supabase.storage
-                .from('outfits')
-                .upload(fileName, blob);
+        // Check for duplicates
+        const isDuplicate = existingItems?.some(existing => 
+          existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+          (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+           item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+           (existing.color?.toLowerCase() === item.color?.toLowerCase()))
+        );
 
-              if (uploadError) {
-                console.error('Upload error:', uploadError);
-                continue;
-              }
-
-              const { data: { publicUrl } } = supabase.storage
-                .from('outfits')
-                .getPublicUrl(fileName);
-              finalProcessedUrl = publicUrl;
-            } else {
-              // Already a public URL
-              finalProcessedUrl = item.processedImageUrl;
-            }
-          }
-
-          const { error: dbError } = await supabase
-            .from('wardrobe_items')
-            .insert({
-              user_id: user.id,
-              name: item.name,
-              category: item.category,
-              color: item.color,
-              image_url: sourceUrl,
-              processed_image_url: finalProcessedUrl || sourceUrl,
-            });
-
-          if (dbError) {
-            console.error('DB error:', dbError);
-          } else {
-            addedCount++;
-            // Mark as done
-            setProcessingItems(prev => prev.map(p => 
-              p.id === `${tempId}-${idx}` ? { ...p, status: 'done' } : p
-            ));
-          }
+        if (isDuplicate) {
+          console.log(`Skipping duplicate: ${item.name}`);
+          skippedCount++;
+          continue;
         }
+
+        // Upload cropped image
+        const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+        const { error: uploadError } = await supabase.storage
+          .from('outfits')
+          .upload(fileName, croppedBlob);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          continue;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('outfits')
+          .getPublicUrl(fileName);
+
+        const { error: dbError } = await supabase
+          .from('wardrobe_items')
+          .insert({
+            user_id: user.id,
+            name: item.name,
+            category: item.category,
+            color: item.color,
+            fabric: item.fabric,
+            texture: item.texture,
+            pattern: item.pattern,
+            style_notes: item.style_notes,
+            image_url: sourceUrl,
+            processed_image_url: publicUrl,
+          });
+
+        if (dbError) {
+          console.error('DB error:', dbError);
+        } else {
+          addedCount++;
+          // Mark as done
+          setProcessingItems(prev => prev.map(p => 
+            p.id === `${tempId}-${idx}` ? { ...p, status: 'done' } : p
+          ));
+        }
+      }
         
         setProgress(90);
 
