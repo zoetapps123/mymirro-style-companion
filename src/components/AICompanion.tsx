@@ -265,6 +265,7 @@ const AICompanion = () => {
         signal: controller.signal,
       });
 
+      // Check for errors BEFORE adding assistant message
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Chat API error:', response.status, errorText);
@@ -276,16 +277,16 @@ const AICompanion = () => {
             variant: "destructive",
           });
           trackEvent("rate_limit_error");
-          throw new Error('Rate limit exceeded');
+          return; // Exit early without adding empty message
         }
         if (response.status === 402) {
           toast({
             title: "Payment Required",
-            description: "Please add credits to continue using AI features.",
+            description: "Please add credits to your Lovable AI workspace to continue using AI features.",
             variant: "destructive",
           });
           trackEvent("payment_required_error");
-          throw new Error('Payment required');
+          return; // Exit early without adding empty message
         }
         throw new Error(`Failed to start chat stream: ${response.status}`);
       }
