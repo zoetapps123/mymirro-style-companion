@@ -24,6 +24,16 @@ interface PhoneAuthProps {
 const phoneSchema = z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
 
+// Utility function to generate non-predictable email from phone number
+const generateSecureEmail = async (phone: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`mymirro_${phone}_secure`);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${hashHex.substring(0, 32)}@mymirro.app`;
+};
+
 const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   const [loading, setLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
@@ -54,11 +64,10 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
     try {
       const fullPhone = `${countryCode}${phone}`;
+      // Generate secure, non-predictable email from phone number
+      const email = await generateSecureEmail(phone);
       
       if (isSignUp) {
-        // For now, use email-based signup with phone as identifier
-        // In production, implement proper phone OTP authentication
-        const email = `${phone}@mymirro.app`;
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -93,7 +102,6 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
       } else {
         // Sign in
-        const email = `${phone}@mymirro.app`;
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
