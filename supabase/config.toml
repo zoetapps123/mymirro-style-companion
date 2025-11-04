@@ -1,7 +1,7 @@
 project_id = "lwxpedwhtowjkhxrovzx"
 
-[functions.chat]
-verify_jwt = false
+# Chat function now requires authentication
+# verify_jwt defaults to true when not specified
 
 [functions.complete-clothing-image]
 verify_jwt = false

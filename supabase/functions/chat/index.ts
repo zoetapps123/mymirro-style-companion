@@ -14,17 +14,42 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userProfile, userId, recentBattles, recentStyleChecks } = await req.json();
+    // Extract and verify JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Create client with user's token to respect RLS
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify the user from JWT
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.error('Auth error:', authError);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const userId = user.id; // Extract userId from verified JWT
+    const { messages, userProfile, recentBattles, recentStyleChecks } = await req.json();
     const apiKey = getAIApiKey();
 
-    // Fetch enhanced user context from database if userId is provided
+    // Fetch enhanced user context from database
     let bodyShape, skinTone, wardrobeItems;
-    if (userId) {
-      try {
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
+    try {
 
         // Fetch user profile
         const { data: profile } = await supabase
@@ -44,10 +69,9 @@ serve(async (req) => {
           .order('created_at', { ascending: false })
           .limit(10);
         
-        wardrobeItems = items || [];
-      } catch (e) {
-        console.error('Failed to fetch user context:', e);
-      }
+      wardrobeItems = items || [];
+    } catch (e) {
+      console.error('Failed to fetch user context:', e);
     }
 
     // Build personalized system prompt with user context

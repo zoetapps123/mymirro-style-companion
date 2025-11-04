@@ -201,8 +201,18 @@ const AICompanion = () => {
   const streamChat = async (userMessages: Message[]) => {
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
-    // Get current user ID for enhanced context
+    // Get current user and session for authentication
     const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to use the chat feature.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Fetch recent fashion history for context
     let recentBattles: any[] = [];
@@ -246,7 +256,7 @@ const AICompanion = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           messages: userMessages.map(m => ({ 
@@ -255,7 +265,6 @@ const AICompanion = () => {
             images: m.images 
           })),
           userProfile,
-          userId: user?.id,
           recentBattles,
           recentStyleChecks,
         }),
