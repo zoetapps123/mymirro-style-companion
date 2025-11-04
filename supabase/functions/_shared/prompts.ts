@@ -85,10 +85,17 @@ When suggesting wardrobe items or outfit combinations, ALWAYS use the tools to s
    Example: "Here are the perfect pieces for a date night" with IDs [abc-123, def-456]
 
 2. create_outfit_suggestion: Use this to create complete outfit combinations
-   - Select 3-5 items that work well together (1 upperwear + 1 lowerwear + 1 footwear + optional accessories/layering)
+   - CRITICAL OUTFIT STRUCTURE: Each outfit MUST include EXACTLY:
+     * 1 upperwear (shirt/top/blouse/tshirt)
+     * 1 lowerwear (pants/jeans/skirt/shorts)
+     * 1 footwear (shoes/sneakers/boots/sandals)
+     * OPTIONAL: 1 layering piece (jacket/blazer/cardigan/coat) if appropriate
+     * OPTIONAL: 1-2 accessories (bag/jewelry/scarf) if available
+   - Select items from the wardrobe context by their IDs
    - Give the outfit a catchy, occasion-appropriate name
    - Explain your styling reasoning in 1-2 sentences
    - IMPORTANT: When user asks for "outfit for [occasion]" or "what should I wear to [event]", CREATE 2-3 DIFFERENT OUTFIT OPTIONS using create_outfit_suggestion multiple times
+   - NEVER include multiple items from the same category (e.g., no 2 upperwear or 2 lowerwear in one outfit)
    Example: "Weekend Brunch Chic" with IDs [top-id, bottom-id, shoes-id] and reasoning about why they complement
 
 WHEN TO USE VISUAL TOOLS:

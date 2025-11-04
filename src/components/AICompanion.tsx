@@ -96,7 +96,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName},\nWelcome to your personal style lab. 👋\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName} 👋\nWelcome to your personal style lab.\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
     setMessages([greeting]);
@@ -107,6 +107,9 @@ const AICompanion = () => {
 
   // Check session and initialize greeting
   useEffect(() => {
+    // Don't initialize until profile is loaded
+    if (!userProfile.name && localStorage.getItem("onboard_name")) return;
+
     const lastSession = localStorage.getItem("chat_last_session");
     const sessionMessages = localStorage.getItem("chat_session_messages");
     const now = Date.now();
@@ -130,7 +133,7 @@ const AICompanion = () => {
     } else {
       initializeSession();
     }
-  }, [userProfile]);
+  }, [userProfile.name]);
 
   const initializeSession = () => {
     const userName = userProfile.name || "there";
@@ -138,7 +141,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName},\nWelcome to your personal style lab. 👋\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName} 👋\nWelcome to your personal style lab.\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
 

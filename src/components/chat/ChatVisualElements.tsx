@@ -99,6 +99,24 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning }: Outf
     );
   }
 
+  // Organize items by category for proper outfit display
+  const categorizeItems = () => {
+    const upperwear = items.find(i => ['shirt', 'top', 'blouse', 'tshirt', 't-shirt', 'upperwear'].some(cat => i.category.toLowerCase().includes(cat)));
+    const lowerwear = items.find(i => ['pants', 'jeans', 'trousers', 'skirt', 'shorts', 'lowerwear'].some(cat => i.category.toLowerCase().includes(cat)));
+    const footwear = items.find(i => ['shoes', 'sneakers', 'boots', 'sandals', 'heels', 'footwear'].some(cat => i.category.toLowerCase().includes(cat)));
+    const layering = items.find(i => ['jacket', 'blazer', 'cardigan', 'coat', 'sweater', 'hoodie', 'outerwear'].some(cat => i.category.toLowerCase().includes(cat)));
+    const accessories = items.filter(i => 
+      !upperwear || i.id !== upperwear.id &&
+      !lowerwear || i.id !== lowerwear.id &&
+      !footwear || i.id !== footwear.id &&
+      !layering || i.id !== layering.id
+    );
+    
+    return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
+  };
+
+  const displayItems = categorizeItems().slice(0, 4);
+
   return (
     <Card className="p-4 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
       <div className="flex items-center gap-2 mb-3">
@@ -108,8 +126,8 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning }: Outf
       
       <div className="bg-white rounded-xl p-3 mb-3">
         <div className="grid grid-cols-2 gap-2">
-          {items.slice(0, 4).map(item => (
-            <div key={item.id} className="aspect-square flex items-center justify-center">
+          {displayItems.map(item => (
+            <div key={item.id} className="aspect-square flex items-center justify-center p-2">
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
@@ -121,14 +139,6 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning }: Outf
       </div>
 
       <p className="text-sm text-muted-foreground italic">{reasoning}</p>
-      
-      <div className="mt-3 flex flex-wrap gap-2">
-        {items.map(item => (
-          <span key={item.id} className="text-xs px-2 py-1 bg-background rounded-full">
-            {item.name}
-          </span>
-        ))}
-      </div>
     </Card>
   );
 };
