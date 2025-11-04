@@ -101,15 +101,17 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning }: Outf
 
   // Organize items by category for proper outfit display
   const categorizeItems = () => {
-    const upperwear = items.find(i => ['shirt', 'top', 'blouse', 'tshirt', 't-shirt', 'upperwear'].some(cat => i.category.toLowerCase().includes(cat)));
-    const lowerwear = items.find(i => ['pants', 'jeans', 'trousers', 'skirt', 'shorts', 'lowerwear'].some(cat => i.category.toLowerCase().includes(cat)));
-    const footwear = items.find(i => ['shoes', 'sneakers', 'boots', 'sandals', 'heels', 'footwear'].some(cat => i.category.toLowerCase().includes(cat)));
-    const layering = items.find(i => ['jacket', 'blazer', 'cardigan', 'coat', 'sweater', 'hoodie', 'outerwear'].some(cat => i.category.toLowerCase().includes(cat)));
+    const upperwear = items.find(i => i && ['shirt', 'top', 'blouse', 'tshirt', 't-shirt', 'upperwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const lowerwear = items.find(i => i && ['pants', 'jeans', 'trousers', 'skirt', 'shorts', 'lowerwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const footwear = items.find(i => i && ['shoes', 'sneakers', 'boots', 'sandals', 'heels', 'footwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const layering = items.find(i => i && ['jacket', 'blazer', 'cardigan', 'coat', 'sweater', 'hoodie', 'outerwear'].some(cat => i.category?.toLowerCase().includes(cat)));
     const accessories = items.filter(i => 
-      !upperwear || i.id !== upperwear.id &&
-      !lowerwear || i.id !== lowerwear.id &&
-      !footwear || i.id !== footwear.id &&
-      !layering || i.id !== layering.id
+      i && (
+        (!upperwear || i.id !== upperwear.id) &&
+        (!lowerwear || i.id !== lowerwear.id) &&
+        (!footwear || i.id !== footwear.id) &&
+        (!layering || i.id !== layering.id)
+      )
     );
     
     return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
