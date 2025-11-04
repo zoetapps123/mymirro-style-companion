@@ -168,7 +168,10 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
 
       const user = session.user;
 
-      const { data, error } = await supabase.functions.invoke('score-battle', { body: { participants } });
+      const { data, error } = await supabase.functions.invoke('score-battle', { 
+        body: { participants },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
 
       if (error) {
         console.error('Score battle error:', error);

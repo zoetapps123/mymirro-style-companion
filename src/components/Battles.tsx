@@ -134,6 +134,11 @@ const Battles = () => {
         description: "Comparing and scoring all outfits...",
       });
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       // Score the battle
       const { data, error } = await supabase.functions.invoke('score-battle', {
         body: { 
@@ -141,7 +146,8 @@ const Battles = () => {
             name: p.name,
             imageData: p.imageData
           }))
-        }
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) {

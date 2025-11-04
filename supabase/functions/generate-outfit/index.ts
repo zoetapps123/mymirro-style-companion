@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 import { OUTFIT_GENERATION_PROMPTS } from '../_shared/prompts.ts';
+import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,13 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Verify authentication
+  const { user, error: authError } = await verifyAuth(req);
+  if (authError || !user) {
+    console.error('Auth failed:', authError);
+    return unauthorizedResponse(corsHeaders);
   }
 
   try {

@@ -117,7 +117,8 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const { data, error } = await supabase.functions.invoke('score-outfit', {
-        body: { imageData: uploadedImage, occasion: selectedOccasion }
+        body: { imageData: uploadedImage, occasion: selectedOccasion },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) {
@@ -235,8 +236,15 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       reader.onloadend = async () => {
         const imageData = reader.result as string;
 
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error('No session found');
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-          body: { imageData }
+          body: { imageData },
+          headers: { Authorization: `Bearer ${session.access_token}` }
         });
 
         if (error) {
@@ -416,6 +424,11 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         color: item.color
       }));
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       const { data, error } = await supabase.functions.invoke('elevate-style', {
         body: {
           imageData: uploadedImage,
@@ -424,7 +437,8 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
           orientation,
           width,
           height,
-        }
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) throw error;

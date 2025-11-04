@@ -229,6 +229,11 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
           generationType: type,
@@ -238,7 +243,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           wardrobeItems,
           maxOutfits: 5,
           userLocation
-        }
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) throw error;

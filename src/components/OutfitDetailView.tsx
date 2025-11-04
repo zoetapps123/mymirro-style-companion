@@ -70,6 +70,11 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
       const currentItemIds = selectedItems.map(i => i.id);
       const availableItems = allItems.filter(item => !currentItemIds.includes(item.id));
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       // Call AI recommendation function
       const { data, error } = await supabase.functions.invoke('recommend-items', {
         body: {
@@ -77,7 +82,8 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
           availableItems,
           occasion: outfit.occasion,
           styleTag: outfit.style_tag
-        }
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) throw error;
@@ -145,13 +151,19 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
   const regenerateOutfitImage = async () => {
     setIsRegenerating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
           action: 'regenerate_image_only',
           items: selectedItems,
           occasion: outfit.occasion,
           styleTag: outfit.style_tag
-        }
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) throw error;

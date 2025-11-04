@@ -1,31 +1,4 @@
 project_id = "lwxpedwhtowjkhxrovzx"
 
-# Chat function now requires authentication
+# All functions now require authentication by default
 # verify_jwt defaults to true when not specified
-
-[functions.complete-clothing-image]
-verify_jwt = false
-
-[functions.process-wardrobe]
-verify_jwt = false
-
-[functions.score-outfit]
-verify_jwt = false
-
-[functions.score-battle]
-verify_jwt = false
-
-[functions.generate-outfit]
-verify_jwt = false
-
-[functions.tryon-outfit]
-verify_jwt = false
-
-[functions.auto-generate-outfits]
-verify_jwt = false
-
-[functions.recommend-items]
-verify_jwt = false
-
-[functions.weather-search]
-verify_jwt = false

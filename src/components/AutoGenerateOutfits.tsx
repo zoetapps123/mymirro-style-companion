@@ -74,8 +74,15 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const generateAllOutfits = async () => {
     setLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({ title: "Please sign in", description: "Authentication required", variant: "destructive" });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('auto-generate-outfits', {
-        body: { items: wardrobeItems }
+        body: { items: wardrobeItems },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) throw error;

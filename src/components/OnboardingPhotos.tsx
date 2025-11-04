@@ -169,9 +169,17 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
       for (let urlIdx = 0; urlIdx < urls.length; urlIdx++) {
         const url = urls[urlIdx];
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) {
+            throw new Error('Authentication required');
+          }
+
           const { data: processData, error: processError } = await supabase.functions.invoke(
             'process-wardrobe',
-            { body: { imageUrl: url } }
+            { 
+              body: { imageUrl: url },
+              headers: { Authorization: `Bearer ${session.access_token}` }
+            }
           );
 
           if (processError) {

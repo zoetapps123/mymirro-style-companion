@@ -170,8 +170,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         .select('name, category, color')
         .eq('user_id', userId);
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-        body: { imageUrl: sourceUrl }
+        body: { imageUrl: sourceUrl },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) {

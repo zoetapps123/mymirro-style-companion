@@ -94,13 +94,19 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         itemCount: wardrobeItems.length
       });
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
           occasion: selectedOccasion,
           selectedItem: selectedItem,
           weatherContext: "Comfortable",
           userItems: wardrobeItems
-        }
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) {

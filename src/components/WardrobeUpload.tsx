@@ -86,8 +86,16 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         const imageData = reader.result as string;
         setProgress(30);
 
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error('Authentication required');
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-          body: { imageData }
+          body: { imageData },
+          headers: { Authorization: `Bearer ${session.access_token}` }
         });
         
         setProgress(60);
