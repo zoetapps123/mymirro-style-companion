@@ -1,18 +1,20 @@
-import { Upload, CheckCircle, Share2, Camera, Package, Shirt, AlertCircle, Sparkles } from "lucide-react";
+import { Upload, CheckCircle, Share2, Camera, Package, Shirt, AlertCircle, Sparkles, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
+import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 
 interface OutfitCheckProps {
   onBack: () => void;
+  onNavigateToBattle?: (outfitData: any) => void;
 }
 
 const occasions = ["Casual Day Out", "Office", "Dinner Date", "Party", "Wedding", "Travel", "Interview"];
 
-const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
+const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -22,17 +24,14 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
   const [result, setResult] = useState<any>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractedItems, setExtractedItems] = useState<any[]>([]);
+  const [showOccasionModal, setShowOccasionModal] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     if (!selectedOccasion) {
-      toast({
-        title: "Context Required",
-        description: "Tell me where you're wearing this — I'll judge smarter 😎",
-        variant: "destructive"
-      });
+      setShowOccasionModal(true);
       return;
     }
 
@@ -417,8 +416,29 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
     }
   };
 
+  const handleBattleNavigation = () => {
+    if (onNavigateToBattle && result) {
+      onNavigateToBattle({
+        imageData: result.image_url,
+        occasion: selectedOccasion,
+        score: result.overall_score,
+        name: result.outfit_name
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full p-3 sm:p-4 space-y-3 sm:space-y-4 pb-safe">
+      <OutfitCheckOccasionModal
+        open={showOccasionModal}
+        onSelect={(occasion) => {
+          setSelectedOccasion(occasion);
+          // Trigger file input after selection
+          setTimeout(() => fileInputRef.current?.click(), 100);
+        }}
+        onClose={() => setShowOccasionModal(false)}
+      />
+      
       {scanning && uploadedImage && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-4 sm:space-y-6">
@@ -443,22 +463,6 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
 
       {!result && (
         <>
-          <div className="space-y-2">
-            <label className="text-xs sm:text-sm font-medium">Where are you heading?</label>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {occasions.map(occasion => (
-                <Badge
-                  key={occasion}
-                  variant={selectedOccasion === occasion ? "default" : "outline"}
-                  className="cursor-pointer text-[11px] sm:text-xs px-2 sm:px-3 py-1 min-h-[32px] active:scale-95"
-                  onClick={() => setSelectedOccasion(occasion)}
-                >
-                  {occasion}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
           <input
             ref={fileInputRef}
             type="file"
@@ -469,21 +473,9 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
           />
           <div 
             onClick={() => {
-              if (!selectedOccasion) {
-                toast({
-                  title: "Select Context First",
-                  description: "Tell me where you're wearing this — I'll judge smarter 😎",
-                  variant: "destructive"
-                });
-                return;
-              }
               if (!loading) fileInputRef.current?.click();
             }}
-            className={`glass-card rounded-2xl p-6 sm:p-8 border-2 border-dashed text-center space-y-3 sm:space-y-4 transition-all active:scale-[0.98] ${
-              selectedOccasion 
-                ? "border-accent/50 hover:border-accent cursor-pointer" 
-                : "border-border/30 opacity-60 cursor-not-allowed"
-            }`}
+            className="glass-card rounded-2xl p-6 sm:p-8 border-2 border-dashed text-center space-y-3 sm:space-y-4 transition-all active:scale-[0.98] border-accent/50 hover:border-accent cursor-pointer"
           >
             <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-accent/20 flex items-center justify-center">
               <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
@@ -665,6 +657,31 @@ const OutfitCheck = ({ onBack }: OutfitCheckProps) => {
               </Button>
             </div>
           </div>
+
+          {/* Battle Banner CTA */}
+          {onNavigateToBattle && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="glass-card rounded-2xl p-4 border-2 border-accent/30 bg-gradient-to-r from-accent/10 to-primary/10"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                    <Swords className="w-5 h-5 text-accent" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold">Ready to compete?</h4>
+                    <p className="text-xs text-muted-foreground">Take it to an Outfit Battle</p>
+                  </div>
+                </div>
+                <Button onClick={handleBattleNavigation} size="sm" className="min-h-[36px]">
+                  Battle →
+                </Button>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       )}
     </div>

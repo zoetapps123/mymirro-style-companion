@@ -29,9 +29,10 @@ interface BattleResult {
 
 interface OutfitBattleProps {
   onBack: () => void;
+  initialData?: any;
 }
 
-const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
+const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -437,7 +438,11 @@ const OutfitBattle = ({ onBack }: OutfitBattleProps) => {
               ))}
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Let's settle this fashion face-off 💅</h3>
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Let's settle this fashion face-off</h3>
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+              </div>
               {comparisonText && (
                 <motion.p 
                   key={comparisonText}

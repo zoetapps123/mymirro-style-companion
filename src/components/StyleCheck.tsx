@@ -9,15 +9,21 @@ type StyleCheckView = 'hub' | 'outfit-check' | 'outfit-battle';
 
 const StyleCheck = () => {
   const [currentView, setCurrentView] = useState<StyleCheckView>('hub');
+  const [battleData, setBattleData] = useState<any>(null);
+
+  const handleNavigateToBattle = (outfitData: any) => {
+    setBattleData(outfitData);
+    setCurrentView('outfit-battle');
+  };
 
   const renderView = () => {
     switch (currentView) {
       case 'hub':
         return <StyleCheckHub onNavigate={setCurrentView} />;
       case 'outfit-check':
-        return <OutfitCheck onBack={() => setCurrentView('hub')} />;
+        return <OutfitCheck onBack={() => setCurrentView('hub')} onNavigateToBattle={handleNavigateToBattle} />;
       case 'outfit-battle':
-        return <OutfitBattle onBack={() => setCurrentView('hub')} />;
+        return <OutfitBattle onBack={() => setCurrentView('hub')} initialData={battleData} />;
       default:
         return <StyleCheckHub onNavigate={setCurrentView} />;
     }
