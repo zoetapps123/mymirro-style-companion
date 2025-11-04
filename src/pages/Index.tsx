@@ -10,6 +10,7 @@ import WelcomeLanding from "@/components/WelcomeLanding";
 import PhoneAuth from "@/components/PhoneAuth";
 import TopAppBar from "@/components/TopAppBar";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
@@ -21,6 +22,9 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
+
+  // Initialize analytics tracking
+  const { trackCustom } = useAnalytics();
 
   useEffect(() => {
     checkAuthAndFlow();
@@ -165,6 +169,11 @@ const Index = () => {
         return <AICompanion />;
     }
   };
+
+  // Track tab changes
+  useEffect(() => {
+    trackCustom('tab_change', { tab: activeTab });
+  }, [activeTab, trackCustom]);
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">

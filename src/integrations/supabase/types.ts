@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_category: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          page_route: string
+          session_id: string
+          user_id: string
+          viewport_height: number | null
+          viewport_width: number | null
+        }
+        Insert: {
+          created_at?: string
+          event_category: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page_route: string
+          session_id: string
+          user_id: string
+          viewport_height?: number | null
+          viewport_width?: number | null
+        }
+        Update: {
+          created_at?: string
+          event_category?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page_route?: string
+          session_id?: string
+          user_id?: string
+          viewport_height?: number | null
+          viewport_width?: number | null
+        }
+        Relationships: []
+      }
       battles: {
         Row: {
           created_at: string
@@ -372,7 +411,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_analytics: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
