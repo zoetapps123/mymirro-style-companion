@@ -2,14 +2,30 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from 'react-router-dom';
 
+// In-memory fallback for iOS Private Mode
+let memorySessionId: string | null = null;
+
 // Generate a session ID that persists during the browser session
 const getSessionId = (): string => {
-  let sessionId = sessionStorage.getItem('analytics_session_id');
-  if (!sessionId) {
-    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    sessionStorage.setItem('analytics_session_id', sessionId);
+  try {
+    let sessionId = sessionStorage.getItem('analytics_session_id');
+    if (!sessionId) {
+      sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      try {
+        sessionStorage.setItem('analytics_session_id', sessionId);
+      } catch {
+        // Private mode - use memory fallback
+        memorySessionId = sessionId;
+      }
+    }
+    return sessionId;
+  } catch {
+    // sessionStorage not available - use memory fallback
+    if (!memorySessionId) {
+      memorySessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    }
+    return memorySessionId;
   }
-  return sessionId;
 };
 
 interface AnalyticsEvent {
@@ -25,7 +41,7 @@ export const useAnalytics = () => {
   const lastScrollPosition = useRef<number>(0);
   const scrollDebounceTimer = useRef<NodeJS.Timeout>();
 
-  // Track an event
+  // Track an event - never throw errors
   const trackEvent = useCallback(async ({ eventType, eventCategory, eventData }: AnalyticsEvent) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -42,7 +58,10 @@ export const useAnalytics = () => {
         viewport_height: window.innerHeight,
       });
     } catch (error) {
-      console.error('Analytics tracking error:', error);
+      // Silently fail - analytics should never break the app
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Analytics tracking error:', error);
+      }
     }
   }, [location.pathname]);
 
