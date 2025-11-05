@@ -237,8 +237,20 @@ export const cropCompositeImage = async (
 
           cellCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
-          // Optionally trim borders to remove internal grid lines
-          const trimmed = trimBordersOnCanvas(cellCanvas, { margin: 2, whiteThreshold: 240 });
+          // Add inset padding to avoid edge overlaps (shrink cell by 5% on each side)
+          const insetMargin = Math.max(5, Math.floor(Math.min(sw, sh) * 0.05));
+          const insetCanvas = document.createElement('canvas');
+          const insetW = Math.max(1, sw - insetMargin * 2);
+          const insetH = Math.max(1, sh - insetMargin * 2);
+          insetCanvas.width = insetW;
+          insetCanvas.height = insetH;
+          const insetCtx = insetCanvas.getContext('2d');
+          if (insetCtx) {
+            insetCtx.drawImage(cellCanvas, insetMargin, insetMargin, insetW, insetH, 0, 0, insetW, insetH);
+          }
+
+          // Trim borders to remove any remaining grid lines
+          const trimmed = trimBordersOnCanvas(insetCtx ? insetCanvas : cellCanvas, { margin: 3, whiteThreshold: 245 });
 
           trimmed.toBlob(
             (blob) => {

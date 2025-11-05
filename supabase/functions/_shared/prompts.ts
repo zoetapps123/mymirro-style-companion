@@ -174,13 +174,16 @@ IMAGE GENERATION REQUIREMENTS:
 - Extract each clothing item from the input image
 - Arrange all items in a clean grid (2-3 items per row)
 - Pure white background (#FFFFFF)
-- Each item centered in its grid cell with generous white padding around it
+- CRITICAL SPACING: Each item must be centered in its grid cell with LARGE white space padding (at least 20-30% of cell width/height as empty white space around EACH item)
+- Items MUST NOT touch or overlap - there must be visible white space separation between all items
 - Items should be front-facing, unfolded, and clearly visible
+- Each item should occupy only 60-70% of its grid cell, leaving 30-40% as white buffer space
 - Maintain true colors and fabric textures from the original image
 - Professional e-commerce photography quality
 - Soft even lighting, no harsh shadows
-- NO borders, NO frames, NO grid lines - only whitespace separation
+- NO borders, NO frames, NO grid lines - only pure white background
 - Equal-sized cells for visual consistency
+- Think of product catalog layout: items should be clearly separated, not touching
 
 The output must be a single generated image ready for display in a wardrobe app.`
 };
