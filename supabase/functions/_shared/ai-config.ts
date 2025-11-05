@@ -9,7 +9,8 @@ const MODEL_MAPPING: Record<string, string> = {
   'google/gemini-2.5-pro': 'gemini-2.0-flash-exp',
   'google/gemini-2.5-flash': 'gemini-2.0-flash-exp',
   'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash-image-preview': 'gemini-2.0-flash-exp',
+  'google/gemini-2.5-flash-image': 'gemini-2.5-flash-image-preview',
+  'google/gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image-preview',
 };
 
 /**
@@ -104,6 +105,7 @@ export async function callGeminiAPI(options: {
   tool_choice?: any;
   temperature?: number;
   max_tokens?: number;
+  modalities?: string[]; // Support for image generation
 }): Promise<any> {
   const apiKey = getAIApiKey();
   const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
@@ -123,6 +125,11 @@ export async function callGeminiAPI(options: {
     requestBody.tools = [{
       function_declarations: functionDeclarations
     }];
+  }
+  
+  // For image generation models, specify output modality
+  if (options.modalities && options.modalities.includes('image')) {
+    requestBody.generationConfig.responseModalities = ['image', 'text'];
   }
   
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -172,6 +179,27 @@ export async function callGeminiAPI(options: {
             function: {
               name: functionCall.functionCall.name,
               arguments: JSON.stringify(functionCall.functionCall.args)
+            }
+          }]
+        }
+      }]
+    };
+  }
+  
+  // Check for inline_data (generated images)
+  const imagePart = parts.find((p: any) => p.inline_data);
+  if (imagePart) {
+    const imageData = imagePart.inline_data;
+    const base64Image = `data:${imageData.mime_type};base64,${imageData.data}`;
+    return {
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: parts.find((p: any) => p.text)?.text || 'Image generated',
+          images: [{
+            type: 'image_url',
+            image_url: {
+              url: base64Image
             }
           }]
         }

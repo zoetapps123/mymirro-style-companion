@@ -27,19 +27,18 @@ serve(async (req) => {
 
     console.log('Completing clothing image:', { imageUrl, itemType, prompt: completionPrompt });
 
-    // Note: Gemini doesn't support image generation via modalities like Lovable AI Gateway
-    // For image generation, we'll need to use Imagen or similar, this is text-only response
+    // Use Gemini image generation for completing clothing items
     let data;
     try {
       data = await callGeminiAPI({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-image-preview",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: completionPrompt + "\n\nNote: Please provide a detailed description of the completed clothing item as Gemini API doesn't support direct image generation."
+                text: completionPrompt
               },
               {
                 type: "image_url",
@@ -49,7 +48,8 @@ serve(async (req) => {
               }
             ]
           }
-        ]
+        ],
+        modalities: ["image", "text"]
       });
     } catch (error: any) {
       if (error.message === 'RATE_LIMIT') {
@@ -69,9 +69,8 @@ serve(async (req) => {
     
     console.log('AI response received');
 
-    // Gemini returns text description, not actual images
-    const description = data.choices?.[0]?.message?.content;
-    const completedImageUrl = description; // Return description instead of image
+    // Extract generated image from Gemini response
+    const completedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url || imageUrl;
 
     if (!completedImageUrl) {
       console.error('Image extraction failed. Response structure:', {

@@ -22,40 +22,41 @@ export async function generateComposite(
     `${idx + 1}. ${item.name} (${item.category})`
   ).join('\n');
 
-  // Note: Gemini doesn't support image generation in the same way
-  // Return text description instead
-  let compositeData;
-  try {
-    compositeData = await callGeminiAPI({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: WARDROBE_PROMPTS.GENERATE_COMPOSITE(itemsList) + "\n\nNote: Describe how to arrange these items in a grid as direct image composition is not supported by Gemini API."
-            },
-            {
-              type: 'image_url',
-              image_url: { url: imageUrl }
-            }
-          ]
-        }
-      ]
-    });
-  } catch (error) {
-    console.error('Failed to generate composite description:', error);
-    throw new Error('Failed to generate composite image');
-  }
+    // Note: Gemini doesn't support image generation in the same way
+    // Return text description instead
+    let compositeData;
+    try {
+      compositeData = await callGeminiAPI({
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: WARDROBE_PROMPTS.GENERATE_COMPOSITE(itemsList)
+              },
+              {
+                type: 'image_url',
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        modalities: ['image', 'text']
+      });
+    } catch (error) {
+      console.error('Failed to generate composite:', error);
+      throw new Error('Failed to generate composite image');
+    }
   
   if (!compositeData || !compositeData.choices || compositeData.choices.length === 0) {
     console.error('Invalid composite response structure:', compositeData);
     throw new Error('Invalid response from composite image generation');
   }
   
-  // Return original image URL as Gemini doesn't support image composition
-  const compositeImageUrl = imageUrl; // Fallback to original image
+  // Extract generated image from response
+  const compositeImageUrl = compositeData.choices[0]?.message?.images?.[0]?.image_url?.url || imageUrl;
 
   console.log(`Successfully generated composite description with ${items.length} items`);
 
