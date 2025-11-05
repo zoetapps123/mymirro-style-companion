@@ -416,6 +416,65 @@ function floodFill(
   return { minX, maxX, minY, maxY, pixelCount };
 }
 
+/** Helper: luminance (perceptual grayscale) */
+function lum(r: number, g: number, b: number) {
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/** Compute a score for a region using edge density, variance and centrality */
+function computeRegionScore(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  region: { minX: number; maxX: number; minY: number; maxY: number }
+) {
+  const rx0 = Math.max(0, region.minX);
+  const ry0 = Math.max(0, region.minY);
+  const rx1 = Math.min(width - 1, region.maxX);
+  const ry1 = Math.min(height - 1, region.maxY);
+  const rw = Math.max(1, rx1 - rx0 + 1);
+  const rh = Math.max(1, ry1 - ry0 + 1);
+  const area = rw * rh;
+
+  // Sample grid step to keep it fast on large images
+  const step = Math.max(2, Math.floor(Math.min(rw, rh) / 80));
+  let samples = 0;
+  let sum = 0;
+  let sumSq = 0;
+  let edgeSum = 0;
+
+  for (let y = ry0 + 1; y < ry1; y += step) {
+    for (let x = rx0 + 1; x < rx1; x += step) {
+      const i = (y * width + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const L = lum(r, g, b);
+      sum += L;
+      sumSq += L * L;
+      // Simple gradient using right and bottom neighbors
+      const ir = (y * width + (x + 1)) * 4;
+      const ib = ((y + 1) * width + x) * 4;
+      const Lr = lum(data[ir], data[ir + 1], data[ir + 2]);
+      const Lb = lum(data[ib], data[ib + 1], data[ib + 2]);
+      edgeSum += Math.abs(L - Lr) + Math.abs(L - Lb);
+      samples++;
+    }
+  }
+  const mean = samples ? sum / samples : 0;
+  const variance = samples ? Math.max(0, sumSq / samples - mean * mean) : 0;
+  const edgeDensity = samples ? edgeSum / (samples * 255) : 0; // 0..~2
+
+  // Centrality weight (favor regions near center)
+  const cx = (rx0 + rx1) / 2;
+  const cy = (ry0 + ry1) / 2;
+  const dx = Math.abs(cx - width / 2) / (width / 2);
+  const dy = Math.abs(cy - height / 2) / (height / 2);
+  const centrality = 1 - Math.min(1, Math.hypot(dx, dy));
+
+  // Final score
+  const score = Math.log(area + 1) * (0.6 + 1.2 * edgeDensity + 0.8 * (variance / 255) + 0.6 * centrality);
+  return { score, edgeDensity, variance, centrality, area };
+}
+
 /**
  * Advanced smart cropping using computer vision techniques
  */
@@ -448,19 +507,45 @@ export const advancedSmartCrop = (
         // Find all non-white regions (potential items)
         const regions = findItemRegions(data, canvas.width, canvas.height);
         
-        // Sort regions by area (largest first) and position
-        regions.sort((a, b) => {
-          const areaA = (a.maxX - a.minX) * (a.maxY - a.minY);
-          const areaB = (b.maxX - b.minX) * (b.maxY - b.minY);
-          if (Math.abs(areaA - areaB) < 1000) {
-            // Similar areas, sort by position (top-left first)
-            return (a.minY * canvas.width + a.minX) - (b.minY * canvas.width + b.minX);
-          }
-          return areaB - areaA;
-        });
+        // Score regions by visual complexity and centrality to avoid picking flat background
+        const scored = regions
+          .map((r) => ({
+            region: r,
+            m: computeRegionScore(data, canvas.width, canvas.height, r),
+          }))
+          // Filter out tiny or very low-detail regions (e.g., flat floor/background)
+          .filter((o) => o.m.area > (canvas.width * canvas.height) * 0.03 && o.m.edgeDensity > 0.03);
+
+        if (scored.length === 0) {
+          // Simple grid fallback
+          const cols = Math.ceil(Math.sqrt(totalItems));
+          const rows = Math.ceil(totalItems / cols);
+          const cellWidth = canvas.width / cols;
+          const cellHeight = canvas.height / rows;
+          const col = itemIndex % cols;
+          const row = Math.floor(itemIndex / cols);
+          const padding = Math.min(cellWidth, cellHeight) * 0.08;
+          const cropX = Math.floor(col * cellWidth + padding);
+          const cropY = Math.floor(row * cellHeight + padding);
+          const cropWidth = Math.floor(cellWidth - padding * 2);
+          const cropHeight = Math.floor(cellHeight - padding * 2);
+          const fallbackCanvas = document.createElement('canvas');
+          const fctx = fallbackCanvas.getContext('2d');
+          if (!fctx) { resolve(new Blob()); return; }
+          fallbackCanvas.width = cropWidth;
+          fallbackCanvas.height = cropHeight;
+          fctx.fillStyle = '#FFFFFF';
+          fctx.fillRect(0, 0, cropWidth, cropHeight);
+          fctx.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+          fallbackCanvas.toBlob((blob) => { if (blob) resolve(blob); else resolve(new Blob()); }, 'image/png', 1.0);
+          return;
+        }
+
+        scored.sort((a, b) => b.m.score - a.m.score);
+        const regionsSorted = scored.map(s => s.region);
         
         // Select the region for this item
-        if (itemIndex >= regions.length) {
+        if (itemIndex >= regionsSorted.length) {
           // Fallback to grid division if not enough regions found
           const cols = Math.ceil(Math.sqrt(totalItems));
           const rows = Math.ceil(totalItems / cols);
@@ -503,7 +588,7 @@ export const advancedSmartCrop = (
           return;
         }
         
-        const region = regions[itemIndex];
+        const region = regionsSorted[itemIndex];
         
         // Add generous padding around the detected region to avoid cutting off items
         const padding = Math.min(canvas.width, canvas.height) * 0.05; // 5% of the smaller dimension
