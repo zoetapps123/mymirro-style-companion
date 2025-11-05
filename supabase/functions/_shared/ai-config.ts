@@ -119,6 +119,68 @@ function convertToolsToFunctionDeclarations(tools: any[]): any[] {
 }
 
 /**
+ * Make a streaming request to Gemini API
+ */
+export async function callGeminiAPIStreaming(options: {
+  model?: string;
+  messages: any[];
+  tools?: any[];
+  temperature?: number;
+  max_tokens?: number;
+}): Promise<Response> {
+  const apiKey = getAIApiKey();
+  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
+  
+  const contents = await convertMessagesToContents(options.messages);
+  const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
+  
+  const requestBody: any = {
+    contents,
+    generationConfig: {
+      temperature: options.temperature ?? 0.7,
+      maxOutputTokens: options.max_tokens ?? 2048,
+    }
+  };
+  
+  if (functionDeclarations && functionDeclarations.length > 0) {
+    requestBody.tools = [{
+      function_declarations: functionDeclarations
+    }];
+  }
+  
+  console.log('Gemini API streaming request:', {
+    model,
+    contentsLength: contents.length,
+    hasFunctions: !!functionDeclarations?.length
+  });
+  
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+  
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API error:', response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error('RATE_LIMIT');
+    }
+    if (response.status === 402 || response.status === 403) {
+      throw new Error('PAYMENT_REQUIRED');
+    }
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+  
+  return response;
+}
+
+/**
  * Make a request to Gemini API with OpenAI-compatible input
  */
 export async function callGeminiAPI(options: {
