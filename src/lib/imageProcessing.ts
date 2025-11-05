@@ -279,9 +279,9 @@ function findItemRegions(data: Uint8ClampedArray, width: number, height: number)
   const visited = new Array(width * height).fill(false);
   const regions = [];
   
-  // Threshold for non-white pixels (allowing some tolerance)
+  // More lenient threshold for non-white pixels to avoid splitting connected items
   const isNonWhite = (r: number, g: number, b: number) => {
-    return r < 240 || g < 240 || b < 240;
+    return r < 250 || g < 250 || b < 250;
   };
   
   for (let y = 0; y < height; y++) {
@@ -307,7 +307,64 @@ function findItemRegions(data: Uint8ClampedArray, width: number, height: number)
     }
   }
   
-  return regions;
+  // Merge nearby regions that are likely part of the same item (e.g., full outfit)
+  const mergedRegions = mergeNearbyRegions(regions, width, height);
+  
+  return mergedRegions;
+}
+
+/**
+ * Merge regions that are vertically or horizontally close to each other
+ * This helps avoid splitting full-body outfits into separate pieces
+ */
+function mergeNearbyRegions(regions: any[], width: number, height: number) {
+  if (regions.length <= 1) return regions;
+  
+  const merged = [];
+  const used = new Set<number>();
+  
+  for (let i = 0; i < regions.length; i++) {
+    if (used.has(i)) continue;
+    
+    const region = regions[i];
+    let minX = region.minX;
+    let maxX = region.maxX;
+    let minY = region.minY;
+    let maxY = region.maxY;
+    let pixelCount = region.pixelCount;
+    
+    // Find regions that should be merged with this one
+    for (let j = i + 1; j < regions.length; j++) {
+      if (used.has(j)) continue;
+      
+      const other = regions[j];
+      
+      // Check if regions are vertically aligned (same outfit, top and bottom)
+      const horizontalOverlap = !(maxX < other.minX || minX > other.maxX);
+      const verticalGap = Math.min(Math.abs(maxY - other.minY), Math.abs(other.maxY - minY));
+      const verticalClose = verticalGap < height * 0.15; // Within 15% of image height
+      
+      // Check if regions are horizontally aligned (accessories, etc.)
+      const verticalOverlap = !(maxY < other.minY || minY > other.maxY);
+      const horizontalGap = Math.min(Math.abs(maxX - other.minX), Math.abs(other.maxX - minX));
+      const horizontalClose = horizontalGap < width * 0.15; // Within 15% of image width
+      
+      // Merge if regions are close and aligned
+      if ((horizontalOverlap && verticalClose) || (verticalOverlap && horizontalClose)) {
+        minX = Math.min(minX, other.minX);
+        maxX = Math.max(maxX, other.maxX);
+        minY = Math.min(minY, other.minY);
+        maxY = Math.max(maxY, other.maxY);
+        pixelCount += other.pixelCount;
+        used.add(j);
+      }
+    }
+    
+    merged.push({ minX, maxX, minY, maxY, pixelCount });
+    used.add(i);
+  }
+  
+  return merged;
 }
 
 /**
@@ -448,8 +505,8 @@ export const advancedSmartCrop = (
         
         const region = regions[itemIndex];
         
-        // Add padding around the detected region
-        const padding = 20;
+        // Add generous padding around the detected region to avoid cutting off items
+        const padding = Math.min(canvas.width, canvas.height) * 0.05; // 5% of the smaller dimension
         const cropX = Math.max(0, region.minX - padding);
         const cropY = Math.max(0, region.minY - padding);
         const cropWidth = Math.min(canvas.width - cropX, region.maxX - region.minX + padding * 2);
