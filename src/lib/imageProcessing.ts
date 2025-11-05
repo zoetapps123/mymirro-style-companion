@@ -85,6 +85,135 @@ function trimBordersOnCanvas(
   return out;
 }
 
+// Robust background-aware trim using border flood-fill
+function smartTrimCanvas(
+  sourceCanvas: HTMLCanvasElement,
+  options: { margin?: number; bgTolerance?: number; dilate?: number } = {}
+): HTMLCanvasElement {
+  const margin = options.margin ?? 3;
+  const tol = options.bgTolerance ?? 32; // RGB Manhattan distance to consider background
+  const dilate = options.dilate ?? 2; // expand final bounds a bit to avoid cutting edges
+
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  const ctx = sourceCanvas.getContext('2d');
+  if (!ctx) return sourceCanvas;
+
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  // Sample background color from outer ring (avoid single outliers)
+  let rSum = 0, gSum = 0, bSum = 0, count = 0;
+  const sample = (x: number, y: number) => {
+    const i = (y * w + x) * 4;
+    const a = data[i + 3];
+    if (a < 10) return;
+    rSum += data[i];
+    gSum += data[i + 1];
+    bSum += data[i + 2];
+    count++;
+  };
+  const ring = Math.max(1, Math.floor(Math.min(w, h) * 0.01));
+  for (let x = 0; x < w; x++) {
+    for (let t = 0; t < ring; t++) {
+      sample(x, t);
+      sample(x, h - 1 - t);
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let t = 0; t < ring; t++) {
+      sample(t, y);
+      sample(w - 1 - t, y);
+    }
+  }
+  if (count === 0) return sourceCanvas;
+  const bgR = Math.round(rSum / count), bgG = Math.round(gSum / count), bgB = Math.round(bSum / count);
+  const isBg = (r: number, g: number, b: number, a: number) => {
+    if (a < 10) return true;
+    const d = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
+    return d <= tol;
+  };
+
+  // Flood fill from borders to mark background-connected pixels
+  const visited = new Uint8Array(w * h);
+  const stack: number[] = [];
+  const pushIfBg = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x;
+    if (visited[idx]) return;
+    const i = (idx << 2);
+    if (isBg(data[i], data[i + 1], data[i + 2], data[i + 3])) {
+      visited[idx] = 1;
+      stack.push(x, y);
+    }
+  };
+  for (let x = 0; x < w; x++) {
+    pushIfBg(x, 0);
+    pushIfBg(x, h - 1);
+  }
+  for (let y = 0; y < h; y++) {
+    pushIfBg(0, y);
+    pushIfBg(w - 1, y);
+  }
+  while (stack.length) {
+    const y = stack.pop() as number;
+    const x = stack.pop() as number;
+    const neigh = [x + 1, y, x - 1, y, x, y + 1, x, y - 1];
+    for (let k = 0; k < neigh.length; k += 2) {
+      const nx = neigh[k], ny = neigh[k + 1];
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const nidx = ny * w + nx;
+      if (visited[nidx]) continue;
+      const i = (nidx << 2);
+      if (isBg(data[i], data[i + 1], data[i + 2], data[i + 3])) {
+        visited[nidx] = 1;
+        stack.push(nx, ny);
+      }
+    }
+  }
+
+  // Find content bounds (pixels not marked as background)
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+      const i = (idx << 2);
+      if (data[i + 3] < 10) continue; // ignore fully transparent
+      const d = Math.abs(data[i] - bgR) + Math.abs(data[i + 1] - bgG) + Math.abs(data[i + 2] - bgB);
+      if (d > Math.max(10, tol * 0.6)) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    // Fallback to simple trim
+    return trimBordersOnCanvas(sourceCanvas, { margin });
+  }
+
+  // Apply small dilation and margin
+  minX = Math.max(0, minX - (margin + dilate));
+  minY = Math.max(0, minY - (margin + dilate));
+  maxX = Math.min(w - 1, maxX + (margin + dilate));
+  maxY = Math.min(h - 1, maxY + (margin + dilate));
+
+  const outW = Math.max(1, maxX - minX + 1);
+  const outH = Math.max(1, maxY - minY + 1);
+  const out = document.createElement('canvas');
+  out.width = outW;
+  out.height = outH;
+  const octx = out.getContext('2d');
+  if (!octx) return sourceCanvas;
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = 'high';
+  octx.drawImage(sourceCanvas, minX, minY, outW, outH, 0, 0, outW, outH);
+  return out;
+}
+
 /**
  * Crops images from the original source using bounding box coordinates
  * @param imageUrl - Original image URL
@@ -161,8 +290,8 @@ export const cropImageWithBoundingBoxes = async (
 
         // Expand a small margin around bbox to avoid cutting edges, then trim precisely
         // Use up to 2% of image size (max 12px) as expansion
-        const expandX = Math.round(Math.min(img.width * 0.02, 12));
-        const expandY = Math.round(Math.min(img.height * 0.02, 12));
+        const expandX = Math.round(Math.min(pixelWidth * 0.04, 16));
+        const expandY = Math.round(Math.min(pixelHeight * 0.04, 16));
 
         const expandedCanvas = document.createElement('canvas');
         expandedCanvas.width = Math.max(1, pixelWidth + expandX * 2);
@@ -184,8 +313,8 @@ export const cropImageWithBoundingBoxes = async (
           );
         }
 
-        // Trim borders for clean result (remove white and light gray lines)
-        const trimmed = trimBordersOnCanvas(ectx ? expandedCanvas : canvas, { margin: 3, whiteThreshold: 250 });
+        // Smart trim using background flood-fill to remove frames without cutting item
+        const trimmed = smartTrimCanvas(ectx ? expandedCanvas : canvas, { margin: 4, bgTolerance: 40, dilate: 3 });
 
         trimmed.toBlob(
           (blob) => {
@@ -374,8 +503,8 @@ export const cropCompositeImage = async (
             insetCtx.drawImage(cellCanvas, insetMargin, insetMargin, insetW, insetH, 0, 0, insetW, insetH);
           }
 
-          // Trim borders to remove any remaining grid lines
-          const trimmed = trimBordersOnCanvas(insetCtx ? insetCanvas : cellCanvas, { margin: 3, whiteThreshold: 245 });
+          // Smart trim to remove grid lines while preserving item edges
+          const trimmed = smartTrimCanvas(insetCtx ? insetCanvas : cellCanvas, { margin: 4, bgTolerance: 38, dilate: 2 });
 
           trimmed.toBlob(
             (blob) => {
@@ -800,12 +929,8 @@ export const trimImageBorders = async (blob: Blob): Promise<Blob> => {
       
       ctx.drawImage(img, 0, 0);
       
-      // Trim borders - more aggressive to remove grey frames
-      const trimmed = trimBordersOnCanvas(canvas, {
-        whiteThreshold: 200, // Catch light grey/beige backgrounds
-        blackThreshold: 60, // Catch dark grey backgrounds
-        margin: 2, // Minimal margin to avoid grey borders
-      });
+      // Smart trim - background-aware, safer for soft shadows
+      const trimmed = smartTrimCanvas(canvas, { margin: 3, bgTolerance: 44, dilate: 2 });
       
       // Convert to blob
       trimmed.toBlob((resultBlob) => {
