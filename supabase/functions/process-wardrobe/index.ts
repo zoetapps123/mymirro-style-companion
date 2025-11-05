@@ -54,17 +54,16 @@ serve(async (req) => {
     // STEP 0: Image Validation
     const validationResult = await validateImage(actualImageUrl, apiKey);
 
-    // STEP 1: Item Detection
+    // STEP 1: Item Detection (with bounding boxes)
     const detectedItems = await detectItems(actualImageUrl, apiKey);
 
-    // STEP 2: Generate Composite Image
-    const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
-
+    // STEP 2: Skip composite generation - use original image with bbox cropping
     // Cache the complete result
     const processResult = {
       items: detectedItems,
-      compositeImageUrl: compositeResult.compositeImageUrl,
-      gridLayout: compositeResult.gridLayout,
+      originalImageUrl: actualImageUrl, // Use original image for bbox cropping
+      compositeImageUrl: actualImageUrl, // Backwards compatibility
+      gridLayout: null, // Not needed with bbox approach
       contentType: validationResult.contentType
     };
     await setCachedResult(cacheKey, processResult);

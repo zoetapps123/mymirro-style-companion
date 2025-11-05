@@ -191,12 +191,22 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           }
 
           if (processData?.items && processData?.compositeImageUrl) {
-            // Pre-crop all items using the backend grid layout to preserve order-to-label mapping
-            const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
-            const crops = await cropCompositeImage(
-              processData.compositeImageUrl,
-              processData.gridLayout || { rows: Math.ceil(Math.sqrt(processData.items.length)), columns: Math.ceil((processData.items.length + Math.ceil(Math.sqrt(processData.items.length)) - 1) / Math.ceil(Math.sqrt(processData.items.length))), itemCount: processData.items.length }
-            );
+            // Import and use bbox or grid-based cropping
+            const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+            
+            const hasBboxes = processData.items.every((item: any) => item.bbox);
+            let crops: Blob[];
+            
+            if (hasBboxes) {
+              console.log('Using bounding box cropping');
+              crops = await cropImageWithBoundingBoxes(processData.compositeImageUrl, processData.items);
+            } else {
+              console.log('Falling back to grid cropping');
+              crops = await cropCompositeImage(
+                processData.compositeImageUrl,
+                processData.gridLayout || { rows: Math.ceil(Math.sqrt(processData.items.length)), columns: Math.ceil((processData.items.length + Math.ceil(Math.sqrt(processData.items.length)) - 1) / Math.ceil(Math.sqrt(processData.items.length))), itemCount: processData.items.length }
+              );
+            }
 
             for (let idx = 0; idx < processData.items.length; idx++) {
               const item = processData.items[idx];
@@ -213,7 +223,12 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              const croppedBlob = crops[idx] || crops[crops.length - 1];
+              const croppedBlob = crops[idx];
+              if (!croppedBlob) {
+                console.warn(`No crop for item ${idx}`);
+                continue;
+              }
+              
               const finalBlob = await trimImageBorders(croppedBlob);
 
               // Upload final processed image

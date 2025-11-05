@@ -80,6 +80,86 @@ function trimBordersOnCanvas(
 }
 
 /**
+ * Crops images from the original source using bounding box coordinates
+ * @param imageUrl - Original image URL
+ * @param items - Array of items with bbox coordinates
+ * @returns Array of cropped image blobs
+ */
+export const cropImageWithBoundingBoxes = async (
+  imageUrl: string,
+  items: Array<{ bbox?: { x: number; y: number; width: number; height: number } }>
+): Promise<Blob[]> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      const croppedBlobs: Blob[] = [];
+      let processedCount = 0;
+
+      const finalizeIfDone = () => {
+        if (processedCount === items.length) resolve(croppedBlobs);
+      };
+
+      items.forEach((item, idx) => {
+        if (!item.bbox) {
+          console.warn(`Item ${idx} missing bbox, skipping`);
+          processedCount++;
+          finalizeIfDone();
+          return;
+        }
+
+        const { x, y, width, height } = item.bbox;
+        
+        // Convert normalized coordinates to pixel values
+        const pixelX = Math.floor(x * img.width);
+        const pixelY = Math.floor(y * img.height);
+        const pixelWidth = Math.ceil(width * img.width);
+        const pixelHeight = Math.ceil(height * img.height);
+
+        // Create canvas for this crop
+        const canvas = document.createElement('canvas');
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          processedCount++;
+          finalizeIfDone();
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Draw the cropped region
+        ctx.drawImage(
+          img,
+          pixelX, pixelY, pixelWidth, pixelHeight,
+          0, 0, pixelWidth, pixelHeight
+        );
+
+        // Trim borders for clean result
+        const trimmed = trimBordersOnCanvas(canvas, { margin: 2, whiteThreshold: 245 });
+
+        trimmed.toBlob(
+          (blob) => {
+            if (blob) croppedBlobs.push(blob);
+            processedCount++;
+            finalizeIfDone();
+          },
+          'image/png',
+          1.0
+        );
+      });
+    };
+
+    img.onerror = () => reject(new Error('Failed to load image for bbox cropping'));
+    img.src = imageUrl;
+  });
+};
+
+/**
  * Crops individual items from a composite image grid
  * - Also auto-trims white and black borders to remove any frames/margins
  * @param compositeImageUrl - Base64 data URL of the composite image

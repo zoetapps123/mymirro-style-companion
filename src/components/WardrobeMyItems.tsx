@@ -208,12 +208,22 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      // Pre-crop all items using grid layout for accurate mapping
-      const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
-      const crops = await cropCompositeImage(
-        data.compositeImageUrl,
-        data.gridLayout || { rows: Math.ceil(Math.sqrt(itemsDetected.length)), columns: Math.ceil((itemsDetected.length + Math.ceil(Math.sqrt(itemsDetected.length)) - 1) / Math.ceil(Math.sqrt(itemsDetected.length))), itemCount: itemsDetected.length }
-      );
+      // Import and use bbox or grid-based cropping
+      const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+      
+      const hasBboxes = itemsDetected.every(item => item.bbox);
+      let crops: Blob[];
+      
+      if (hasBboxes) {
+        console.log('Using bounding box cropping for background processing');
+        crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
+      } else {
+        console.log('Falling back to grid cropping for background processing');
+        crops = await cropCompositeImage(
+          data.compositeImageUrl,
+          data.gridLayout || { rows: Math.ceil(Math.sqrt(itemsDetected.length)), columns: Math.ceil((itemsDetected.length + Math.ceil(Math.sqrt(itemsDetected.length)) - 1) / Math.ceil(Math.sqrt(itemsDetected.length))), itemCount: itemsDetected.length }
+        );
+      }
 
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
@@ -232,7 +242,13 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        const croppedBlob = crops[idx] || crops[crops.length - 1];
+        const croppedBlob = crops[idx];
+        if (!croppedBlob) {
+          console.warn(`No crop for item ${idx}`);
+          skippedCount++;
+          continue;
+        }
+        
         const finalBlob = await trimImageBorders(croppedBlob);
 
         // Upload cropped image

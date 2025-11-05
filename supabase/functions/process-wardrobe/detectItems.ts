@@ -9,6 +9,12 @@ export interface ClothingItem {
   texture: string;
   pattern: string;
   style_notes: string;
+  bbox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface DetectionResult {
@@ -90,9 +96,20 @@ export async function detectItems(
                     style_notes: {
                       type: 'string',
                       description: 'Cut and unique features'
+                    },
+                    bbox: {
+                      type: 'object',
+                      description: 'Bounding box coordinates in the original image (normalized 0-1)',
+                      properties: {
+                        x: { type: 'number', description: 'Left edge (0-1)' },
+                        y: { type: 'number', description: 'Top edge (0-1)' },
+                        width: { type: 'number', description: 'Width (0-1)' },
+                        height: { type: 'number', description: 'Height (0-1)' }
+                      },
+                      required: ['x', 'y', 'width', 'height']
                     }
                   },
-                  required: ['name', 'category', 'color', 'fabric', 'texture', 'pattern', 'style_notes']
+                  required: ['name', 'category', 'color', 'fabric', 'texture', 'pattern', 'style_notes', 'bbox']
                 }
               },
               needsReupload: {
