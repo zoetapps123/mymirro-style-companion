@@ -5,6 +5,7 @@ import { validateImage } from './validateImage.ts';
 import { detectItems } from './detectItems.ts';
 import { generateComposite } from './generateComposite.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
+import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,20 @@ serve(async (req) => {
     }
     console.log('Processing image...');
 
+    // Check cache for wardrobe processing
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_process', imageUrl: actualImageUrl });
+    const cachedResult = await getCachedResult(cacheKey);
+    if (cachedResult) {
+      console.log('Returning cached wardrobe processing result');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          ...cachedResult
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // STEP 0: Image Validation
     const validationResult = await validateImage(actualImageUrl, apiKey);
 
@@ -45,13 +60,19 @@ serve(async (req) => {
     // STEP 2: Generate Composite Image
     const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
 
+    // Cache the complete result
+    const processResult = {
+      items: detectedItems,
+      compositeImageUrl: compositeResult.compositeImageUrl,
+      gridLayout: compositeResult.gridLayout,
+      contentType: validationResult.contentType
+    };
+    await setCachedResult(cacheKey, processResult);
+
     return new Response(
       JSON.stringify({
         success: true,
-        items: detectedItems,
-        compositeImageUrl: compositeResult.compositeImageUrl,
-        gridLayout: compositeResult.gridLayout,
-        contentType: validationResult.contentType
+        ...processResult
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

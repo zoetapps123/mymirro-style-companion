@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
+import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,6 +49,17 @@ serve(async (req) => {
     }
 
     console.log('Scoring outfit...');
+
+    // Check cache first
+    const cacheKey = await generateCacheKey({ type: 'outfit_score', imageData, occasion });
+    const cachedScore = await getCachedResult(cacheKey);
+    if (cachedScore) {
+      console.log('Returning cached outfit score');
+      return new Response(
+        JSON.stringify(cachedScore),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Timeout + abort for robustness
     const controller = new AbortController();
@@ -168,6 +180,9 @@ serve(async (req) => {
     if (!scores) {
       throw new Error('Failed to score outfit');
     }
+
+    // Cache the result
+    await setCachedResult(cacheKey, scores);
 
     return new Response(
       JSON.stringify(scores),
