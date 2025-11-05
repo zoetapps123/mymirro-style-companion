@@ -461,13 +461,19 @@ const AICompanion = () => {
           console.error('Text fallback failed:', e);
         }
 
-        setMessages(prev => {
-          const updated = prev.map(m =>
-            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
-          );
-          persistMessages(updated);
-          return updated;
-        });
+        if (!assistantMessage) {
+          // No content received at all – show banner and remove empty assistant bubble
+          setMessages(prev => prev.filter(m => m.id !== assistantMsgId));
+          setChatError("The AI didn't send a response. Please try again.");
+        } else {
+          setMessages(prev => {
+            const updated = prev.map(m =>
+              m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+            );
+            persistMessages(updated);
+            return updated;
+          });
+        }
       }
 
       trackCustom("reply_delivered");

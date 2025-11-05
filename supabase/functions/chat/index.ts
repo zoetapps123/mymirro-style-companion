@@ -170,8 +170,10 @@ serve(async (req) => {
       async start(controller) {
         const encoder = new TextEncoder();
         try {
+          console.log('Chat: starting Gemini stream');
           const reader = geminiResponse.body?.getReader();
           if (!reader) {
+            console.log('Chat: no response body from Gemini');
             controller.close();
             return;
           }
@@ -210,6 +212,7 @@ serve(async (req) => {
                         }
                       }]
                     };
+                    console.log('Chat: delta length', (textPart.text || '').length);
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
                   }
                   
