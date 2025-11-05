@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
+import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,19 @@ serve(async (req) => {
 
     console.log(`Scoring battle with ${participants.length} participants...`);
 
+    // Generate cache key based on participant images
+    const cacheKey = await generateCacheKey({ participants: participants.map(p => ({ name: p.name, imageData: p.imageData })) });
+    
+    // Check cache first
+    const cachedResult = await getCachedResult<any>(cacheKey);
+    if (cachedResult) {
+      console.log('Battle result found in cache');
+      return new Response(
+        JSON.stringify(cachedResult),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Timeout + abort for robustness
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
@@ -67,7 +81,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
+          model: 'google/gemini-2.5-flash',
           messages: [
             {
               role: 'user',
@@ -163,6 +177,9 @@ serve(async (req) => {
 
     // Sort by rank to ensure proper ordering
     battleResults.results.sort((a: any, b: any) => a.rank - b.rank);
+
+    // Cache the result for 24 hours
+    await setCachedResult(cacheKey, battleResults);
 
     return new Response(
       JSON.stringify(battleResults),
