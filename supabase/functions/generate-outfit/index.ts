@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 import { OUTFIT_GENERATION_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
+import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,6 +50,26 @@ serve(async (req) => {
     }
 
     console.log('Generating outfits:', { generationType, occasion, style, anchorItem: anchorItem?.name });
+
+    // Check cache first
+    const itemIds = wardrobeItems?.map((i: any) => i.id).sort() || [];
+    const cacheKey = await generateCacheKey({ 
+      type: 'outfit_generation', 
+      generationType, 
+      occasion, 
+      style, 
+      anchorItemId: anchorItem?.id,
+      itemIds 
+    });
+    
+    const cachedOutfits = await getCachedResult(cacheKey);
+    if (cachedOutfits) {
+      console.log('Returning cached outfit combinations');
+      return new Response(
+        JSON.stringify({ success: true, outfits: cachedOutfits }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Step 1: Generate outfit combinations
     const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation);
@@ -154,6 +175,9 @@ serve(async (req) => {
         style_tag: outfit.styleTag
       };
     });
+
+    // Cache the result
+    await setCachedResult(cacheKey, outfitsWithItems);
 
     return new Response(
       JSON.stringify({

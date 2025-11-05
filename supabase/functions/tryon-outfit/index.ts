@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
 import { IMAGE_PROMPTS } from '../_shared/prompts.ts';
+import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,17 @@ serve(async (req) => {
     const apiKey = getAIApiKey();
 
     console.log('Processing virtual try-on...');
+
+    // Check cache first
+    const cacheKey = await generateCacheKey({ type: 'tryon', userImage, outfitItems });
+    const cachedResult = await getCachedResult(cacheKey);
+    if (cachedResult) {
+      console.log('Returning cached try-on result');
+      return new Response(
+        JSON.stringify(cachedResult),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Validate user image quality first
     const validationPrompt = IMAGE_PROMPTS.VALIDATE_TRYON_IMAGE;
@@ -110,11 +122,16 @@ serve(async (req) => {
       throw new Error('Failed to generate try-on image');
     }
 
+    const result = {
+      renderUrl: renderedImage,
+      status: 'completed'
+    };
+
+    // Cache the result
+    await setCachedResult(cacheKey, result);
+
     return new Response(
-      JSON.stringify({
-        renderUrl: renderedImage,
-        status: 'completed'
-      }),
+      JSON.stringify(result),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
