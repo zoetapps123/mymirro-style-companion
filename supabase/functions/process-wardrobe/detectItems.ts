@@ -17,6 +17,14 @@ export interface DetectionResult {
   reuploadReason?: string;
 }
 
+function stripMarkdown(text: string): string {
+  try {
+    return text.replace(/```json|```/gi, '').trim();
+  } catch {
+    return text;
+  }
+}
+
 export async function detectItems(
   imageUrl: string,
   apiKey: string
@@ -108,14 +116,31 @@ export async function detectItems(
   }
   console.log('Detection response structure:', JSON.stringify(detectionData, null, 2));
   
-  const detectionArgs = detectionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!detectionArgs) {
-    console.error('Invalid detection response:', detectionData);
-    throw new Error('Invalid detection response from AI');
+const toolArgs = detectionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+let detectionResult: DetectionResult | null = null;
+
+if (toolArgs) {
+  detectionResult = JSON.parse(toolArgs);
+} else {
+  const rawContent = detectionData?.choices?.[0]?.message?.content;
+  if (typeof rawContent === 'string' && rawContent.trim()) {
+    const stripped = stripMarkdown(rawContent);
+    try {
+      detectionResult = JSON.parse(stripped);
+      console.log('Parsed detection result from content fallback');
+    } catch (e) {
+      console.error('Fallback JSON parse failed:', e);
+      console.error('Raw content:', rawContent);
+    }
   }
-  
-  const detectionResult: DetectionResult = JSON.parse(detectionArgs);
-  console.log('Detected items:', detectionResult.items.length);
+}
+
+if (!detectionResult?.items || !Array.isArray(detectionResult.items)) {
+  console.error('Invalid detection response:', detectionData);
+  throw new Error('Invalid detection response from AI');
+}
+
+console.log('Detected items:', detectionResult.items.length);
 
   if (detectionResult.needsReupload) {
     throw new Error(detectionResult.reuploadReason || 'Image quality issue detected');
