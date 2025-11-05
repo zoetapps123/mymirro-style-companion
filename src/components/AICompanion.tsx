@@ -643,6 +643,47 @@ const AICompanion = () => {
               </div>
             </div>
           ))}
+          
+          {/* Typing Indicator */}
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] sm:max-w-[80%]">
+                <div className="rounded-2xl px-4 py-3 bg-muted/50 border border-border">
+                  <div className="flex gap-1.5">
+                    <motion.div
+                      className="w-2 h-2 bg-foreground/60 rounded-full"
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 bg-foreground/60 rounded-full"
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 0.2
+                      }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 bg-foreground/60 rounded-full"
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 0.4
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </ScrollArea>
 
