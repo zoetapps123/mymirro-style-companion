@@ -195,6 +195,90 @@ function smartTrimCanvas(
     return trimBordersOnCanvas(sourceCanvas, { margin });
   }
 
+  // Optional: isolate largest foreground component to drop inner frames
+  {
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    const compVisited = new Uint8Array(bw * bh);
+    const isContent = (x: number, y: number) => {
+      const gx = minX + x;
+      const gy = minY + y;
+      const idx = gy * w + gx;
+      if (idx < 0 || idx >= w * h) return false;
+      if (visited[idx]) return false; // background
+      const i = (idx << 2);
+      const d = Math.abs(data[i] - bgR) + Math.abs(data[i + 1] - bgG) + Math.abs(data[i + 2] - bgB);
+      return d > Math.max(10, tol * 0.6);
+    };
+
+    // Morphological open (erode then dilate) once to remove thin frame lines
+    const mask = new Uint8Array(bw * bh);
+    for (let y = 0; y < bh; y++) {
+      for (let x = 0; x < bw; x++) mask[y * bw + x] = isContent(x, y) ? 1 : 0;
+    }
+    const eroded = new Uint8Array(bw * bh);
+    for (let y = 1; y < bh - 1; y++) {
+      for (let x = 1; x < bw - 1; x++) {
+        let ok = 1;
+        for (let yy = -1; yy <= 1 && ok; yy++)
+          for (let xx = -1; xx <= 1 && ok; xx++)
+            if (!mask[(y + yy) * bw + (x + xx)]) ok = 0;
+        eroded[y * bw + x] = ok;
+      }
+    }
+    const opened = new Uint8Array(bw * bh);
+    for (let y = 1; y < bh - 1; y++) {
+      for (let x = 1; x < bw - 1; x++) {
+        let any = 0;
+        for (let yy = -1; yy <= 1 && !any; yy++)
+          for (let xx = -1; xx <= 1 && !any; xx++)
+            if (eroded[(y + yy) * bw + (x + xx)]) any = 1;
+        opened[y * bw + x] = any;
+      }
+    }
+
+    // Connected components on opened mask; pick largest area
+    let bestArea = 0, bestMinX = 0, bestMinY = 0, bestMaxX = bw - 1, bestMaxY = bh - 1;
+    for (let sy = 0; sy < bh; sy++) {
+      for (let sx = 0; sx < bw; sx++) {
+        const si = sy * bw + sx;
+        if (!opened[si] || compVisited[si]) continue;
+        let area = 0;
+        let cminX = sx, cmaxX = sx, cminY = sy, cmaxY = sy;
+        const st: number[] = [sx, sy];
+        compVisited[si] = 1;
+        while (st.length) {
+          const y = st.pop() as number; const x = st.pop() as number;
+          area++;
+          if (x < cminX) cminX = x; if (x > cmaxX) cmaxX = x;
+          if (y < cminY) cminY = y; if (y > cmaxY) cmaxY = y;
+          const neigh = [x + 1, y, x - 1, y, x, y + 1, x, y - 1];
+          for (let k = 0; k < neigh.length; k += 2) {
+            const nx = neigh[k], ny = neigh[k + 1];
+            if (nx < 0 || ny < 0 || nx >= bw || ny >= bh) continue;
+            const ni = ny * bw + nx;
+            if (compVisited[ni] || !opened[ni]) continue;
+            compVisited[ni] = 1;
+            st.push(nx, ny);
+          }
+        }
+        if (area > bestArea) {
+          bestArea = area;
+          bestMinX = cminX; bestMaxX = cmaxX; bestMinY = cminY; bestMaxY = cmaxY;
+        }
+      }
+    }
+
+    const totalContent = mask.reduce((a, v) => a + (v ? 1 : 0), 0);
+    if (bestArea > 0 && totalContent > 0 && bestArea >= totalContent * 0.35) {
+      // Use largest component bounds (mapped back to global)
+      minX = minX + bestMinX;
+      maxX = minX + (bestMaxX - bestMinX);
+      minY = minY + bestMinY;
+      maxY = minY + (bestMaxY - bestMinY);
+    }
+  }
+
   // Apply small dilation and margin
   minX = Math.max(0, minX - (margin + dilate));
   minY = Math.max(0, minY - (margin + dilate));
