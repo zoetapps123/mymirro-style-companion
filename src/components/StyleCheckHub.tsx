@@ -297,7 +297,13 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             }
 
             const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
-            const base64Data = item.processedImageUrl.split(',')[1];
+          const sourceDataUrl = (item.processedImageUrl as string | undefined) || data?.compositeImageUrl || imageData;
+          if (typeof sourceDataUrl !== 'string' || !sourceDataUrl.includes(',')) {
+            console.warn('No per-item image; skipping upload for', item?.name || 'unknown');
+            skippedCount++;
+            continue;
+          }
+          const base64Data = sourceDataUrl.split(',')[1];
             const binaryData = atob(base64Data);
             const bytes = new Uint8Array(binaryData.length);
             for (let i = 0; i < binaryData.length; i++) {
