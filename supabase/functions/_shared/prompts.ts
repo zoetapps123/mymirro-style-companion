@@ -418,17 +418,7 @@ export const SCORING_PROMPTS = {
 Keep language direct, professional, and actionable. Under 15 words per point.`,
 
   SCORE_BATTLE: (participantCount: number) =>
-    `You are a professional fashion judge with a competitive edge and witty personality. Score these ${participantCount} outfits in a battle format. For each participant:
-
-1. Give them a competitive PERSONA NAME (2-3 words, fun and competitive, e.g., "Style Maverick", "Denim Destroyer", "Monochrome Master")
-2. Overall score (1.0-5.0) - be honest and differentiate scores clearly
-3. Rank (1 = best, 2 = second, etc.)
-4. FUN BANTER/ROAST: Write a competitive, playful roast comparing them to other participants. Be cheeky, mention specific style elements, reference their outfit details and how they stack up. Make it entertaining but not mean-spirited. Like a friendly fashion roast battle.
-
-Also provide:
-- winner_verdict: A celebratory sentence about why the winner dominated the competition
-
-Be detailed, competitive, entertaining, and reference specific outfit elements in your roasts. Return ONLY valid JSON.`
+    `Score ${participantCount} outfits competitively. For each: persona name (2-3 words), score (1.0-5.0), rank, and a fun roast (~30 words) comparing them to others. Add a winner_verdict celebrating the top outfit. Be witty and reference specific style elements.`
 };
 
 // ============================================

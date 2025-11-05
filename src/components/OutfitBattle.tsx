@@ -9,6 +9,41 @@ import { Badge } from "@/components/ui/badge";
 import Confetti from 'react-confetti';
 import { useAnalytics } from "@/hooks/useAnalytics";
 
+// Image compression helper
+const compressImage = (file: File, maxSize: number = 512): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > height && width > maxSize) {
+          height = (height / width) * maxSize;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = (width / height) * maxSize;
+          height = maxSize;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to JPEG with 80% quality
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+};
+
 interface Participant {
   name: string;
   imageData: string;
@@ -64,15 +99,23 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPendingImage({
-          imageData: reader.result as string,
-          imageFile: file
+      // Compress image before storing
+      compressImage(file)
+        .then((compressedData) => {
+          setPendingImage({
+            imageData: compressedData,
+            imageFile: file
+          });
+          setAwaitingName(true);
+        })
+        .catch((error) => {
+          console.error('Image compression failed:', error);
+          toast({
+            title: "Image error",
+            description: "Failed to process image. Try another photo.",
+            variant: "destructive"
+          });
         });
-        setAwaitingName(true);
-      };
-      reader.readAsDataURL(file);
     });
   };
 
