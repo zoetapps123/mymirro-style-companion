@@ -117,6 +117,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         console.log('Wardrobe processing response:', data);
 
         const itemsDetected = data?.items || [];
+        const extractedItems = data?.extractedItems || [];
         
         if (!itemsDetected || itemsDetected.length === 0) {
           toast({
@@ -128,10 +129,10 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           return;
         }
 
-        if (!data?.compositeImageUrl) {
+        if (extractedItems.length === 0) {
           toast({
             title: "Processing incomplete",
-            description: "Failed to process composite image. Please try again.",
+            description: "Failed to extract item images. Please try again.",
             variant: "destructive",
           });
           setLoading(false);
@@ -143,28 +144,10 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         let skippedCount = 0;
         setProgress(70);
 
-        // Import image processing functions
-        const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
-
-        // Use bounding box cropping if available, fallback to grid-based
-        const hasBboxes = itemsDetected.every(item => item.bbox);
-        let crops: Blob[];
-        
-        if (hasBboxes) {
-          console.log('Using bounding box cropping');
-          crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
-        } else {
-          console.log('Falling back to grid-based cropping');
-          const { cropCompositeImage } = await import('@/lib/imageProcessing');
-          crops = await cropCompositeImage(
-            data.compositeImageUrl,
-            data.gridLayout || { rows: Math.ceil(Math.sqrt(itemsDetected.length)), columns: Math.ceil((itemsDetected.length + Math.ceil(Math.sqrt(itemsDetected.length)) - 1) / Math.ceil(Math.sqrt(itemsDetected.length))), itemCount: itemsDetected.length }
-          );
-        }
-
-        // Upload and save all detected items with duplicate checking
-        for (let idx = 0; idx < itemsDetected.length; idx++) {
-          const item = itemsDetected[idx];
+        // Upload each extracted item image
+        for (let idx = 0; idx < extractedItems.length; idx++) {
+          const extracted = extractedItems[idx];
+          const item = extracted.item;
 
           // Check for duplicates
           const isDuplicate = existingItems?.some(existing => 
@@ -181,20 +164,15 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          const croppedBlob = crops[idx];
-          if (!croppedBlob) {
-            console.warn(`No crop for item ${idx}, skipping`);
-            continue;
-          }
-          
-          // Apply border trimming
-          const finalBlob = await trimImageBorders(croppedBlob);
+          // Convert base64 image to blob
+          const response = await fetch(extracted.imageUrl);
+          const blob = await response.blob();
 
           // Upload final image
           const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
           const { error: uploadError } = await supabase.storage
             .from('outfits')
-            .upload(fileName, finalBlob);
+            .upload(fileName, blob);
 
           if (uploadError) {
             console.error('Upload error for item:', item.name, uploadError);

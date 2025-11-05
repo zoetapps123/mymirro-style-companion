@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAIApiKey } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
 import { detectItems } from './detectItems.ts';
-import { generateComposite } from './generateComposite.ts';
+import { extractIndividualItems } from './extractIndividualItems.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -54,16 +54,16 @@ serve(async (req) => {
     // STEP 0: Image Validation
     const validationResult = await validateImage(actualImageUrl, apiKey);
 
-    // STEP 1: Item Detection (with bounding boxes)
+    // STEP 1: Item Detection
     const detectedItems = await detectItems(actualImageUrl, apiKey);
 
-    // STEP 2: Skip composite generation - use original image with bbox cropping
+    // STEP 2: Extract each item individually as isolated product images
+    const extractedItems = await extractIndividualItems(actualImageUrl, detectedItems, apiKey);
+
     // Cache the complete result
     const processResult = {
       items: detectedItems,
-      originalImageUrl: actualImageUrl, // Use original image for bbox cropping
-      compositeImageUrl: actualImageUrl, // Backwards compatibility
-      gridLayout: null, // Not needed with bbox approach
+      extractedItems: extractedItems, // Array of { item, imageUrl }
       contentType: validationResult.contentType
     };
     await setCachedResult(cacheKey, processResult);

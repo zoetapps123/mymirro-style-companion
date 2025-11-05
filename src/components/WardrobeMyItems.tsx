@@ -188,45 +188,23 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         return;
       }
 
-      const itemsDetected = data?.items || [];
-      if (!itemsDetected || itemsDetected.length === 0) {
-        console.log('No items detected in background processing');
+      if (!data?.items || data.items.length === 0 || !data?.extractedItems) {
+        console.log('No items or extracted images in background processing');
         const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
         localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
         setProcessingItems(prev => Math.max(0, prev - 1));
         return;
       }
 
-      if (!data?.compositeImageUrl) {
-        console.log('No composite image in background processing');
-        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-        setProcessingItems(prev => Math.max(0, prev - 1));
-        return;
-      }
-
+      const itemsDetected = data.items;
+      const extractedItems = data.extractedItems;
       let addedCount = 0;
       let skippedCount = 0;
 
-      // Import and use bbox or grid-based cropping
-      const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
-      
-      const hasBboxes = itemsDetected.every(item => item.bbox);
-      let crops: Blob[];
-      
-      if (hasBboxes) {
-        console.log('Using bounding box cropping for background processing');
-        crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
-      } else {
-        console.log('Falling back to grid cropping for background processing');
-        crops = await cropCompositeImage(
-          data.compositeImageUrl,
-          data.gridLayout || { rows: Math.ceil(Math.sqrt(itemsDetected.length)), columns: Math.ceil((itemsDetected.length + Math.ceil(Math.sqrt(itemsDetected.length)) - 1) / Math.ceil(Math.sqrt(itemsDetected.length))), itemCount: itemsDetected.length }
-        );
-      }
-
-      for (let idx = 0; idx < itemsDetected.length; idx++) {
-        const item = itemsDetected[idx];
+      // Process each extracted item
+      for (let idx = 0; idx < extractedItems.length; idx++) {
+        const extracted = extractedItems[idx];
+        const item = extracted.item;
 
         // Check for duplicates
         const isDuplicate = existingItems?.some(existing => 
@@ -242,20 +220,15 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        const croppedBlob = crops[idx];
-        if (!croppedBlob) {
-          console.warn(`No crop for item ${idx}`);
-          skippedCount++;
-          continue;
-        }
-        
-        const finalBlob = await trimImageBorders(croppedBlob);
+        // Convert base64 to blob
+        const response = await fetch(extracted.imageUrl);
+        const blob = await response.blob();
 
         // Upload cropped image
         const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
         const { error: uploadError } = await supabase.storage
           .from('outfits')
-          .upload(fileName, finalBlob);
+          .upload(fileName, blob);
 
         if (uploadError) {
           console.error('Upload error:', uploadError);

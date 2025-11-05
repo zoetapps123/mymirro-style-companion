@@ -190,26 +190,12 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             continue;
           }
 
-          if (processData?.items && processData?.compositeImageUrl) {
-            // Import and use bbox or grid-based cropping
-            const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
-            
-            const hasBboxes = processData.items.every((item: any) => item.bbox);
-            let crops: Blob[];
-            
-            if (hasBboxes) {
-              console.log('Using bounding box cropping');
-              crops = await cropImageWithBoundingBoxes(processData.compositeImageUrl, processData.items);
-            } else {
-              console.log('Falling back to grid cropping');
-              crops = await cropCompositeImage(
-                processData.compositeImageUrl,
-                processData.gridLayout || { rows: Math.ceil(Math.sqrt(processData.items.length)), columns: Math.ceil((processData.items.length + Math.ceil(Math.sqrt(processData.items.length)) - 1) / Math.ceil(Math.sqrt(processData.items.length))), itemCount: processData.items.length }
-              );
-            }
+          if (processData?.items && processData?.extractedItems) {
+            const extractedItems = processData.extractedItems;
 
-            for (let idx = 0; idx < processData.items.length; idx++) {
-              const item = processData.items[idx];
+            for (let idx = 0; idx < extractedItems.length; idx++) {
+              const extracted = extractedItems[idx];
+              const item = extracted.item;
 
               const isDuplicate = existingItems?.some(existing => 
                 existing.category?.toLowerCase() === item.category?.toLowerCase() &&
@@ -223,19 +209,15 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              const croppedBlob = crops[idx];
-              if (!croppedBlob) {
-                console.warn(`No crop for item ${idx}`);
-                continue;
-              }
-              
-              const finalBlob = await trimImageBorders(croppedBlob);
+              // Convert base64 to blob
+              const response = await fetch(extracted.imageUrl);
+              const blob = await response.blob();
 
               // Upload final processed image
               const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
               const { error: uploadError } = await supabase.storage
                 .from('outfits')
-                .upload(fileName, finalBlob);
+                .upload(fileName, blob);
 
               if (uploadError) {
                 console.error('Upload error:', uploadError);

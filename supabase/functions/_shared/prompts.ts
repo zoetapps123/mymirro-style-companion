@@ -158,15 +158,6 @@ export const WARDROBE_PROMPTS = {
 - Cut/style: slim fit, oversized, cropped, fitted, etc.
 - Unique features: buttons, zippers, pockets, collars, sleeves
 
-**BOUNDING BOX COORDINATES** (CRITICAL):
-- For EACH item, provide normalized bounding box coordinates (0-1 scale)
-- x: left edge position (0 = left side of image, 1 = right side)
-- y: top edge position (0 = top of image, 1 = bottom)
-- width: box width (as fraction of image width)
-- height: box height (as fraction of image height)
-- Ensure boxes are TIGHT around each item with minimal empty space
-- Boxes MUST NOT overlap - if items are close, separate them cleanly
-
 **DUPLICATE PREVENTION**
 - If multiple similar items appear, only extract if they are DISTINCTLY different
 - Items must differ in at least TWO of: color, pattern, fabric, or cut
