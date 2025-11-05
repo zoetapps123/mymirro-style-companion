@@ -236,112 +236,128 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       const reader = new FileReader();
       
       reader.onloadend = async () => {
-        const imageData = reader.result as string;
+        try {
+          const imageData = reader.result as string;
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          console.error('No session found');
-          setExtracting(false);
-          toast({
-            title: "Session expired",
-            description: "Please refresh the page and try again",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-          body: { imageData },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-
-        if (error) {
-          console.error('Process wardrobe error:', error);
-          throw new Error('Failed to process image');
-        }
-
-        const itemsDetected = data?.items || [];
-        if (itemsDetected.length === 0) {
-          toast({
-            title: "No items detected",
-            description: "Try a clearer photo with visible clothing items.",
-            variant: "destructive",
-          });
-          setExtracting(false);
-          return;
-        }
-
-        let addedCount = 0;
-        let skippedCount = 0;
-        const addedItemsPreview: any[] = [];
-
-        for (const item of itemsDetected) {
-          const isDuplicate = existingItems?.some(existing => 
-            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-             (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
-              Math.abs((existing.name?.length || 0) - (item.name?.length || 0)) < 5))
-          );
-
-          if (isDuplicate) {
-            skippedCount++;
-            continue;
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) {
+            console.error('No session found');
+            setExtracting(false);
+            toast({
+              title: "Session expired",
+              description: "Please refresh the page and try again",
+              variant: "destructive",
+            });
+            return;
           }
 
-          const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
-          const base64Data = item.processedImageUrl.split(',')[1];
-          const binaryData = atob(base64Data);
-          const bytes = new Uint8Array(binaryData.length);
-          for (let i = 0; i < binaryData.length; i++) {
-            bytes[i] = binaryData.charCodeAt(i);
-          }
-          const processedBlob = new Blob([bytes], { type: 'image/png' });
-
-          const { error: uploadError } = await supabase.storage
-            .from('outfits')
-            .upload(fileName, processedBlob);
-
-          if (uploadError) {
-            console.error('Upload error:', uploadError);
-            continue;
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('outfits')
-            .getPublicUrl(fileName);
-
-          const { error: insertError } = await supabase.from('wardrobe_items').insert({
-            user_id: user.id,
-            name: item.name,
-            category: item.category,
-            color: item.color,
-            image_url: publicUrl,
-            processed_image_url: publicUrl,
+          const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+            body: { imageData },
+            headers: { Authorization: `Bearer ${session.access_token}` }
           });
 
-          if (!insertError) {
-            addedCount++;
-            addedItemsPreview.push({
+          if (error) {
+            console.error('Process wardrobe error:', error);
+            setExtracting(false);
+            toast({
+              title: "Processing failed",
+              description: error.message || "Failed to process image",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const itemsDetected = data?.items || [];
+          if (itemsDetected.length === 0) {
+            toast({
+              title: "No items detected",
+              description: "Try a clearer photo with visible clothing items.",
+              variant: "destructive",
+            });
+            setExtracting(false);
+            return;
+          }
+
+          let addedCount = 0;
+          let skippedCount = 0;
+          const addedItemsPreview: any[] = [];
+
+          for (const item of itemsDetected) {
+            const isDuplicate = existingItems?.some(existing => 
+              existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+              (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+               item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+               (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+                Math.abs((existing.name?.length || 0) - (item.name?.length || 0)) < 5))
+            );
+
+            if (isDuplicate) {
+              skippedCount++;
+              continue;
+            }
+
+            const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
+            const base64Data = item.processedImageUrl.split(',')[1];
+            const binaryData = atob(base64Data);
+            const bytes = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+              bytes[i] = binaryData.charCodeAt(i);
+            }
+            const processedBlob = new Blob([bytes], { type: 'image/png' });
+
+            const { error: uploadError } = await supabase.storage
+              .from('outfits')
+              .upload(fileName, processedBlob);
+
+            if (uploadError) {
+              console.error('Upload error:', uploadError);
+              continue;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('outfits')
+              .getPublicUrl(fileName);
+
+            const { error: insertError } = await supabase.from('wardrobe_items').insert({
+              user_id: user.id,
               name: item.name,
               category: item.category,
+              color: item.color,
               image_url: publicUrl,
+              processed_image_url: publicUrl,
+            });
+
+            if (!insertError) {
+              addedCount++;
+              addedItemsPreview.push({
+                name: item.name,
+                category: item.category,
+                image_url: publicUrl,
+              });
+            }
+          }
+
+          setExtractedItems(addedItemsPreview);
+          setExtracting(false);
+
+          if (addedCount > 0) {
+            toast({
+              title: "Added to wardrobe!",
+              description: `${addedCount} item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`,
+            });
+          } else {
+            toast({
+              title: "All items already in wardrobe",
+              description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
             });
           }
-        }
-
-        setExtractedItems(addedItemsPreview);
-        setExtracting(false);
-
-        if (addedCount > 0) {
+        } catch (readerError) {
+          console.error('Reader error:', readerError);
+          setExtracting(false);
           toast({
-            title: "Added to wardrobe!",
-            description: `${addedCount} item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`,
-          });
-        } else {
-          toast({
-            title: "All items already in wardrobe",
-            description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
+            title: "Extraction failed",
+            description: "An error occurred while processing items",
+            variant: "destructive",
           });
         }
       };
