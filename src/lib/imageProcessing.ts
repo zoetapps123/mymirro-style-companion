@@ -23,6 +23,12 @@ function trimBordersOnCanvas(
     if (a < 10) return true; // transparent counts as background
     // Check if it's white
     if (r >= whiteThreshold && g >= whiteThreshold && b >= whiteThreshold) return true;
+    // Treat very light gray separators as background (low saturation, high brightness)
+    const maxRGB = Math.max(r, g, b);
+    const minRGB = Math.min(r, g, b);
+    const diff = maxRGB - minRGB; // saturation proxy
+    const bright = (r + g + b) / 3;
+    if (diff < 12 && bright > 225) return true; // thin gray grid lines
     // Check if it's black
     if (r <= blackThreshold && g <= blackThreshold && b <= blackThreshold) return true;
     return false;
@@ -153,8 +159,33 @@ export const cropImageWithBoundingBoxes = async (
           0, 0, pixelWidth, pixelHeight
         );
 
-        // Trim borders for clean result
-        const trimmed = trimBordersOnCanvas(canvas, { margin: 2, whiteThreshold: 245 });
+        // Expand a small margin around bbox to avoid cutting edges, then trim precisely
+        // Use up to 2% of image size (max 12px) as expansion
+        const expandX = Math.round(Math.min(img.width * 0.02, 12));
+        const expandY = Math.round(Math.min(img.height * 0.02, 12));
+
+        const expandedCanvas = document.createElement('canvas');
+        expandedCanvas.width = Math.max(1, pixelWidth + expandX * 2);
+        expandedCanvas.height = Math.max(1, pixelHeight + expandY * 2);
+        const ectx = expandedCanvas.getContext('2d');
+        if (ectx) {
+          ectx.imageSmoothingEnabled = true;
+          ectx.imageSmoothingQuality = 'high';
+          ectx.drawImage(
+            img,
+            Math.max(0, pixelX - expandX),
+            Math.max(0, pixelY - expandY),
+            Math.min(img.width - Math.max(0, pixelX - expandX), pixelWidth + expandX * 2),
+            Math.min(img.height - Math.max(0, pixelY - expandY), pixelHeight + expandY * 2),
+            0,
+            0,
+            expandedCanvas.width,
+            expandedCanvas.height
+          );
+        }
+
+        // Trim borders for clean result (remove white and light gray lines)
+        const trimmed = trimBordersOnCanvas(ectx ? expandedCanvas : canvas, { margin: 3, whiteThreshold: 250 });
 
         trimmed.toBlob(
           (blob) => {
