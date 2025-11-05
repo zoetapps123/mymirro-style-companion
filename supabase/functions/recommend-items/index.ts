@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { STYLING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 
@@ -23,19 +23,14 @@ serve(async (req) => {
 
   try {
     const { currentOutfit, availableItems, occasion, styleTag } = await req.json();
-    const apiKey = getAIApiKey();
 
     console.log('Generating recommendations for outfit...');
 
     const prompt = STYLING_PROMPTS.RECOMMEND_ITEMS(currentOutfit, availableItems, occasion, styleTag);
 
-    const response = await fetch(AI_API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    let data;
+    try {
+      data = await callGeminiAPI({
         model: 'google/gemini-2.5-flash-lite',
         messages: [
           {
@@ -82,34 +77,27 @@ serve(async (req) => {
           }
         }],
         tool_choice: { type: 'function', function: { name: 'recommend_items' } }
-      })
-    });
-
-    if (response.status === 429) {
-      return new Response(JSON.stringify({ 
-        error: 'Rate limit exceeded. Please try again in a moment.' 
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
-    }
-
-    if (response.status === 402) {
-      return new Response(JSON.stringify({ 
-        error: 'AI credits depleted. Please add credits to continue.' 
-      }), {
-        status: 402,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI API error:', errorText);
+    } catch (error: any) {
+      if (error.message === 'RATE_LIMIT') {
+        return new Response(JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again in a moment.' 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      if (error.message === 'PAYMENT_REQUIRED') {
+        return new Response(JSON.stringify({ 
+          error: 'AI credits depleted. Please add credits to continue.' 
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      console.error('AI API error:', error);
       throw new Error('Failed to generate recommendations');
     }
-
-    const data = await response.json();
     const result = JSON.parse(
       data.choices[0].message.tool_calls[0].function.arguments
     );

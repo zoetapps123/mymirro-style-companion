@@ -1,4 +1,4 @@
-import { AI_API_ENDPOINT } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { WARDROBE_PROMPTS, SystemRole, SYSTEM_PROMPTS } from '../_shared/prompts.ts';
 
 export interface ValidationResult {
@@ -21,13 +21,9 @@ export async function validateImage(
 ): Promise<ValidationResult> {
   console.log('Step 0: Validating image content...');
   
-  const validationResponse = await fetch(AI_API_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  let validationData;
+  try {
+    validationData = await callGeminiAPI({
       model: 'google/gemini-2.5-flash-lite',
       messages: [
         {
@@ -71,18 +67,16 @@ export async function validateImage(
         }
       }],
       tool_choice: { type: 'function', function: { name: 'validate_image_content' } }
-    })
-  });
-
-  if (validationResponse.status === 429) {
-    throw new Error('Rate limit exceeded. Please try again in a moment.');
+    });
+  } catch (error: any) {
+    if (error.message === 'RATE_LIMIT') {
+      throw new Error('Rate limit exceeded. Please try again in a moment.');
+    }
+    if (error.message === 'PAYMENT_REQUIRED') {
+      throw new Error('AI credits depleted. Please add credits to continue.');
+    }
+    throw error;
   }
-
-  if (validationResponse.status === 402) {
-    throw new Error('AI credits depleted. Please add credits to continue.');
-  }
-
-  const validationData = await validationResponse.json();
   console.log('Validation response structure:', JSON.stringify(validationData, null, 2));
 
   // Check if AI returned an error response
@@ -118,28 +112,19 @@ export async function validateImage(
   // 3) Fallback: make a JSON-only request
   if (!validationResult) {
     console.log('Falling back to JSON-only validation call...');
-    const fallbackResp = await fetch(AI_API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPTS[SystemRole.IMAGE_PROCESSOR] },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: WARDROBE_PROMPTS.VALIDATE_IMAGE_FALLBACK },
-              { type: 'image_url', image_url: { url: imageUrl } }
-            ]
-          }
-        ]
-      })
+    const fallbackData = await callGeminiAPI({
+      model: 'google/gemini-2.5-flash-lite',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPTS[SystemRole.IMAGE_PROCESSOR] },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: WARDROBE_PROMPTS.VALIDATE_IMAGE_FALLBACK },
+            { type: 'image_url', image_url: { url: imageUrl } }
+          ]
+        }
+      ]
     });
-
-    const fallbackData = await fallbackResp.json();
     console.log('Validation fallback response:', JSON.stringify(fallbackData, null, 2));
     
     // Check for error in fallback response

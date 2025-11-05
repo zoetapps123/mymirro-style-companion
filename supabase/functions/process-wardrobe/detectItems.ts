@@ -1,4 +1,4 @@
-import { AI_API_ENDPOINT } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { WARDROBE_PROMPTS } from '../_shared/prompts.ts';
 
 export interface ClothingItem {
@@ -23,13 +23,9 @@ export async function detectItems(
 ): Promise<ClothingItem[]> {
   console.log('Step 1: Detecting clothing items...');
   
-  const detectionResponse = await fetch(AI_API_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  let detectionData;
+  try {
+    detectionData = await callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
         {
@@ -105,16 +101,11 @@ export async function detectItems(
         }
       }],
       tool_choice: { type: 'function', function: { name: 'extract_clothing_items' } }
-    })
-  });
-
-  if (!detectionResponse.ok) {
-    const errorText = await detectionResponse.text();
-    console.error('Detection error:', errorText);
+    });
+  } catch (error: any) {
+    console.error('Detection error:', error);
     throw new Error('Failed to detect clothing items');
   }
-
-  const detectionData = await detectionResponse.json();
   console.log('Detection response structure:', JSON.stringify(detectionData, null, 2));
   
   const detectionArgs = detectionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;

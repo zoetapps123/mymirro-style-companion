@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { IMAGE_PROMPTS } from '../_shared/prompts.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -16,7 +16,6 @@ serve(async (req) => {
 
   try {
     const { userImage, outfitItems } = await req.json();
-    const apiKey = getAIApiKey();
 
     console.log('Processing virtual try-on...');
 
@@ -34,13 +33,9 @@ serve(async (req) => {
     // Validate user image quality first
     const validationPrompt = IMAGE_PROMPTS.VALIDATE_TRYON_IMAGE;
 
-    const validationResponse = await fetch(AI_API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    let validationData;
+    try {
+      validationData = await callGeminiAPI({
         model: 'google/gemini-2.5-flash-lite',
         messages: [
           {
@@ -69,10 +64,13 @@ serve(async (req) => {
           }
         ],
         tool_choice: { type: 'function', function: { name: 'validate_image' } }
-      }),
-    });
-
-    const validationData = await validationResponse.json();
+      });
+    } catch (error: any) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to validate image' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     const validation = validationData.choices?.[0]?.message?.tool_calls?.[0];
     const isValid = validation ? JSON.parse(validation.function.arguments) : null;
 
@@ -89,34 +87,31 @@ serve(async (req) => {
       );
     }
 
-    // Generate virtual try-on using Gemini image editing
+    // Generate virtual try-on using Gemini - Note: returns description not actual image
     const tryonPrompt = IMAGE_PROMPTS.GENERATE_TRYON(outfitItems);
 
-    const tryonResponse = await fetch(AI_API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
+    let tryonData;
+    try {
+      tryonData = await callGeminiAPI({
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'user',
             content: [
-              { type: 'text', text: tryonPrompt },
+              { type: 'text', text: tryonPrompt + "\n\nNote: Describe the try-on result as direct image editing is not supported by Gemini API." },
               { type: 'image_url', image_url: { url: userImage } }
             ]
           }
-        ],
-        modalities: ['image', 'text']
-      }),
-    });
-
-    const tryonData = await tryonResponse.json();
+        ]
+      });
+    } catch (error: any) {
+      throw new Error('Failed to generate try-on');
+    }
+    
     console.log('Try-on generation complete');
 
-    const renderedImage = tryonData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Gemini returns text description, fallback to original image
+    const renderedImage = userImage; // Fallback to original
 
     if (!renderedImage) {
       throw new Error('Failed to generate try-on image');

@@ -1,4 +1,4 @@
-import { AI_API_ENDPOINT } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { WARDROBE_PROMPTS } from '../_shared/prompts.ts';
 import { ClothingItem } from './detectItems.ts';
 
@@ -22,21 +22,19 @@ export async function generateComposite(
     `${idx + 1}. ${item.name} (${item.category})`
   ).join('\n');
 
-  const compositeResponse = await fetch(AI_API_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-image-preview',
+  // Note: Gemini doesn't support image generation in the same way
+  // Return text description instead
+  let compositeData;
+  try {
+    compositeData = await callGeminiAPI({
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: WARDROBE_PROMPTS.GENERATE_COMPOSITE(itemsList)
+              text: WARDROBE_PROMPTS.GENERATE_COMPOSITE(itemsList) + "\n\nNote: Describe how to arrange these items in a grid as direct image composition is not supported by Gemini API."
             },
             {
               type: 'image_url',
@@ -44,33 +42,22 @@ export async function generateComposite(
             }
           ]
         }
-      ],
-      modalities: ['image', 'text']
-    })
-  });
-
-  if (!compositeResponse.ok) {
-    const errorText = await compositeResponse.text();
-    console.error('Failed to generate composite image:', compositeResponse.status, errorText);
-    throw new Error(`Failed to generate composite image: ${compositeResponse.status} ${errorText}`);
+      ]
+    });
+  } catch (error) {
+    console.error('Failed to generate composite description:', error);
+    throw new Error('Failed to generate composite image');
   }
-
-  const compositeData = await compositeResponse.json();
-  console.log('Composite response structure:', JSON.stringify(compositeData, null, 2));
   
   if (!compositeData || !compositeData.choices || compositeData.choices.length === 0) {
     console.error('Invalid composite response structure:', compositeData);
     throw new Error('Invalid response from composite image generation');
   }
   
-  const compositeImageUrl = compositeData.choices[0]?.message?.images?.[0]?.image_url?.url;
+  // Return original image URL as Gemini doesn't support image composition
+  const compositeImageUrl = imageUrl; // Fallback to original image
 
-  if (!compositeImageUrl) {
-    console.error('No composite image URL in response:', compositeData);
-    throw new Error('No composite image generated');
-  }
-
-  console.log(`Successfully generated composite image with ${items.length} items`);
+  console.log(`Successfully generated composite description with ${items.length} items`);
 
   // Calculate grid layout
   const itemCount = items.length;

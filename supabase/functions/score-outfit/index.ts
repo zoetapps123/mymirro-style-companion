@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
@@ -24,7 +24,6 @@ serve(async (req) => {
 
   try {
     const { imageData, occasion } = await req.json();
-    const apiKey = getAIApiKey();
 
     // Validate input
     if (!imageData || typeof imageData !== 'string') {
@@ -61,107 +60,84 @@ serve(async (req) => {
       );
     }
 
-    // Timeout + abort for robustness
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-    let response: Response;
+    let data;
     try {
-      response = await fetch(AI_API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: SCORING_PROMPTS.SCORE_OUTFIT(occasion)
-                },
-                {
-                  type: 'image_url',
-                  image_url: { url: imageData }
-                }
-              ]
-            }
-          ],
-          tools: [
-            {
-              type: 'function',
-              function: {
-                name: 'score_outfit',
-                description: 'Score an outfit across multiple fashion dimensions',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    outfit_name: { type: 'string', description: 'Creative 2-4 word outfit name' },
-                    color_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                    fit_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                    texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                    occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                    overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                    what_works: { 
-                      type: 'array', 
-                      items: { type: 'string' },
-                      description: '2-3 short observations (max 15 words each)',
-                      minItems: 2,
-                      maxItems: 3
-                    },
-                    what_didnt_work: { 
-                      type: 'array', 
-                      items: { type: 'string' },
-                      description: '2-3 short critiques (max 15 words each)',
-                      minItems: 2,
-                      maxItems: 3
-                    },
-                    quick_fix: { 
-                      type: 'array', 
-                      items: { type: 'string' },
-                      description: '4-6 quick under-60-second actions with specific verbs (max 15 words each)',
-                      minItems: 4,
-                      maxItems: 6
-                    }
+      data = await callGeminiAPI({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: SCORING_PROMPTS.SCORE_OUTFIT(occasion)
+              },
+              {
+                type: 'image_url',
+                image_url: { url: imageData }
+              }
+            ]
+          }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'score_outfit',
+              description: 'Score an outfit across multiple fashion dimensions',
+              parameters: {
+                type: 'object',
+                properties: {
+                  outfit_name: { type: 'string', description: 'Creative 2-4 word outfit name' },
+                  color_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                  fit_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                  texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                  occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                  overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                  what_works: { 
+                    type: 'array', 
+                    items: { type: 'string' },
+                    description: '2-3 short observations (max 15 words each)',
+                    minItems: 2,
+                    maxItems: 3
                   },
-                  required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_didnt_work', 'quick_fix']
-                }
+                  what_didnt_work: { 
+                    type: 'array', 
+                    items: { type: 'string' },
+                    description: '2-3 short critiques (max 15 words each)',
+                    minItems: 2,
+                    maxItems: 3
+                  },
+                  quick_fix: { 
+                    type: 'array', 
+                    items: { type: 'string' },
+                    description: '4-6 quick under-60-second actions with specific verbs (max 15 words each)',
+                    minItems: 4,
+                    maxItems: 6
+                  }
+                },
+                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_didnt_work', 'quick_fix']
               }
             }
-          ],
-          tool_choice: { type: 'function', function: { name: 'score_outfit' } }
-        }),
-        signal: controller.signal,
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'score_outfit' } }
       });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('AI gateway error (score-outfit):', response.status, errText);
-      if (response.status === 429) {
+    } catch (error: any) {
+      if (error.message === 'RATE_LIMIT') {
         return new Response(
           JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (error.message === 'PAYMENT_REQUIRED') {
         return new Response(
           JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      return new Response(
-        JSON.stringify({ error: 'AI error', details: errText }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw error;
     }
-
-    const data = await response.json();
     console.log('Scoring response:', data);
 
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];

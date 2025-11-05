@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { STYLING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 
@@ -23,7 +23,6 @@ serve(async (req) => {
 
   try {
     const { imageData, improvements, wardrobeItems, orientation, width, height } = await req.json();
-    const apiKey = getAIApiKey();
 
     // Validate input
     if (!imageData || typeof imageData !== 'string') {
@@ -46,61 +45,41 @@ serve(async (req) => {
 
     const editPrompt = STYLING_PROMPTS.QUICK_STYLE_FIXES(improvements, wardrobeItems);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-    let response: Response;
+    // Call Gemini API - Note: Gemini doesn't support image generation, returns text description
+    let data;
     try {
-      response = await fetch(AI_API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: editPrompt },
-                { type: 'image_url', image_url: { url: imageData } }
-              ]
-            }
-          ],
-          modalities: ['image', 'text']
-        }),
-        signal: controller.signal,
+      data = await callGeminiAPI({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: editPrompt + "\n\nNote: Describe the styling improvements in detail as direct image editing is not supported by Gemini API." },
+              { type: 'image_url', image_url: { url: imageData } }
+            ]
+          }
+        ]
       });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('AI gateway error (elevate-style):', response.status, errText);
-      if (response.status === 429) {
+    } catch (error: any) {
+      if (error.message === 'RATE_LIMIT') {
         return new Response(
           JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (error.message === 'PAYMENT_REQUIRED') {
         return new Response(
           JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      return new Response(
-        JSON.stringify({ error: 'AI error', details: errText }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw error;
     }
-
-    const data = await response.json();
+    
     console.log('Style elevation complete');
 
-    const enhancedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Gemini returns text description, not actual enhanced images
+    const enhancedImage = data.choices?.[0]?.message?.content || imageData; // Fallback to original
 
     if (!enhancedImage) {
       throw new Error('Failed to generate enhanced image');

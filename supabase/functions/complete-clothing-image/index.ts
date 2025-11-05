@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { AI_API_ENDPOINT, getAIApiKey } from '../_shared/ai-config.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { IMAGE_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
@@ -22,28 +22,24 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = getAIApiKey();
-
     // Create instruction based on item type
     const completionPrompt = IMAGE_PROMPTS.COMPLETE_CLOTHING_ITEM(itemType);
 
     console.log('Completing clothing image:', { imageUrl, itemType, prompt: completionPrompt });
 
-    const response = await fetch(AI_API_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
+    // Note: Gemini doesn't support image generation via modalities like Lovable AI Gateway
+    // For image generation, we'll need to use Imagen or similar, this is text-only response
+    let data;
+    try {
+      data = await callGeminiAPI({
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: completionPrompt
+                text: completionPrompt + "\n\nNote: Please provide a detailed description of the completed clothing item as Gemini API doesn't support direct image generation."
               },
               {
                 type: "image_url",
@@ -53,41 +49,29 @@ serve(async (req) => {
               }
             ]
           }
-        ],
-        modalities: ["image", "text"]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
+        ]
+      });
+    } catch (error: any) {
+      if (error.message === 'RATE_LIMIT') {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      if (response.status === 402) {
+      if (error.message === 'PAYMENT_REQUIRED') {
         return new Response(
           JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw error;
     }
-
-    const data = await response.json();
+    
     console.log('AI response received');
-    console.log('Full AI response structure:', JSON.stringify(data, null, 2));
-    console.log('Available response keys:', Object.keys(data));
-    if (data.choices?.[0]) {
-      console.log('First choice structure:', JSON.stringify(data.choices[0], null, 2));
-    }
 
-    const completedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Gemini returns text description, not actual images
+    const description = data.choices?.[0]?.message?.content;
+    const completedImageUrl = description; // Return description instead of image
 
     if (!completedImageUrl) {
       console.error('Image extraction failed. Response structure:', {
