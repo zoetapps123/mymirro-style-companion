@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Camera, X, Sparkles, RotateCcw } from "lucide-react";
+import { Send, Camera, X, Sparkles, RotateCcw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
 import { useAnalytics } from "@/hooks/useAnalytics";
@@ -69,6 +69,7 @@ const AICompanion = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -278,26 +279,27 @@ const AICompanion = () => {
         const errorText = await response.text();
         console.error('Chat API error:', response.status, errorText);
         
+        let errorMessage = "Unable to connect to AI. Please try again.";
+        
         if (response.status === 429) {
-          toast({
-            title: "Rate Limit Reached",
-            description: "Too many requests. Please try again in a moment.",
-            variant: "destructive",
-          });
+          errorMessage = "Too many requests. Please try again in a moment.";
           trackCustom("rate_limit_error");
-          return; // Exit early without adding empty message
-        }
-        if (response.status === 402) {
-          toast({
-            title: "Payment Required",
-            description: "Please add credits to your Lovable AI workspace to continue using AI features.",
-            variant: "destructive",
-          });
+        } else if (response.status === 402) {
+          errorMessage = "Service unavailable. Please contact support.";
           trackCustom("payment_required_error");
-          return; // Exit early without adding empty message
+        } else if (response.status === 401) {
+          errorMessage = "Authentication error. Please sign in again.";
+          trackCustom("auth_error");
+        } else {
+          trackCustom("chat_api_error", { status: response.status });
         }
-        throw new Error(`Failed to start chat stream: ${response.status}`);
+        
+        setChatError(errorMessage);
+        return; // Exit early without adding empty message
       }
+      
+      // Clear any previous errors on successful connection
+      setChatError(null);
 
       // Safety timeout to prevent hanging connections on mobile
       if (!timeoutId) {
@@ -474,11 +476,17 @@ const AICompanion = () => {
       abortControllerRef.current = null;
     } catch (error) {
       console.error('Chat error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to get response. Please try again.",
-        variant: "destructive",
-      });
+      
+      let errorMessage = "Failed to get response. Please try again.";
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "Request cancelled. Please try again.";
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Network error. Please check your connection and try again.";
+        }
+      }
+      
+      setChatError(errorMessage);
       trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
       // Cleanup on error
       try { if (timeoutId) clearTimeout(timeoutId); } catch {}
@@ -496,6 +504,9 @@ const AICompanion = () => {
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || inputValue;
     if ((!textToSend.trim() && selectedImages.length === 0) || isLoading) return;
+
+    // Clear any previous errors
+    setChatError(null);
 
     // Track chat message
     messageCountRef.current += 1;
@@ -659,6 +670,52 @@ const AICompanion = () => {
           </div>
         </div>
       )}
+
+      {/* Error Banner */}
+      <AnimatePresence>
+        {chatError && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="px-4 py-3 border-t border-border/50"
+          >
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-destructive font-medium mb-2">
+                    {chatError}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setChatError(null);
+                      // Retry the last user message
+                      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+                      if (lastUserMsg) {
+                        handleSend(lastUserMsg.content);
+                      }
+                    }}
+                    className="text-xs h-8"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setChatError(null)}
+                  className="h-6 w-6 flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Input Area */}
       <div className="px-4 py-3 border-t border-border bg-background safe-area-bottom">
