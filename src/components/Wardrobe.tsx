@@ -3,10 +3,12 @@ import WardrobeMyItems from "./WardrobeMyItems";
 import WardrobeOutfitSuggestion from "./WardrobeOutfitSuggestion";
 import WardrobeLookbook from "./WardrobeLookbook";
 import WardrobeComingSoon from "./WardrobeComingSoon";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 type WardrobeView = 'items' | 'suggestion' | 'calendar' | 'lookbook';
 
 const Wardrobe = () => {
+  useAnalytics(); // Auto-tracks all interactions
   const [currentView, setCurrentView] = useState<WardrobeView>('items');
 
   const renderView = () => {

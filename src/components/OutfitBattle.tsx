@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import Confetti from 'react-confetti';
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface Participant {
   name: string;
@@ -33,6 +34,8 @@ interface OutfitBattleProps {
 }
 
 const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
+  useAnalytics(); // Auto-tracks all interactions
+  const { trackCustom } = useAnalytics();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -212,6 +215,13 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
       setTimeout(() => setShowConfetti(false), 5000);
       setComparisonText("");
       toast({ title: 'Battle complete!', description: `${data.results[0].name} takes the crown! 👑` });
+      
+      // Track battle completion
+      trackCustom('outfit_battle_completed', {
+        participant_count: participants.length,
+        winner: data.results[0].name,
+        winner_score: data.results[0].score
+      });
 
       // Persist battle in background (non-blocking)
       // Persist battle in background (non-blocking)

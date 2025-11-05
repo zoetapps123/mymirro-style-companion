@@ -15,6 +15,7 @@ import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface PlanLooksProps {
   onBack: () => void;
@@ -31,6 +32,7 @@ const occasions = [
 ];
 
 const PlanLooks = ({ onBack }: PlanLooksProps) => {
+  useAnalytics(); // Auto-tracks all interactions
   const { toast } = useToast();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [showEventDialog, setShowEventDialog] = useState(false);

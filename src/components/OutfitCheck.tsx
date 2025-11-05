@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface OutfitCheckProps {
   onBack: () => void;
@@ -15,6 +16,8 @@ interface OutfitCheckProps {
 const occasions = ["Casual Day Out", "Office", "Dinner Date", "Party", "Wedding", "Travel", "Interview"];
 
 const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
+  useAnalytics(); // Auto-tracks all interactions
+  const { trackCustom } = useAnalytics();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -111,6 +114,13 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
         setResult({ ...data, image_url: imageData });
         setLoading(false);
         toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
+        
+        // Track style check completion
+        trackCustom('style_check_completed', {
+          occasion: selectedOccasion,
+          overall_score: data.overall_score,
+          outfit_name: data.outfit_name
+        });
 
         // Background persistence (non-blocking)
         (async () => {
