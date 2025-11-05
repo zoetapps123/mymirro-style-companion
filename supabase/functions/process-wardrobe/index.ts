@@ -4,6 +4,8 @@ import { getAIApiKey } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
 import { detectItems } from './detectItems.ts';
 import { generateComposite } from './generateComposite.ts';
+import { detectCompositeItems } from './detectCompositeItems.ts';
+import { matchItems } from './matchItems.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -54,17 +56,23 @@ serve(async (req) => {
     // STEP 0: Image Validation
     const validationResult = await validateImage(actualImageUrl, apiKey);
 
-    // STEP 1: Item Detection
+    // STEP 1: Detect items from original image (detailed attributes)
     const detectedItems = await detectItems(actualImageUrl, apiKey);
 
     // STEP 2: Generate ONE composite image with all items
     const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
 
+    // STEP 3: Detect items in composite (to get actual positions)
+    const compositeDetections = await detectCompositeItems(compositeResult.compositeImageUrl, apiKey);
+
+    // STEP 4: Match original items to composite detections (correct labels + accurate positions)
+    const matchedItems = matchItems(detectedItems, compositeDetections);
+
     // Cache the complete result
     const processResult = {
-      items: detectedItems,
+      items: matchedItems, // Items now have bbox from composite detection
       compositeImageUrl: compositeResult.compositeImageUrl,
-      gridLayout: compositeResult.gridLayout,
+      gridLayout: compositeResult.gridLayout, // Keep for fallback
       contentType: validationResult.contentType
     };
     await setCachedResult(cacheKey, processResult);

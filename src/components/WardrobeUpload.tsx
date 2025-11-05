@@ -144,13 +144,21 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         setProgress(70);
 
         // Import cropping function
-        const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+        const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
         
-        // Crop all items from the composite
-        const crops = await cropCompositeImage(
-          data.compositeImageUrl,
-          data.gridLayout
-        );
+        // Check if we have bbox data (from two-stage detection)
+        const hasBboxes = itemsDetected.every((item: any) => item.bbox);
+        
+        let crops: Blob[];
+        if (hasBboxes) {
+          console.log('Using bbox-based cropping from composite detection');
+          crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
+        } else {
+          // Fallback to grid-based if no bbox data
+          console.log('Falling back to grid-based cropping');
+          const { cropCompositeImage } = await import('@/lib/imageProcessing');
+          crops = await cropCompositeImage(data.compositeImageUrl, data.gridLayout);
+        }
 
         // Upload each cropped item
         for (let idx = 0; idx < itemsDetected.length; idx++) {

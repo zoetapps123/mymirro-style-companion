@@ -200,8 +200,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
-      const crops = await cropCompositeImage(data.compositeImageUrl, data.gridLayout);
+      const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+      
+      const hasBboxes = itemsDetected.every((item: any) => item.bbox);
+      let crops: Blob[];
+      
+      if (hasBboxes) {
+        console.log('Using bbox-based cropping from composite detection');
+        crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
+      } else {
+        console.log('Falling back to grid-based cropping');
+        crops = await cropCompositeImage(data.compositeImageUrl, data.gridLayout);
+      }
 
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];

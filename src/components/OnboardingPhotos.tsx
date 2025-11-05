@@ -191,12 +191,18 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           }
 
           if (processData?.items && processData?.compositeImageUrl) {
-            const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+            const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
             
-            const crops = await cropCompositeImage(
-              processData.compositeImageUrl,
-              processData.gridLayout
-            );
+            const hasBboxes = processData.items.every((item: any) => item.bbox);
+            let crops: Blob[];
+            
+            if (hasBboxes) {
+              console.log('Using bbox-based cropping from composite detection');
+              crops = await cropImageWithBoundingBoxes(processData.compositeImageUrl, processData.items);
+            } else {
+              console.log('Falling back to grid-based cropping');
+              crops = await cropCompositeImage(processData.compositeImageUrl, processData.gridLayout);
+            }
 
             for (let idx = 0; idx < processData.items.length; idx++) {
               const item = processData.items[idx];
