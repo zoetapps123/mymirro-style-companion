@@ -7,6 +7,14 @@ export interface ValidationResult {
   rejectionReason?: string;
 }
 
+// Helper to strip markdown code blocks from JSON responses
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```json\s*/g, '')
+    .replace(/```\s*/g, '')
+    .trim();
+}
+
 export async function validateImage(
   imageUrl: string,
   apiKey: string
@@ -89,7 +97,8 @@ export async function validateImage(
   try {
     const validationArgs = validationData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (validationArgs) {
-      validationResult = JSON.parse(validationArgs);
+      const cleaned = stripMarkdown(validationArgs);
+      validationResult = JSON.parse(cleaned);
     }
   } catch (e) {
     console.warn('Failed to parse validation tool arguments:', e);
@@ -100,7 +109,8 @@ export async function validateImage(
     const content = validationData?.choices?.[0]?.message?.content;
     if (typeof content === 'string') {
       try {
-        validationResult = JSON.parse(content);
+        const cleaned = stripMarkdown(content);
+        validationResult = JSON.parse(cleaned);
       } catch (_) {}
     }
   }
@@ -141,7 +151,8 @@ export async function validateImage(
     const fallbackContent = fallbackData?.choices?.[0]?.message?.content;
     if (typeof fallbackContent === 'string') {
       try {
-        validationResult = JSON.parse(fallbackContent);
+        const cleaned = stripMarkdown(fallbackContent);
+        validationResult = JSON.parse(cleaned);
       } catch (e) {
         console.error('Failed to parse fallback validation JSON:', e);
       }
