@@ -155,18 +155,36 @@ serve(async (req) => {
       }
     ];
 
-    const data = await callGeminiAPI({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...processedMessages,
-      ],
-      tools
+    // Call Gemini API with streaming
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...processedMessages,
+        ],
+        tools,
+        stream: true,
+      }),
     });
 
-    // Return non-streaming response
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI Gateway error:', response.status, errorText);
+      return new Response(JSON.stringify({ error: 'AI Gateway error' }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Return streaming response
+    return new Response(response.body, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
     });
   } catch (error) {
     console.error('Chat error:', error);
