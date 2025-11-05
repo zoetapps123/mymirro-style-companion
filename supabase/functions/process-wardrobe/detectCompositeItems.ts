@@ -36,23 +36,24 @@ export async function detectCompositeItems(
 1. Exact item name
 2. Category (Tops/Bottoms/Shoes/Accessories/Layers/Dresses)
 3. Dominant color
-4. PRECISE bounding box in normalized coordinates (0.0 to 1.0)
+4. PRECISE bounding box in PIXEL coordinates relative to the composite image (integers)
 
 **CRITICAL BOUNDING BOX RULES**:
-- Each bbox must contain EXACTLY ONE item only
+- Each bbox must contain EXACTLY ONE item only (no combined items)
 - Draw the box TIGHTLY around the item's visible edges
 - Exclude all white background/padding
-- If you see a shirt, its bbox should ONLY include the shirt
-- If you see a belt, its bbox should ONLY include the belt
+- Do not include grid dividers or shadows
 - NEVER group multiple items in one bbox
-- Boxes must NOT overlap
-- Use normalized coordinates: x (left edge), y (top edge), width, height (all 0.0-1.0)
+- Boxes must NOT overlap (IoU between any two boxes < 0.02)
+- Pixel format: { x, y, width, height } with x/y as top-left pixel
 
-**READING ORDER**: 
+Also include image dimensions if available: { image_width, image_height }.
+
+**READING ORDER**:
 Return items from left-to-right, top-to-bottom (like reading text).
 
-Example good bbox: Shirt at top-left of 800x600 composite, actual item pixels 50-300 horizontal, 40-280 vertical:
-{x: 0.0625, y: 0.067, width: 0.3125, height: 0.4}
+Example good bbox (pixels): For 800x600 image, item at 50-300 (x) and 40-280 (y):
+{ x: 50, y: 40, width: 250, height: 240 }
 
 DO NOT return large boxes that encompass multiple items. Each item = one box.`
             },
@@ -92,12 +93,12 @@ DO NOT return large boxes that encompass multiple items. Each item = one box.`
                     },
                     bbox: {
                       type: 'object',
-                      description: 'Tight bounding box in normalized 0-1 coordinates, excluding white space',
+                      description: 'Tight bounding box in PIXEL coordinates, excluding white space',
                       properties: {
-                        x: { type: 'number', description: 'Left edge (0.0 = left side, 1.0 = right side)', minimum: 0, maximum: 1 },
-                        y: { type: 'number', description: 'Top edge (0.0 = top, 1.0 = bottom)', minimum: 0, maximum: 1 },
-                        width: { type: 'number', description: 'Box width as fraction of image width', minimum: 0.01, maximum: 1 },
-                        height: { type: 'number', description: 'Box height as fraction of image height', minimum: 0.01, maximum: 1 }
+                        x: { type: 'integer', description: 'Left edge in pixels (0 = left side)', minimum: 0 },
+                        y: { type: 'integer', description: 'Top edge in pixels (0 = top)', minimum: 0 },
+                        width: { type: 'integer', description: 'Box width in pixels', minimum: 1 },
+                        height: { type: 'integer', description: 'Box height in pixels', minimum: 1 }
                       },
                       required: ['x', 'y', 'width', 'height']
                     }
@@ -122,15 +123,22 @@ DO NOT return large boxes that encompass multiple items. Each item = one box.`
       const rawContent = detectionData?.choices?.[0]?.message?.content;
       if (typeof rawContent === 'string' && rawContent.trim()) {
         console.log('Trying content fallback for composite detection');
-        const stripped = rawContent.replace(/```json|```/gi, '').trim();
+        // Extract JSON inside code fences if present
+        const jsonMatch = rawContent.match(/```json\s*([\s\S]*?)```/i);
+        const candidate = jsonMatch ? jsonMatch[1] : rawContent;
+        const stripped = candidate.trim();
         try {
-          const result = JSON.parse(stripped);
-          if (result.items && Array.isArray(result.items)) {
-            console.log(`Detected ${result.items.length} items in composite (fallback)`);
-            return result.items;
+          const parsed = JSON.parse(stripped);
+          if (Array.isArray(parsed)) {
+            console.log(`Detected ${parsed.length} items in composite (fallback array)`);
+            return parsed;
+          }
+          if (parsed.items && Array.isArray(parsed.items)) {
+            console.log(`Detected ${parsed.items.length} items in composite (fallback object)`);
+            return parsed.items;
           }
         } catch (e) {
-          console.error('Fallback parse failed:', e);
+          console.error('Fallback parse failed:', e, 'raw snippet:', stripped.slice(0, 200));
         }
       }
       
@@ -143,9 +151,14 @@ DO NOT return large boxes that encompass multiple items. Each item = one box.`
     
     // Validate bboxes - warn if any are suspiciously large (might contain multiple items)
     result.items.forEach((item: CompositeDetection, idx: number) => {
-      const area = item.bbox.width * item.bbox.height;
-      if (area > 0.35) { // More than 35% of image
-        console.warn(`Item ${idx} "${item.name}" has large bbox (area: ${(area * 100).toFixed(1)}%) - might contain multiple items`);
+      const w = item.bbox.width;
+      const h = item.bbox.height;
+      // Only warn for suspicious area when using normalized coordinates
+      if (w <= 1 && h <= 1) {
+        const area = w * h;
+        if (area > 0.35) {
+          console.warn(`Item ${idx} "${item.name}" has large bbox (area: ${(area * 100).toFixed(1)}%) - might contain multiple items`);
+        }
       }
     });
     

@@ -111,11 +111,25 @@ export const cropImageWithBoundingBoxes = async (
 
         const { x, y, width, height } = item.bbox;
         
-        // Convert normalized coordinates to pixel values
-        const pixelX = Math.floor(x * img.width);
-        const pixelY = Math.floor(y * img.height);
-        const pixelWidth = Math.ceil(width * img.width);
-        const pixelHeight = Math.ceil(height * img.height);
+        // Support both normalized [0-1] and absolute pixel coordinates
+        const looksNormalized = x <= 1 && y <= 1 && width <= 1 && height <= 1;
+        let pixelX: number, pixelY: number, pixelWidth: number, pixelHeight: number;
+
+        if (looksNormalized) {
+          pixelX = Math.round(x * img.width);
+          pixelY = Math.round(y * img.height);
+          pixelWidth = Math.max(1, Math.round(width * img.width));
+          pixelHeight = Math.max(1, Math.round(height * img.height));
+        } else {
+          pixelX = Math.max(0, Math.round(x));
+          pixelY = Math.max(0, Math.round(y));
+          pixelWidth = Math.max(1, Math.round(width));
+          pixelHeight = Math.max(1, Math.round(height));
+        }
+
+        // Clamp to image bounds
+        if (pixelX + pixelWidth > img.width) pixelWidth = Math.max(1, img.width - pixelX);
+        if (pixelY + pixelHeight > img.height) pixelHeight = Math.max(1, img.height - pixelY);
 
         // Create canvas for this crop
         const canvas = document.createElement('canvas');
