@@ -216,11 +216,13 @@ export async function callGeminiAPI(options: {
     };
   }
   
-  // Check for inline_data (generated images)
-  const imagePart = parts.find((p: any) => p.inline_data);
+  // Check for inline_data / inlineData (generated images)
+  const imagePart = parts.find((p: any) => p.inline_data || p.inlineData);
   if (imagePart) {
-    const imageData = imagePart.inline_data;
-    const base64Image = `data:${imageData.mime_type};base64,${imageData.data}`;
+    const imageData = imagePart.inline_data || imagePart.inlineData;
+    const mimeType = imageData.mime_type || imageData.mimeType || 'image/png';
+    const dataB64 = imageData.data;
+    const base64Image = `data:${mimeType};base64,${dataB64}`;
     return {
       choices: [{
         message: {
