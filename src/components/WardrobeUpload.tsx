@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
 // Image processing functions imported dynamically when needed
 
 interface WardrobeItem {
@@ -24,6 +25,7 @@ interface WardrobeUploadProps {
 const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { trackClick, trackCustom } = useAnalytics();
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -219,6 +221,14 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             : `All detected items already exist in your wardrobe.`,
         });
 
+        // Track wardrobe item additions
+        trackCustom('wardrobe_items_added', {
+          items_added: addedCount,
+          items_skipped: skippedCount,
+          total_detected: itemsDetected.length,
+          upload_method: 'manual_photo'
+        });
+
       setProgress(100);
       fetchWardrobeItems();
       };
@@ -307,7 +317,10 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         />
         <Button 
           className="glow-primary gap-2"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            trackClick('wardrobe_add_items_button', 'add-items', { feature: 'wardrobe_upload' });
+            fileInputRef.current?.click();
+          }}
           disabled={loading}
         >
           <Plus className="w-5 h-5" />

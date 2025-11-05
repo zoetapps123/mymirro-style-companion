@@ -6,12 +6,14 @@ import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, 
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
 }
 
 const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
+  const { trackClick } = useAnalytics();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [selectedOccasion, setSelectedOccasion] = useState<string>("");
@@ -922,7 +924,10 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             </h2>
             <Card
               className="p-6 cursor-pointer hover:border-primary transition-colors relative overflow-hidden border-2 border-primary rounded-2xl"
-              onClick={() => onNavigate('outfit-battle')}
+          onClick={() => {
+            trackClick('style_check_button', 'outfit-battle', { feature: 'outfit_battle' });
+            onNavigate('outfit-battle');
+          }}
             >
               <div className="absolute top-4 right-6 opacity-30">
                 <svg width="120" height="100" viewBox="0 0 120 100" fill="none">

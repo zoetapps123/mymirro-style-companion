@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface ToolCall {
   type: 'show_wardrobe_items' | 'create_outfit_suggestion';
@@ -72,11 +73,9 @@ const AICompanion = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Analytics helper
-  const trackEvent = (eventName: string, metadata?: any) => {
-    console.log(`[Analytics] ${eventName}`, metadata);
-  };
+  const { trackCustom } = useAnalytics();
+  const chatStartTimeRef = useRef<number>(Date.now());
+  const messageCountRef = useRef<number>(0);
 
   // Load user profile from onboarding
   useEffect(() => {
@@ -102,7 +101,7 @@ const AICompanion = () => {
     setMessages([greeting]);
     setShowPrompts(true);
     persistMessages([greeting]);
-    trackEvent("chat_reset");
+    trackCustom("chat_reset");
   };
 
   // Check session and initialize greeting
@@ -125,7 +124,7 @@ const AICompanion = () => {
         }));
         setMessages(messagesWithDates);
         setShowPrompts(messagesWithDates.length <= 1);
-        trackEvent("session_restored");
+        trackCustom("session_restored");
       } catch (e) {
         // Invalid session, start fresh
         initializeSession();
@@ -148,7 +147,7 @@ const AICompanion = () => {
     setMessages([greeting]);
     setShowPrompts(true);
     persistMessages([greeting]);
-    trackEvent("session_started", { userName });
+    trackCustom("session_started", { userName });
   };
 
   useEffect(() => {
@@ -285,7 +284,7 @@ const AICompanion = () => {
             description: "Too many requests. Please try again in a moment.",
             variant: "destructive",
           });
-          trackEvent("rate_limit_error");
+          trackCustom("rate_limit_error");
           return; // Exit early without adding empty message
         }
         if (response.status === 402) {
@@ -294,7 +293,7 @@ const AICompanion = () => {
             description: "Please add credits to your Lovable AI workspace to continue using AI features.",
             variant: "destructive",
           });
-          trackEvent("payment_required_error");
+          trackCustom("payment_required_error");
           return; // Exit early without adding empty message
         }
         throw new Error(`Failed to start chat stream: ${response.status}`);
@@ -350,7 +349,7 @@ const AICompanion = () => {
           persistMessages(updated);
           return updated;
         });
-        trackEvent("reply_delivered");
+        trackCustom("reply_delivered");
         // Cleanup controller/timeout for Safari path
         if (timeoutId) clearTimeout(timeoutId);
         abortControllerRef.current = null;
@@ -469,7 +468,7 @@ const AICompanion = () => {
         });
       }
 
-      trackEvent("reply_delivered");
+      trackCustom("reply_delivered");
       // Cleanup controller/timeout
       if (timeoutId) clearTimeout(timeoutId);
       abortControllerRef.current = null;
@@ -480,7 +479,7 @@ const AICompanion = () => {
         description: "Failed to get response. Please try again.",
         variant: "destructive",
       });
-      trackEvent("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
+      trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
       // Cleanup on error
       try { if (timeoutId) clearTimeout(timeoutId); } catch {}
       abortControllerRef.current = null;
@@ -489,7 +488,7 @@ const AICompanion = () => {
 
   const handleCardClick = (query: string) => {
     setShowPrompts(false);
-    trackEvent("query_card_clicked", { query });
+    trackCustom("query_card_clicked", { query });
     // Directly send the card query
     handleSend(query);
   };
@@ -498,9 +497,16 @@ const AICompanion = () => {
     const textToSend = messageText || inputValue;
     if ((!textToSend.trim() && selectedImages.length === 0) || isLoading) return;
 
-    const hasImages = selectedImages.length > 0;
-    trackEvent("sent_message", { hasImages, messageLength: inputValue.length });
-    if (hasImages) trackEvent("uploaded_image", { count: selectedImages.length });
+    // Track chat message
+    messageCountRef.current += 1;
+    const timeSpentSeconds = Math.floor((Date.now() - chatStartTimeRef.current) / 1000);
+    trackCustom('chat_message_sent', {
+      message_number: messageCountRef.current,
+      time_in_chat_seconds: timeSpentSeconds,
+      has_images: selectedImages.length > 0,
+      image_count: selectedImages.length,
+      message_length: textToSend.length
+    });
 
     const userMessage: Message = {
       id: Date.now().toString(),
