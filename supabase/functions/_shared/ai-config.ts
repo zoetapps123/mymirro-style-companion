@@ -68,7 +68,15 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
                 throw new Error(`Failed to fetch image: ${imageResponse.status}`);
               }
               const imageBuffer = await imageResponse.arrayBuffer();
-              const base64Data = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+              // Convert to base64 safely without blowing the call stack
+              const bytes = new Uint8Array(imageBuffer);
+              const chunkSize = 0x8000; // 32KB chunks
+              let binary = '';
+              for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.subarray(i, i + chunkSize);
+                binary += String.fromCharCode(...chunk);
+              }
+              const base64Data = btoa(binary);
               const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
               console.log('Successfully converted image, size:', imageBuffer.byteLength, 'type:', mimeType);
               parts.push({
