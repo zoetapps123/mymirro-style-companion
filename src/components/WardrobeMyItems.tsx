@@ -208,7 +208,13 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      // Process all items using smart cropping
+      // Pre-crop all items using grid layout for accurate mapping
+      const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+      const crops = await cropCompositeImage(
+        data.compositeImageUrl,
+        data.gridLayout || { rows: Math.ceil(Math.sqrt(itemsDetected.length)), columns: Math.ceil((itemsDetected.length + Math.ceil(Math.sqrt(itemsDetected.length)) - 1) / Math.ceil(Math.sqrt(itemsDetected.length))), itemCount: itemsDetected.length }
+      );
+
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
 
@@ -226,15 +232,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        // Smart crop this specific item
-        const { advancedSmartCrop, trimImageBorders } = await import('@/lib/imageProcessing');
-        const croppedBlob = await advancedSmartCrop(
-          data.compositeImageUrl,
-          idx,
-          itemsDetected.length
-        );
-        
-        // Apply border trimming
+        const croppedBlob = crops[idx] || crops[crops.length - 1];
         const finalBlob = await trimImageBorders(croppedBlob);
 
         // Upload cropped image

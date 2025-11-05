@@ -191,7 +191,13 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           }
 
           if (processData?.items && processData?.compositeImageUrl) {
-            // Use smart cropping for each item
+            // Pre-crop all items using the backend grid layout to preserve order-to-label mapping
+            const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+            const crops = await cropCompositeImage(
+              processData.compositeImageUrl,
+              processData.gridLayout || { rows: Math.ceil(Math.sqrt(processData.items.length)), columns: Math.ceil((processData.items.length + Math.ceil(Math.sqrt(processData.items.length)) - 1) / Math.ceil(Math.sqrt(processData.items.length))), itemCount: processData.items.length }
+            );
+
             for (let idx = 0; idx < processData.items.length; idx++) {
               const item = processData.items[idx];
 
@@ -207,15 +213,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              // Smart crop this specific item
-              const croppedBlob = await advancedSmartCrop(
-                processData.compositeImageUrl,
-                idx,
-                processData.items.length
-              );
-              
-              // Apply border trimming
-              const { trimImageBorders } = await import('@/lib/imageProcessing');
+              const croppedBlob = crops[idx] || crops[crops.length - 1];
               const finalBlob = await trimImageBorders(croppedBlob);
 
               // Upload final processed image

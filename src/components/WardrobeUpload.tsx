@@ -144,7 +144,13 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         setProgress(70);
 
         // Import image processing functions
-        const { advancedSmartCrop, trimImageBorders } = await import('@/lib/imageProcessing');
+        const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+
+        // Pre-crop all items using the backend-provided grid layout for accurate mapping
+        const crops = await cropCompositeImage(
+          data.compositeImageUrl,
+          data.gridLayout || { rows: Math.ceil(Math.sqrt(itemsDetected.length)), columns: Math.ceil((itemsDetected.length + Math.ceil(Math.sqrt(itemsDetected.length)) - 1) / Math.ceil(Math.sqrt(itemsDetected.length))), itemCount: itemsDetected.length }
+        );
 
         // Upload and save all detected items with duplicate checking
         for (let idx = 0; idx < itemsDetected.length; idx++) {
@@ -165,13 +171,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          // Smart crop this specific item
-          const croppedBlob = await advancedSmartCrop(
-            data.compositeImageUrl,
-            idx,
-            itemsDetected.length
-          );
-          
+          const croppedBlob = crops[idx] || crops[crops.length - 1];
           // Apply border trimming
           const finalBlob = await trimImageBorders(croppedBlob);
 
