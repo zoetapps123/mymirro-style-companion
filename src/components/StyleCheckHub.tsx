@@ -22,6 +22,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [extracting, setExtracting] = useState(false);
+  const [extracted, setExtracted] = useState(false);
   const [extractedItems, setExtractedItems] = useState<any[]>([]);
   const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const [elevating, setElevating] = useState(false);
@@ -37,6 +38,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         if (typeof s.uploadedImage === 'string' || s.uploadedImage === null) setUploadedImage(s.uploadedImage);
         if (s.result) setResult(s.result);
         if (Array.isArray(s.extractedItems)) setExtractedItems(s.extractedItems);
+        if (typeof s.extracted === 'boolean') setExtracted(s.extracted);
         if (typeof s.elevatedImage === 'string' || s.elevatedImage === null) setElevatedImage(s.elevatedImage);
       }
     } catch (e) {
@@ -46,11 +48,11 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
   // Persist while tab is open (clears on session close)
   useEffect(() => {
-    const state = { selectedOccasion, uploadedImage, result, extractedItems, elevatedImage };
+    const state = { selectedOccasion, uploadedImage, result, extractedItems, extracted, elevatedImage };
     try {
       sessionStorage.setItem('style_check_state', JSON.stringify(state));
     } catch {}
-  }, [selectedOccasion, uploadedImage, result, extractedItems, elevatedImage]);
+  }, [selectedOccasion, uploadedImage, result, extractedItems, extracted, elevatedImage]);
 
   useEffect(() => {
     loadWardrobeItems();
@@ -99,6 +101,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
     setLoading(true);
     setScanning(true);
+    setExtracted(false);
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -345,6 +348,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
           setExtractedItems(addedItemsPreview);
           setExtracting(false);
+          setExtracted(true);
 
           if (addedCount > 0) {
             toast({
@@ -771,10 +775,10 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                     variant="default"
                     className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg"
                     onClick={extractToWardrobe}
-                    disabled={extracting}
+                    disabled={extracting || extracted}
                   >
                     <Package className="w-4 h-4 mr-2" />
-                    {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
+                    {extracted ? 'Added' : extracting ? 'Extracting...' : 'Extract to Wardrobe'}
                   </Button>
                 </div>
               )}
@@ -934,6 +938,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                   setResult(null);
                   setUploadedImage(null);
                   setExtractedItems([]);
+                  setExtracted(false);
                   setElevatedImage(null);
                 }}
               >
