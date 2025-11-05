@@ -38,6 +38,10 @@ const Index = () => {
     checkAuthAndFlow();
   }, []);
 
+  // Track tab changes (must be before any early returns to keep hooks order stable)
+  useEffect(() => {
+    trackCustom('tab_change', { tab: activeTab });
+  }, [activeTab, trackCustom]);
   const checkAuthAndFlow = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -183,10 +187,6 @@ const Index = () => {
     }
   };
 
-  // Track tab changes
-  useEffect(() => {
-    trackCustom('tab_change', { tab: activeTab });
-  }, [activeTab, trackCustom]);
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
