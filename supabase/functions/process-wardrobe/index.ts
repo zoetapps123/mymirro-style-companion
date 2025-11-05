@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAIApiKey } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
 import { detectItems } from './detectItems.ts';
-import { extractIndividualItems } from './extractIndividualItems.ts';
+import { generateComposite } from './generateComposite.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -57,13 +57,14 @@ serve(async (req) => {
     // STEP 1: Item Detection
     const detectedItems = await detectItems(actualImageUrl, apiKey);
 
-    // STEP 2: Extract each item individually as isolated product images
-    const extractedItems = await extractIndividualItems(actualImageUrl, detectedItems, apiKey);
+    // STEP 2: Generate ONE composite image with all items
+    const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
 
     // Cache the complete result
     const processResult = {
       items: detectedItems,
-      extractedItems: extractedItems, // Array of { item, imageUrl }
+      compositeImageUrl: compositeResult.compositeImageUrl,
+      gridLayout: compositeResult.gridLayout,
       contentType: validationResult.contentType
     };
     await setCachedResult(cacheKey, processResult);

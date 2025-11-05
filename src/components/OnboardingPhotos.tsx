@@ -190,12 +190,16 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             continue;
           }
 
-          if (processData?.items && processData?.extractedItems) {
-            const extractedItems = processData.extractedItems;
+          if (processData?.items && processData?.compositeImageUrl) {
+            const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+            
+            const crops = await cropCompositeImage(
+              processData.compositeImageUrl,
+              processData.gridLayout
+            );
 
-            for (let idx = 0; idx < extractedItems.length; idx++) {
-              const extracted = extractedItems[idx];
-              const item = extracted.item;
+            for (let idx = 0; idx < processData.items.length; idx++) {
+              const item = processData.items[idx];
 
               const isDuplicate = existingItems?.some(existing => 
                 existing.category?.toLowerCase() === item.category?.toLowerCase() &&
@@ -209,9 +213,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              // Convert base64 to blob
-              const response = await fetch(extracted.imageUrl);
-              const blob = await response.blob();
+              const croppedBlob = crops[idx];
+              if (!croppedBlob) continue;
+
+              const blob = await trimImageBorders(croppedBlob);
 
               // Upload final processed image
               const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;

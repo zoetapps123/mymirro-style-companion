@@ -165,27 +165,40 @@ export const WARDROBE_PROMPTS = {
 INCLUSION CRITERIA: Clearly visible, well-lit, identifiable category and design
 EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplicate`,
 
-  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite image from the provided photo that shows each clothing item cleanly extracted and arranged in a professional grid layout.
+  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the clothing items extracted and isolated from the provided photo.
 
-ITEMS TO EXTRACT AND ARRANGE:
+ITEMS TO EXTRACT:
 ${itemsList}
 
-IMAGE GENERATION REQUIREMENTS:
-- Extract each clothing item from the input image
-- Arrange all items in a clean grid (2-3 items per row)
-- Pure white background (#FFFFFF)
-- CRITICAL SPACING: Each item must be centered in its grid cell with LARGE white space padding (at least 20-30% of cell width/height as empty white space around EACH item)
-- Items MUST NOT touch or overlap - there must be visible white space separation between all items
-- Items should be front-facing, unfolded, and clearly visible
-- Each item should occupy only 60-70% of its grid cell, leaving 30-40% as white buffer space
-- Maintain true colors and fabric textures from the original image
-- Professional e-commerce photography quality
-- Soft even lighting, no harsh shadows
-- NO borders, NO frames, NO grid lines - only pure white background
-- Equal-sized cells for visual consistency
-- Think of product catalog layout: items should be clearly separated, not touching
+CRITICAL REQUIREMENTS FOR COMPOSITE IMAGE:
 
-The output must be a single generated image ready for display in a wardrobe app.`
+1. GRID LAYOUT:
+   - Arrange items in a ${itemsList.split('\n').length <= 4 ? '2x2' : '3-column'} grid
+   - Each item gets ONE cell in the grid
+   - Cells must be equal-sized squares
+
+2. ITEM EXTRACTION (MOST IMPORTANT):
+   - Remove the person/model completely
+   - Show ONLY the clothing item itself
+   - Items should appear as if laid flat or photographed alone
+   - Front-facing view, fully visible
+
+3. SPACING & SEPARATION:
+   - Pure white background (#FFFFFF) everywhere
+   - Each item centered in its cell
+   - MASSIVE white space around each item (50-60px minimum)
+   - Items occupy only 50-60% of cell size
+   - Add thick white borders between cells (30-40px)
+   - NO items should touch cell edges
+   - NO overlapping between cells
+
+4. VISUAL QUALITY:
+   - Maintain accurate colors from original
+   - Professional product photography style
+   - Clean, even lighting
+   - No shadows
+
+Think: e-commerce product catalog with extreme spacing. Generate ONE composite image.`
 };
 
 // ============================================

@@ -117,7 +117,6 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         console.log('Wardrobe processing response:', data);
 
         const itemsDetected = data?.items || [];
-        const extractedItems = data?.extractedItems || [];
         
         if (!itemsDetected || itemsDetected.length === 0) {
           toast({
@@ -129,10 +128,10 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           return;
         }
 
-        if (extractedItems.length === 0) {
+        if (!data?.compositeImageUrl) {
           toast({
             title: "Processing incomplete",
-            description: "Failed to extract item images. Please try again.",
+            description: "Failed to generate composite image. Please try again.",
             variant: "destructive",
           });
           setLoading(false);
@@ -144,10 +143,18 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         let skippedCount = 0;
         setProgress(70);
 
-        // Upload each extracted item image
-        for (let idx = 0; idx < extractedItems.length; idx++) {
-          const extracted = extractedItems[idx];
-          const item = extracted.item;
+        // Import cropping function
+        const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+        
+        // Crop all items from the composite
+        const crops = await cropCompositeImage(
+          data.compositeImageUrl,
+          data.gridLayout
+        );
+
+        // Upload each cropped item
+        for (let idx = 0; idx < itemsDetected.length; idx++) {
+          const item = itemsDetected[idx];
 
           // Check for duplicates
           const isDuplicate = existingItems?.some(existing => 
@@ -164,9 +171,14 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          // Convert base64 image to blob
-          const response = await fetch(extracted.imageUrl);
-          const blob = await response.blob();
+          const croppedBlob = crops[idx];
+          if (!croppedBlob) {
+            console.warn(`No crop for item ${idx}`);
+            continue;
+          }
+
+          // Trim borders
+          const blob = await trimImageBorders(croppedBlob);
 
           // Upload final image
           const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;

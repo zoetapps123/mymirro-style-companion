@@ -188,8 +188,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         return;
       }
 
-      if (!data?.items || data.items.length === 0 || !data?.extractedItems) {
-        console.log('No items or extracted images in background processing');
+      if (!data?.items || data.items.length === 0 || !data?.compositeImageUrl) {
+        console.log('No items or composite in background processing');
         const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
         localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
         setProcessingItems(prev => Math.max(0, prev - 1));
@@ -197,16 +197,15 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       }
 
       const itemsDetected = data.items;
-      const extractedItems = data.extractedItems;
       let addedCount = 0;
       let skippedCount = 0;
 
-      // Process each extracted item
-      for (let idx = 0; idx < extractedItems.length; idx++) {
-        const extracted = extractedItems[idx];
-        const item = extracted.item;
+      const { cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+      const crops = await cropCompositeImage(data.compositeImageUrl, data.gridLayout);
 
-        // Check for duplicates
+      for (let idx = 0; idx < itemsDetected.length; idx++) {
+        const item = itemsDetected[idx];
+
         const isDuplicate = existingItems?.some(existing => 
           existing.category?.toLowerCase() === item.category?.toLowerCase() &&
           (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
@@ -220,11 +219,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        // Convert base64 to blob
-        const response = await fetch(extracted.imageUrl);
-        const blob = await response.blob();
+        const croppedBlob = crops[idx];
+        if (!croppedBlob) {
+          skippedCount++;
+          continue;
+        }
 
-        // Upload cropped image
+        const blob = await trimImageBorders(croppedBlob);
+
         const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
         const { error: uploadError } = await supabase.storage
           .from('outfits')
