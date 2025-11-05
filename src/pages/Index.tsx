@@ -14,6 +14,14 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
+// Safe localStorage wrapper to avoid iOS Private Mode errors
+const safeLocalStorage = {
+  get: (key: string) => { try { return localStorage.getItem(key); } catch { return null; } },
+  set: (key: string, value: string) => { try { localStorage.setItem(key, value); } catch {}
+  },
+  clear: () => { try { localStorage.clear(); } catch {} }
+};
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [showWelcome, setShowWelcome] = useState(false);
@@ -31,58 +39,63 @@ const Index = () => {
   }, []);
 
   const checkAuthAndFlow = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setShowWelcome(true);
+        return;
+      }
+
+      const lastLogin = safeLocalStorage.get("last_login");
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      
+      if (!lastLogin || parseInt(lastLogin) <= sevenDaysAgo) {
+        await supabase.auth.signOut();
+        safeLocalStorage.clear();
+        setShowWelcome(true);
+        return;
+      }
+
+      const user = session.user;
+
+      // Check if user profile has required basic info
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('name, age_range')
+        .eq('id', user.id)
+        .single();
+
+      const hasBasicInfo = profile?.name && profile?.age_range;
+
+      // Check if user has uploaded minimum wardrobe items
+      const { data: wardrobeItems } = await supabase
+        .from('wardrobe_items')
+        .select('id')
+        .eq('user_id', user.id);
+
+      const hasMinimumItems = (wardrobeItems?.length || 0) >= 3;
+
+      // Show onboarding only if basic info is missing
+      if (!hasBasicInfo) {
+        setShowOnboarding(true);
+        return;
+      }
+
+      // Show photos page only if minimum items not uploaded
+      if (!hasMinimumItems) {
+        setShowPhotos(true);
+        return;
+      }
+
+      // Everything is complete
+      const walkthroughComplete = safeLocalStorage.get("walkthroughComplete") === "true";
+      if (!walkthroughComplete) {
+        setShowWalkthrough(true);
+      }
+    } catch (err) {
+      console.error('checkAuthAndFlow failed:', err);
       setShowWelcome(true);
-      return;
-    }
-
-    const lastLogin = localStorage.getItem("last_login");
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    
-    if (!lastLogin || parseInt(lastLogin) <= sevenDaysAgo) {
-      await supabase.auth.signOut();
-      localStorage.clear();
-      setShowWelcome(true);
-      return;
-    }
-
-    const user = session.user;
-
-    // Check if user profile has required basic info
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('name, age_range')
-      .eq('id', user.id)
-      .single();
-
-    const hasBasicInfo = profile?.name && profile?.age_range;
-
-    // Check if user has uploaded minimum wardrobe items
-    const { data: wardrobeItems } = await supabase
-      .from('wardrobe_items')
-      .select('id')
-      .eq('user_id', user.id);
-
-    const hasMinimumItems = (wardrobeItems?.length || 0) >= 3;
-
-    // Show onboarding only if basic info is missing
-    if (!hasBasicInfo) {
-      setShowOnboarding(true);
-      return;
-    }
-
-    // Show photos page only if minimum items not uploaded
-    if (!hasMinimumItems) {
-      setShowPhotos(true);
-      return;
-    }
-
-    // Everything is complete
-    const walkthroughComplete = localStorage.getItem("walkthroughComplete") === "true";
-    if (!walkthroughComplete) {
-      setShowWalkthrough(true);
     }
   };
 
@@ -144,7 +157,7 @@ const Index = () => {
     return (
       <OnboardingPhotos
         onComplete={() => {
-          localStorage.setItem("walkthroughComplete", "true");
+          safeLocalStorage.set("walkthroughComplete", "true");
           setShowPhotos(false);
         }}
         onBack={() => {
