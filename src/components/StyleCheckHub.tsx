@@ -241,6 +241,12 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) {
           console.error('No session found');
+          setExtracting(false);
+          toast({
+            title: "Session expired",
+            description: "Please refresh the page and try again",
+            variant: "destructive",
+          });
           return;
         }
 
