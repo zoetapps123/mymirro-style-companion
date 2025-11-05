@@ -62,6 +62,7 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
           } else {
             // Fetch URL and convert to base64
             try {
+              console.log('Fetching image URL:', imageUrl);
               const imageResponse = await fetch(imageUrl);
               if (!imageResponse.ok) {
                 throw new Error(`Failed to fetch image: ${imageResponse.status}`);
@@ -69,6 +70,7 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
               const imageBuffer = await imageResponse.arrayBuffer();
               const base64Data = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
               const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+              console.log('Successfully converted image, size:', imageBuffer.byteLength, 'type:', mimeType);
               parts.push({
                 inline_data: {
                   mime_type: mimeType,
@@ -144,6 +146,13 @@ export async function callGeminiAPI(options: {
   if (options.modalities && options.modalities.includes('image')) {
     requestBody.generationConfig.responseModalities = ['image', 'text'];
   }
+  
+  console.log('Gemini API request:', {
+    model,
+    contentsLength: contents.length,
+    hasFunctions: !!functionDeclarations?.length,
+    hasModalities: !!options.modalities
+  });
   
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
