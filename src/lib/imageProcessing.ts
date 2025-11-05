@@ -229,11 +229,11 @@ export const cropImageWithBoundingBoxes = async (
     img.crossOrigin = 'anonymous';
 
     img.onload = () => {
-      const croppedBlobs: Blob[] = [];
+      const croppedBlobs: (Blob | undefined)[] = new Array(items.length);
       let processedCount = 0;
 
       const finalizeIfDone = () => {
-        if (processedCount === items.length) resolve(croppedBlobs);
+        if (processedCount === items.length) resolve(croppedBlobs as Blob[]);
       };
 
       items.forEach((item, idx) => {
@@ -318,7 +318,7 @@ export const cropImageWithBoundingBoxes = async (
 
         trimmed.toBlob(
           (blob) => {
-            if (blob) croppedBlobs.push(blob);
+            if (blob) croppedBlobs[idx] = blob;
             processedCount++;
             finalizeIfDone();
           },
@@ -509,7 +509,7 @@ export const cropCompositeImage = async (
           trimmed.toBlob(
             (blob) => {
               if (blob) {
-                croppedBlobs.push(blob);
+                croppedBlobs[itemIndex] = blob;
               }
               processedCount++;
               finalizeIfDone();
