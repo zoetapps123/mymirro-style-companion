@@ -156,7 +156,7 @@ serve(async (req) => {
     ];
 
     // Call Gemini API directly with streaming
-    const response = await callGeminiAPIStreaming({
+    const geminiResponse = await callGeminiAPIStreaming({
       model: 'google/gemini-2.5-flash',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -165,8 +165,90 @@ serve(async (req) => {
       tools
     });
 
-    // Return streaming response
-    return new Response(response.body, {
+    // Convert Gemini SSE stream to OpenAI-compatible format
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          const reader = geminiResponse.body?.getReader();
+          if (!reader) {
+            controller.close();
+            return;
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (!line.trim() || line.startsWith(':')) continue;
+              
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                
+                try {
+                  const parsed = JSON.parse(data);
+                  const candidate = parsed.candidates?.[0];
+                  const content = candidate?.content;
+                  const parts = content?.parts || [];
+                  
+                  // Check for text content
+                  const textPart = parts.find((p: any) => p.text);
+                  if (textPart) {
+                    // Convert to OpenAI format
+                    const openaiChunk = {
+                      choices: [{
+                        delta: {
+                          content: textPart.text
+                        }
+                      }]
+                    };
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                  }
+                  
+                  // Check for function calls
+                  const functionPart = parts.find((p: any) => p.functionCall);
+                  if (functionPart) {
+                    const openaiChunk = {
+                      choices: [{
+                        delta: {
+                          tool_calls: [{
+                            type: 'function',
+                            function: {
+                              name: functionPart.functionCall.name,
+                              arguments: JSON.stringify(functionPart.functionCall.args)
+                            }
+                          }]
+                        }
+                      }]
+                    };
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                  }
+                } catch (e) {
+                  console.error('Failed to parse Gemini chunk:', e);
+                }
+              }
+            }
+          }
+
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        } catch (error) {
+          console.error('Stream error:', error);
+          controller.error(error);
+        }
+      }
+    });
+
+    // Return OpenAI-compatible streaming response
+    return new Response(stream, {
       headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
     });
   } catch (error) {
