@@ -165,31 +165,24 @@ export const WARDROBE_PROMPTS = {
 INCLUSION CRITERIA: Clearly visible, well-lit, identifiable category and design
 EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplicate`,
 
-  GENERATE_COMPOSITE: (itemsList: string) => `Create a composite image showing ALL detected clothing items arranged in a clean grid layout:
+  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite image from the provided photo that shows each clothing item cleanly extracted and arranged in a professional grid layout.
 
-**ITEMS TO EXTRACT:**
+ITEMS TO EXTRACT AND ARRANGE:
 ${itemsList}
 
-**LAYOUT REQUIREMENTS:**
-- Arrange items in a grid (2-3 items per row depending on total count)
-- Each item in its own cell with ~40px internal whitespace (not borders)
+IMAGE GENERATION REQUIREMENTS:
+- Extract each clothing item from the input image
+- Arrange all items in a clean grid (2-3 items per row)
 - Pure white background (#FFFFFF)
-- Equal-sized cells for consistency
+- Each item centered in its grid cell with generous white padding around it
+- Items should be front-facing, unfolded, and clearly visible
+- Maintain true colors and fabric textures from the original image
+- Professional e-commerce photography quality
+- Soft even lighting, no harsh shadows
+- NO borders, NO frames, NO grid lines - only whitespace separation
+- Equal-sized cells for visual consistency
 
-**ITEM PRESENTATION:**
-- Each item: front-facing, straight orientation
-- Fully unfolded and neatly arranged
-- Centered in its cell
-- Item fills ~70% of cell space
-- Even, soft lighting with no shadows
-- True-to-life colors
-- Professional e-commerce quality
-
-**GRID STRUCTURE:**
-- Maintain order: top-left to bottom-right
-- Consistent spacing between all items
-- Do NOT draw borders, frames, grid lines, drop shadows, or outlines; separation must be whitespace only
-- Clear visual separation between cells via whitespace`
+The output must be a single generated image ready for display in a wardrobe app.`
 };
 
 // ============================================

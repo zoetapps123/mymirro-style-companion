@@ -22,33 +22,33 @@ export async function generateComposite(
     `${idx + 1}. ${item.name} (${item.category})`
   ).join('\n');
 
-    // Note: Gemini doesn't support image generation in the same way
-    // Return text description instead
-    let compositeData;
-    try {
-      compositeData = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: WARDROBE_PROMPTS.GENERATE_COMPOSITE(itemsList)
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageUrl }
-              }
-            ]
-          }
-        ],
-        modalities: ['image', 'text']
-      });
-    } catch (error) {
-      console.error('Failed to generate composite:', error);
-      throw new Error('Failed to generate composite image');
-    }
+  let compositeData;
+  try {
+    console.log('Calling Gemini image model for composite generation...');
+    compositeData = await callGeminiAPI({
+      model: 'google/gemini-2.5-flash-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: WARDROBE_PROMPTS.GENERATE_COMPOSITE(itemsList)
+            },
+            {
+              type: 'image_url',
+              image_url: { url: imageUrl }
+            }
+          ]
+        }
+      ],
+      modalities: ['image', 'text']
+    });
+    console.log('Composite generation response received:', JSON.stringify(compositeData, null, 2));
+  } catch (error) {
+    console.error('Failed to generate composite:', error);
+    throw new Error('Failed to generate composite image');
+  }
   
   if (!compositeData || !compositeData.choices || compositeData.choices.length === 0) {
     console.error('Invalid composite response structure:', compositeData);
@@ -56,7 +56,14 @@ export async function generateComposite(
   }
   
   // Extract generated image from response
-  const compositeImageUrl = compositeData.choices[0]?.message?.images?.[0]?.image_url?.url || imageUrl;
+  const generatedImage = compositeData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  
+  if (!generatedImage) {
+    console.error('No image generated in response:', compositeData);
+    throw new Error('AI did not generate a composite image');
+  }
+  
+  const compositeImageUrl = generatedImage;
 
   console.log(`Successfully generated composite description with ${items.length} items`);
 
