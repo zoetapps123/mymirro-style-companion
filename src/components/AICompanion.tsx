@@ -206,11 +206,10 @@ const AICompanion = () => {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.access_token) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to use the chat feature.",
-        variant: "destructive",
-      });
+      const authMsg = "You need to sign in to chat. Please log in and try again.";
+      console.warn('Chat: missing session token');
+      setChatError(authMsg);
+      toast({ title: "Authentication Required", description: authMsg, variant: "destructive" });
       return;
     }
 

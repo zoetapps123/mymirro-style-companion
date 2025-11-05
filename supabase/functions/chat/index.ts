@@ -14,6 +14,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Chat: request received', { method: req.method, url: new URL(req.url).pathname });
     // Extract and verify JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -102,6 +103,8 @@ serve(async (req) => {
       }
       return msg;
     });
+
+    console.log('Chat: processed messages', { count: processedMessages.length });
 
     // Define tools for visual wardrobe responses
     const tools = [
@@ -252,7 +255,13 @@ serve(async (req) => {
 
     // Return OpenAI-compatible streaming response
     return new Response(stream, {
-      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      },
     });
   } catch (error) {
     console.error('Chat error:', error);
