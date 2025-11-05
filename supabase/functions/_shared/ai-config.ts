@@ -27,7 +27,7 @@ export function getAIApiKey(): string {
 /**
  * Convert OpenAI-style messages to Gemini contents format
  */
-function convertMessagesToContents(messages: any[]): any[] {
+async function convertMessagesToContents(messages: any[]): Promise<any[]> {
   const contents: any[] = [];
   
   for (const msg of messages) {
@@ -60,12 +60,25 @@ function convertMessagesToContents(messages: any[]): any[] {
               }
             });
           } else {
-            parts.push({
-              inline_data: {
-                mime_type: 'image/jpeg',
-                data: imageUrl
+            // Fetch URL and convert to base64
+            try {
+              const imageResponse = await fetch(imageUrl);
+              if (!imageResponse.ok) {
+                throw new Error(`Failed to fetch image: ${imageResponse.status}`);
               }
-            });
+              const imageBuffer = await imageResponse.arrayBuffer();
+              const base64Data = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+              const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+              parts.push({
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              });
+            } catch (error) {
+              console.error('Failed to fetch and convert image URL:', error);
+              throw new Error(`Failed to process image URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
           }
         }
       }
@@ -110,7 +123,7 @@ export async function callGeminiAPI(options: {
   const apiKey = getAIApiKey();
   const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
   
-  const contents = convertMessagesToContents(options.messages);
+  const contents = await convertMessagesToContents(options.messages);
   const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
   
   const requestBody: any = {
