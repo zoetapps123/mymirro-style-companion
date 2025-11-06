@@ -6,7 +6,6 @@ import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { trimImageBorders } from "@/lib/imageProcessing";
 import { LoadingTile } from "@/components/ui/loading-tile";
 
 interface OnboardingPhotosProps {
@@ -156,7 +155,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     }
   };
 
-  // Background processing function
+  // Background processing function - simplified for Gemini-only pipeline
   const processImagesInBackground = async (urls: string[], userId: string) => {
     try {
       // Get existing wardrobe items for duplicate checking
@@ -174,6 +173,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             throw new Error('Authentication required');
           }
 
+          console.log(`Processing image ${urlIdx + 1}/${urls.length} with Gemini...`);
           const { data: processData, error: processError } = await supabase.functions.invoke(
             'process-wardrobe',
             { 
@@ -191,16 +191,8 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           }
 
           if (processData?.items && processData.items.length > 0) {
-            const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
-            
-            // All items now have bboxes from composite detection
-            const compositeUrl = processData.compositeImageUrl || url;
-            console.log('Cropping items from composite image using detected bboxes');
-            const crops = await cropImageWithBoundingBoxes(compositeUrl, processData.items);
-
-            for (let idx = 0; idx < processData.items.length; idx++) {
-              const item = processData.items[idx];
-
+            // Items come with generated images from Gemini
+            for (const item of processData.items) {
               const isDuplicate = existingItems?.some(existing => 
                 existing.category?.toLowerCase() === item.category?.toLowerCase() &&
                 (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
@@ -213,26 +205,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              const croppedBlob = crops[idx];
-              if (!croppedBlob) continue;
-
-              const blob = await trimImageBorders(croppedBlob);
-
-              // Upload final processed image
-              const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
-              const { error: uploadError } = await supabase.storage
-                .from('outfits')
-                .upload(fileName, blob);
-
-              if (uploadError) {
-                console.error('Upload error:', uploadError);
-                continue;
-              }
-
-              const { data: { publicUrl } } = supabase.storage
-                .from('outfits')
-                .getPublicUrl(fileName);
-
+              // Item already has imageUrl from Gemini generation
               await supabase.from('wardrobe_items').insert({
                 user_id: userId,
                 name: item.name,
@@ -242,8 +215,8 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 texture: item.texture,
                 pattern: item.pattern,
                 style_notes: item.style_notes,
-                processed_image_url: publicUrl,
-                image_url: url,
+                processed_image_url: item.imageUrl,
+                image_url: item.imageUrl,
               });
 
               totalAdded++;
