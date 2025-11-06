@@ -69,12 +69,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Process all items in parallel to avoid timeout
-    const itemPromises = detectedItems.map(async (item, i) => {
+    // Limit concurrency to reduce memory/CPU usage
+    const CONCURRENCY = 2;
+
+    async function processOne(item: any, i: number) {
       console.log(`Generating image for item ${i + 1}/${detectedItems.length}: ${item.name}`);
-      
       try {
-        // Generate image using Gemini
         const prompt = `Extract and isolate this ${item.category}: ${item.name}. 
 Color: ${item.color}
 ${item.fabric ? `Fabric: ${item.fabric}` : ''}
@@ -98,50 +98,53 @@ Create a clean, isolated image of this item on a pure white background. Show the
         });
 
         const generatedImageUrl = response.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        
         if (!generatedImageUrl) {
           console.error(`No image generated for item: ${item.name}`);
           return null;
         }
 
-        // Save generated image to storage
         const base64Data = generatedImageUrl.split(',')[1];
-        const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        
+        const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
         const timestamp = Date.now();
         const fileName = `${user.id}/${timestamp}-${i}-${item.category}.png`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('composite-images')
           .upload(fileName, binaryData, {
             contentType: 'image/png',
-            upsert: false
+            upsert: false,
           });
-
         if (uploadError) {
           console.error(`Failed to upload item ${item.name}:`, uploadError);
           return null;
         }
 
-        // Get public URL
         const { data: urlData } = supabase.storage
           .from('composite-images')
           .getPublicUrl(fileName);
 
         console.log(`Saved image for ${item.name}:`, urlData.publicUrl);
-        
-        return {
-          ...item,
-          processedImageUrl: urlData.publicUrl
-        };
+        return { ...item, processedImageUrl: urlData.publicUrl };
       } catch (error) {
         console.error(`Error processing item ${item.name}:`, error);
         return null;
       }
+    }
+
+    const results: (any | null)[] = new Array(detectedItems.length).fill(null);
+    let nextIndex = 0;
+
+    const workers = Array.from({ length: Math.min(CONCURRENCY, detectedItems.length) }, async () => {
+      while (true) {
+        const i = nextIndex++;
+        if (i >= detectedItems.length) break;
+        results[i] = await processOne(detectedItems[i], i);
+      }
     });
 
-    const results = await Promise.all(itemPromises);
-    const itemsWithImages = results.filter(item => item !== null);
+    await Promise.all(workers);
+    const itemsWithImages = results.filter((r) => r !== null) as any[];
 
     if (itemsWithImages.length === 0) {
       throw new Error('Failed to generate images for any items');
@@ -152,7 +155,13 @@ Create a clean, isolated image of this item on a pure white background. Show the
       items: itemsWithImages,
       contentType: validationResult.contentType
     };
-    await setCachedResult(cacheKey, processResult);
+    // Write cache in background when possible to avoid blocking response
+    const er = (globalThis as any).EdgeRuntime;
+    if (er?.waitUntil) {
+      er.waitUntil(setCachedResult(cacheKey, processResult));
+    } else {
+      await setCachedResult(cacheKey, processResult);
+    }
 
     return new Response(
       JSON.stringify({
