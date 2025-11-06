@@ -388,14 +388,39 @@ export const cropImageWithBoundingBoxes = async (
 
         // Fallback: if trimming produced an ultra-small image (likely over-trimmed),
         // fall back to the expanded crop without background removal to preserve item
-        const finalCanvas = (trimmed.width < 48 || trimmed.height < 48) ? canvas : trimmed;
+        const itemCanvas = (trimmed.width < 48 || trimmed.height < 48) ? canvas : trimmed;
+
+        // Center the item on a white 512x512 canvas
+        const targetSize = 512;
+        const centeredCanvas = document.createElement('canvas');
+        centeredCanvas.width = targetSize;
+        centeredCanvas.height = targetSize;
+        const centeredCtx = centeredCanvas.getContext('2d');
+
+        if (!centeredCtx) {
+          console.error(`Failed to get centered canvas context for item ${idx}`);
+          processedCount++;
+          finalizeIfDone();
+          return;
+        }
+
+        // Fill with white background
+        centeredCtx.fillStyle = '#FFFFFF';
+        centeredCtx.fillRect(0, 0, targetSize, targetSize);
+
+        // Calculate centered position
+        const offsetX = Math.floor((targetSize - itemCanvas.width) / 2);
+        const offsetY = Math.floor((targetSize - itemCanvas.height) / 2);
+
+        // Draw the item centered
+        centeredCtx.drawImage(itemCanvas, offsetX, offsetY);
 
         // Convert to blob
-        finalCanvas.toBlob(
+        centeredCanvas.toBlob(
           (blob) => {
             if (blob) {
               croppedBlobs[idx] = blob;
-              console.log(`Item ${idx} processed: ${finalCanvas.width}x${finalCanvas.height}${finalCanvas === canvas ? ' (fallback no-BG)' : ''}`);
+              console.log(`Item ${idx} processed: ${itemCanvas.width}x${itemCanvas.height} centered on ${targetSize}x${targetSize}`);
             } else {
               console.error(`Failed to create blob for item ${idx}`);
             }

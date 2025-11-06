@@ -111,11 +111,12 @@ export async function detectCompositeItems(
    - SHOES as a pair (left+right) → ONE box containing BOTH shoes
    - Otherwise: SHIRT → one box, PANTS → one box, BLAZER → one box, BAG → one box, BELT → one box, JEWELRY piece → one box
 
-2. **TIGHT BOUNDING BOXES**:
-   - Draw edges TIGHT to the visible item boundaries
-   - Include the ENTIRE item but exclude white space
-   - Add only 8–12px padding around the actual item edges
+2. **ULTRA-TIGHT BOUNDING BOXES**:
+   - Draw edges AS CLOSE AS POSSIBLE to the visible item boundaries
+   - Include the ENTIRE item but minimize white space
+   - Add only 2-4px padding around the actual item edges
    - Do NOT include grid lines, shadows, or excessive white space
+   - The box should hug the item tightly
 
 3. **PIXEL COORDINATES** (Integer values):
    - Format: { x, y, width, height }
@@ -146,7 +147,7 @@ export async function detectCompositeItems(
 Before returning, verify:
 ✓ Each box contains ONLY ONE clothing item (or shoe pair)
 ✓ No boxes overlap
-✓ Boxes are tight to item edges (not including excessive white space)
+✓ Boxes are ULTRA-TIGHT to item edges with minimal padding (2-4px max)
 ✓ All coordinates are positive integers`
             },
             {
@@ -185,7 +186,7 @@ Before returning, verify:
                     },
                     bbox: {
                       type: 'object',
-                      description: 'Tight bounding box in PIXEL coordinates, excluding white space',
+                      description: 'Ultra-tight bounding box in PIXEL coordinates with only 2-4px padding',
                       properties: {
                         x: { type: 'integer', description: 'Left edge in pixels (0 = left side)', minimum: 0 },
                         y: { type: 'integer', description: 'Top edge in pixels (0 = top)', minimum: 0 },
