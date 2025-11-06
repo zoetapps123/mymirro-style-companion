@@ -140,6 +140,78 @@ const AICompanion = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
+  // Realtime subscription to wardrobe changes
+  useEffect(() => {
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel('wardrobe-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'wardrobe_items',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Wardrobe realtime update:', payload.eventType);
+            
+            if (payload.eventType === 'INSERT') {
+              const newItem = payload.new as any;
+              setWardrobeItems(prev => [
+                {
+                  id: newItem.id,
+                  name: newItem.name,
+                  category: newItem.category,
+                  color: newItem.color,
+                  fabric: newItem.fabric,
+                  texture: newItem.texture,
+                  pattern: newItem.pattern,
+                  style_notes: newItem.style_notes,
+                },
+                ...prev,
+              ]);
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedItem = payload.new as any;
+              setWardrobeItems(prev =>
+                prev.map(item =>
+                  item.id === updatedItem.id
+                    ? {
+                        id: updatedItem.id,
+                        name: updatedItem.name,
+                        category: updatedItem.category,
+                        color: updatedItem.color,
+                        fabric: updatedItem.fabric,
+                        texture: updatedItem.texture,
+                        pattern: updatedItem.pattern,
+                        style_notes: updatedItem.style_notes,
+                      }
+                    : item
+                )
+              );
+            } else if (payload.eventType === 'DELETE') {
+              const deletedItem = payload.old as any;
+              setWardrobeItems(prev => prev.filter(item => item.id !== deletedItem.id));
+            }
+          }
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    const channelPromise = setupRealtimeSubscription();
+
+    return () => {
+      channelPromise.then(channel => {
+        if (channel) supabase.removeChannel(channel);
+      });
+    };
+  }, []);
+
   const resetChat = () => {
     const userName = userProfile.name || "there";
     const greeting: Message = {
