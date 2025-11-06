@@ -170,47 +170,35 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
 ITEMS TO EXTRACT:
 ${itemsList}
 
-🚨 CRITICAL REQUIREMENTS - SPACING IS MANDATORY 🚨
+CRITICAL REQUIREMENTS FOR COMPOSITE IMAGE:
 
 1. GRID LAYOUT:
-   - Create a ${itemsList.split('\n').length <= 4 ? '2x2' : '3-column'} grid with CLEARLY SEPARATED CELLS
-   - Image dimensions: 1024x1024 pixels minimum
-   - Each cell must be CLEARLY SEPARATED with thick white borders
-   - Grid lines should be VISIBLE and WIDE (50-80px white space between cells)
+   - Arrange items in a ${itemsList.split('\n').length <= 4 ? '2x2' : '3-column'} grid
+   - Each item gets ONE cell in the grid
+   - Cells must be equal-sized squares
 
-2. ITEM EXTRACTION:
+2. ITEM EXTRACTION (MOST IMPORTANT):
    - Remove the person/model completely
    - Show ONLY the clothing item itself
-   - Items should appear as if laid flat or on mannequin
-   - Front-facing view, fully visible, complete item
+   - Items should appear as if laid flat or photographed alone
+   - Front-facing view, fully visible
 
-3. 🚨 SPACING & SEPARATION (ABSOLUTELY CRITICAL) 🚨:
+3. SPACING & SEPARATION:
    - Pure white background (#FFFFFF) everywhere
-   - Each item MUST be centered in its cell
-   - Each item should occupy ONLY 40-50% of its cell area
-   - MINIMUM 80-100px of pure white space around EACH item on ALL sides
-   - Add MASSIVE thick white borders/gutters between grid cells (60-80px wide)
-   - Think: Each item is in its own isolated box with huge margins
-   - Items must NEVER touch cell edges
-   - Items must NEVER overlap or be near adjacent cells
-   - NO items should be closer than 150px to each other
+   - Each item centered in its cell
+   - MASSIVE white space around each item (50-60px minimum)
+   - Items occupy only 50-60% of cell size
+   - Add thick white borders between cells (30-40px)
+   - NO items should touch cell edges
+   - NO overlapping between cells
 
-4. CELL STRUCTURE:
-   - Each cell is a distinct isolated box
-   - Cell interior: 80-100px white padding on all sides → item → 80-100px white padding
-   - Between cells: 60-80px white gutter/border
-   - Result: Items should look like they're floating in separate rooms of white space
-
-5. VISUAL QUALITY:
+4. VISUAL QUALITY:
    - Maintain accurate colors from original
    - Professional product photography style
    - Clean, even lighting
-   - Subtle shadows only (not required)
-   - Sharp, high-quality rendering
+   - No shadows
 
-THINK: Amazon product images in a grid catalog. Each item is completely isolated in vast white space, with thick white borders separating the grid cells. The items should look small and centered within huge amounts of white space.
-
-Generate ONE composite image following these EXACT spacing requirements.`
+Think: e-commerce product catalog with extreme spacing. Generate ONE composite image.`
 };
 
 // ============================================

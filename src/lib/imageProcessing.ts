@@ -299,137 +299,6 @@ function smartTrimCanvas(
 }
 
 /**
- * Validates if a cropped region contains sufficient content (not just white space)
- * @param blob - The cropped image blob to validate
- * @returns Promise<boolean> - True if the crop contains valid content
- */
-export const validateCropQuality = async (blob: Blob): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        resolve(false);
-        return;
-      }
-      
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      
-      let nonWhitePixels = 0;
-      const totalPixels = canvas.width * canvas.height;
-      const whiteThreshold = 240; // RGB values above this are considered white
-      
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-        
-        // Check if pixel is not white and not transparent
-        if (a > 10 && (r < whiteThreshold || g < whiteThreshold || b < whiteThreshold)) {
-          nonWhitePixels++;
-        }
-      }
-      
-      const contentRatio = nonWhitePixels / totalPixels;
-      const isValid = contentRatio > 0.10; // Require at least 10% non-white content
-      
-      if (!isValid) {
-        console.warn(`Crop quality validation failed: only ${(contentRatio * 100).toFixed(1)}% content`);
-      }
-      
-      resolve(isValid);
-    };
-    
-    img.onerror = () => resolve(false);
-    img.src = URL.createObjectURL(blob);
-  });
-};
-
-/**
- * Places a cropped item centered on a white background canvas
- * Ensures consistent presentation and proper spacing
- * @param itemBlob - The cropped item blob to place
- * @param options - Canvas size and padding options
- * @returns Promise<Blob> - The final image with white background
- */
-export const placeOnWhiteBackground = async (
-  itemBlob: Blob,
-  options?: { canvasSize?: number; padding?: number }
-): Promise<Blob> => {
-  const canvasSize = options?.canvasSize ?? 512;
-  const padding = options?.padding ?? 20;
-  
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      // Calculate dimensions to fit item with padding
-      const maxItemWidth = canvasSize - (padding * 2);
-      const maxItemHeight = canvasSize - (padding * 2);
-      
-      let itemWidth = img.width;
-      let itemHeight = img.height;
-      
-      // Scale down if item is too large
-      const widthRatio = maxItemWidth / itemWidth;
-      const heightRatio = maxItemHeight / itemHeight;
-      const scale = Math.min(1, widthRatio, heightRatio);
-      
-      itemWidth = Math.round(itemWidth * scale);
-      itemHeight = Math.round(itemHeight * scale);
-      
-      console.log(`Placing item on white background: canvas=${canvasSize}x${canvasSize}, item=${itemWidth}x${itemHeight}, scale=${scale.toFixed(2)}`);
-      
-      // Create white canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasSize;
-      canvas.height = canvasSize;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'));
-        return;
-      }
-      
-      // Fill with pure white
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvasSize, canvasSize);
-      
-      // Center the item
-      const x = Math.round((canvasSize - itemWidth) / 2);
-      const y = Math.round((canvasSize - itemHeight) / 2);
-      
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, x, y, itemWidth, itemHeight);
-      
-      console.log(`Item centered at: x=${x}, y=${y}`);
-      
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create blob from canvas'));
-          }
-        },
-        'image/png',
-        1.0
-      );
-    };
-    
-    img.onerror = () => reject(new Error('Failed to load item image'));
-    img.src = URL.createObjectURL(itemBlob);
-  });
-};
-
-/**
  * Crops images from the original source using bounding box coordinates
  * @param imageUrl - Original image URL
  * @param items - Array of items with bbox coordinates
@@ -503,13 +372,10 @@ export const cropImageWithBoundingBoxes = async (
           0, 0, pixelWidth, pixelHeight
         );
 
-        // Expand a generous margin around bbox to capture full item
-        // Use up to 10% of image size (max 40px) as expansion
-        const expandX = Math.round(Math.min(pixelWidth * 0.10, 40));
-        const expandY = Math.round(Math.min(pixelHeight * 0.10, 40));
-        
-        console.log(`Item ${idx}: Original bbox: x=${pixelX}, y=${pixelY}, w=${pixelWidth}, h=${pixelHeight}`);
-        console.log(`Item ${idx}: Expansion: expandX=${expandX}, expandY=${expandY}`);
+        // Expand a small margin around bbox to avoid cutting edges, then trim precisely
+        // Use up to 2% of image size (max 12px) as expansion
+        const expandX = Math.round(Math.min(pixelWidth * 0.04, 16));
+        const expandY = Math.round(Math.min(pixelHeight * 0.04, 16));
 
         const expandedCanvas = document.createElement('canvas');
         expandedCanvas.width = Math.max(1, pixelWidth + expandX * 2);
@@ -532,10 +398,7 @@ export const cropImageWithBoundingBoxes = async (
         }
 
         // Smart trim using background flood-fill to remove frames without cutting item
-        // Increased margin and tolerance to be less aggressive
-        const trimmed = smartTrimCanvas(ectx ? expandedCanvas : canvas, { margin: 8, bgTolerance: 55, dilate: 3 });
-        
-        console.log(`Item ${idx}: Trimmed canvas: ${trimmed.width}x${trimmed.height}`);
+        const trimmed = smartTrimCanvas(ectx ? expandedCanvas : canvas, { margin: 4, bgTolerance: 40, dilate: 3 });
 
         trimmed.toBlob(
           (blob) => {
