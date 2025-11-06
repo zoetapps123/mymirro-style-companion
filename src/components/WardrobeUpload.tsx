@@ -130,17 +130,6 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           return;
         }
 
-        if (!data?.compositeImageUrl) {
-          toast({
-            title: "Processing incomplete",
-            description: "Failed to generate composite image. Please try again.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          setProgress(0);
-          return;
-        }
-
         let addedCount = 0;
         let skippedCount = 0;
         setProgress(70);
@@ -148,19 +137,9 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         // Import cropping function
         const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
         
-        // Check if we have bbox data (from two-stage detection)
-        const hasBboxes = itemsDetected.every((item: any) => item.bbox);
-        
-        let crops: Blob[];
-        if (hasBboxes) {
-          console.log('Using bbox-based cropping from composite detection');
-          crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
-        } else {
-          // Fallback to grid-based if no bbox data
-          console.log('Falling back to grid-based cropping');
-          const { cropCompositeImage } = await import('@/lib/imageProcessing');
-          crops = await cropCompositeImage(data.compositeImageUrl, data.gridLayout);
-        }
+        // All items now have bboxes from direct detection
+        console.log('Cropping items directly from source image using detected bboxes');
+        const crops = await cropImageWithBoundingBoxes(imageData, itemsDetected);
 
         // Upload each cropped item
         for (let idx = 0; idx < itemsDetected.length; idx++) {

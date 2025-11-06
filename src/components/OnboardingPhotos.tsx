@@ -6,7 +6,7 @@ import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { advancedSmartCrop, trimImageBorders } from "@/lib/imageProcessing";
+import { trimImageBorders } from "@/lib/imageProcessing";
 import { LoadingTile } from "@/components/ui/loading-tile";
 
 interface OnboardingPhotosProps {
@@ -190,19 +190,12 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             continue;
           }
 
-          if (processData?.items && processData?.compositeImageUrl) {
-            const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+          if (processData?.items && processData.items.length > 0) {
+            const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
             
-            const hasBboxes = processData.items.every((item: any) => item.bbox);
-            let crops: Blob[];
-            
-            if (hasBboxes) {
-              console.log('Using bbox-based cropping from composite detection');
-              crops = await cropImageWithBoundingBoxes(processData.compositeImageUrl, processData.items);
-            } else {
-              console.log('Falling back to grid-based cropping');
-              crops = await cropCompositeImage(processData.compositeImageUrl, processData.gridLayout);
-            }
+            // All items now have bboxes from direct detection
+            console.log('Cropping items directly from source image using detected bboxes');
+            const crops = await cropImageWithBoundingBoxes(url, processData.items);
 
             for (let idx = 0; idx < processData.items.length; idx++) {
               const item = processData.items[idx];

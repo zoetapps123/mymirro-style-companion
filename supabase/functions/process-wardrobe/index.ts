@@ -2,10 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAIApiKey } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
-import { detectItems } from './detectItems.ts';
-import { generateComposite } from './generateComposite.ts';
-import { detectCompositeItems } from './detectCompositeItems.ts';
-import { matchItems } from './matchItems.ts';
+import { detectItemsWithBbox } from './detectItemsWithBbox.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -40,7 +37,7 @@ serve(async (req) => {
     console.log('Processing image...');
 
     // Check cache for wardrobe processing
-    const cacheKey = await generateCacheKey({ type: 'wardrobe_process', imageUrl: actualImageUrl });
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_process_v2', imageUrl: actualImageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached wardrobe processing result');
@@ -53,26 +50,21 @@ serve(async (req) => {
       );
     }
 
-    // STEP 0: Image Validation
+    // STEP 1: Validate Image (fast check)
     const validationResult = await validateImage(actualImageUrl, apiKey);
+    console.log('Validation passed:', validationResult.contentType);
 
-    // STEP 1: Detect items from original image (detailed attributes)
-    const detectedItems = await detectItems(actualImageUrl, apiKey);
+    // STEP 2: Detect items with bounding boxes in ONE pass (replaces old 3-step process)
+    const detectedItems = await detectItemsWithBbox(actualImageUrl, apiKey);
+    console.log(`Detected ${detectedItems.length} items with bboxes`);
 
-    // STEP 2: Generate ONE composite image with all items
-    const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
+    if (detectedItems.length === 0) {
+      throw new Error('No clothing items detected in the image');
+    }
 
-    // STEP 3: Detect items in composite (to get actual positions)
-    const compositeDetections = await detectCompositeItems(compositeResult.compositeImageUrl, apiKey);
-
-    // STEP 4: Match original items to composite detections (correct labels + accurate positions)
-    const matchedItems = matchItems(detectedItems, compositeDetections);
-
-    // Cache the complete result
+    // Cache the result
     const processResult = {
-      items: matchedItems, // Items now have bbox from composite detection
-      compositeImageUrl: compositeResult.compositeImageUrl,
-      gridLayout: compositeResult.gridLayout, // Keep for fallback
+      items: detectedItems,
       contentType: validationResult.contentType
     };
     await setCachedResult(cacheKey, processResult);
@@ -80,7 +72,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        ...processResult
+        items: processResult.items,
+        contentType: processResult.contentType
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

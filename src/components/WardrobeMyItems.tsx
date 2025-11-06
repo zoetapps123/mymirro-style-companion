@@ -189,11 +189,16 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         return;
       }
 
-      if (!data?.items || data.items.length === 0 || !data?.compositeImageUrl) {
-        console.log('No items or composite in background processing');
+      if (!data?.items || data.items.length === 0) {
+        console.log('No items detected in image');
         const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
         localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
         setProcessingItems(prev => Math.max(0, prev - 1));
+        toast({
+          title: "No items found",
+          description: "No clothing items were detected in the image.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -201,18 +206,11 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+      // All items now have bboxes from direct detection
+      const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
       
-      const hasBboxes = itemsDetected.every((item: any) => item.bbox);
-      let crops: Blob[];
-      
-      if (hasBboxes) {
-        console.log('Using bbox-based cropping from composite detection');
-        crops = await cropImageWithBoundingBoxes(data.compositeImageUrl, itemsDetected);
-      } else {
-        console.log('Falling back to grid-based cropping');
-        crops = await cropCompositeImage(data.compositeImageUrl, data.gridLayout);
-      }
+      console.log('Cropping items directly from source image using detected bboxes');
+      const crops = await cropImageWithBoundingBoxes(sourceUrl, itemsDetected);
 
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
