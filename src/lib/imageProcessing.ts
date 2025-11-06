@@ -262,7 +262,7 @@ function trimTransparentBorders(
  */
 export const cropImageWithBoundingBoxes = async (
   compositeUrl: string,
-  items: Array<{ bbox?: { x: number; y: number; width: number; height: number } }>
+  items: Array<{ bbox?: { x: number; y: number; width: number; height: number }; category?: string; name?: string }>
 ): Promise<Blob[]> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -302,9 +302,12 @@ export const cropImageWithBoundingBoxes = async (
           pixelHeight = Math.max(1, img.height - pixelY);
         }
 
-        // Add expansion margin (3-5% of bbox size) to avoid cutting edges
-        const expandX = Math.round(Math.max(12, pixelWidth * 0.05));
-        const expandY = Math.round(Math.max(12, pixelHeight * 0.05));
+        // Add expansion margin based on category to avoid cutting edges
+        const category = (item as any).category?.toLowerCase?.() || '';
+        const baseExpandX = pixelWidth * (category.includes('accessor') ? 0.12 : category.includes('shoes') ? 0.08 : 0.05);
+        const baseExpandY = pixelHeight * (category.includes('accessor') ? 0.12 : category.includes('shoes') ? 0.08 : 0.05);
+        const expandX = Math.round(Math.max(category.includes('accessor') ? 16 : category.includes('shoes') ? 14 : 12, baseExpandX));
+        const expandY = Math.round(Math.max(category.includes('accessor') ? 16 : category.includes('shoes') ? 14 : 12, baseExpandY));
 
         const expandedX = Math.max(0, pixelX - expandX);
         const expandedY = Math.max(0, pixelY - expandY);
@@ -345,24 +348,30 @@ export const cropImageWithBoundingBoxes = async (
           expandedHeight
         );
 
-        // Remove background using smart flood fill
+        // Remove background using smart flood fill (tuned per category)
+        const tol = category.includes('accessor') ? 28 : category.includes('shoes') ? 32 : 40;
         const bgRemoved = removeBackgroundFromCanvas(canvas, {
           margin: 6,
-          tolerance: 40
+          tolerance: tol
         });
 
         // Final trim of any remaining transparent/white borders
+        const threshold = category.includes('accessor') ? 252 : 248;
         const trimmed = trimTransparentBorders(bgRemoved, {
           margin: 5,
-          threshold: 248
+          threshold
         });
 
+        // Fallback: if trimming produced an ultra-small image (likely over-trimmed),
+        // fall back to the expanded crop without background removal to preserve item
+        const finalCanvas = (trimmed.width < 48 || trimmed.height < 48) ? canvas : trimmed;
+
         // Convert to blob
-        trimmed.toBlob(
+        finalCanvas.toBlob(
           (blob) => {
             if (blob) {
               croppedBlobs[idx] = blob;
-              console.log(`Item ${idx} processed: ${trimmed.width}x${trimmed.height}`);
+              console.log(`Item ${idx} processed: ${finalCanvas.width}x${finalCanvas.height}${finalCanvas === canvas ? ' (fallback no-BG)' : ''}`);
             } else {
               console.error(`Failed to create blob for item ${idx}`);
             }

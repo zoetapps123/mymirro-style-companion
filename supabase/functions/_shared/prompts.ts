@@ -183,25 +183,30 @@ ${itemsList}
    - Items should appear as if laid flat or photographed product-style
    - Front-facing view, fully visible, no body parts
 
-3. SPACING & SEPARATION (ABSOLUTE REQUIREMENT):
-   - Pure white background (#FFFFFF) everywhere
-   - Each item perfectly centered in its cell
-   - MAXIMUM white space around each item:
-     * Items occupy ONLY 40-45% of cell area
-     * Minimum 80px white padding on ALL sides of each item
-     * Minimum 60px thick white grid lines between cells
-   - Think: tiny item in huge white space
-   - NO items should touch or approach cell edges
-   - NO overlapping between cells whatsoever
-   - Each item must be completely isolated with massive spacing
+   3. SPACING & SEPARATION (ABSOLUTE REQUIREMENT):
+    - Pure white background (#FFFFFF) everywhere
+    - Each item perfectly centered in its cell
+    - MAXIMUM white space around each item:
+      * Items occupy ONLY 40-45% of cell area
+      * Minimum 80px white padding on ALL sides of each item
+      * Minimum 60px thick white grid lines between cells
+    - Think: tiny item in huge white space
+    - NO items should touch or approach cell edges
+    - NO overlapping between cells whatsoever
+    - Each item must be completely isolated with massive spacing
 
-4. VISUAL QUALITY:
-   - Maintain accurate colors from original photo
-   - Professional e-commerce product photography style
-   - Clean, even lighting with NO shadows or gradients
-   - Sharp focus, high clarity
+  4. SMALL ITEM SCALING (FOOTWEAR & ACCESSORIES):
+    - Footwear pairs must be placed together and scaled to occupy ~55-60% of the cell width
+    - Accessories (belts, bags, hats, scarves, jewelry) should be scaled up so the item occupies ~60-65% of the cell's SHORTER side, avoiding ultra-thin visuals
+    - Ensure clear visibility and separation from grid lines
 
-Think: Apple product catalog with extreme minimalist spacing. Each item should look like a small centered product photo with tons of white space around it. Generate ONE composite image.`
+  5. VISUAL QUALITY:
+    - Maintain accurate colors from original photo
+    - Professional e-commerce product photography style
+    - Clean, even lighting with NO shadows or gradients
+    - Sharp focus, high clarity
+
+  Think: Apple product catalog with extreme minimalist spacing. Each item should look like a small centered product photo with tons of white space around it. Generate ONE composite image.`
 };
 
 // ============================================
