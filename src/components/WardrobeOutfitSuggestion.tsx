@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import useEmblaCarousel from 'embla-carousel-react';
 import { OutfitDetailView } from './OutfitDetailView';
 import { OutfitLoadingTile } from '@/components/ui/loading-tile';
+import { OutfitMockups } from './OutfitMockups';
 import { motion } from 'framer-motion';
 
 interface WardrobeItem {
@@ -490,6 +491,11 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
       {/* Main Content */}
       <div className="flex-1 p-6 space-y-8">
+        {/* Example Outfit Mockups */}
+        {!isLoadingOutfits && wardrobeItems.length >= 3 && (
+          <OutfitMockups items={wardrobeItems} />
+        )}
+
         {/* Regenerate Button */}
         {hasNewItems && (
           <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">

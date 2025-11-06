@@ -96,7 +96,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName} 👋\nWelcome to your personal style lab.\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName}, welcome back!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
     setMessages([greeting]);
@@ -141,7 +141,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName} 👋\nWelcome to your personal style lab.\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName}, welcome back!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
 
@@ -605,7 +605,12 @@ const AICompanion = () => {
                 ) : (
                   <div className="space-y-2">
                     {message.content && (
-                      <div className="rounded-2xl px-4 py-3 bg-muted/50 text-foreground border border-border">
+                      <motion.div 
+                        className="rounded-2xl px-4 py-3 bg-muted/50 text-foreground border border-border"
+                        initial={message.id === "greeting" ? { opacity: 0, y: 10 } : false}
+                        animate={message.id === "greeting" ? { opacity: 1, y: 0 } : false}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                      >
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">
                           {message.id === "greeting" ? (
                             <>
@@ -619,7 +624,7 @@ const AICompanion = () => {
                             message.content || (isLoading ? "..." : "")
                           )}
                         </p>
-                      </div>
+                      </motion.div>
                     )}
                     {message.toolCalls?.map((tc, tcIdx) => (
                       <div key={tcIdx}>
