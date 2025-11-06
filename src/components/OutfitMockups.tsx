@@ -61,13 +61,6 @@ export const OutfitMockups = ({ items }: OutfitMockupsProps) => {
 
   return (
     <div className="mb-6 space-y-3">
-      <div className="flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-primary" />
-        <p className="text-sm font-medium text-muted-foreground">
-          Here's how MyMirro mixes your wardrobe pieces into looks 👇
-        </p>
-      </div>
-      
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
         {mockOutfits.map((outfit, outfitIdx) => (
           <motion.div

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Heart, ArrowLeft, Loader2, X } from 'lucide-react';
+import { Heart, ArrowLeft, Loader2, X, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -42,10 +42,19 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [currentOutfitImage, setCurrentOutfitImage] = useState(outfit.preview_image_url);
   const [isSaving, setIsSaving] = useState(false);
+  const [draggedItem, setDraggedItem] = useState<WardrobeItem | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecommendedItems();
-  }, [selectedItems]);
+  }, []);
+
+  useEffect(() => {
+    // Generate image if not present
+    if (!currentOutfitImage && selectedItems.length > 0 && !isRegenerating) {
+      regenerateOutfitImage();
+    }
+  }, []);
 
   useEffect(() => {
     const originalIds = (outfit.items || []).map(i => i.id).sort().join(',');
@@ -66,29 +75,8 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
 
       if (!allItems) return;
 
-      // Filter out items already in outfit
-      const currentItemIds = selectedItems.map(i => i.id);
-      const availableItems = allItems.filter(item => !currentItemIds.includes(item.id));
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Authentication required');
-      }
-
-      // Call AI recommendation function
-      const { data, error } = await supabase.functions.invoke('recommend-items', {
-        body: {
-          currentOutfit: selectedItems,
-          availableItems,
-          occasion: outfit.occasion,
-          styleTag: outfit.style_tag
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
-
-      if (error) throw error;
-
-      setRecommendedItems(data.recommendations || availableItems.slice(0, 20));
+      // Show ALL items (don't filter out items already in outfit)
+      setRecommendedItems(allItems);
     } catch (error) {
       console.error('Error loading recommendations:', error);
       setRecommendedItems([]);
@@ -128,7 +116,29 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
     setSelectedItems(prev => prev.filter(i => i.id !== itemId));
   };
 
-  const addItem = (item: WardrobeItem) => {
+  const addItem = (item: WardrobeItem, replaceCategory?: string) => {
+    // If dropping on specific slot, replace that category
+    if (replaceCategory) {
+      setSelectedItems(prev => 
+        prev.map(i => i.category === replaceCategory ? item : i)
+      );
+      toast({
+        title: "Item replaced",
+        description: `Replaced ${replaceCategory} with ${item.name}`
+      });
+      return;
+    }
+
+    // Check if item already in outfit
+    if (selectedItems.some(i => i.id === item.id)) {
+      toast({
+        title: "Already in outfit",
+        description: `${item.name} is already in this outfit`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     const hasItemInCategory = selectedItems.some(i => i.category === item.category);
     
     if (hasItemInCategory) {
@@ -146,6 +156,44 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
         description: `Added ${item.name} to outfit`
       });
     }
+  };
+
+  const handleDragStart = (e: React.DragEvent, item: WardrobeItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDropTarget(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, itemId?: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (itemId) {
+      setDropTarget(itemId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetItem?: WardrobeItem) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    if (targetItem) {
+      // Replace the target item
+      addItem(draggedItem, targetItem.category);
+    } else {
+      // Add to outfit
+      addItem(draggedItem);
+    }
+
+    setDraggedItem(null);
+    setDropTarget(null);
   };
 
   const regenerateOutfitImage = async () => {
@@ -348,7 +396,13 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
           <h3 className="text-lg font-semibold mb-4">Items in this outfit</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {selectedItems.map(item => (
-              <div key={item.id} className="relative group">
+              <div 
+                key={item.id} 
+                className={`relative group ${dropTarget === item.id ? 'ring-2 ring-primary' : ''}`}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, item)}
+              >
                 <div className="aspect-square bg-muted rounded-lg overflow-hidden">
                   <img 
                     src={item.processed_image_url || item.image_url} 
@@ -373,30 +427,58 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
         {/* Recommended Items */}
         <section className="max-w-4xl mx-auto">
           <h3 className="text-lg font-semibold mb-4">Add items from your wardrobe</h3>
+          <p className="text-sm text-muted-foreground mb-4">Drag items to replace existing pieces or click to add/replace</p>
           {isLoadingRecommendations ? (
             <div className="flex justify-center py-8">
               <Loader2 className="animate-spin h-8 w-8" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <div className="flex gap-4 pb-4">
-                {recommendedItems.map(item => (
-                  <div
-                    key={item.id}
-                    className="flex-shrink-0 w-32 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => addItem(item)}
-                  >
-                    <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2">
-                      <img 
-                        src={item.processed_image_url || item.image_url} 
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+            <div className="space-y-6">
+              {['Tops', 'Bottoms', 'Footwear', 'Dresses', 'Outerwear', 'Accessories'].map(category => {
+                const categoryItems = recommendedItems.filter(item => item.category === category);
+                if (categoryItems.length === 0) return null;
+                
+                return (
+                  <div key={category}>
+                    <h4 className="text-sm font-medium mb-3 text-muted-foreground">{category}</h4>
+                    <div className="overflow-x-auto">
+                      <div className="flex gap-4 pb-4">
+                        {categoryItems.map(item => {
+                          const isInOutfit = selectedItems.some(i => i.id === item.id);
+                          return (
+                            <div
+                              key={item.id}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, item)}
+                              onDragEnd={handleDragEnd}
+                              className={`flex-shrink-0 w-32 cursor-move hover:opacity-80 transition-all ${
+                                draggedItem?.id === item.id ? 'opacity-50' : ''
+                              } ${isInOutfit ? 'ring-2 ring-primary' : ''}`}
+                              onClick={() => addItem(item)}
+                            >
+                              <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
+                                <img 
+                                  src={item.processed_image_url || item.image_url} 
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                />
+                                {isInOutfit && (
+                                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                    <div className="bg-primary text-primary-foreground rounded-full p-1">
+                                      <Plus className="h-4 w-4" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs text-center truncate">{item.name}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="text-xs text-center truncate">{item.name}</p>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
         </section>
