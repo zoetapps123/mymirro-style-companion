@@ -48,6 +48,13 @@ serve(async (req) => {
     const { messages, userProfile, wardrobeItems, recentBattles, recentStyleChecks } = await req.json();
     const apiKey = getAIApiKey();
 
+    // 🔍 LOG 1: Request Body Inspection
+    console.log('Chat: received wardrobeItems', { 
+      count: wardrobeItems?.length || 0,
+      hasItems: !!wardrobeItems,
+      itemIds: wardrobeItems?.map((i: any) => i.id).slice(0, 3) // first 3 IDs
+    });
+
     // Fetch only user profile (wardrobe items now come from client for performance)
     let bodyShape, skinTone;
     try {
@@ -73,6 +80,13 @@ serve(async (req) => {
       wardrobeItems,
       recentBattles,
       recentStyleChecks
+    });
+
+    // 🔍 LOG 2: System Prompt Verification
+    console.log('Chat: system prompt built', {
+      hasWardrobeContext: systemPrompt.includes('WARDROBE INVENTORY'),
+      promptLength: systemPrompt.length,
+      wardrobeItemsInPrompt: wardrobeItems?.length || 0
     });
 
     // Process messages to handle images
@@ -145,6 +159,15 @@ serve(async (req) => {
         }
       }
     ];
+
+    // 🔍 LOG 3: Pre-API Call Summary
+    console.log('Chat: calling Gemini API', {
+      model: 'google/gemini-2.5-flash',
+      messageCount: processedMessages.length,
+      systemPromptPreview: systemPrompt.substring(0, 200),
+      wardrobeCount: wardrobeItems?.length || 0,
+      hasTools: tools.length > 0
+    });
 
     // Call Gemini API directly with streaming
     const geminiResponse = await callGeminiAPIStreaming({
@@ -252,7 +275,12 @@ serve(async (req) => {
       },
     });
   } catch (error) {
-    console.error('Chat error:', error);
+    // 🔍 LOG 4: Enhanced Error Logging
+    console.error('Chat error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
