@@ -206,13 +206,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      // All items now have bboxes from composite detection
-      const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
-      
-      const compositeUrl = data.compositeImageUrl || sourceUrl;
-      console.log('Cropping items from composite image using detected bboxes');
-      const crops = await cropImageWithBoundingBoxes(compositeUrl, itemsDetected);
-
+      // Directly use backend-generated images; no client-side cropping
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
 
@@ -229,27 +223,11 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        const croppedBlob = crops[idx];
-        if (!croppedBlob) {
+        if (!item.processedImageUrl) {
+          console.warn(`No processedImageUrl for item ${idx}: ${item.name}`);
           skippedCount++;
           continue;
         }
-
-        const blob = await trimImageBorders(croppedBlob);
-
-        const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, blob);
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          continue;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
 
         const { error: dbError } = await supabase
           .from('wardrobe_items')
@@ -262,8 +240,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             texture: item.texture,
             pattern: item.pattern,
             style_notes: item.style_notes,
-            image_url: sourceUrl,
-            processed_image_url: publicUrl,
+            image_url: item.processedImageUrl,
+            processed_image_url: item.processedImageUrl,
           });
 
         if (!dbError) {
