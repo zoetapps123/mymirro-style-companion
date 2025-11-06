@@ -1,11 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { getAIApiKey } from '../_shared/ai-config.ts';
+import { getAIApiKey, callGeminiAPI } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
 import { detectItems } from './detectItems.ts';
-import { generateComposite } from './generateComposite.ts';
-import { detectCompositeItems } from './detectCompositeItems.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -40,7 +38,7 @@ serve(async (req) => {
     console.log('Processing image...');
 
     // Check cache for wardrobe processing
-    const cacheKey = await generateCacheKey({ type: 'wardrobe_process_v3', imageUrl: actualImageUrl });
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_process_v4', imageUrl: actualImageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached wardrobe processing result');
@@ -65,68 +63,93 @@ serve(async (req) => {
       throw new Error('No clothing items detected in the image');
     }
 
-    // STEP 3: Generate composite image with proper spacing
-    const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
-    console.log('Composite image generated');
-
-    // STEP 3.5: Save composite image to storage
+    // STEP 3: Generate individual images for each item using Gemini
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    let storedCompositeUrl = compositeResult.compositeImageUrl;
+    const itemsWithImages = [];
     
-    try {
-      // Convert base64 data URL to blob
-      const base64Data = compositeResult.compositeImageUrl.split(',')[1];
-      const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    for (let i = 0; i < detectedItems.length; i++) {
+      const item = detectedItems[i];
+      console.log(`Generating image for item ${i + 1}/${detectedItems.length}: ${item.name}`);
       
-      // Create unique filename
-      const timestamp = Date.now();
-      const fileName = `${user.id}/${timestamp}-composite.png`;
-      
-      console.log(`Uploading composite to: composite-images/${fileName}`);
-      
-      // Upload to storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('composite-images')
-        .upload(fileName, binaryData, {
-          contentType: 'image/png',
-          upsert: false
+      try {
+        // Generate image using Gemini
+        const prompt = `Extract and isolate this ${item.category}: ${item.name}. 
+Color: ${item.color}
+${item.fabric ? `Fabric: ${item.fabric}` : ''}
+${item.pattern ? `Pattern: ${item.pattern}` : ''}
+${item.styleNotes ? `Style: ${item.styleNotes}` : ''}
+
+Create a clean, isolated image of this item on a pure white background. Show the item clearly with all details visible.`;
+
+        const response = await callGeminiAPI({
+          model: 'google/gemini-2.5-flash-image-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: actualImageUrl } }
+              ]
+            }
+          ],
+          modalities: ['image', 'text']
         });
 
-      if (uploadError) {
-        console.error('Failed to upload composite to storage:', uploadError);
-        // Continue with data URL if upload fails
-      } else {
+        const generatedImageUrl = response.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        
+        if (!generatedImageUrl) {
+          console.error(`No image generated for item: ${item.name}`);
+          continue;
+        }
+
+        // Save generated image to storage
+        const base64Data = generatedImageUrl.split(',')[1];
+        const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        
+        const timestamp = Date.now();
+        const fileName = `${user.id}/${timestamp}-${i}-${item.category}.png`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('composite-images')
+          .upload(fileName, binaryData, {
+            contentType: 'image/png',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error(`Failed to upload item ${item.name}:`, uploadError);
+          continue;
+        }
+
         // Get public URL
         const { data: urlData } = supabase.storage
           .from('composite-images')
           .getPublicUrl(fileName);
+
+        itemsWithImages.push({
+          ...item,
+          processedImageUrl: urlData.publicUrl
+        });
         
-        storedCompositeUrl = urlData.publicUrl;
-        console.log('Composite saved to storage:', storedCompositeUrl);
+        console.log(`Saved image for ${item.name}:`, urlData.publicUrl);
+      } catch (error) {
+        console.error(`Error processing item ${item.name}:`, error);
+        // Continue with next item
       }
-    } catch (storageError) {
-      console.error('Error saving composite to storage:', storageError);
-      // Continue with data URL if storage fails
     }
 
-    // STEP 4: Detect bounding boxes on composite image (use original data URL for detection)
-    const itemsWithBbox = await detectCompositeItems(compositeResult.compositeImageUrl, apiKey);
-    console.log(`Detected ${itemsWithBbox.length} items with bboxes in composite`);
-
-    if (itemsWithBbox.length === 0) {
-      throw new Error('No bounding boxes detected in composite image');
+    if (itemsWithImages.length === 0) {
+      throw new Error('Failed to generate images for any items');
     }
 
     // Cache the result
     const processResult = {
-      items: itemsWithBbox,
-      contentType: validationResult.contentType,
-      compositeImageUrl: storedCompositeUrl, // Use stored URL instead of data URL
-      gridLayout: compositeResult.gridLayout
+      items: itemsWithImages,
+      contentType: validationResult.contentType
     };
     await setCachedResult(cacheKey, processResult);
 
@@ -134,9 +157,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         items: processResult.items,
-        contentType: processResult.contentType,
-        compositeImageUrl: processResult.compositeImageUrl,
-        gridLayout: processResult.gridLayout
+        contentType: processResult.contentType
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
