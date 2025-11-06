@@ -256,10 +256,12 @@ function trimTransparentBorders(
 }
 
 /**
- * Crop images from source using bounding box coordinates with smart background removal
+ * Crop images from composite using bounding box coordinates with smart background removal
+ * @param compositeUrl URL of the composite image
+ * @param items Items with bbox coordinates
  */
 export const cropImageWithBoundingBoxes = async (
-  imageUrl: string,
+  compositeUrl: string,
   items: Array<{ bbox?: { x: number; y: number; width: number; height: number } }>
 ): Promise<Blob[]> => {
   return new Promise((resolve, reject) => {
@@ -373,8 +375,8 @@ export const cropImageWithBoundingBoxes = async (
       });
     };
 
-    img.onerror = () => reject(new Error('Failed to load image for bbox cropping'));
-    img.src = imageUrl;
+    img.onerror = () => reject(new Error('Failed to load composite image for bbox cropping'));
+    img.src = compositeUrl;
   });
 };
 

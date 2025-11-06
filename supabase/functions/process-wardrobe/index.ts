@@ -2,7 +2,9 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAIApiKey } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
-import { detectItemsWithBbox } from './detectItemsWithBbox.ts';
+import { detectItems } from './detectItems.ts';
+import { generateComposite } from './generateComposite.ts';
+import { detectCompositeItems } from './detectCompositeItems.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 
@@ -37,7 +39,7 @@ serve(async (req) => {
     console.log('Processing image...');
 
     // Check cache for wardrobe processing
-    const cacheKey = await generateCacheKey({ type: 'wardrobe_process_v2', imageUrl: actualImageUrl });
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_process_v3', imageUrl: actualImageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached wardrobe processing result');
@@ -54,18 +56,32 @@ serve(async (req) => {
     const validationResult = await validateImage(actualImageUrl, apiKey);
     console.log('Validation passed:', validationResult.contentType);
 
-    // STEP 2: Detect items with bounding boxes in ONE pass (replaces old 3-step process)
-    const detectedItems = await detectItemsWithBbox(actualImageUrl, apiKey);
-    console.log(`Detected ${detectedItems.length} items with bboxes`);
+    // STEP 2: Detect items list
+    const detectedItems = await detectItems(actualImageUrl, apiKey);
+    console.log(`Detected ${detectedItems.length} items`);
 
     if (detectedItems.length === 0) {
       throw new Error('No clothing items detected in the image');
     }
 
+    // STEP 3: Generate composite image with proper spacing
+    const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
+    console.log('Composite image generated');
+
+    // STEP 4: Detect bounding boxes on composite image
+    const itemsWithBbox = await detectCompositeItems(compositeResult.compositeImageUrl, apiKey);
+    console.log(`Detected ${itemsWithBbox.length} items with bboxes in composite`);
+
+    if (itemsWithBbox.length === 0) {
+      throw new Error('No bounding boxes detected in composite image');
+    }
+
     // Cache the result
     const processResult = {
-      items: detectedItems,
-      contentType: validationResult.contentType
+      items: itemsWithBbox,
+      contentType: validationResult.contentType,
+      compositeImageUrl: compositeResult.compositeImageUrl,
+      gridLayout: compositeResult.gridLayout
     };
     await setCachedResult(cacheKey, processResult);
 
@@ -73,7 +89,9 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         items: processResult.items,
-        contentType: processResult.contentType
+        contentType: processResult.contentType,
+        compositeImageUrl: processResult.compositeImageUrl,
+        gridLayout: processResult.gridLayout
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

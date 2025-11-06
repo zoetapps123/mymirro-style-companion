@@ -49,43 +49,51 @@ export async function detectCompositeItems(
           content: [
             {
               type: 'text',
-              text: `You are analyzing a composite grid image containing multiple isolated clothing items arranged on a white background.
+              text: `You are analyzing a composite grid image with isolated clothing items on a white background.
 
-**TASK**: Detect EACH INDIVIDUAL clothing item and provide PRECISE bounding boxes.
+🚨 CRITICAL TASK: Detect EACH INDIVIDUAL clothing item and provide PRECISE bounding boxes.
 
-**CRITICAL RULES - READ CAREFULLY**:
+**ABSOLUTE RULES**:
 
-1. **ONE ITEM PER BOX**: 
-   - If you see a SHIRT, create ONE box for ONLY the shirt
-   - If you see PANTS, create ONE box for ONLY the pants  
-   - If you see a BLAZER, create ONE box for ONLY the blazer
-   - NEVER combine blazer + pants, or shirt + pants, or any multiple items in one box
+1. **ONE ITEM = ONE BOX** (NEVER group multiple items):
+   - SHIRT → ONE box for ONLY the shirt
+   - PANTS → ONE box for ONLY the pants  
+   - BLAZER → ONE box for ONLY the blazer
+   - SHOES → ONE box for ONLY the shoes
+   - NEVER combine: blazer+shirt, shirt+pants, etc. in one box
 
 2. **TIGHT BOUNDING BOXES**:
-   - Box edges must be TIGHT to the clothing item edges
-   - Exclude ALL white space, padding, shadows, and grid lines
-   - Leave minimal margin (5-10 pixels) around the actual item
+   - Draw box edges TIGHT to the visible clothing item boundaries
+   - Include the ENTIRE item but exclude white space
+   - Add only 8-12 pixels padding around the actual item edges
+   - Do NOT include grid lines, shadows, or excessive white space
 
-3. **PIXEL COORDINATES**:
-   - Use integer pixel coordinates: { x, y, width, height }
-   - x, y = top-left corner position in pixels
+3. **PIXEL COORDINATES** (Integer values):
+   - Format: { x, y, width, height }
+   - x, y = top-left corner in pixels (0,0 = top-left of image)
    - width, height = box dimensions in pixels
-   - Example: { x: 50, y: 100, width: 200, height: 300 }
+   - Example: { "x": 50, "y": 100, "width": 200, "height": 300 }
 
 4. **NO OVERLAPPING**: 
-   - Boxes must NOT overlap each other
-   - Each box must be for a completely separate item
+   - Each box must be completely separate
+   - If boxes overlap, you've grouped multiple items - FIX IT
+   - Minimum 40px separation between any two boxes
 
 5. **ITEM DETAILS**:
-   - name: Specific item description (e.g., "Brown Plaid Flannel Shirt", "Olive Green Blazer", "Beige Chino Pants")
-   - category: Must be one of: Tops, Bottoms, Shoes, Accessories, Layers, Dresses
-   - color: Primary visible color
+   - name: Descriptive (e.g., "Navy Blue Denim Jacket", "White Cotton T-Shirt")
+   - category: MUST be one of: Tops, Bottoms, Shoes, Accessories, Layers, Dresses
+   - color: Primary visible color (e.g., "Navy Blue", "White", "Black")
 
-**OUTPUT FORMAT**: Return array of items in left-to-right, top-to-bottom reading order.
+6. **OUTPUT ORDER**: 
+   - Scan left-to-right, top-to-bottom (reading order)
+   - Return items in the order they appear in the grid
 
-**EXAMPLE**:
-For a 1024x768 composite with shirt at (100,50) to (400,350):
-{ "name": "Brown Plaid Shirt", "category": "Tops", "color": "Brown", "bbox": { "x": 100, "y": 50, "width": 300, "height": 300 } }`
+**QUALITY CHECK**:
+Before returning, verify:
+✓ Each box contains ONLY ONE clothing item
+✓ No boxes overlap
+✓ Boxes are tight to item edges (not including excessive white space)
+✓ All coordinates are positive integers`
             },
             {
               type: 'image_url',
@@ -179,9 +187,9 @@ For a 1024x768 composite with shirt at (100,50) to (400,350):
     const result = JSON.parse(toolArgs);
     console.log(`Detected ${result.items.length} items in composite with bounding boxes`);
     
-    // Validate and filter bboxes
+    // Validate and filter bboxes with strict checks
     const validItems: CompositeDetection[] = [];
-    const imageArea = 1024 * 1024; // assume standard composite size for validation
+    const imageArea = 1024 * 1024;
     
     for (let i = 0; i < result.items.length; i++) {
       const item = result.items[i];
@@ -189,34 +197,49 @@ For a 1024x768 composite with shirt at (100,50) to (400,350):
       const h = item.bbox.height;
       const area = w * h;
       
-      // Check if this bbox overlaps significantly with any already validated box
+      // Skip invalid dimensions
+      if (w <= 0 || h <= 0 || w >= 2000 || h >= 2000) {
+        console.warn(`Item ${i} "${item.name}" has invalid dimensions: ${w}x${h}, skipping`);
+        continue;
+      }
+      
+      // Check overlap with already validated boxes (strict 5% threshold)
       let hasOverlap = false;
       for (const validItem of validItems) {
         const overlap = calculateOverlap(item.bbox, validItem.bbox);
-        if (overlap > 0.1) { // More than 10% overlap
-          console.warn(`Item ${i} "${item.name}" overlaps with "${validItem.name}", skipping`);
+        if (overlap > 0.05) {
+          console.warn(`Item ${i} "${item.name}" overlaps ${(overlap * 100).toFixed(1)}% with "${validItem.name}", skipping`);
           hasOverlap = true;
           break;
         }
       }
-      
       if (hasOverlap) continue;
+      
+      // Check proximity (minimum 30px separation)
+      let tooClose = false;
+      for (const validItem of validItems) {
+        const dx = Math.abs((item.bbox.x + item.bbox.width / 2) - (validItem.bbox.x + validItem.bbox.width / 2));
+        const dy = Math.abs((item.bbox.y + item.bbox.height / 2) - (validItem.bbox.y + validItem.bbox.height / 2));
+        const minDist = Math.min(dx, dy);
+        if (minDist < 30) {
+          console.warn(`Item ${i} "${item.name}" too close to "${validItem.name}" (${minDist}px), skipping`);
+          tooClose = true;
+          break;
+        }
+      }
+      if (tooClose) continue;
       
       // Warn if bbox is suspiciously large (might contain multiple items)
       const areaFraction = area / imageArea;
-      if (areaFraction > 0.3) {
-        console.warn(`Item ${i} "${item.name}" has large bbox (${(areaFraction * 100).toFixed(1)}% of image) - might contain multiple items`);
+      if (areaFraction > 0.4) {
+        console.warn(`Item ${i} "${item.name}" has very large bbox (${(areaFraction * 100).toFixed(1)}% of image) - might contain multiple items, skipping`);
+        continue;
       }
       
-      // Validate bbox has reasonable dimensions
-      if (w > 0 && h > 0 && w < 2000 && h < 2000) {
-        validItems.push(item);
-      } else {
-        console.warn(`Item ${i} "${item.name}" has invalid dimensions: ${w}x${h}`);
-      }
+      validItems.push(item);
     }
     
-    console.log(`Validated ${validItems.length}/${result.items.length} items`);
+    console.log(`Validated ${validItems.length}/${result.items.length} items after strict filtering`);
     return validItems;
   } catch (error) {
     console.error('Error in detectCompositeItems:', error);

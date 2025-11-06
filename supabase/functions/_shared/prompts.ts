@@ -170,35 +170,38 @@ EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplica
 ITEMS TO EXTRACT:
 ${itemsList}
 
-CRITICAL REQUIREMENTS FOR COMPOSITE IMAGE:
+🚨 CRITICAL REQUIREMENTS FOR COMPOSITE IMAGE:
 
 1. GRID LAYOUT:
    - Arrange items in a ${itemsList.split('\n').length <= 4 ? '2x2' : '3-column'} grid
    - Each item gets ONE cell in the grid
-   - Cells must be equal-sized squares
+   - Cells must be perfectly equal-sized squares
 
 2. ITEM EXTRACTION (MOST IMPORTANT):
    - Remove the person/model completely
    - Show ONLY the clothing item itself
-   - Items should appear as if laid flat or photographed alone
-   - Front-facing view, fully visible
+   - Items should appear as if laid flat or photographed product-style
+   - Front-facing view, fully visible, no body parts
 
-3. SPACING & SEPARATION:
+3. SPACING & SEPARATION (ABSOLUTE REQUIREMENT):
    - Pure white background (#FFFFFF) everywhere
-   - Each item centered in its cell
-   - MASSIVE white space around each item (50-60px minimum)
-   - Items occupy only 50-60% of cell size
-   - Add thick white borders between cells (30-40px)
-   - NO items should touch cell edges
-   - NO overlapping between cells
+   - Each item perfectly centered in its cell
+   - MAXIMUM white space around each item:
+     * Items occupy ONLY 40-45% of cell area
+     * Minimum 80px white padding on ALL sides of each item
+     * Minimum 60px thick white grid lines between cells
+   - Think: tiny item in huge white space
+   - NO items should touch or approach cell edges
+   - NO overlapping between cells whatsoever
+   - Each item must be completely isolated with massive spacing
 
 4. VISUAL QUALITY:
-   - Maintain accurate colors from original
-   - Professional product photography style
-   - Clean, even lighting
-   - No shadows
+   - Maintain accurate colors from original photo
+   - Professional e-commerce product photography style
+   - Clean, even lighting with NO shadows or gradients
+   - Sharp focus, high clarity
 
-Think: e-commerce product catalog with extreme spacing. Generate ONE composite image.`
+Think: Apple product catalog with extreme minimalist spacing. Each item should look like a small centered product photo with tons of white space around it. Generate ONE composite image.`
 };
 
 // ============================================

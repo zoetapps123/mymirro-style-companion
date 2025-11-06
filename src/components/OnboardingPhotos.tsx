@@ -193,9 +193,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
           if (processData?.items && processData.items.length > 0) {
             const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
             
-            // All items now have bboxes from direct detection
-            console.log('Cropping items directly from source image using detected bboxes');
-            const crops = await cropImageWithBoundingBoxes(url, processData.items);
+            // All items now have bboxes from composite detection
+            const compositeUrl = processData.compositeImageUrl || url;
+            console.log('Cropping items from composite image using detected bboxes');
+            const crops = await cropImageWithBoundingBoxes(compositeUrl, processData.items);
 
             for (let idx = 0; idx < processData.items.length; idx++) {
               const item = processData.items[idx];

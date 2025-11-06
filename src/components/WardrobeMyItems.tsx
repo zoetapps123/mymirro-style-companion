@@ -206,11 +206,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      // All items now have bboxes from direct detection
+      // All items now have bboxes from composite detection
       const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
       
-      console.log('Cropping items directly from source image using detected bboxes');
-      const crops = await cropImageWithBoundingBoxes(sourceUrl, itemsDetected);
+      const compositeUrl = data.compositeImageUrl || sourceUrl;
+      console.log('Cropping items from composite image using detected bboxes');
+      const crops = await cropImageWithBoundingBoxes(compositeUrl, itemsDetected);
 
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];

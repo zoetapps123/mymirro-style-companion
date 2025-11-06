@@ -137,9 +137,11 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         // Import cropping function
         const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
         
-        // All items now have bboxes from direct detection
-        console.log('Cropping items directly from source image using detected bboxes');
-        const crops = await cropImageWithBoundingBoxes(imageData, itemsDetected);
+        // All items now have bboxes from composite detection
+        const processData = data;
+        const compositeUrl = processData.compositeImageUrl || imageData;
+        console.log('Cropping items from composite image using detected bboxes');
+        const crops = await cropImageWithBoundingBoxes(compositeUrl, itemsDetected);
 
         // Upload each cropped item
         for (let idx = 0; idx < itemsDetected.length; idx++) {
