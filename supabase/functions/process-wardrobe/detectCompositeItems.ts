@@ -241,58 +241,78 @@ Before returning, verify:
     const result = JSON.parse(toolArgs);
     console.log(`Detected ${result.items.length} items in composite with bounding boxes`);
     
-    // Validate and filter bboxes with strict checks
+    // Validate, normalize categories, and filter bboxes with strict-but-fair checks
+    const normalizeCategory = (name: string, category: string): CompositeDetection['category'] => {
+      const n = (name || '').toLowerCase();
+      const c = (category || '').toLowerCase();
+      if (/shoe|sneaker|boot|heel|loafer|sandal/.test(n) || c === 'footwear') return 'Shoes';
+      if (/belt|bag|watch|bracelet|ring|necklace|earring|hat|cap|scarf|tie|sunglass/.test(n) || c === 'accessory' || c === 'accessories') return 'Accessories';
+      if (c === 'jackets' || c === 'outerwear' || c === 'layers') return 'Layers';
+      if (c === 'tops' || c === 'top') return 'Tops';
+      if (c === 'bottoms' || c === 'bottom') return 'Bottoms';
+      if (c === 'dresses' || c === 'dress') return 'Dresses';
+      return (category as any) || 'Tops';
+    };
+
     const validItems: CompositeDetection[] = [];
-    const imageArea = 1024 * 1024;
-    
+    const imageArea = 1024 * 1024; // fallback when actual image size is unknown
+
     for (let i = 0; i < result.items.length; i++) {
-      const item = result.items[i];
+      const raw = result.items[i];
+      const item: CompositeDetection = {
+        ...raw,
+        category: normalizeCategory(raw.name, raw.category)
+      };
       const w = item.bbox.width;
       const h = item.bbox.height;
       const area = w * h;
-      
-      // Skip invalid dimensions (reject ultra-thin boxes that indicate mis-detection)
-      if (w <= 0 || h <= 0 || w >= 2000 || h >= 2000 || w < 40 || h < 40) {
-        console.warn(`Item ${i} "${item.name}" has invalid dimensions: ${w}x${h}, skipping`);
+
+      // Size validation with category-aware exceptions (belts, small accessories)
+      const isAccessory = item.category === 'Accessories';
+      const isBeltLike = /belt/.test((item.name || '').toLowerCase());
+      const tooLarge = w >= 3000 || h >= 3000;
+      const tooSmallGeneral = (w < 40 || h < 40);
+      const tooSmallAccessory = !( (w >= 32 && h >= 18) || (w >= 18 && h >= 32) || (isBeltLike && w >= 60 && h >= 12) );
+
+      if (w <= 0 || h <= 0 || tooLarge || (!isAccessory && tooSmallGeneral) || (isAccessory && tooSmallAccessory)) {
+        console.warn(`Item ${i} "${item.name}" (${item.category}) invalid size: ${w}x${h}, skipping`);
         continue;
       }
-      
-      // Check overlap with already validated boxes (strict 5% threshold)
+
+      // Check overlap (strict 5% IoU)
       let hasOverlap = false;
-      for (const validItem of validItems) {
-        const overlap = calculateOverlap(item.bbox, validItem.bbox);
+      for (const v of validItems) {
+        const overlap = calculateOverlap(item.bbox, v.bbox);
         if (overlap > 0.05) {
-          console.warn(`Item ${i} "${item.name}" overlaps ${(overlap * 100).toFixed(1)}% with "${validItem.name}", skipping`);
+          console.warn(`Item ${i} "${item.name}" overlaps ${(overlap * 100).toFixed(1)}% with "${v.name}", skipping`);
           hasOverlap = true;
           break;
         }
       }
       if (hasOverlap) continue;
-      
-      // Check proximity (minimum 30px separation)
+
+      // Proximity: consider items too close only if both center deltas are small
       let tooClose = false;
-      for (const validItem of validItems) {
-        const dx = Math.abs((item.bbox.x + item.bbox.width / 2) - (validItem.bbox.x + validItem.bbox.width / 2));
-        const dy = Math.abs((item.bbox.y + item.bbox.height / 2) - (validItem.bbox.y + validItem.bbox.height / 2));
-        const minDist = Math.min(dx, dy);
-        if (minDist < 40) {
-          console.warn(`Item ${i} "${item.name}" too close to "${validItem.name}" (${minDist}px), skipping`);
+      for (const v of validItems) {
+        const dx = Math.abs((item.bbox.x + item.bbox.width / 2) - (v.bbox.x + v.bbox.width / 2));
+        const dy = Math.abs((item.bbox.y + item.bbox.height / 2) - (v.bbox.y + v.bbox.height / 2));
+        if (dx < 40 && dy < 40) {
+          console.warn(`Item ${i} "${item.name}" too close to "${v.name}" (dx=${dx}, dy=${dy}), skipping`);
           tooClose = true;
           break;
         }
       }
       if (tooClose) continue;
-      
-      // Warn if bbox is suspiciously large (might contain multiple items)
+
+      // Very large boxes likely span multiple cells; keep but warn only if extreme
       const areaFraction = area / imageArea;
-      if (areaFraction > 0.4) {
-        console.warn(`Item ${i} "${item.name}" has very large bbox (${(areaFraction * 100).toFixed(1)}% of image) - might contain multiple items, skipping`);
-        continue;
+      if (areaFraction > 0.8) {
+        console.warn(`Item ${i} "${item.name}" unusually large (${(areaFraction * 100).toFixed(1)}% of image) - review`);
       }
-      
+
       validItems.push(item);
     }
-    
+
     const merged = mergeShoePairs(validItems);
     console.log(`Validated ${merged.length}/${result.items.length} items after strict filtering (post-merge)`);
     return merged;

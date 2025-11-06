@@ -21,15 +21,15 @@ function removeBackgroundFromCanvas(
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
 
-  // Sample background color from borders
+  // Sample background color from borders (compute mean and variance)
   let rSum = 0, gSum = 0, bSum = 0, count = 0;
+  let r2Sum = 0, g2Sum = 0, b2Sum = 0;
   const samplePixel = (x: number, y: number) => {
     const i = (y * w + x) * 4;
     if (data[i + 3] < 10) return; // Skip transparent
-    rSum += data[i];
-    gSum += data[i + 1];
-    bSum += data[i + 2];
-    count++;
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    rSum += r; gSum += g; bSum += b; count++;
+    r2Sum += r * r; g2Sum += g * g; b2Sum += b * b;
   };
 
   // Sample from outer 2% border
@@ -55,12 +55,36 @@ function removeBackgroundFromCanvas(
   const bgG = Math.round(gSum / count);
   const bgB = Math.round(bSum / count);
 
-  console.log(`Background color detected: rgb(${bgR}, ${bgG}, ${bgB})`);
+  // Compute combined background color variance to adapt tolerance
+  const rVar = Math.max(0, r2Sum / count - bgR * bgR);
+  const gVar = Math.max(0, g2Sum / count - bgG * bgG);
+  const bVar = Math.max(0, b2Sum / count - bgB * bgB);
+  const bgStd = Math.sqrt(rVar + gVar + bVar);
+  // Dynamic tolerance: protect fine edges while handling slight gradients
+  const dynTol = Math.max(tolerance, Math.round(2.5 * bgStd));
 
-  const isBackground = (r: number, g: number, b: number, a: number) => {
+  console.log(`Background color detected: rgb(${bgR}, ${bgG}, ${bgB}) | tol=${dynTol}`);
+
+  // Lightweight edge magnitude to prevent flood-fill leaking into item edges
+  const edgeMagnitude = (x: number, y: number) => {
+    const xi = Math.min(w - 2, Math.max(0, x));
+    const yi = Math.min(h - 2, Math.max(0, y));
+    const i = (yi * w + xi) * 4;
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const irx = (yi * w + (xi + 1)) * 4;
+    const rx = Math.abs(data[irx] - r) + Math.abs(data[irx + 1] - g) + Math.abs(data[irx + 2] - b);
+    const iby = ((yi + 1) * w + xi) * 4;
+    const ry = Math.abs(data[iby] - r) + Math.abs(data[iby + 1] - g) + Math.abs(data[iby + 2] - b);
+    return rx + ry;
+  };
+  const edgeThreshold = 55; // tuned for composite white backgrounds
+
+  const isBackground = (r: number, g: number, b: number, a: number, x: number, y: number) => {
     if (a < 10) return true;
+    // If strong edge, treat as foreground even if color close to background
+    if (edgeMagnitude(x, y) > edgeThreshold) return false;
     const distance = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
-    return distance <= tolerance;
+    return distance <= dynTol;
   };
 
   // Flood fill from borders to mark background pixels
@@ -72,7 +96,7 @@ function removeBackgroundFromCanvas(
     const idx = y * w + x;
     if (visited[idx]) return;
     const i = idx * 4;
-    if (isBackground(data[i], data[i + 1], data[i + 2], data[i + 3])) {
+    if (isBackground(data[i], data[i + 1], data[i + 2], data[i + 3], x, y)) {
       visited[idx] = 1;
       stack.push(x, y);
     }
