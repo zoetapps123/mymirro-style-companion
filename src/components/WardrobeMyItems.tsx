@@ -162,7 +162,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     }
   };
 
-  // Background processing function
+  // Background processing function (same as onboarding)
   const processImageInBackground = async (sourceUrl: string, userId: string) => {
     try {
       // Fetch existing items for duplicate checking
@@ -176,87 +176,67 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         throw new Error('Authentication required');
       }
 
-      const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-        body: { imageUrl: sourceUrl },
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
+      const { data: processData, error: processError } = await supabase.functions.invoke(
+        'process-wardrobe',
+        { 
+          body: { imageUrl: sourceUrl },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        }
+      );
 
-      if (error) {
-        console.error('Background process error:', error);
+      if (processError) {
+        console.error("Background process error:", processError);
         const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
         localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
         setProcessingItems(prev => Math.max(0, prev - 1));
         return;
       }
 
-      if (!data?.items || data.items.length === 0) {
-        console.log('No items detected in image');
-        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-        setProcessingItems(prev => Math.max(0, prev - 1));
-        toast({
-          title: "No items found",
-          description: "No clothing items were detected in the image.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (processData?.items && processData.items.length > 0) {
+        const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
+        
+        // All items now have bboxes from composite detection
+        const compositeUrl = processData.compositeImageUrl || sourceUrl;
+        console.log('Cropping items from composite image using detected bboxes');
+        const crops = await cropImageWithBoundingBoxes(compositeUrl, processData.items);
 
-      const itemsDetected = data.items;
-      let addedCount = 0;
-      let skippedCount = 0;
+        let addedCount = 0;
+        for (let idx = 0; idx < processData.items.length; idx++) {
+          const item = processData.items[idx];
 
-      console.log('Processing items with bounding boxes for client-side cropping');
-      const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
-      
-      // Crop items using bounding boxes
-      const crops = await cropImageWithBoundingBoxes(sourceUrl, itemsDetected);
+          const isDuplicate = existingItems?.some(existing => 
+            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+             (existing.color?.toLowerCase() === item.color?.toLowerCase()))
+          );
 
-      for (let idx = 0; idx < itemsDetected.length; idx++) {
-        const item = itemsDetected[idx];
+          if (isDuplicate) {
+            console.log(`Skipping duplicate: ${item.name}`);
+            continue;
+          }
 
-        const isDuplicate = existingItems?.some(existing => 
-          existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-          (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-           item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-           (existing.color?.toLowerCase() === item.color?.toLowerCase()))
-        );
+          const croppedBlob = crops[idx];
+          if (!croppedBlob) continue;
 
-        if (isDuplicate) {
-          console.log(`Skipping duplicate: ${item.name}`);
-          skippedCount++;
-          continue;
-        }
+          const blob = await trimImageBorders(croppedBlob);
 
-        const croppedBlob = crops[idx];
-        if (!croppedBlob) {
-          console.warn(`No crop for item ${idx}: ${item.name}`);
-          skippedCount++;
-          continue;
-        }
+          // Upload final processed image
+          const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, blob);
 
-        // Trim borders
-        const blob = await trimImageBorders(croppedBlob);
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
 
-        // Upload final image
-        const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, blob);
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
 
-        if (uploadError) {
-          console.error('Upload error for item:', item.name, uploadError);
-          skippedCount++;
-          continue;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
-
-        const { error: dbError } = await supabase
-          .from('wardrobe_items')
-          .insert({
+          await supabase.from('wardrobe_items').insert({
             user_id: userId,
             name: item.name,
             category: item.category,
@@ -265,31 +245,22 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             texture: item.texture,
             pattern: item.pattern,
             style_notes: item.style_notes,
-            image_url: publicUrl,
             processed_image_url: publicUrl,
+            image_url: sourceUrl,
           });
 
-        if (!dbError) {
           addedCount++;
-        } else {
-          console.error('DB error for item:', item.name, dbError);
-          skippedCount++;
         }
+
+        console.log(`Background processing complete: Added ${addedCount} items to wardrobe`);
       }
-
-      console.log(`Background processing complete: Added ${addedCount} items${skippedCount > 0 ? `, skipped ${skippedCount} duplicates/errors` : ''}`);
-      
-      // Refresh items list
-      await fetchItems();
-      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-      localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-      setProcessingItems(prev => Math.max(0, prev - 1));
-
     } catch (error) {
-      console.error('Background processing failed:', error);
+      console.error("Background processing failed:", error);
+    } finally {
       const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
       localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
       setProcessingItems(prev => Math.max(0, prev - 1));
+      await fetchItems();
     }
   };
 
