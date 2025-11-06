@@ -111,7 +111,8 @@ serve(async (req) => {
             required: ['outfits', 'totalGenerated']
           }
         }
-      }]
+      }],
+      tool_choice: { type: 'function', function: { name: 'generate_outfit_combinations' } }
     });
 
     console.log('Gemini API response structure:', {
@@ -144,7 +145,16 @@ serve(async (req) => {
       throw new Error('AI returned invalid response format');
     }
 
-    console.log(`Generated ${result.totalGenerated} outfits`);
+    console.log(`Generated ${result.totalGenerated ?? (result.outfits?.length ?? 0)} outfits`);
+
+    if (!result?.outfits || !Array.isArray(result.outfits) || result.outfits.length === 0) {
+      console.warn('AI returned no outfits; responding with empty list');
+      await setCachedResult(cacheKey, []);
+      return new Response(
+        JSON.stringify({ success: true, outfits: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Step 2: Map outfit items (no image generation)
     const outfitsWithItems = result.outfits.map((outfit: any) => {
