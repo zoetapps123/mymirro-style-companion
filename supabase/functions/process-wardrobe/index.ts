@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { getAIApiKey } from '../_shared/ai-config.ts';
 import { validateImage } from './validateImage.ts';
 import { detectItems } from './detectItems.ts';
@@ -68,7 +69,51 @@ serve(async (req) => {
     const compositeResult = await generateComposite(actualImageUrl, detectedItems, apiKey);
     console.log('Composite image generated');
 
-    // STEP 4: Detect bounding boxes on composite image
+    // STEP 3.5: Save composite image to storage
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    let storedCompositeUrl = compositeResult.compositeImageUrl;
+    
+    try {
+      // Convert base64 data URL to blob
+      const base64Data = compositeResult.compositeImageUrl.split(',')[1];
+      const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      
+      // Create unique filename
+      const timestamp = Date.now();
+      const fileName = `${user.id}/${timestamp}-composite.png`;
+      
+      console.log(`Uploading composite to: composite-images/${fileName}`);
+      
+      // Upload to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('composite-images')
+        .upload(fileName, binaryData, {
+          contentType: 'image/png',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Failed to upload composite to storage:', uploadError);
+        // Continue with data URL if upload fails
+      } else {
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('composite-images')
+          .getPublicUrl(fileName);
+        
+        storedCompositeUrl = urlData.publicUrl;
+        console.log('Composite saved to storage:', storedCompositeUrl);
+      }
+    } catch (storageError) {
+      console.error('Error saving composite to storage:', storageError);
+      // Continue with data URL if storage fails
+    }
+
+    // STEP 4: Detect bounding boxes on composite image (use original data URL for detection)
     const itemsWithBbox = await detectCompositeItems(compositeResult.compositeImageUrl, apiKey);
     console.log(`Detected ${itemsWithBbox.length} items with bboxes in composite`);
 
@@ -80,7 +125,7 @@ serve(async (req) => {
     const processResult = {
       items: itemsWithBbox,
       contentType: validationResult.contentType,
-      compositeImageUrl: compositeResult.compositeImageUrl,
+      compositeImageUrl: storedCompositeUrl, // Use stored URL instead of data URL
       gridLayout: compositeResult.gridLayout
     };
     await setCachedResult(cacheKey, processResult);
