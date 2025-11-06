@@ -206,7 +206,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      // Directly use backend-generated images; no client-side cropping
+      console.log('Processing items with bounding boxes for client-side cropping');
+      const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
+      
+      // Crop items using bounding boxes
+      const crops = await cropImageWithBoundingBoxes(sourceUrl, itemsDetected);
+
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
 
@@ -223,11 +228,31 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           continue;
         }
 
-        if (!item.processedImageUrl) {
-          console.warn(`No processedImageUrl for item ${idx}: ${item.name}`);
+        const croppedBlob = crops[idx];
+        if (!croppedBlob) {
+          console.warn(`No crop for item ${idx}: ${item.name}`);
           skippedCount++;
           continue;
         }
+
+        // Trim borders
+        const blob = await trimImageBorders(croppedBlob);
+
+        // Upload final image
+        const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+        const { error: uploadError } = await supabase.storage
+          .from('outfits')
+          .upload(fileName, blob);
+
+        if (uploadError) {
+          console.error('Upload error for item:', item.name, uploadError);
+          skippedCount++;
+          continue;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('outfits')
+          .getPublicUrl(fileName);
 
         const { error: dbError } = await supabase
           .from('wardrobe_items')
@@ -240,16 +265,19 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             texture: item.texture,
             pattern: item.pattern,
             style_notes: item.style_notes,
-            image_url: item.processedImageUrl,
-            processed_image_url: item.processedImageUrl,
+            image_url: publicUrl,
+            processed_image_url: publicUrl,
           });
 
         if (!dbError) {
           addedCount++;
+        } else {
+          console.error('DB error for item:', item.name, dbError);
+          skippedCount++;
         }
       }
 
-      console.log(`Background processing complete: Added ${addedCount} items${skippedCount > 0 ? `, skipped ${skippedCount} duplicates` : ''}`);
+      console.log(`Background processing complete: Added ${addedCount} items${skippedCount > 0 ? `, skipped ${skippedCount} duplicates/errors` : ''}`);
       
       // Refresh items list
       await fetchItems();
