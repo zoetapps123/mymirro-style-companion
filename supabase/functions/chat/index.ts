@@ -45,14 +45,12 @@ serve(async (req) => {
     }
 
     const userId = user.id; // Extract userId from verified JWT
-    const { messages, userProfile, recentBattles, recentStyleChecks } = await req.json();
+    const { messages, userProfile, wardrobeItems, recentBattles, recentStyleChecks } = await req.json();
     const apiKey = getAIApiKey();
 
-    // Fetch enhanced user context from database
-    let bodyShape, skinTone, wardrobeItems;
+    // Fetch only user profile (wardrobe items now come from client for performance)
+    let bodyShape, skinTone;
     try {
-
-        // Fetch user profile
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('body_shape, skin_tone')
@@ -61,16 +59,6 @@ serve(async (req) => {
         
         bodyShape = profile?.body_shape;
         skinTone = profile?.skin_tone;
-
-        // Fetch wardrobe summary (top 10 recent items with IDs)
-        const { data: items } = await supabase
-          .from('wardrobe_items')
-          .select('id, name, category, color')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(10);
-        
-      wardrobeItems = items || [];
     } catch (e) {
       console.error('Failed to fetch user context:', e);
     }

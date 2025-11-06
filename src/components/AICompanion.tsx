@@ -70,6 +70,7 @@ const AICompanion = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -89,6 +90,54 @@ const AICompanion = () => {
       gender: gender || undefined,
       location: location || undefined,
     });
+  }, []);
+
+  // Fetch all wardrobe items for chat context
+  const fetchWardrobeItems = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: items, error } = await supabase
+        .from('wardrobe_items')
+        .select('id, name, category, color, fabric, texture, pattern, style_notes')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to fetch wardrobe items:', error);
+        return;
+      }
+
+      setWardrobeItems(items || []);
+      console.log(`Chat: Loaded ${items?.length || 0} wardrobe items`);
+    } catch (error) {
+      console.error('Error fetching wardrobe:', error);
+    }
+  };
+
+  // Initial wardrobe load on mount
+  useEffect(() => {
+    fetchWardrobeItems();
+  }, []);
+
+  // Periodic wardrobe refresh (every 45 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchWardrobeItems();
+    }, 45000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh wardrobe when window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchWardrobeItems();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const resetChat = () => {
@@ -264,6 +313,7 @@ const AICompanion = () => {
             images: m.images 
           })),
           userProfile,
+          wardrobeItems,
           recentBattles,
           recentStyleChecks,
         }),
