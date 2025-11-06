@@ -85,7 +85,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     }, []);
 
     setItems(uniqueItems || []);
-    autoFixCrops((uniqueItems || []).slice(0, 6)).catch(() => {});
   };
 
   const handleDelete = async (itemId: string, itemName: string) => {
@@ -193,7 +192,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       }
 
       if (processData?.items && processData.items.length > 0) {
-        const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
+        const { cropImageWithBoundingBoxes } = await import('@/lib/imageProcessing');
         
         // All items now have bboxes from composite detection
         const compositeUrl = processData.compositeImageUrl || sourceUrl;
@@ -216,10 +215,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             continue;
           }
 
-          const croppedBlob = crops[idx];
-          if (!croppedBlob) continue;
-
-          const blob = await trimImageBorders(croppedBlob);
+          const blob = crops[idx];
+          if (!blob) continue;
 
           // Upload final processed image
           const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
@@ -264,41 +261,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     }
   };
 
-  // Background auto-fix for already uploaded crops (non-blocking)
-  const autoFixCrops = async (subset: any[]) => {
-    try {
-      if (!subset || subset.length === 0) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { trimImageBorders } = await import('@/lib/imageProcessing');
-
-      await Promise.all(subset.map(async (item, idx) => {
-        try {
-          const url = item.processed_image_url || item.image_url;
-          if (!url) return;
-          const resp = await fetch(url, { cache: 'no-cache' });
-          if (!resp.ok) return;
-          const blob = await resp.blob();
-          const fixed = await trimImageBorders(blob);
-          // Upload new version
-          const fileName = `${user.id}/wardrobe_fixed_${Date.now()}_${idx}.png`;
-          const { error: uploadError } = await supabase.storage.from('outfits').upload(fileName, fixed);
-          if (uploadError) return;
-          const { data: { publicUrl } } = supabase.storage.from('outfits').getPublicUrl(fileName);
-          await supabase.from('wardrobe_items').update({ processed_image_url: publicUrl }).eq('id', item.id);
-        } catch {}
-      }));
-      // Refresh list
-      fetchItems();
-    } catch {}
-  };
-
-  // Manual fix action for visible items
-  const handleFixCrops = async () => {
-    const subset = filteredItems.slice(0, 12);
-    await autoFixCrops(subset);
-    toast({ title: 'Crops updated', description: 'Re-trimmed visible items.' });
-  };
   // Get dynamic categories from existing items
   const dynamicCategories = [
     "All",
@@ -351,12 +313,9 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         </div>
       </div>
 
-      {/* Title + Tools */}
-      <div className="px-4 pb-3 flex items-center justify-between gap-3">
+      {/* Title */}
+      <div className="px-4 pb-3">
         <h2 className="text-3xl font-bold">My Items</h2>
-        <Button variant="outline" size="sm" onClick={handleFixCrops} className="rounded-full">
-          Fix Crops
-        </Button>
       </div>
 
       {/* Category Filter */}
