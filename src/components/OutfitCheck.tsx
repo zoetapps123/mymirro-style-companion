@@ -33,142 +33,13 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    if (!selectedOccasion) {
-      setShowOccasionModal(true);
-      return;
-    }
-
     const file = files[0];
-    setLoading(true);
-    setScanning(true);
-
-    try {
-      // Check authentication first
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-      }
-      
-      if (!session?.user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to use this feature",
-          variant: "destructive",
-        });
-        setLoading(false);
-        setScanning(false);
-        return;
-      }
-
-      const user = session.user;
-
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setUploadedImage(imageData);
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          throw new Error('Authentication required');
-        }
-
-        const { data, error } = await supabase.functions.invoke('score-outfit', {
-          body: { imageData, occasion: selectedOccasion },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-
-        if (error) {
-          console.error('Score outfit error:', error);
-          const status = (error as any)?.context?.response?.status;
-          const errorMessage = (error as any)?.message || 'Unknown error';
-          setScanning(false);
-          setLoading(false);
-          
-          if (status === 429) {
-            toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
-          } else if (status === 402) {
-            toast({ title: 'Service temporarily unavailable', description: 'Please try again later.', variant: 'destructive' });
-          } else {
-            toast({ 
-              title: 'Scoring failed', 
-              description: `Unable to analyze outfit. ${errorMessage}`, 
-              variant: 'destructive' 
-            });
-          }
-          return;
-        }
-
-        if (!data) {
-          console.error('No data returned from score-outfit');
-          setScanning(false);
-          setLoading(false);
-          toast({ title: 'Error', description: 'No response from server. Try again.', variant: 'destructive' });
-          return;
-        }
-
-        // Show results immediately, persist in background
-        setScanning(false);
-        setResult({ ...data, image_url: imageData });
-        setLoading(false);
-        toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
-        
-        // Track style check completion
-        trackCustom('style_check_completed', {
-          occasion: selectedOccasion,
-          overall_score: data.overall_score,
-          outfit_name: data.outfit_name
-        });
-
-        // Background persistence (non-blocking)
-        (async () => {
-          try {
-            const fileName = `style-check-${Date.now()}.jpg`;
-            const { error: uploadError } = await supabase.storage
-              .from('outfits')
-              .upload(fileName, file);
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-              .from('outfits')
-              .getPublicUrl(fileName);
-
-            await supabase.from('style_checks').insert({
-              user_id: user.id,
-              image_url: publicUrl,
-              overall_score: data.overall_score,
-              color_score: data.color_score,
-              fit_score: data.fit_score,
-              texture_score: data.texture_score,
-              occasion_score: data.occasion_score,
-              outfit_name: data.outfit_name,
-              verdict_positive: Array.isArray(data.what_works) ? data.what_works.join(' | ') : (data.what_works || data.verdict_positive),
-              verdict_improvements: Array.isArray(data.what_didnt_work) ? data.what_didnt_work.join(' | ') : (data.what_didnt_work || data.what_could_be_better || data.verdict_improvements),
-              occasion: selectedOccasion
-            });
-
-            // Update result with public URL once saved
-            setResult((prev: any) => prev ? { ...prev, image_url: publicUrl } : prev);
-          } catch (persistErr) {
-            console.error('Save failed:', persistErr);
-            toast({ title: 'Saved locally', description: 'We could not sync to cloud, but your results are here.', variant: 'default' });
-          }
-        })();
-      };
-
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Can't read that one well—try a clearer pic :P",
-        variant: "destructive",
-      });
-      setScanning(false);
-      setLoading(false);
-    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadedImage(reader.result as string);
+      setShowOccasionModal(true);
+    };
+    reader.readAsDataURL(file);
   };
 
   const extractToWardrobe = async () => {
@@ -454,12 +325,85 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
     <div className="flex flex-col h-full p-3 sm:p-4 space-y-3 sm:space-y-4 pb-safe">
       <OutfitCheckOccasionModal
         open={showOccasionModal}
-        onSelect={(occasion) => {
+        onSelect={async (occasion) => {
           setSelectedOccasion(occasion);
-          // Trigger file input after selection
-          setTimeout(() => fileInputRef.current?.click(), 100);
+          setShowOccasionModal(false);
+          // Start check immediately after occasion selection
+          if (uploadedImage) {
+            setLoading(true);
+            setScanning(true);
+            
+            try {
+              const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+              
+              if (sessionError || !session?.user) {
+                toast({
+                  title: "Authentication required",
+                  description: "Please sign in to use this feature",
+                  variant: "destructive",
+                });
+                setLoading(false);
+                setScanning(false);
+                return;
+              }
+
+              const user = session.user;
+              await new Promise(resolve => setTimeout(resolve, 2000));
+
+              const { data, error } = await supabase.functions.invoke('score-outfit', {
+                body: { imageData: uploadedImage, occasion },
+                headers: { Authorization: `Bearer ${session.access_token}` }
+              });
+
+              if (error) {
+                console.error('Score outfit error:', error);
+                const status = (error as any)?.context?.response?.status;
+                setScanning(false);
+                setLoading(false);
+                
+                if (status === 429) {
+                  toast({ title: 'Rate limited', description: 'Too many requests. Try again in a minute.', variant: 'destructive' });
+                } else if (status === 402) {
+                  toast({ title: 'Service unavailable', description: 'Please try again later.', variant: 'destructive' });
+                } else {
+                  toast({ title: 'Scoring failed', description: `Unable to analyze outfit.`, variant: 'destructive' });
+                }
+                return;
+              }
+
+              if (!data) {
+                setScanning(false);
+                setLoading(false);
+                toast({ title: 'Error', description: 'No response from server. Try again.', variant: 'destructive' });
+                return;
+              }
+
+              setScanning(false);
+              setResult({ ...data, image_url: uploadedImage });
+              setLoading(false);
+              toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
+              
+              trackCustom('style_check_completed', {
+                occasion: occasion,
+                overall_score: data.overall_score,
+                outfit_name: data.outfit_name
+              });
+            } catch (error) {
+              console.error('Error:', error);
+              toast({
+                title: "Error",
+                description: "Failed to analyze outfit",
+                variant: "destructive",
+              });
+              setScanning(false);
+              setLoading(false);
+            }
+          }
         }}
-        onClose={() => setShowOccasionModal(false)}
+        onClose={() => {
+          setShowOccasionModal(false);
+          setUploadedImage(null);
+        }}
       />
       
       {scanning && uploadedImage && (
@@ -490,7 +434,16 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            onChange={handleImageUpload}
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  setUploadedImage(reader.result as string);
+                  setShowOccasionModal(true);
+                };
+                reader.readAsDataURL(e.target.files[0]);
+              }
+            }}
             className="hidden"
             disabled={loading}
           />
@@ -606,11 +559,11 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
             </div>
 
             <div className="space-y-3">
-              {/* What Works */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pb-1 border-b border-gradient-accent/20">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
-                  <h4 className="text-sm sm:text-base font-semibold text-gradient-accent">What Works</h4>
+              {/* What Works - Green Highlight */}
+              <div className="space-y-2 bg-[#43B581]/10 rounded-xl p-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-[#43B581]/20">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#43B581]" />
+                  <h4 className="text-sm sm:text-base font-semibold text-[#43B581]">What Works</h4>
                 </div>
                 <ul className="space-y-1.5 pl-1">
                   {(Array.isArray(result.what_works) 
@@ -618,18 +571,18 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                     : [result.what_works || result.verdict_positive || "Overall, your outfit has strong elements."]
                   ).map((item: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
-                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="text-[#43B581] mt-0.5">✓</span>
                       <span className="leading-relaxed text-foreground">{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              {/* What Didn't Work */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pb-1 border-b border-amber-500/20">
-                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-                  <h4 className="text-sm sm:text-base font-semibold text-gradient-accent">What Didn't Work</h4>
+              {/* What Didn't Work - Red Highlight */}
+              <div className="space-y-2 bg-[#E26D6D]/10 rounded-xl p-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-[#E26D6D]/20">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#E26D6D]" />
+                  <h4 className="text-sm sm:text-base font-semibold text-[#E26D6D]">What Doesn't Work</h4>
                 </div>
                 <ul className="space-y-1.5 pl-1">
                   {(Array.isArray(result.what_didnt_work) 
@@ -637,7 +590,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                     : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."]
                   ).map((item: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
-                      <span className="text-amber-500 mt-0.5">⚠</span>
+                      <span className="text-[#E26D6D] mt-0.5">⚠</span>
                       <span className="leading-relaxed text-foreground">{item}</span>
                     </li>
                   ))}
@@ -666,19 +619,22 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
               )}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 min-h-[44px] text-sm" onClick={handleShare}>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="min-h-[44px] text-sm" onClick={onBack}>
+                Back / Home
+              </Button>
+              <Button variant="outline" className="min-h-[44px] text-sm" onClick={handleShare}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
-              <Button variant="default" className="flex-1 min-h-[44px] text-sm" onClick={() => {
-                setResult(null);
-                setUploadedImage(null);
-                setSelectedOccasion(null);
-              }}>
-                Check Another
-              </Button>
             </div>
+            <Button variant="default" className="w-full min-h-[44px] text-sm" onClick={() => {
+              setResult(null);
+              setUploadedImage(null);
+              setSelectedOccasion(null);
+            }}>
+              Check Another
+            </Button>
           </div>
 
           {/* Battle Banner CTA */}

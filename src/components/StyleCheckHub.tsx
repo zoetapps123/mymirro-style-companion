@@ -653,29 +653,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
           </Button>
         </div>
 
-        {/* Where are you heading? */}
-        <div>
-          <h2 className="text-xl font-semibold text-primary mb-3">
-            Where are you heading?
-          </h2>
-          <div className="flex gap-2 flex-wrap">
-            {occasions.map((occasion) => (
-              <Button
-                key={occasion}
-                variant={selectedOccasion === occasion ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedOccasion(occasion)}
-                className={`rounded-full border-2 ${
-                  selectedOccasion === occasion
-                    ? "bg-white text-black border-black"
-                    : "bg-transparent border-border text-foreground"
-                }`}
-              >
-                {occasion}
-              </Button>
-            ))}
-          </div>
-        </div>
 
         {/* Upload Image */}
         {!result && (
@@ -860,15 +837,15 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
               {/* What Works, Doesn't Work, Quick Fixes - ALWAYS VISIBLE */}
               <div className="space-y-3">
-                <div className="bg-accent/10 rounded-xl p-4">
+                <div className="bg-[#43B581]/10 rounded-xl p-4">
                   <div className="flex items-start gap-2">
-                    <CheckCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+                    <CheckCircle className="w-5 h-5 text-[#43B581] flex-shrink-0 mt-0.5" />
                     <div className="w-full">
-                      <p className="font-semibold text-accent mb-2">What Works</p>
+                      <p className="font-semibold text-[#43B581] mb-2">What Works</p>
                       <ul className="space-y-1">
                         {(Array.isArray(result.what_works) ? result.what_works : [result.what_works || result.verdict_positive]).map((item: string, idx: number) => (
                           <li key={idx} className="text-sm text-muted-foreground flex items-start">
-                            <span className="mr-2">•</span>
+                            <span className="mr-2 text-[#43B581]">•</span>
                             <span>{item}</span>
                           </li>
                         ))}
@@ -878,15 +855,15 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 </div>
 
                 {(result.what_didnt_work || result.what_could_be_better || result.verdict_improvements) && (
-                  <div className="bg-destructive/10 rounded-xl p-4">
+                  <div className="bg-[#E26D6D]/10 rounded-xl p-4">
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-[#E26D6D] flex-shrink-0 mt-0.5" />
                       <div className="w-full">
-                        <p className="font-semibold text-destructive mb-2">What Doesn't Work</p>
+                        <p className="font-semibold text-[#E26D6D] mb-2">What Doesn't Work</p>
                         <ul className="space-y-1">
                           {(Array.isArray(result.what_didnt_work) ? result.what_didnt_work : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements]).map((item: string, idx: number) => (
                             <li key={idx} className="text-sm text-muted-foreground flex items-start">
-                              <span className="mr-2">•</span>
+                              <span className="mr-2 text-[#E26D6D]">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
