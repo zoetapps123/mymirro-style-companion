@@ -201,7 +201,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       let addedCount = 0;
       let skippedCount = 0;
 
-      const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders } = await import('@/lib/imageProcessing');
+      const { cropImageWithBoundingBoxes, cropCompositeImage, trimImageBorders, placeOnWhiteBackground, validateCropQuality } = await import('@/lib/imageProcessing');
       
       const hasBboxes = itemsDetected.every((item: any) => item.bbox);
       let crops: Blob[];
@@ -232,11 +232,29 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
         const croppedBlob = crops[idx];
         if (!croppedBlob) {
+          console.log(`Item ${idx}: No crop blob available`);
           skippedCount++;
           continue;
         }
 
-        const blob = await trimImageBorders(croppedBlob);
+        // Validate crop quality
+        const isValidCrop = await validateCropQuality(croppedBlob);
+        if (!isValidCrop) {
+          console.warn(`Item ${idx}: Crop quality validation failed, skipping`);
+          skippedCount++;
+          continue;
+        }
+
+        // Trim borders
+        const trimmedBlob = await trimImageBorders(croppedBlob);
+        console.log(`Item ${idx}: Trimmed borders`);
+
+        // Place on white background for consistency
+        const blob = await placeOnWhiteBackground(trimmedBlob, {
+          canvasSize: 512,
+          padding: 20
+        });
+        console.log(`Item ${idx}: Placed on white background`);
 
         const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
         const { error: uploadError } = await supabase.storage

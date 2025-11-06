@@ -51,7 +51,7 @@ export async function detectCompositeItems(
               type: 'text',
               text: `You are analyzing a composite grid image containing multiple isolated clothing items arranged on a white background.
 
-**TASK**: Detect EACH INDIVIDUAL clothing item and provide PRECISE bounding boxes.
+**TASK**: Detect EACH INDIVIDUAL clothing item and provide GENEROUS bounding boxes that capture the COMPLETE item.
 
 **CRITICAL RULES - READ CAREFULLY**:
 
@@ -61,20 +61,22 @@ export async function detectCompositeItems(
    - If you see a BLAZER, create ONE box for ONLY the blazer
    - NEVER combine blazer + pants, or shirt + pants, or any multiple items in one box
 
-2. **TIGHT BOUNDING BOXES**:
-   - Box edges must be TIGHT to the clothing item edges
-   - Exclude ALL white space, padding, shadows, and grid lines
-   - Leave minimal margin (5-10 pixels) around the actual item
+2. **GENEROUS BOUNDING BOXES**:
+   - Box edges must include a 20-30 pixel MARGIN around the clothing item
+   - MUST include the COMPLETE item - nothing should be cut off
+   - Include ALL edges, extremities, sleeves, collars, hems, and any hanging parts
+   - If uncertain about item boundaries, err on the side of including MORE space rather than less
+   - Better to have extra white space than to cut off part of the item
 
 3. **PIXEL COORDINATES**:
    - Use integer pixel coordinates: { x, y, width, height }
    - x, y = top-left corner position in pixels
    - width, height = box dimensions in pixels
-   - Example: { x: 50, y: 100, width: 200, height: 300 }
+   - Example: { x: 50, y: 100, width: 250, height: 350 }
 
 4. **NO OVERLAPPING**: 
    - Boxes must NOT overlap each other
-   - Each box must be for a completely separate item
+   - Each box should contain ONLY ONE complete item with surrounding white space
 
 5. **ITEM DETAILS**:
    - name: Specific item description (e.g., "Brown Plaid Flannel Shirt", "Olive Green Blazer", "Beige Chino Pants")
@@ -84,8 +86,8 @@ export async function detectCompositeItems(
 **OUTPUT FORMAT**: Return array of items in left-to-right, top-to-bottom reading order.
 
 **EXAMPLE**:
-For a 1024x768 composite with shirt at (100,50) to (400,350):
-{ "name": "Brown Plaid Shirt", "category": "Tops", "color": "Brown", "bbox": { "x": 100, "y": 50, "width": 300, "height": 300 } }`
+For a 1024x768 composite with shirt at (70,30) to (420,380):
+{ "name": "Brown Plaid Shirt", "category": "Tops", "color": "Brown", "bbox": { "x": 70, "y": 30, "width": 350, "height": 350 } }`
             },
             {
               type: 'image_url',
@@ -123,12 +125,12 @@ For a 1024x768 composite with shirt at (100,50) to (400,350):
                     },
                     bbox: {
                       type: 'object',
-                      description: 'Tight bounding box in PIXEL coordinates, excluding white space',
+                      description: 'Generous bounding box including complete item with 20-30px padding. Ensure entire item is visible, including all edges and extremities',
                       properties: {
                         x: { type: 'integer', description: 'Left edge in pixels (0 = left side)', minimum: 0 },
                         y: { type: 'integer', description: 'Top edge in pixels (0 = top)', minimum: 0 },
-                        width: { type: 'integer', description: 'Box width in pixels', minimum: 1 },
-                        height: { type: 'integer', description: 'Box height in pixels', minimum: 1 }
+                        width: { type: 'integer', description: 'Box width in pixels (must capture full item)', minimum: 1 },
+                        height: { type: 'integer', description: 'Box height in pixels (must capture full item)', minimum: 1 }
                       },
                       required: ['x', 'y', 'width', 'height']
                     }
@@ -202,9 +204,24 @@ For a 1024x768 composite with shirt at (100,50) to (400,350):
       
       if (hasOverlap) continue;
       
-      // Warn if bbox is suspiciously large (might contain multiple items)
+      // Size validation with auto-correction
       const areaFraction = area / imageArea;
-      if (areaFraction > 0.3) {
+      
+      // Flag and expand boxes that are suspiciously small (<5% of image area)
+      if (areaFraction < 0.05) {
+        console.warn(`Item ${i} "${item.name}" has small bbox (${(areaFraction * 100).toFixed(1)}% of image) - expanding by 20%`);
+        const expandFactor = 0.2;
+        const expandX = Math.round(w * expandFactor);
+        const expandY = Math.round(h * expandFactor);
+        item.bbox.x = Math.max(0, item.bbox.x - expandX);
+        item.bbox.y = Math.max(0, item.bbox.y - expandY);
+        item.bbox.width = w + (expandX * 2);
+        item.bbox.height = h + (expandY * 2);
+        console.log(`Expanded bbox to: x=${item.bbox.x}, y=${item.bbox.y}, w=${item.bbox.width}, h=${item.bbox.height}`);
+      }
+      
+      // Warn if bbox is suspiciously large (>35% might contain multiple items)
+      if (areaFraction > 0.35) {
         console.warn(`Item ${i} "${item.name}" has large bbox (${(areaFraction * 100).toFixed(1)}% of image) - might contain multiple items`);
       }
       
