@@ -191,13 +191,13 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                 </Select>
                 <Input
                   type="tel"
-                  placeholder="9876543210"
+                  placeholder="Enter your phone number"
                   value={phone}
                   onChange={(e) => {
                     setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
                     setError("");
                   }}
-                  className="h-12 bg-white border-gray-200 text-gray-900"
+                  className="h-12 bg-white border-gray-200 text-gray-900 placeholder:text-[#A7A7A7]"
                   disabled={loading}
                 />
               </div>
