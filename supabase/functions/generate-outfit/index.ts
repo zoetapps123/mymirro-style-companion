@@ -113,6 +113,12 @@ serve(async (req) => {
       tool_choice: { type: 'function', function: { name: 'generate_outfit_combinations' } }
     });
 
+    // Validate API response structure
+    if (!data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
+      console.error('Invalid Gemini API response structure:', JSON.stringify(data, null, 2));
+      throw new Error('AI returned invalid response format');
+    }
+
     const result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
 
     console.log(`Generated ${result.totalGenerated} outfits`);
