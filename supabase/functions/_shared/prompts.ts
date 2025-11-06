@@ -142,7 +142,12 @@ export const WARDROBE_PROMPTS = {
 
   VALIDATE_IMAGE_FALLBACK: 'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
-  DETECT_ITEMS: `Detect ALL distinct clothing items in this image with EXTREME ATTENTION TO:
+  DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories. Pay EXTREME ATTENTION TO:
+
+**ITEM CATEGORIES TO DETECT:**
+- CLOTHING: Tops, shirts, t-shirts, blouses, sweaters, hoodies, jackets, coats, blazers, dresses, pants, jeans, shorts, skirts, etc.
+- FOOTWEAR: Shoes, sneakers, boots, sandals, heels, flats, loafers, slippers (capture as pairs when visible)
+- ACCESSORIES: Bags, purses, backpacks, belts, hats, caps, scarves, jewelry (necklaces, bracelets, watches), sunglasses, ties, etc.
 
 **COLOR ACCURACY**
 - Identify the TRUE dominant color, not lighting artifacts
@@ -150,22 +155,23 @@ export const WARDROBE_PROMPTS = {
 - Distinguish between similar shades (e.g., cream vs. white, navy vs. black)
 
 **TEXTURE & FABRIC CAPTURE**
-- Identify fabric type: cotton, silk, denim, leather, wool, polyester, linen, etc.
-- Note texture details: ribbed, smooth, textured, quilted, etc.
+- Identify fabric/material type: cotton, silk, denim, leather, wool, polyester, linen, canvas, metal, etc.
+- Note texture details: ribbed, smooth, textured, quilted, woven, etc.
 - Capture pattern: solid, striped, floral, geometric, polka dot, etc.
 
 **DESIGN DETAILS**
 - Cut/style: slim fit, oversized, cropped, fitted, etc.
-- Unique features: buttons, zippers, pockets, collars, sleeves
+- Unique features: buttons, zippers, pockets, collars, sleeves, buckles, straps
 
 **DUPLICATE PREVENTION**
 - If multiple similar items appear, only extract if they are DISTINCTLY different
 - Items must differ in at least TWO of: color, pattern, fabric, or cut
+- For footwear: treat pairs as a single item
 
-INCLUSION CRITERIA: Clearly visible, well-lit, identifiable category and design
+INCLUSION CRITERIA: Clearly visible, well-lit, identifiable category and design (including small accessories if distinct)
 EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplicate`,
 
-  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the clothing items extracted and isolated from the provided photo.
+  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the wearable items (clothing, footwear, and accessories) extracted and isolated from the provided photo.
 
 ITEMS TO EXTRACT:
 ${itemsList}
