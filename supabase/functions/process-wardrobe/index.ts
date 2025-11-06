@@ -160,13 +160,7 @@ serve(async (req) => {
 });
 
 async function detectItemsWithGemini(imageUrl: string): Promise<DetectedItem[]> {
-  // Fetch image and convert to base64
-  const imageResponse = await fetch(imageUrl);
-  const imageBlob = await imageResponse.blob();
-  const imageBuffer = await imageBlob.arrayBuffer();
-  const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-  const mimeType = imageBlob.type || 'image/jpeg';
-
+  // Use the public URL directly to avoid large base64 conversions
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -205,14 +199,11 @@ Return ONLY a JSON array of items, no other text. Example format:
             },
             {
               type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${base64Image}`
-              }
+              image_url: { url: imageUrl }
             }
           ]
         }
-      ],
-      temperature: 0.3
+      ]
     })
   });
 
