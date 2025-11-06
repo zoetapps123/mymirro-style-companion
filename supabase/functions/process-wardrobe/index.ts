@@ -69,6 +69,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Prefetch original image once and reuse as data URL to save CPU/memory
+    let sharedImageDataUrl: string | null = null;
+    try {
+      console.log('Prefetching source image once for reuse...');
+      const res = await fetch(actualImageUrl);
+      const buf = new Uint8Array(await res.arrayBuffer());
+      const contentType = res.headers.get('content-type') || 'image/jpeg';
+      let binary = '';
+      for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
+      const base64 = btoa(binary);
+      sharedImageDataUrl = `data:${contentType};base64,${base64}`;
+      console.log('Prefetched image bytes:', buf.length);
+    } catch (e) {
+      console.warn('Prefetch failed, falling back to direct URL in generation calls', e);
+    }
+
     // Limit concurrency to reduce memory/CPU usage
     const CONCURRENCY = 2;
 
@@ -90,7 +106,7 @@ Create a clean, isolated image of this item on a pure white background. Show the
               role: 'user',
               content: [
                 { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: actualImageUrl } }
+                { type: 'image_url', image_url: { url: sharedImageDataUrl || actualImageUrl } }
               ]
             }
           ],
