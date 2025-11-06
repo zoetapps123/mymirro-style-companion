@@ -70,7 +70,7 @@ export const OutfitMockups = ({ items }: OutfitMockupsProps) => {
             transition={{ delay: outfitIdx * 0.15 }}
           >
             <Card className="flex-shrink-0 w-48 p-3 bg-white shadow-md hover:shadow-lg transition-shadow">
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="grid grid-cols-2 gap-2">
                 {outfit.slice(0, 4).map((item, itemIdx) => (
                   <div 
                     key={item.id} 
@@ -87,9 +87,6 @@ export const OutfitMockups = ({ items }: OutfitMockupsProps) => {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-center text-muted-foreground">
-                Look {outfitIdx + 1}
-              </p>
             </Card>
           </motion.div>
         ))}
