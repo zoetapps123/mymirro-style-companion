@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Heart, ArrowLeft, Loader2, X, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { generateOutfitComposite, dataUrlToBlob } from '@/lib/outfitImageGenerator';
 
 interface WardrobeItem {
   id: string;
@@ -199,67 +200,41 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
   const regenerateOutfitImage = async () => {
     setIsRegenerating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Authentication required');
-      }
+      // Generate composite image from wardrobe items
+      const compositeDataUrl = await generateOutfitComposite(selectedItems);
+      
+      // Convert to blob
+      const blob = dataUrlToBlob(compositeDataUrl);
+      const fileName = `outfit-${Date.now()}.png`;
 
-      const { data, error } = await supabase.functions.invoke('generate-outfit', {
-        body: {
-          action: 'regenerate_image_only',
-          items: selectedItems,
-          occasion: outfit.occasion,
-          styleTag: outfit.style_tag
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` }
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('outfits')
+        .upload(fileName, blob, { contentType: 'image/png' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('outfits')
+        .getPublicUrl(fileName);
+
+      setCurrentOutfitImage(publicUrl);
+      setHasChanges(false);
+
+      toast({
+        title: "Success",
+        description: "Outfit image created!"
       });
-
-      if (error) throw error;
-
-      if (data.outfitImageUrl) {
-        // Upload to storage
-        const base64Data = data.outfitImageUrl.split(',')[1];
-        const blob = base64ToBlob(base64Data);
-        const fileName = `outfit-${Date.now()}.png`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, blob, { contentType: 'image/png' });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
-
-        setCurrentOutfitImage(publicUrl);
-        setHasChanges(false);
-
-        toast({
-          title: "Success",
-          description: "Outfit image regenerated!"
-        });
-      }
     } catch (error) {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to regenerate image",
+        description: "Failed to create outfit image",
         variant: "destructive"
       });
     } finally {
       setIsRegenerating(false);
     }
-  };
-
-  const base64ToBlob = (base64: string): Blob => {
-    const byteString = atob(base64);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: 'image/png' });
   };
 
   const saveToLookbook = async () => {
@@ -369,7 +344,7 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Loader2 className="animate-spin h-12 w-12 mx-auto mb-4" />
-                  <p className="text-muted-foreground">Regenerating outfit image...</p>
+                  <p className="text-muted-foreground">Creating outfit image...</p>
                 </div>
               </div>
             ) : currentOutfitImage ? (
@@ -386,7 +361,7 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
 
           {hasChanges && !isRegenerating && (
             <Button onClick={regenerateOutfitImage} className="w-full mb-6">
-              🔄 Regenerate Outfit Image
+              🔄 Update Outfit Image
             </Button>
           )}
         </div>

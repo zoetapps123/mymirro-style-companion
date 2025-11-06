@@ -25,29 +25,16 @@ serve(async (req) => {
 
   try {
     const { 
-      action,
       generationType, 
       occasion, 
       style, 
       anchorItem, 
       wardrobeItems, 
       maxOutfits,
-      items, // For regenerate_image_only
-      styleTag,
       userLocation
     } = await req.json();
 
     const apiKey = getAIApiKey();
-
-    // Handle regenerate image only action
-    if (action === 'regenerate_image_only') {
-      console.log('Regenerating outfit image only...');
-      const outfitImageUrl = await generateCombinedOutfitImage(items, occasion, styleTag, apiKey);
-      return new Response(
-        JSON.stringify({ outfitImageUrl }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     console.log('Generating outfits:', { generationType, occasion, style, anchorItem: anchorItem?.name });
 
@@ -186,29 +173,4 @@ function buildOutfitGenerationPrompt(
     maxOutfits,
     userLocation: userLocation ? { temp: userLocation.temp, weather: userLocation.weather } : undefined
   });
-}
-
-async function generateCombinedOutfitImage(
-  items: any[],
-  occasion: string,
-  styleTag: string,
-  apiKey: string
-): Promise<string> {
-  console.log('Generating combined outfit image...');
-
-  const prompt = OUTFIT_GENERATION_PROMPTS.GENERATE_FLATLAY(items, occasion, styleTag);
-
-  const data = await callGeminiAPI({
-    model: 'google/gemini-2.5-flash-image-preview',
-    messages: [
-      {
-        role: 'user',
-        content: prompt
-      }
-    ],
-    modalities: ['image', 'text']
-  });
-
-  const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  return imageUrl || '';
 }
