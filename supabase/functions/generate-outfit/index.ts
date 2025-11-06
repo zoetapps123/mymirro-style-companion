@@ -61,6 +61,8 @@ serve(async (req) => {
     // Step 1: Generate outfit combinations
     const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation);
 
+    console.log('Calling Gemini API for outfit generation...');
+    
     const data = await callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
@@ -109,17 +111,38 @@ serve(async (req) => {
             required: ['outfits', 'totalGenerated']
           }
         }
-      }],
-      tool_choice: { type: 'function', function: { name: 'generate_outfit_combinations' } }
+      }]
     });
 
-    // Validate API response structure
-    if (!data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
-      console.error('Invalid Gemini API response structure:', JSON.stringify(data, null, 2));
+    console.log('Gemini API response structure:', {
+      hasChoices: !!data?.choices,
+      choicesLength: data?.choices?.length,
+      hasMessage: !!data?.choices?.[0]?.message,
+      messageKeys: data?.choices?.[0]?.message ? Object.keys(data.choices[0].message) : [],
+      hasToolCalls: !!data?.choices?.[0]?.message?.tool_calls,
+      hasContent: !!data?.choices?.[0]?.message?.content
+    });
+
+    // Handle both tool calls and direct text responses
+    let result;
+    if (data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
+      console.log('Using tool call response');
+      result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
+    } else if (data?.choices?.[0]?.message?.content) {
+      console.log('Parsing content as JSON fallback');
+      // Try to extract JSON from content
+      const content = data.choices[0].message.content;
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        result = JSON.parse(jsonMatch[0]);
+      } else {
+        console.error('No valid JSON found in response:', content);
+        throw new Error('AI did not return outfit data in expected format');
+      }
+    } else {
+      console.error('Invalid API response structure:', JSON.stringify(data, null, 2));
       throw new Error('AI returned invalid response format');
     }
-
-    const result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
 
     console.log(`Generated ${result.totalGenerated} outfits`);
 
