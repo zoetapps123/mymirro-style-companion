@@ -69,10 +69,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const itemsWithImages = [];
-    
-    for (let i = 0; i < detectedItems.length; i++) {
-      const item = detectedItems[i];
+    // Process all items in parallel to avoid timeout
+    const itemPromises = detectedItems.map(async (item, i) => {
       console.log(`Generating image for item ${i + 1}/${detectedItems.length}: ${item.name}`);
       
       try {
@@ -103,7 +101,7 @@ Create a clean, isolated image of this item on a pure white background. Show the
         
         if (!generatedImageUrl) {
           console.error(`No image generated for item: ${item.name}`);
-          continue;
+          return null;
         }
 
         // Save generated image to storage
@@ -122,7 +120,7 @@ Create a clean, isolated image of this item on a pure white background. Show the
 
         if (uploadError) {
           console.error(`Failed to upload item ${item.name}:`, uploadError);
-          continue;
+          return null;
         }
 
         // Get public URL
@@ -130,17 +128,20 @@ Create a clean, isolated image of this item on a pure white background. Show the
           .from('composite-images')
           .getPublicUrl(fileName);
 
-        itemsWithImages.push({
+        console.log(`Saved image for ${item.name}:`, urlData.publicUrl);
+        
+        return {
           ...item,
           processedImageUrl: urlData.publicUrl
-        });
-        
-        console.log(`Saved image for ${item.name}:`, urlData.publicUrl);
+        };
       } catch (error) {
         console.error(`Error processing item ${item.name}:`, error);
-        // Continue with next item
+        return null;
       }
-    }
+    });
+
+    const results = await Promise.all(itemPromises);
+    const itemsWithImages = results.filter(item => item !== null);
 
     if (itemsWithImages.length === 0) {
       throw new Error('Failed to generate images for any items');
