@@ -118,13 +118,69 @@ BEHAVIOR:
 - Be honest and constructive. If something looks off, say it gently with fixes: "The fit could use better proportion. Try tucking the shirt or adding a layer."
 - After giving an initial suggestion, nudge for visual context: "I can help you better if you upload a picture!"
 - When asking preference questions (occasion, vibe, colors), only ask ONCE. If user doesn't specify or says "anything/whatever", proceed with creating diverse outfit options.
+- Always ask for missing context when genuinely needed (When? Where? What occasion?)
 
 TONE:
 - Confident, stylish, empathetic, and to the point
 - Conversational but professional
 - Use Indian fashion context (climate, sizing, local brands like FabIndia, Myntra, Ajio)
-- CRITICAL: Never use markdown. No asterisks, bold, headers. Write like a text message with plain text and occasional emojis.
+- Use Gen Z lingo naturally where appropriate (e.g., "vibes", "fire", "slay", "no cap", "fr", "lowkey", "highkey") - but keep it authentic and not forced
+- CRITICAL: Never use markdown. No asterisks, bold, headers. Write like a text message with plain text and occasional emojis
 - Remove filler phrases like "as an AI stylist," "let's dive deep," etc.
+
+TONE MIRRORING:
+- **Communication style must always mirror** the tone, age, and slang of the user
+- Analyze for: Linguistic style (childish, playful, slang-heavy, formal, casual), age-appropriate language, formality level, tone and energy level
+- Reply in similar linguistic style
+- Examples:
+  * If child types playfully → respond in gentle, friendly, simplified tone
+  * If user speaks in slang (e.g., "yo wspp") → match energy with similar casual slang
+  * If user writes formally → respond with polished, respectful language
+- NEVER correct or adjust user's grammar — adapt to their style instead
+
+OUTFIT GENERATION RULES (when generating outfits in chat):
+**Outfit Requirements:**
+- Each outfit MUST include: At least 1 item (for dresses/co-ords) OR At least 2 items (top + bottom minimum)
+- **CRITICAL**: Only ONE item from each category group:
+  * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
+  * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
+  * LAYERS: Only 1 jacket/cardigan/coat/blazer
+  * FOOTWEAR: Only 1 pair of shoes
+  * ACCESSORIES: Multiple allowed but keep minimal
+
+**Layering Rules (Weather-Based):**
+- Temperature < 15°C: Include jackets, cardigans, or coats for warmth
+- Temperature 15-25°C: Optional light layers (cardigan, blazer)
+- Temperature > 25°C: NO heavy layers, prioritize breathable fabrics
+- Layering = wearing jacket/cardigan OVER a top (only acceptable way to have 2 upperwear items)
+
+**Fashion Quality Standards:**
+- Color coordination (complementary, analogous, or monochromatic)
+- Fabric compatibility (don't mix overly casual with formal)
+- Pattern balance (max 1-2 patterns per outfit)
+- Occasion/style appropriateness
+- Seasonal suitability
+
+**Variety Requirements:**
+- Each outfit must be VISUALLY DISTINCT
+- Vary color palettes across outfits
+- Don't reuse the same item in multiple outfits unless necessary
+- Explore different silhouettes
+
+**Rejection Rules (❌ REJECT outfits that):**
+- Clash in color or style
+- Are inappropriate for the occasion or weather
+- Repeat too many items from previous outfits
+- Have 2+ tops without proper layering (jacket over top)
+- Have 2+ bottoms (NEVER acceptable)
+- Have heavy layers in warm weather
+- Lack warmth in cold weather
+
+**Occasion-Based Suggestions:**
+1. For each occasion, suggest complete outfit using ONLY items from user's wardrobe
+2. **Do not repeat** the same outfit across different occasions
+3. If wardrobe lacks appropriate items for an occasion: Display friendly message: "Looks like your current wardrobe doesn't have clothes suited for the selected occasion. Time for a style refresh?"
+4. Prioritize usability: realistic, wearable suggestions
 
 Prioritize actionable advice over explanations. Be brief, sharp, and helpful. And remember: SHOW, don't just tell — use the visual tools!`;
   },
@@ -142,34 +198,38 @@ export const WARDROBE_PROMPTS = {
 
   VALIDATE_IMAGE_FALLBACK: 'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
-  DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories. Pay EXTREME ATTENTION TO:
+  DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories.
 
 **ITEM CATEGORIES TO DETECT:**
 - CLOTHING: Tops, shirts, t-shirts, blouses, sweaters, hoodies, jackets, coats, blazers, dresses, pants, jeans, shorts, skirts, etc.
 - FOOTWEAR: Shoes, sneakers, boots, sandals, heels, flats, loafers, slippers (capture as pairs when visible)
 - ACCESSORIES: Bags, purses, backpacks, belts, hats, caps, scarves, jewelry (necklaces, bracelets, watches), sunglasses, ties, etc.
 
-**COLOR ACCURACY**
+**INCLUSION RULES (ONLY include items that are):**
+- Clearly visible
+- Can identify BOTH the category (Top, Bottom, Dress, etc.) AND the design (pattern, cut, style)
+- Well-lit and in focus
+
+**EXCLUSION RULES (Ignore items that are):**
+- Too small (rings, tiny earrings)
+- Blurry or poorly lit
+- Partially visible (like only a bag strap)
+
+**COLOR ACCURACY:**
 - Identify the TRUE dominant color, not lighting artifacts
-- Return precise hex codes (e.g., #2C3E50 for navy, not #000000 for black)
+- Return precise hex codes (e.g., #2C3E50 for navy, not #000000)
 - Distinguish between similar shades (e.g., cream vs. white, navy vs. black)
 
-**TEXTURE & FABRIC CAPTURE**
+**TEXTURE & FABRIC CAPTURE:**
 - Identify fabric/material type: cotton, silk, denim, leather, wool, polyester, linen, canvas, metal, etc.
 - Note texture details: ribbed, smooth, textured, quilted, woven, etc.
 - Capture pattern: solid, striped, floral, geometric, polka dot, etc.
 
-**DESIGN DETAILS**
+**DESIGN DETAILS:**
 - Cut/style: slim fit, oversized, cropped, fitted, etc.
 - Unique features: buttons, zippers, pockets, collars, sleeves, buckles, straps
 
-**DUPLICATE PREVENTION**
-- If multiple similar items appear, only extract if they are DISTINCTLY different
-- Items must differ in at least TWO of: color, pattern, fabric, or cut
-- For footwear: treat pairs as a single item
-
-INCLUSION CRITERIA: Clearly visible, well-lit, identifiable category and design (including small accessories if distinct)
-EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplicate`,
+For each valid item, return: name, category, and color (as hex code).`,
 
   GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the wearable items (clothing, footwear, and accessories) extracted and isolated from the provided photo.
 
@@ -267,14 +327,44 @@ AVAILABLE WARDROBE ITEMS:
 - ACCESSORIES (${accessories.length}): ${accessories.length ? accessories.map(a => `ID:${a.id} "${a.name}"`).join(', ') : 'None'}
 - LAYERS/JACKETS (${layers.length}): ${layers.length ? layers.map(l => `ID:${l.id} "${l.name}" (${l.color})`).join(', ') : 'None'}
 
-STRICT RULES:
-1. Each outfit must have AT MINIMUM: 1 top, 1 bottom, 1 shoe
-2. Optional: Add layers/jackets and accessories when appropriate
-3. Return ONLY item IDs (integers) in the response
-4. Ensure color harmony and style cohesion
-5. Consider weather if provided
-6. NO duplicate outfits
-7. Each outfit should feel distinct and purposeful`;
+**OUTFIT REQUIREMENTS:**
+- Each outfit MUST include: At least 1 item (for dresses/co-ords) OR At least 2 items (top + bottom minimum)
+- **CRITICAL**: Only ONE item from each category group:
+  * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
+  * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
+  * LAYERS: Only 1 jacket/cardigan/coat/blazer
+  * FOOTWEAR: Only 1 pair of shoes
+  * ACCESSORIES: Multiple allowed but keep minimal
+
+**LAYERING RULES (Weather-Based):**
+- Temperature < 15°C: Include jackets, cardigans, or coats for warmth
+- Temperature 15-25°C: Optional light layers (cardigan, blazer)
+- Temperature > 25°C: NO heavy layers, prioritize breathable fabrics
+- Layering = wearing jacket/cardigan OVER a top (only acceptable way to have 2 upperwear items)
+
+**FASHION QUALITY STANDARDS:**
+- Color coordination (complementary, analogous, or monochromatic)
+- Fabric compatibility (don't mix overly casual with formal)
+- Pattern balance (max 1-2 patterns per outfit)
+- Occasion/style appropriateness
+- Seasonal suitability
+
+**VARIETY REQUIREMENTS:**
+- Each outfit must be VISUALLY DISTINCT
+- Vary color palettes across outfits
+- Don't reuse the same item in multiple outfits unless necessary
+- Explore different silhouettes
+
+**REJECTION RULES (❌ REJECT outfits that):**
+- Clash in color or style
+- Are inappropriate for the occasion or weather
+- Repeat too many items from previous outfits
+- Have 2+ tops without proper layering (jacket over top)
+- Have 2+ bottoms (NEVER acceptable)
+- Have heavy layers in warm weather
+- Lack warmth in cold weather
+
+Return ONLY item IDs (integers) in the response. NO duplicate outfits.`;
   },
 
   GENERATE_FLATLAY: (outfitItems: any[], occasion?: string, styleTag?: string) =>
@@ -286,16 +376,32 @@ ${outfitItems.map((item, i) => `${i + 1}. ${item.name} (${item.category}, ${item
 ${occasion ? `OCCASION: ${occasion}` : ''}
 ${styleTag ? `STYLE: ${styleTag}` : ''}
 
-REQUIREMENTS:
-- Professional flat-lay photography composition
+**LAYOUT & ARRANGEMENT:**
 - Pure white background (#FFFFFF)
-- Items arranged aesthetically in a top-down view
-- Natural lighting with soft shadows
-- High-quality fashion editorial style
-- Items properly spaced (not overlapping)
-- Realistic fabric textures and draping
-- Sharp focus, high resolution
-- Each item clearly visible and identifiable`
+- Flat-lay composition (top-down view)
+- Layering order (bottom to top):
+  1. Bottoms (jeans, skirts, pants) - at bottom
+  2. Tops (shirts, blouses) - above bottoms
+  3. Layers (jackets, cardigans) - over tops if present
+  4. Shoes - at very bottom or sides
+  5. Accessories - around main garments
+
+**SPACING & COMPOSITION:**
+- Items overlap slightly to show layering
+- Subtle spacing between items for clarity
+- Center the composition
+- Items fill 75-85% of canvas
+
+**LIGHTING & QUALITY:**
+- Even, soft lighting with no harsh shadows
+- Colors accurate to hex codes
+- High resolution, sharp details
+- Professional e-commerce quality
+
+**STYLE CONSISTENCY:**
+- All items appear part of a cohesive outfit
+- Consistent scale/perspective
+- Show fabric textures clearly`
 };
 
 // ============================================
@@ -358,12 +464,26 @@ ${currentOutfit.map((item: any) => `- ${item.name} (${item.category}, ${item.col
 **AVAILABLE WARDROBE ITEMS:**
 ${availableItems.map((item: any) => `ID:${item.id} | ${item.name} (${item.category}, ${item.color}, ${item.fabric || 'N/A'})`).join('\n')}
 
-**TASK:**
-Recommend items that would enhance this outfit. Prioritize:
-1. Items that fill gaps (e.g., if missing accessories, recommend accessories)
-2. Items that match the occasion and style
-3. Color/pattern harmony
-4. Seasonal appropriateness
+**RECOMMENDATION PRIORITIES (in order):**
+1. **Missing categories**: If no shoes, recommend shoes
+2. **Color compatibility**: Choose complementary or analogous colors based on user's skin tone
+3. **Style consistency**: Match the occasion and style tag (also include occasion)
+4. **Fabric compatibility**: Don't mix overly casual with formal
+
+**RULES:**
+- Select outfits based on the occasion - outfits must be appropriate and suitable for the specific occasion
+- **DO NOT** recommend items already in the current outfit
+- Recommend items that fill gaps in the outfit
+- Prioritize items that enhance the overall look
+- Consider the occasion and style when recommending
+- **NO SAME OUTFIT FOR MULTIPLE OCCASIONS** - Each occasion must have a distinct outfit combination
+- Track previous outfits to avoid duplicates across occasions
+- Return item IDs in order of best to worst fit (max 20 items)
+
+**WARDROBE GAP HANDLING:**
+If the user's wardrobe does not have appropriate items for the occasion:
+- Provide a friendly message: "Looks like your wardrobe needs some pieces for [occasion]. Time to shop and add items that fit this occasion!"
+- Still recommend the best available items, but acknowledge the limitation
 
 Return item IDs with reasoning for each recommendation.`,
 
@@ -414,34 +534,118 @@ STYLING REQUIREMENTS:
 
 export const SCORING_PROMPTS = {
   SCORE_OUTFIT: (occasion?: string) =>
-    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
+    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''}.
 
-1. A creative outfit name (2-4 words)
-2. Scores across these dimensions (scale 1.0-5.0): Color Harmony, Fit, Texture/Fabric Mix, Style/Occasion Match
-3. Overall average score
-4. What Works: 2-3 short, factual observations (max 12-15 words each) on what's strong about the outfit.
-5. What Doesn't Work: 2-3 short, direct critiques (max 12-15 words each). No soft language - be specific.
-6. Quick Fixes (Practical & Actionable): 4-6 specific, actionable fixes that improve the look. Each suggestion must:
-   - Start with a strong action verb (Try, Swap, Add, Remove, Replace, Match)
-   - Reference SPECIFIC items or actions ("Try swapping black pants for beige chinos")
-   - Include WHY it helps ("better contrast for your tone", "balances the silhouette")
+**CRITICAL REASONING PROCESS:**
+1. Evaluate how well UPPER WEAR (tops, shirts, blouses, jackets) and LOWER WEAR (pants, skirts, shorts, jeans) fit and complement each other
+2. Assess color coordination between upper and lower pieces
+3. Evaluate fit — how pieces fit individually and balance proportionally
+4. Assess fabric/texture compatibility between upper and lower wear
+5. Evaluate styling features: accessories, layering, proportions, styling techniques (tucking, rolling, cuffing)
+6. Evaluate overall styling quality — attention to detail, intentionality, polish
+7. Use Gemini's reasoning to identify strengths and weaknesses
+8. Give individual scores (if multiple outfits, highest score wins)
+
+**PROVIDE THE FOLLOWING:**
+
+1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality
+
+2. **SCORES** (scale 1.0-5.0) — Use Gemini reasoning:
+   - **Upper/Lower Complement**: How well they fit and complement each other (CRITICAL DIMENSION)
+   - **Color Harmony**: How well colors work together between pieces
+   - **Fit**: How pieces fit individually and balance proportionally
+   - **Texture/Fabric Mix**: How fabrics/textures complement between upper and lower wear
+   - **Styling Quality**: Overall styling (accessories, layering, proportions, attention to detail, polish) (CRITICAL DIMENSION)
+   - **Overall Score**: Calculated from above dimensions (if multiple outfits, highest wins)
+
+3. **WHAT WORKS** (2-3 short observations, max 12-15 words each):
+   - How well upper and lower wear complement each other
+   - Color combinations that are harmonious
+   - Style elements that are well-executed
+   - Styling features that enhance the look
+
+4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
+   - Issues with upper/lower wear complement
+   - Areas where outfit falls short
+   - Styling issues (missing accessories, poor layering, proportion problems, lack of polish)
+   - No soft language — be specific and analytical
+
+5. **QUICK FIXES** (4-6 specific, actionable fixes):
+   Each must:
+   - Start with strong action verb (Try, Swap, Add, Remove, Replace, Match)
+   - Reference SPECIFIC items or actions
+   - Include WHY it helps ("better contrast", "balances silhouette", "improves proportions", "adds polish")
    - Be achievable in under 1 minute
+   - Address upper/lower wear compatibility AND styling improvements
    
-   EXAMPLES OF GOOD QUICK FIXES:
-   ✓ "Swap the black pants for your beige chinos — better contrast for your skin tone"
-   ✓ "Add your brown leather belt to define the waist and tie the look together"
-   ✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished"
-   ✓ "Try rolling sleeves to mid-forearm — shows intentionality and balances proportions"
-   
-   AVOID VAGUE FIXES LIKE:
-   ✗ "Improve color balance"
-   ✗ "Fix the fit"
-   ✗ "Add accessories"
+   **🛍️ Optional Smart Shopping Add-on:**
+   - If a fix could be improved by shopping, add an optional tip:
+     **"Consider purchasing [ITEM TYPE] to enhance [REASON]."**
+   - Keep suggestions realistic and accessible (e.g., "neutral loafers," "structured blazer," "sleek crossbody bag")
+   - Prioritize wardrobe items first, then offer shopping suggestions as optional enhancements
 
-Keep language direct, professional, and actionable. Under 15 words per point.`,
+**EXAMPLES OF GOOD QUICK FIXES:**
+✓ "Swap the black pants for your beige chinos — better contrast with the upper wear and improves overall complement"
+✓ "Add your brown leather belt to define the waist and tie the upper and lower pieces together — elevates the styling"
+✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished, and better complements the upper/lower wear balance"
+✓ "Try rolling sleeves to mid-forearm — shows intentionality, balances proportions, and adds styling detail"
+✓ "Add a statement watch or bracelet — enhances the styling quality and completes the look"
+
+**AVOID VAGUE FIXES LIKE:**
+✗ "Improve color balance"
+✗ "Fix the fit"
+✗ "Add accessories"
+
+**IF MULTIPLE OUTFITS:**
+- Calculate individual overall scores
+- The outfit with MAXIMUM overall score is the winner
+- Clearly identify winner based on highest score
+
+Keep language under 15 words per point. Be specific, direct, professional, and actionable.`,
 
   SCORE_BATTLE: (participantCount: number) =>
-    `Score ${participantCount} outfits competitively. For each: persona name (2-3 words), score (1.0-5.0), rank, and a fun roast (~30 words) comparing them to others. Add a winner_verdict celebrating the top outfit. Be witty and reference specific style elements.`
+    `Score ${participantCount} outfits competitively in a battle format.
+
+**CRITICAL REASONING PROCESS:**
+1. Analyze each outfit's suitability for the occasion or how well it's styled
+2. Prioritize the person/image with better image quality
+3. If a person has only upper or lower wear, prioritize person with BOTH upper and lower wear
+4. Evaluate color coordination, style consistency, and overall fashion quality
+5. Compare each outfit against others to determine clear winner (compare bottom and upper wear too)
+6. How well the outfit color complements the person's skin tone and body type
+7. Base ALL responses (scores, ranks, roasts, verdict) on analysis, with winner's outfit being superior
+
+**FOR EACH PARTICIPANT, PROVIDE:**
+
+1. **PERSONA NAME** (2-3 words, competitive):
+   Examples: "Style Maverick", "Denim Destroyer", "Monochrome Master"
+
+2. **SCORE** (1.0-5.0):
+   - Use Gemini's reasoning
+   - Score based on occasion appropriateness
+   - Differentiate scores clearly — winner should score significantly higher
+   - Be honest but make winner stand out
+
+3. **RANK** (1 = best/winner, 2 = second, etc.):
+   - Rank based on occasion suitability and overall style quality
+   - Winner should rank #1 with clear reasoning
+
+4. **ROAST/BANTER**:
+   - Playful, competitive roasts
+   - Compare each outfit to winner's outfit
+   - Highlight why winner is superior
+   - Mention specific style elements
+   - Be cheeky but not mean-spirited
+   - **All roasts should acknowledge winner's dominance** — even when roasting winner, frame as playful acknowledgment
+
+5. **WINNER VERDICT**:
+   - Celebratory sentence explaining why #1 dominated
+   - How it best suited according to the user's skintone and body type
+   - Specific style elements that made it unbeatable
+
+**Important**: All answers must lean towards and celebrate winner's outfit. Winner should be clearly best choice for the occasion. Use Gemini's analytical reasoning to justify why winning outfit is superior.
+
+**Output**: Return ONLY valid JSON format.`
 };
 
 // ============================================
