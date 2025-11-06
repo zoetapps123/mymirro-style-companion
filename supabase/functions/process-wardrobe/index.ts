@@ -81,12 +81,12 @@ serve(async (req) => {
 Color: ${item.color}
 ${item.fabric ? `Fabric: ${item.fabric}` : ''}
 ${item.pattern ? `Pattern: ${item.pattern}` : ''}
-${item.styleNotes ? `Style: ${item.styleNotes}` : ''}
+${item.style_notes ? `Style: ${item.style_notes}` : ''}
 
 Create a clean, isolated image of this item on a pure white background. Show the item clearly with all details visible.`;
 
         const response = await callGeminiAPI({
-          model: 'google/gemini-2.5-flash-image-preview',
+          model: 'google/gemini-2.5-flash-image',
           messages: [
             {
               role: 'user',
