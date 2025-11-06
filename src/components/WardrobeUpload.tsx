@@ -134,16 +134,9 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         let skippedCount = 0;
         setProgress(70);
 
-        // Import cropping function
-        const { cropImageWithBoundingBoxes, trimImageBorders } = await import('@/lib/imageProcessing');
-        
-        // All items now have bboxes from composite detection
-        const processData = data;
-        const compositeUrl = processData.compositeImageUrl || imageData;
-        console.log('Cropping items from composite image using detected bboxes');
-        const crops = await cropImageWithBoundingBoxes(compositeUrl, itemsDetected);
+        console.log('Processing items with AI-generated images');
 
-        // Upload each cropped item
+        // Process each item - they already have processedImageUrl from backend
         for (let idx = 0; idx < itemsDetected.length; idx++) {
           const item = itemsDetected[idx];
 
@@ -179,29 +172,11 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          const croppedBlob = crops[idx];
-          if (!croppedBlob) {
-            console.warn(`No crop for item ${idx}`);
+          // Use the processedImageUrl from backend (already generated and uploaded)
+          if (!item.processedImageUrl) {
+            console.warn(`Item ${idx} missing processedImageUrl`);
             continue;
           }
-
-          // Trim borders
-          const blob = await trimImageBorders(croppedBlob);
-
-          // Upload final image
-          const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
-          const { error: uploadError } = await supabase.storage
-            .from('outfits')
-            .upload(fileName, blob);
-
-          if (uploadError) {
-            console.error('Upload error for item:', item.name, uploadError);
-            continue;
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('outfits')
-            .getPublicUrl(fileName);
 
           const { error: dbError } = await supabase
             .from('wardrobe_items')
@@ -214,8 +189,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
               texture: item.texture,
               pattern: item.pattern,
               style_notes: item.style_notes,
-              image_url: publicUrl,
-              processed_image_url: publicUrl,
+              image_url: item.processedImageUrl,
+              processed_image_url: item.processedImageUrl,
             });
 
           if (dbError) {
