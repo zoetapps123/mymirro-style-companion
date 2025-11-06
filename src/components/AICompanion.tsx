@@ -554,23 +554,20 @@ const AICompanion = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* New Chat Button */}
-      <div className="px-4 pt-4 pb-2 border-b border-border/50 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Chat</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={resetChat}
-          className="gap-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          New Chat
-        </Button>
-      </div>
+    <div className="flex flex-col h-full bg-background relative">
+      {/* New Chat Button - Top Right */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={resetChat}
+        className="absolute top-4 right-4 z-10 gap-2"
+      >
+        <RotateCcw className="w-4 h-4" />
+        New Chat
+      </Button>
       
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 px-4 py-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 px-4 py-4 pt-16" ref={scrollRef}>
         <div className="space-y-3 max-w-2xl mx-auto">
           {messages.map((message) => (
             <div
