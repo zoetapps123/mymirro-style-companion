@@ -131,14 +131,42 @@ serve(async (req) => {
       result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
     } else if (data?.choices?.[0]?.message?.content) {
       console.log('Parsing content as JSON fallback');
-      // Try to extract JSON from content
-      const content = data.choices[0].message.content;
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
+      const content = data.choices[0].message.content as string;
+
+      const extractJsonObject = (text: string): any | null => {
+        // Prefer fenced code block ```json ... ```
+        try {
+          const block = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+          if (block?.[1]) {
+            return JSON.parse(block[1].trim());
+          }
+        } catch (_) {}
+
+        // Balanced brace scan for first complete JSON object
+        const start = text.indexOf('{');
+        if (start === -1) return null;
+        let depth = 0;
+        for (let i = start; i < text.length; i++) {
+          const ch = text[i];
+          if (ch === '{') depth++;
+          else if (ch === '}') {
+            depth--;
+            if (depth === 0) {
+              const candidate = text.slice(start, i + 1);
+              try { return JSON.parse(candidate); } catch (_) { /* continue */ }
+            }
+          }
+        }
+        return null;
+      };
+
+      const parsed = extractJsonObject(content);
+      if (parsed) {
+        result = parsed;
       } else {
-        console.error('No valid JSON found in response:', content);
-        throw new Error('AI did not return outfit data in expected format');
+        console.error('No valid JSON found in response content preview:', content.slice(0, 500));
+        // Graceful fallback: treat as zero outfits to avoid 500s in UI
+        result = { outfits: [], totalGenerated: 0 };
       }
     } else {
       console.error('Invalid API response structure:', JSON.stringify(data, null, 2));
