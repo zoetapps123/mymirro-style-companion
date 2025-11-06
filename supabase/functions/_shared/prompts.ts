@@ -44,9 +44,19 @@ export const SYSTEM_PROMPTS = {
     const userCity = params.location || 'India';
     const bodyContext = params.bodyShape ? `\n- Body Shape: ${params.bodyShape} (suggest fits that flatter this shape)` : '';
     const skinContext = params.skinTone ? `\n- Skin Tone: ${params.skinTone} (recommend colors that complement this tone)` : '';
-    const wardrobeContext = params.wardrobeItems && params.wardrobeItems.length > 0
-      ? `\n- Wardrobe Items (with IDs for visual display): ${params.wardrobeItems.map((i: any) => `${i.name} (${i.category}, ${i.color}) [ID: ${i.id}]`).join(', ')}\n  TIP: Reference these specific items when giving outfit suggestions! Use their IDs for visual display.`
-      : '';
+    
+    // Build wardrobe context with clear count
+    let wardrobeContext = '';
+    if (params.wardrobeItems && params.wardrobeItems.length > 0) {
+      const itemCount = params.wardrobeItems.length;
+      const itemsList = params.wardrobeItems.map((i: any) => 
+        `  - ${i.name} (${i.category}, ${i.color}) [ID: ${i.id}]`
+      ).join('\n');
+      
+      wardrobeContext = `\n\n🎯 WARDROBE INVENTORY (${itemCount} items available):\n${itemsList}\n\n💡 IMPORTANT: When user asks about their wardrobe (e.g., "how many items", "what do I have"), tell them the count and categories. Use these specific IDs when showing items visually with the tools!`;
+    } else {
+      wardrobeContext = '\n\n🎯 WARDROBE INVENTORY: No items added yet. Encourage user to add items to their wardrobe!';
+    }
     
     // Add fashion history context
     let historyContext = '';
