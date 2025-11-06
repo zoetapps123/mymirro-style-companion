@@ -3,6 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
+import { validateImage } from './validateImage.ts';
+import { WARDROBE_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,7 +49,7 @@ serve(async (req) => {
     console.log('Processing image with Gemini-only pipeline...');
 
     // Check cache
-    const cacheKey = await generateCacheKey({ type: 'wardrobe_gemini_v1', imageUrl });
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_gemini_v2', imageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached result');
@@ -56,6 +58,23 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Step 0: Validate image (check for real human or clothing items)
+    console.log('Step 0: Validating image...');
+    const validation = await validateImage(imageUrl, LOVABLE_API_KEY!);
+    
+    if (!validation.isValidForExtraction) {
+      console.log('Image validation failed:', validation.rejectionReason);
+      return new Response(JSON.stringify({ 
+        error: validation.rejectionReason || 'Image does not contain suitable content for wardrobe extraction',
+        items: []
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log('Image validation passed:', validation.contentType);
 
     // Step 1: Detect items using Gemini Vision
     console.log('Step 1: Detecting items with Gemini Vision...');
@@ -175,14 +194,7 @@ async function detectItemsWithGemini(imageUrl: string): Promise<DetectedItem[]> 
           content: [
             {
               type: 'text',
-              text: `Analyze this image and detect all clothing items, shoes, and accessories visible. For each item, provide:
-- name: A clear descriptive name
-- category: One of [Tops, Bottoms, Dresses, Outerwear, Shoes, Accessories]
-- color: Primary color (as hex code if possible, otherwise color name)
-- fabric: Material type (e.g., cotton, denim, leather)
-- texture: Surface texture (e.g., smooth, textured, ribbed)
-- pattern: Pattern type (e.g., solid, striped, floral)
-- style_notes: Brief style description
+              text: `${WARDROBE_PROMPTS.DETECT_ITEMS}
 
 Return ONLY a JSON array of items, no other text. Example format:
 [
@@ -226,11 +238,25 @@ Return ONLY a JSON array of items, no other text. Example format:
 }
 
 async function generateProductImage(item: DetectedItem): Promise<Uint8Array> {
-  const prompt = `Create a professional product photo of a ${item.name}. 
-Style: Clean, centered product photography on pure white background.
-Details: ${item.color} color, ${item.fabric || 'fabric'} material, ${item.pattern || 'solid'} pattern, ${item.texture || 'smooth'} texture.
-Additional: ${item.style_notes || ''}.
-Requirements: High quality, well-lit, centered, isolated item, no model, no text, no watermarks.`;
+  const prompt = `Extract and isolate this clothing item: ${item.name}
+
+CRITICAL REQUIREMENTS (CUTOUT RULES):
+- Display item straight and front-facing
+- Fully unfolded (not crumpled or folded)
+- NO human, background, or other items visible
+- Pure white background (#FFFFFF)
+- Even lighting, minimal shadows
+- Centered and fully in frame
+- Should look like a professional product catalog photo
+
+Item Details:
+- Color: ${item.color}
+- Material: ${item.fabric || 'fabric'}
+- Pattern: ${item.pattern || 'solid'}
+- Texture: ${item.texture || 'smooth'}
+- Style: ${item.style_notes || 'N/A'}
+
+Generate a clean product photo on pure white background, as if this item was photographed for an e-commerce catalog.`;
 
   console.log(`Generating image with prompt: ${prompt.substring(0, 100)}...`);
 
