@@ -513,11 +513,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
       {/* Main Content */}
       <div className="flex-1 p-6 space-y-8">
-        {/* Example Outfit Mockups */}
-        {wardrobeItems.length >= 3 && (
-          <OutfitMockups items={wardrobeItems} />
-        )}
-
         {/* Regenerate Button */}
         {hasNewItems && (
           <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
