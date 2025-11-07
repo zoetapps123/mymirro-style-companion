@@ -446,7 +446,6 @@ const AICompanion = () => {
       let assistantMessage = '';
       let collectedToolCalls: ToolCall[] = [];
 
-      // Always force non-stream fallback on Mobile Safari
       if (isMobileSafari) {
         try {
           const fullText = await response.text();
@@ -457,8 +456,27 @@ const AICompanion = () => {
             if (jsonStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
+              const delta = parsed.choices?.[0]?.delta;
+              const content = delta?.content;
+              const toolCalls = delta?.tool_calls;
               if (content) assistantMessage += content;
+              if (toolCalls) {
+                console.log('AICompanion: received tool calls', { count: toolCalls.length, tools: toolCalls });
+                toolCalls.forEach((tc: any) => {
+                  if (tc.function?.name && tc.function?.arguments) {
+                    try {
+                      const args = JSON.parse(tc.function.arguments);
+                      console.log('AICompanion: parsed tool call', { type: tc.function.name, data: args });
+                      collectedToolCalls.push({
+                        type: tc.function.name as any,
+                        data: args,
+                      });
+                    } catch (e) {
+                      console.error('Failed to parse tool call args:', e);
+                    }
+                  }
+                });
+              }
             } catch {}
           }
         } catch (e) {
@@ -467,13 +485,12 @@ const AICompanion = () => {
 
         setMessages(prev => {
           const updated = prev.map(m =>
-            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
+            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...', toolCalls: collectedToolCalls } : m
           );
           persistMessages(updated);
           return updated;
         });
         trackCustom("reply_delivered");
-        // Cleanup controller/timeout for Safari path
         if (timeoutId) clearTimeout(timeoutId);
         abortControllerRef.current = null;
         return; // Done for Mobile Safari
