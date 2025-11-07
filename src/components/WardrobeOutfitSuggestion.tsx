@@ -190,6 +190,19 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     }
   };
 
+  // Deduplicate outfits by comparing item IDs
+  const deduplicateOutfits = (outfits: GeneratedOutfit[]): GeneratedOutfit[] => {
+    const seen = new Set<string>();
+    return outfits.filter(outfit => {
+      const itemIds = outfit.items.map(item => item.id).sort().join(',');
+      if (seen.has(itemIds)) {
+        return false;
+      }
+      seen.add(itemIds);
+      return true;
+    });
+  };
+
   const loadExistingOutfits = () => {
     if (!cachedOutfits || cachedOutfits.length === 0) return;
 
@@ -225,6 +238,14 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           anchor.push(generatedOutfit);
         }
       }
+    });
+
+    // Deduplicate each group
+    Object.keys(byOccasion).forEach(key => {
+      byOccasion[key] = deduplicateOutfits(byOccasion[key]);
+    });
+    Object.keys(byStyle).forEach(key => {
+      byStyle[key] = deduplicateOutfits(byStyle[key]);
     });
 
     // Persist and restore last selections or pick first available
@@ -289,9 +310,41 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       if (error) throw error;
 
       const outfits = data.outfits || [];
+      const savedOutfits: GeneratedOutfit[] = [];
 
-      // Save outfits to database
+      // Save outfits to database (with duplicate prevention)
       for (const outfit of outfits) {
+        // Get item IDs for this outfit
+        const itemIds = outfit.items.map((item: WardrobeItem) => item.id).sort();
+
+        // Check if an outfit with these exact items already exists for this occasion/style
+        const { data: existingOutfits } = await supabase
+          .from('outfits')
+          .select(`
+            id,
+            saved_to_lookbook,
+            outfit_items (
+              item_id
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('saved_to_lookbook', false)
+          .eq(type === 'occasion' ? 'occasion' : 'style_tag', value);
+
+        // Check if any existing outfit has the exact same items
+        const isDuplicate = existingOutfits?.some(existing => {
+          const existingItemIds = existing.outfit_items
+            .map((oi: any) => oi.item_id)
+            .sort();
+          return JSON.stringify(existingItemIds) === JSON.stringify(itemIds);
+        });
+
+        if (isDuplicate) {
+          console.log('Skipping duplicate outfit with same items');
+          continue;
+        }
+
+        // Save new outfit
         const { data: savedOutfit, error: saveError } = await supabase
           .from('outfits')
           .insert({
@@ -327,17 +380,18 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         await supabase.from('outfit_items').insert(itemInserts);
 
         outfit.id = savedOutfit.id;
+        savedOutfits.push(outfit);
       }
 
       if (type === 'occasion') {
-        setOccasionOutfits(prev => ({ ...prev, [value]: outfits }));
+        setOccasionOutfits(prev => ({ ...prev, [value]: savedOutfits }));
       } else if (type === 'style') {
-        setStyleOutfits(prev => ({ ...prev, [value]: outfits }));
+        setStyleOutfits(prev => ({ ...prev, [value]: savedOutfits }));
       } else {
-        setAnchorOutfits(outfits);
+        setAnchorOutfits(savedOutfits);
       }
 
-      toast.success(`Generated ${outfits.length} outfit${outfits.length > 1 ? 's' : ''}`);
+      toast.success(`Generated ${savedOutfits.length} outfit${savedOutfits.length > 1 ? 's' : ''}`);
     } catch (error) {
       console.error(error);
       toast.error('Failed to generate outfits');
