@@ -115,18 +115,19 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             
           if (srcUploadError) throw srcUploadError;
           
-          const { data } = supabase.storage
+          const { data: publicUrlData } = supabase.storage
             .from('outfits')
             .getPublicUrl(sourceName);
           
-          const sourceUrl = data.publicUrl;
+          console.log('getPublicUrl response:', publicUrlData);
           
-          if (!sourceUrl) {
-            console.error('Failed to get public URL for:', sourceName);
+          if (!publicUrlData?.publicUrl) {
+            console.error('Failed to get public URL for:', sourceName, 'Data:', publicUrlData);
             throw new Error('Failed to get image URL');
           }
 
-          console.log('Uploading file, sourceUrl:', sourceUrl);
+          const sourceUrl = publicUrlData.publicUrl;
+          console.log('Got public URL:', sourceUrl);
 
           // Process in background (non-blocking) - exactly like onboarding
           processImageInBackground(sourceUrl, user.id);
