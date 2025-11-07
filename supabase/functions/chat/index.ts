@@ -155,15 +155,21 @@ serve(async (req) => {
     // 5. OUTFIT CREATION QUERIES (what should I wear for occasion)
     // STRICT MATCHING: Only generate outfits when user explicitly asks for them
     const explicitOutfitPhrases = [
-      /what (should|can|do) i wear/i,
-      /suggest (an?|some) outfit/i,
-      /create (an?|some) outfit/i,
-      /make (me )?(an?|some) outfit/i,
+      /what (should|can|could|do) i wear/i,
+      /what.*(outfit|outfits|look|looks)/i, // "what outfits can I create", "what looks work"
+      /suggest (an?|some|me)?\s*(outfit|look)/i,
+      /create (an?|some)?\s*(outfit|look)/i,
+      /make (me )?(an?|some)?\s*(outfit|look)/i,
+      /show.*(outfit|look)/i, // "show me outfit options"
       /outfit for (a|the|my)/i,
       /outfit.*(wedding|date|party|interview|office|work|event)/i,
       /dress me (for|up)/i,
       /style me (for)?/i,
-      /what to wear (for|to)/i
+      /what to wear (for|to)/i,
+      /give me.*(outfit|look)/i,
+      /need.*(outfit|look)/i,
+      /pick.*(outfit|look)/i,
+      /help.*pick.*(outfit|look|wear)/i
     ];
     
     const outfitCreationQuery = 
