@@ -344,13 +344,17 @@ serve(async (req) => {
                 content: JSON.stringify({
                   success: true,
                   outfits: formattedOutfits,
-                  instruction: `CRITICAL: You MUST now call create_outfit_suggestion tool with these EXACT parameters:
-                  
+                  instruction: `CRITICAL INSTRUCTIONS:
+
+1. FIRST: Provide a brief, friendly text response acknowledging the ${args.occasion} outfit request (e.g., "Perfect! Here are ${formattedOutfits.length} outfit ideas for your ${args.occasion}:" or "I've got ${formattedOutfits.length} great looks for ${args.occasion}!")
+
+2. THEN: Call create_outfit_suggestion tool with these EXACT parameters:
+
 {
   "outfits": ${JSON.stringify(formattedOutfits, null, 2)}
 }
 
-DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provided above. This is MANDATORY.`
+You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provided above.`
                 })
               });
             } else {
