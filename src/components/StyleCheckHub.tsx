@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
@@ -16,6 +17,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   const { trackClick } = useAnalytics();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [showOccasionModal, setShowOccasionModal] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState<string>("");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,13 +93,15 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
+        setShowOccasionModal(true);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const startStyleCheck = async () => {
-    if (!uploadedImage || !selectedOccasion) return;
+  const startStyleCheck = async (occasionOverride?: string) => {
+    const occasion = occasionOverride || selectedOccasion;
+    if (!uploadedImage || !occasion) return;
 
     setLoading(true);
     setScanning(true);
@@ -122,7 +126,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const { data, error } = await supabase.functions.invoke('score-outfit', {
-        body: { imageData: uploadedImage, occasion: selectedOccasion },
+        body: { imageData: uploadedImage, occasion: occasion },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
@@ -191,7 +195,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             verdict_positive: Array.isArray(data.what_works) ? data.what_works.join(' | ') : (data.what_works || data.verdict_positive),
             verdict_improvements: Array.isArray(data.what_didnt_work) ? data.what_didnt_work.join(' | ') : (data.what_didnt_work || data.what_could_be_better || data.verdict_improvements),
             quick_fix: Array.isArray(data.quick_fix) ? data.quick_fix.join(' | ') : (data.quick_fix || ''),
-            occasion: selectedOccasion
+            occasion: occasion
           });
 
           setResult((prev: any) => prev ? { ...prev, image_url: publicUrl } : prev);
@@ -616,6 +620,19 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
+      <OutfitCheckOccasionModal
+        open={showOccasionModal}
+        onSelect={async (occasion) => {
+          setSelectedOccasion(occasion);
+          setShowOccasionModal(false);
+          await startStyleCheck(occasion);
+        }}
+        onClose={() => {
+          setShowOccasionModal(false);
+          setUploadedImage(null);
+        }}
+      />
+      
       {scanning && uploadedImage && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-4 sm:space-y-6">
@@ -690,7 +707,7 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
             {canStartCheck && (
               <Button
                 className="w-full h-12 text-lg rounded-full mt-4"
-                onClick={startStyleCheck}
+                onClick={() => startStyleCheck()}
                 disabled={loading}
               >
                 Start Style Check
