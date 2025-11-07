@@ -188,29 +188,31 @@ const MultipleOutfitsDisplay = ({ outfits }: { outfits: OutfitData[] }) => {
         </span>
       </div>
       
-      <Carousel 
-        className="w-full"
-        opts={{ loop: true }}
-        setApi={setApi}
-      >
-        <CarouselContent>
-          {outfits.map((outfit, idx) => (
-            <CarouselItem key={idx}>
-              <SingleOutfitCard
-                outfitName={outfit.outfit_name}
-                itemIds={outfit.item_ids}
-                reasoning={outfit.reasoning}
-              />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        {outfits.length > 1 && (
-          <>
-            <CarouselPrevious className="left-2" />
-            <CarouselNext className="right-2" />
-          </>
-        )}
-      </Carousel>
+      <div className="relative px-8">
+        <Carousel 
+          className="w-full"
+          opts={{ loop: true }}
+          setApi={setApi}
+        >
+          <CarouselContent className="-ml-2">
+            {outfits.map((outfit, idx) => (
+              <CarouselItem key={idx} className="pl-2">
+                <SingleOutfitCard
+                  outfitName={outfit.outfit_name}
+                  itemIds={outfit.item_ids}
+                  reasoning={outfit.reasoning}
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          {outfits.length > 1 && (
+            <>
+              <CarouselPrevious className="left-0 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background" />
+              <CarouselNext className="right-0 h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background" />
+            </>
+          )}
+        </Carousel>
+      </div>
     </Card>
   );
 };
