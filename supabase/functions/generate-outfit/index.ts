@@ -64,11 +64,11 @@ serve(async (req) => {
     console.log('Calling Gemini API for outfit generation...');
     
     const data = await callGeminiAPI({
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-2.5-pro',
       messages: [
         {
           role: 'system',
-          content: 'You are a professional fashion stylist creating fashionable outfit combinations.'
+          content: 'You are a professional fashion stylist. You MUST call the generate_outfit_combinations function with properly structured JSON data. Do not return plain text or markdown - only use the function call.'
         },
         {
           role: 'user',
