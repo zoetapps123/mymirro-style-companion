@@ -215,6 +215,7 @@ serve(async (req) => {
               occasion,
               style,
               wardrobeItems: items,
+              maxOutfits: 3, // Request 3 different outfit options
             },
             headers: { Authorization: authHeader }
           });
