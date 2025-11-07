@@ -324,19 +324,33 @@ serve(async (req) => {
             const outfits = outfitData?.outfits || [];
             
             if (outfits.length > 0) {
-              // Success - tell AI to display them
+              // Success - prepare outfit data for visual display
+              const formattedOutfits = outfits.map((o: any) => {
+                // Extract item IDs from pieces/items array
+                const itemIds = (o.pieces || o.items || [])
+                  .map((p: any) => p.wardrobeItemId || p.id)
+                  .filter(Boolean);
+                
+                return {
+                  outfit_name: o.name || `${args.occasion} Look`,
+                  item_ids: itemIds,
+                  reasoning: o.reasoning || `Perfect for ${args.occasion}`
+                };
+              });
+
               toolResults.push({
                 role: 'tool',
                 name: functionName,
                 content: JSON.stringify({
                   success: true,
-                  outfits: outfits.map((o: any) => ({
-                    name: o.name || `${args.occasion} Look`,
-                    pieces: o.pieces || o.items || [],
-                    reasoning: o.reasoning || `Perfect for ${args.occasion}`,
-                    item_ids: (o.pieces || o.items || []).map((p: any) => p.wardrobeItemId || p.id).filter(Boolean)
-                  })),
-                  instruction: `Successfully generated ${outfits.length} outfit(s). Use create_outfit_suggestion tool to display them visually with outfit_name, item_ids, and reasoning for each.`
+                  outfits: formattedOutfits,
+                  instruction: `CRITICAL: You MUST now call create_outfit_suggestion tool with these EXACT parameters:
+                  
+{
+  "outfits": ${JSON.stringify(formattedOutfits, null, 2)}
+}
+
+DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provided above. This is MANDATORY.`
                 })
               });
             } else {
