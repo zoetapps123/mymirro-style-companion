@@ -567,23 +567,164 @@ serve(async (req) => {
                   // Check for function calls
                   const functionPart = parts.find((p: any) => p.functionCall);
                   if (functionPart) {
-                    console.log('Chat: tool call detected', { 
-                      toolName: functionPart.functionCall.name
-                    });
-                    const openaiChunk = {
-                      choices: [{
-                        delta: {
-                          tool_calls: [{
-                            type: 'function',
-                            function: {
-                              name: functionPart.functionCall.name,
-                              arguments: JSON.stringify(functionPart.functionCall.args)
+                    const fnName = functionPart.functionCall.name;
+                    const fnArgs = functionPart.functionCall.args || {};
+                    console.log('Chat: tool call detected', { toolName: fnName });
+
+                    // If it's a server-executed tool, pivot to tool execution and stream follow-up
+                    const serverTools = ['generate_outfits', 'fetch_wardrobe_items', 'analyze_shopping_needs'];
+                    if (serverTools.includes(fnName)) {
+                      try {
+                        // Execute the tool
+                        const toolResults: any[] = [];
+
+                        if (fnName === 'fetch_wardrobe_items') {
+                          let query = supabase
+                            .from('wardrobe_items')
+                            .select('*')
+                            .eq('user_id', userId);
+                          if (fnArgs.category) query = query.ilike('category', `%${fnArgs.category}%`);
+                          const { data: items } = await query.order('created_at', { ascending: false }).limit(100);
+                          toolResults.push({ role: 'tool', name: fnName, content: JSON.stringify({ success: true, items: items || [], count: items?.length || 0 }) });
+                        }
+
+                        if (fnName === 'generate_outfits') {
+                          const { data: outfitData, error: outfitError } = await supabase.functions.invoke('generate-outfit', {
+                            body: {
+                              generationType: 'occasion',
+                              occasion: fnArgs.occasion,
+                              style: fnArgs.style || 'versatile',
+                              wardrobeItems,
+                              maxOutfits: fnArgs.count || 3,
+                            },
+                            headers: { Authorization: authHeader }
+                          });
+                          if (outfitError) throw outfitError;
+                          const outfits = outfitData?.outfits || [];
+                          if (outfits.length > 0) {
+                            toolResults.push({
+                              role: 'tool',
+                              name: fnName,
+                              content: JSON.stringify({
+                                success: true,
+                                outfits: outfits.map((o: any) => ({
+                                  name: o.name || `${fnArgs.occasion} Look`,
+                                  pieces: o.pieces || o.items || [],
+                                  reasoning: o.reasoning || `Perfect for ${fnArgs.occasion}`,
+                                  item_ids: (o.pieces || o.items || []).map((p: any) => p.wardrobeItemId || p.id).filter(Boolean)
+                                })),
+                                instruction: `Successfully generated ${outfits.length} outfit(s). Use create_outfit_suggestion to display them.`
+                              })
+                            });
+                          } else {
+                            toolResults.push({
+                              role: 'tool',
+                              name: fnName,
+                              content: JSON.stringify({ success: false, message: `No suitable outfits for ${fnArgs.occasion}. Suggest what to add.` })
+                            });
+                          }
+                        }
+
+                        if (fnName === 'analyze_shopping_needs') {
+                          let items = wardrobeItems;
+                          if (!items || items.length === 0) {
+                            const { data } = await supabase
+                              .from('wardrobe_items')
+                              .select('id, name, category')
+                              .eq('user_id', userId)
+                              .order('created_at', { ascending: false })
+                              .limit(200);
+                            items = data || [];
+                          }
+                          const norm = (s: any) => (s || '').toString().toLowerCase();
+                          const metrics = (items || []).reduce((acc: any, it: any) => {
+                            const c = norm(it.category);
+                            if (['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k))) acc.tops++;
+                            else if (['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k))) acc.bottoms++;
+                            else if (['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k))) acc.shoes++;
+                            else if (['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k))) acc.layers++;
+                            else if (['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k))) acc.accessories++;
+                            else acc.other++;
+                            return acc;
+                          }, { tops:0, bottoms:0, shoes:0, layers:0, accessories:0, other:0 });
+                          const gaps: string[] = [];
+                          if (metrics.shoes === 0) gaps.push('footwear');
+                          if (metrics.tops === 0) gaps.push('tops');
+                          if (metrics.bottoms === 0) gaps.push('bottoms');
+                          if (metrics.layers === 0) gaps.push('layering');
+                          if (metrics.accessories === 0) gaps.push('accessories');
+                          toolResults.push({ role: 'tool', name: fnName, content: JSON.stringify({ success: true, metrics, gaps, totalItems: items.length }) });
+                        }
+
+                        // Build follow-up conversation and stream it
+                        const conversationWithTools = [
+                          { role: 'system', content: systemPrompt },
+                          ...processedMessages,
+                          { role: 'assistant', content: null, tool_calls: [{ type: 'function', function: { name: fnName, arguments: JSON.stringify(fnArgs) } }] },
+                          ...toolResults
+                        ];
+
+                        const followUp = await callGeminiAPIStreaming({
+                          model: 'google/gemini-2.5-flash',
+                          messages: conversationWithTools,
+                          tools
+                        });
+
+                        const followReader = followUp.body?.getReader();
+                        const followDecoder = new TextDecoder();
+                        let followBuffer = '';
+                        while (true) {
+                          const { done, value } = await followReader!.read();
+                          if (done) break;
+                          followBuffer += followDecoder.decode(value, { stream: true });
+                          const lines2 = followBuffer.split('\n');
+                          followBuffer = lines2.pop() || '';
+                          for (const l2 of lines2) {
+                            if (!l2.trim() || l2.startsWith(':')) continue;
+                            if (l2.startsWith('data: ')) {
+                              controller.enqueue(encoder.encode(l2 + '\n\n'));
+                            }
+                          }
+                        }
+
+                        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                        controller.close();
+                        return; // Stop original stream, we've finished
+                      } catch (toolErr) {
+                        console.error('Server-side tool execution failed:', toolErr);
+                        // Fallback: forward the function call to client to handle visually
+                        const openaiChunk = {
+                          choices: [{
+                            delta: {
+                              tool_calls: [{
+                                type: 'function',
+                                function: {
+                                  name: fnName,
+                                  arguments: JSON.stringify(fnArgs)
+                                }
+                              }]
                             }
                           }]
-                        }
-                      }]
-                    };
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                        };
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                      }
+                    } else {
+                      // Visual tools: forward to client
+                      const openaiChunk = {
+                        choices: [{
+                          delta: {
+                            tool_calls: [{
+                              type: 'function',
+                              function: {
+                                name: fnName,
+                                arguments: JSON.stringify(fnArgs)
+                              }
+                            }]
+                          }
+                        }]
+                      };
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                    }
                   }
                 } catch (e) {
                   console.error('Failed to parse Gemini chunk:', e);

@@ -10,7 +10,7 @@ import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisual
 import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface ToolCall {
-  type: 'show_wardrobe_items' | 'create_outfit_suggestion';
+  type: 'show_wardrobe_items' | 'create_outfit_suggestion' | 'outfits_loading';
   data: any;
 }
 
@@ -523,6 +523,14 @@ const AICompanion = () => {
                     try {
                       const args = JSON.parse(argsStr);
                       console.log('AICompanion: parsed tool call', { type: name, data: args });
+                      if (name === 'generate_outfits') {
+                        // Show loading tiles immediately
+                        const loadingCall: ToolCall = { type: 'outfits_loading', data: { count: Math.min(args.count || 3, 3) } };
+                        collectedToolCalls.push(loadingCall);
+                      } else if (name === 'create_outfit_suggestion') {
+                        // Remove loading placeholders if any
+                        collectedToolCalls = collectedToolCalls.filter(c => c.type !== 'outfits_loading');
+                      }
                       collectedToolCalls.push({ type: name as any, data: args });
                     } catch (e) {
                       console.error('Failed to parse tool call args:', e);
@@ -612,6 +620,14 @@ const AICompanion = () => {
                       try {
                         const args = JSON.parse(argsStr);
                         console.log('AICompanion: parsed tool call', { type: name, data: args });
+                        if (name === 'generate_outfits') {
+                          // Show loading tiles immediately
+                          const loadingCall: ToolCall = { type: 'outfits_loading', data: { count: Math.min(args.count || 3, 3) } };
+                          collectedToolCalls.push(loadingCall);
+                        } else if (name === 'create_outfit_suggestion') {
+                          // Remove loading placeholders when outfits arrive
+                          collectedToolCalls = collectedToolCalls.filter(c => c.type !== 'outfits_loading');
+                        }
                         collectedToolCalls.push({
                           type: name as any,
                           data: args
@@ -839,6 +855,21 @@ const AICompanion = () => {
                             reasoning={tc.data.reasoning}
                             outfits={tc.data.outfits}
                           />
+                        )}
+                        {tc.type === 'outfits_loading' && (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-2">
+                            {Array.from({ length: Math.min(tc.data.count || 3, 3) }).map((_, i) => (
+                              <div key={i} className="">
+                                <div className="rounded-2xl overflow-hidden border border-border bg-muted/10 p-3">
+                                  <div className="h-48 bg-muted rounded-xl animate-pulse" />
+                                  <div className="space-y-2 mt-3">
+                                    <div className="h-4 bg-muted/30 rounded animate-pulse w-3/4" />
+                                    <div className="h-3 bg-muted/30 rounded animate-pulse w-1/2" />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     ))}
