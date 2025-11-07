@@ -160,8 +160,103 @@ serve(async (req) => {
       }
 ]; 
 
-    // Fast-path: answer wardrobe inventory queries deterministically with a tool call
+    // Fast-path: handle outfit creation and wardrobe queries deterministically
     const lastUserText = (messages?.[messages.length - 1]?.content || '').toLowerCase();
+    
+    // Check for outfit creation requests
+    const outfitQuery = 
+      (lastUserText.includes('create') || lastUserText.includes('generate') || lastUserText.includes('make') || lastUserText.includes('suggest')) && 
+      (lastUserText.includes('outfit') || lastUserText.includes('look'));
+    
+    if (outfitQuery) {
+      let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
+      if (!items || items.length === 0) {
+        try {
+          const { data } = await supabase
+            .from('wardrobe_items')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+          items = data || [];
+        } catch (e) {
+          console.error('Chat: fast-path outfit fetch failed', e);
+        }
+      }
+
+      if (items.length > 0) {
+        console.log('Chat: fast-path outfit generation', { count: items.length, query: lastUserText });
+        
+        // Extract occasion/style from message if present
+        let occasion = 'casual';
+        let style = 'comfortable';
+        if (lastUserText.includes('formal')) occasion = 'formal';
+        if (lastUserText.includes('business')) occasion = 'business';
+        if (lastUserText.includes('date')) occasion = 'date';
+        if (lastUserText.includes('party')) occasion = 'party';
+        if (lastUserText.includes('workout')) occasion = 'workout';
+        
+        // Call generate-outfit function
+        try {
+          const { data: outfitData, error: outfitError } = await supabase.functions.invoke('generate-outfit', {
+            body: {
+              generationType: 'occasion',
+              occasion,
+              style,
+              wardrobeItems: items,
+            }
+          });
+
+          if (!outfitError && outfitData?.outfit) {
+            const outfit = outfitData.outfit;
+            const stream = new ReadableStream({
+              start(controller) {
+                const encoder = new TextEncoder();
+                // Text response
+                const textChunk = { choices: [{ delta: { content: `I've created an outfit for you! ${outfit.reasoning || ''}` } }] };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
+                // Tool call to show outfit
+                const toolChunk = { 
+                  choices: [{ 
+                    delta: { 
+                      tool_calls: [{ 
+                        type: 'function', 
+                        function: { 
+                          name: 'create_outfit_suggestion', 
+                          arguments: JSON.stringify({ 
+                            outfit_name: outfit.name || 'Your Outfit',
+                            item_ids: outfit.items.map((item: any) => item.id),
+                            reasoning: outfit.reasoning || `A ${occasion} outfit that's ${style} and stylish.`
+                          }) 
+                        } 
+                      }] 
+                    } 
+                  }] 
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
+                controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                controller.close();
+              }
+            });
+            
+            return new Response(stream, {
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+              },
+            });
+          } else {
+            console.error('Chat: outfit generation failed', outfitError);
+          }
+        } catch (e) {
+          console.error('Chat: outfit generation exception', e);
+        }
+      }
+    }
+    
+    // Check for wardrobe queries
     const wardrobeQuery =
       /what.*(do i|do we|do you).*have.*(in)?\s*(my|the|your)?\s*(wardrobe|closet)/i.test(lastUserText) ||
       /what.*(is|s).*in\s*(my|the|your)?\s*(wardrobe|closet)/i.test(lastUserText) ||
