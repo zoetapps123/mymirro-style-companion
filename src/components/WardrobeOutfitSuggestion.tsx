@@ -8,12 +8,15 @@ import { OutfitDetailView } from './OutfitDetailView';
 import { OutfitLoadingTile } from '@/components/ui/loading-tile';
 import { OutfitMockups } from './OutfitMockups';
 import { motion } from 'framer-motion';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
+import { useOutfits } from '@/hooks/useOutfits';
+import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
 
 interface WardrobeItem {
   id: string;
   name: string;
   category: string;
-  color: string;
+  color?: string;
   fabric?: string;
   pattern?: string;
   style_notes?: string;
@@ -40,10 +43,13 @@ const OCCASIONS = ['Wedding', 'Casual', 'Date Night', 'Office', 'Party'];
 const STYLES = ['Minimalist', 'Boho', 'Streetwear', 'Elegant', 'Sporty'];
 
 const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggestionProps) => {
+  // Use cached data from hooks
+  const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
+  const { outfits: cachedOutfits, isLoading: isLoadingOutfits, invalidateOutfits } = useOutfits();
+  
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [selectedAnchorItem, setSelectedAnchorItem] = useState<WardrobeItem | null>(null);
-  const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   const [occasionOutfits, setOccasionOutfits] = useState<Record<string, GeneratedOutfit[]>>({});
   const [styleOutfits, setStyleOutfits] = useState<Record<string, GeneratedOutfit[]>>({});
   const [anchorOutfits, setAnchorOutfits] = useState<GeneratedOutfit[]>([]);
@@ -51,7 +57,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const [hasNewItems, setHasNewItems] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState<GeneratedOutfit | null>(null);
   const [userLocation, setUserLocation] = useState<{ temp: number; weather: string; lat: number } | null>(null);
-  const [isLoadingOutfits, setIsLoadingOutfits] = useState(true);
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
@@ -62,15 +67,18 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   useEffect(() => {
     const initializeData = async () => {
-      setIsLoadingOutfits(true);
-      await fetchWardrobeItems();
       await checkForNewItems();
-      await loadExistingOutfits();
       await getUserLocation();
-      setIsLoadingOutfits(false);
     };
     initializeData();
   }, []);
+
+  // Process cached outfits when they load
+  useEffect(() => {
+    if (!isLoadingOutfits && cachedOutfits.length > 0) {
+      loadExistingOutfits();
+    }
+  }, [cachedOutfits, isLoadingOutfits]);
 
   const checkForNewItems = async () => {
     const lastGen = localStorage.getItem('last_outfit_generation');
@@ -117,48 +125,30 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     }
   };
 
-  const loadExistingOutfits = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: outfits } = await supabase
-      .from('outfits')
-      .select(`
-        *,
-        outfit_items (
-          item_id,
-          item_type,
-          wardrobe_items (*)
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('saved_to_lookbook', false);
-
-    if (!outfits || outfits.length === 0) return;
+  const loadExistingOutfits = () => {
+    if (!cachedOutfits || cachedOutfits.length === 0) return;
 
     // Group outfits by occasion/style with sensible fallbacks
     const byOccasion: Record<string, GeneratedOutfit[]> = {};
     const byStyle: Record<string, GeneratedOutfit[]> = {};
     const anchor: GeneratedOutfit[] = [];
 
-    outfits.forEach(outfit => {
-      const items = outfit.outfit_items?.map((oi: any) => oi.wardrobe_items).filter(Boolean) || [];
-      const metadata = outfit.metadata as { type?: string; reasoning?: string } | null;
+    cachedOutfits.forEach(outfit => {
       const generatedOutfit: GeneratedOutfit = {
         id: outfit.id,
         name: outfit.name,
         occasion: outfit.occasion,
         style_tag: outfit.style_tag,
         preview_image_url: outfit.preview_image_url,
-        items,
-        reasoning: metadata?.reasoning
+        items: outfit.items,
+        reasoning: outfit.metadata?.reasoning
       };
 
-      if (metadata?.type === 'occasion' && outfit.occasion) {
+      if (outfit.metadata?.type === 'occasion' && outfit.occasion) {
         (byOccasion[outfit.occasion] ||= []).push(generatedOutfit);
-      } else if (metadata?.type === 'style' && outfit.style_tag) {
+      } else if (outfit.metadata?.type === 'style' && outfit.style_tag) {
         (byStyle[outfit.style_tag] ||= []).push(generatedOutfit);
-      } else if (metadata?.type === 'anchor') {
+      } else if (outfit.metadata?.type === 'anchor') {
         anchor.push(generatedOutfit);
       } else {
         // Fallback grouping when metadata is missing
@@ -188,23 +178,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
     if (!selectedOccasion && nextOcc) setSelectedOccasion(nextOcc);
     if (!selectedStyle && nextStyle) setSelectedStyle(nextStyle);
-  };
-
-  const fetchWardrobeItems = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('wardrobe_items')
-      .select('*')
-      .eq('user_id', user.id);
-
-    if (error) {
-      toast.error('Failed to load wardrobe');
-      return;
-    }
-
-    setWardrobeItems(data || []);
   };
 
   const generateOutfits = async (type: 'occasion' | 'style' | 'anchor', value: string, anchorItem?: WardrobeItem) => {
@@ -327,6 +300,9 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       setStyleOutfits({});
       setAnchorOutfits([]);
 
+      // Invalidate cache to refetch
+      invalidateOutfits();
+
       toast.success('Creating fresh outfit suggestions');
 
       localStorage.setItem('last_outfit_generation', new Date().toISOString());
@@ -371,6 +347,9 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         .insert(itemInserts);
 
       if (itemsError) throw itemsError;
+
+      // Invalidate outfit cache since we saved one
+      invalidateOutfits();
 
       toast.success('Outfit added to your lookbook');
     } catch (error) {
@@ -447,9 +426,52 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         onBack={() => setSelectedOutfit(null)}
         onSave={(saved) => {
           setSelectedOutfit(null);
+          invalidateOutfits();
           toast.success('Saved to lookbook!');
         }}
       />
+    );
+  }
+
+  // Show skeleton on first load
+  if (isLoadingOutfits || isLoadingWardrobe) {
+    return (
+      <div className="flex flex-col h-full bg-background">
+        {/* Feature Icons */}
+        <div className="px-4 pt-6 pb-4">
+          <div className="grid grid-cols-4 gap-4">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              const isActive = feature.active;
+              return (
+                <button
+                  key={feature.title}
+                  onClick={() => onNavigate(feature.view)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                      isActive
+                        ? "bg-primary border-2 border-primary"
+                        : "bg-background border-2 border-border"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-7 h-7 ${
+                        isActive ? "text-primary-foreground" : "text-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
+                    {feature.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <OutfitSuggestionSkeleton />
+      </div>
     );
   }
 
@@ -492,7 +514,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       {/* Main Content */}
       <div className="flex-1 p-6 space-y-8">
         {/* Example Outfit Mockups */}
-        {!isLoadingOutfits && wardrobeItems.length >= 3 && (
+        {wardrobeItems.length >= 3 && (
           <OutfitMockups items={wardrobeItems} />
         )}
 

@@ -9,7 +9,7 @@ interface WardrobeItem {
   id: string;
   name: string;
   category: string;
-  color: string;
+  color?: string;
   fabric?: string;
   pattern?: string;
   style_notes?: string;
