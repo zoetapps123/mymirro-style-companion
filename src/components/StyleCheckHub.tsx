@@ -239,43 +239,37 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
         .select('name, category, color')
         .eq('user_id', user.id);
 
-      const response = await fetch(result.image_url);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      
-      reader.onloadend = async () => {
-        try {
-          const imageData = reader.result as string;
-
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token) {
-            console.error('No session found');
-            setExtracting(false);
-            toast({
-              title: "Session expired",
-              description: "Please refresh the page and try again",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-            body: { imageData },
-            headers: { Authorization: `Bearer ${session.access_token}` }
+      // Use the image URL directly instead of converting to base64
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error('No session found');
+          setExtracting(false);
+          toast({
+            title: "Session expired",
+            description: "Please refresh the page and try again",
+            variant: "destructive",
           });
+          return;
+        }
 
-          if (error) {
-            console.error('Process wardrobe error:', error);
-            setExtracting(false);
-            toast({
-              title: "Processing failed",
-              description: error.message || "Failed to process image",
-              variant: "destructive",
-            });
-            return;
-          }
+        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+          body: { imageUrl: result.image_url },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
 
-          const itemsDetected = data?.items || [];
+        if (error) {
+          console.error('Process wardrobe error:', error);
+          setExtracting(false);
+          toast({
+            title: "Processing failed",
+            description: error.message || "Failed to process image",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const itemsDetected = data?.items || [];
           if (itemsDetected.length === 0) {
             toast({
               title: "No items detected",
@@ -305,12 +299,12 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
             }
 
             const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
-          const sourceDataUrl = (item.processedImageUrl as string | undefined) || data?.compositeImageUrl || imageData;
-          if (typeof sourceDataUrl !== 'string' || !sourceDataUrl.includes(',')) {
-            console.warn('No per-item image; skipping upload for', item?.name || 'unknown');
-            skippedCount++;
-            continue;
-          }
+            const sourceDataUrl = (item.processedImageUrl as string | undefined) || data?.compositeImageUrl || item.imageUrl;
+            if (typeof sourceDataUrl !== 'string' || !sourceDataUrl.includes(',')) {
+              console.warn('No per-item image; skipping upload for', item?.name || 'unknown');
+              skippedCount++;
+              continue;
+            }
           const base64Data = sourceDataUrl.split(',')[1];
             const binaryData = atob(base64Data);
             const bytes = new Uint8Array(binaryData.length);
@@ -366,8 +360,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
             });
           }
-        } catch (readerError) {
-          console.error('Reader error:', readerError);
+        } catch (error) {
+          console.error('Extraction error:', error);
           setExtracting(false);
           toast({
             title: "Extraction failed",
@@ -375,11 +369,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
             variant: "destructive",
           });
         }
-      };
-      
-      reader.readAsDataURL(blob);
-    } catch (error) {
-      console.error('Extract error:', error);
+      } catch (error) {
+        console.error('Extract error:', error);
       setExtracting(false);
       toast({
         title: "Extraction failed",

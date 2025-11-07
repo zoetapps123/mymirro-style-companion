@@ -85,27 +85,42 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         .select('name, category, color')
         .eq('user_id', user.id);
 
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setProgress(30);
+      // Upload file first to get a URL
+      const fileName = `${user.id}/wardrobe_upload_${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from('outfits')
+        .upload(fileName, file);
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          console.error('Authentication required');
-          setLoading(false);
-          return;
-        }
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
-        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-          body: { imageData },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-        
-        setProgress(60);
+      const { data: publicUrlData } = supabase.storage
+        .from('outfits')
+        .getPublicUrl(fileName);
 
-        if (error) {
-          console.error('Process wardrobe error:', error);
+      if (!publicUrlData?.publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+
+      setProgress(30);
+
+      if (!session?.access_token) {
+        console.error('Authentication required');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+        body: { imageUrl: publicUrlData.publicUrl },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      
+      setProgress(60);
+
+      if (error) {
+        console.error('Process wardrobe error:', error);
           toast({
             title: "Processing failed",
             description: "Couldn’t analyze the photo. Try another image with clear items.",
@@ -219,9 +234,6 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
       setProgress(100);
       fetchWardrobeItems();
-      };
-
-      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error processing image:', error);
       toast({
