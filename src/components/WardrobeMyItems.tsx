@@ -227,16 +227,29 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     }
   };
 
-  // Get dynamic categories from existing items
+  // Get dynamic categories from existing items with normalized case
+  const normalizeCategory = (category: string) => {
+    if (!category) return '';
+    // Convert to title case (first letter uppercase, rest lowercase)
+    return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+  };
+
   const dynamicCategories = [
     "All",
-    ...Array.from(new Set(items.map((item) => item.category).filter(Boolean)))
+    ...Array.from(
+      new Set(
+        items
+          .map((item) => item.category)
+          .filter(Boolean)
+          .map(normalizeCategory)
+      )
+    ).sort()
   ];
 
   const filteredItems =
     selectedCategory === "All"
       ? items
-      : items.filter((item) => item.category === selectedCategory);
+      : items.filter((item) => normalizeCategory(item.category) === selectedCategory);
 
   return (
     <div className="flex flex-col h-full bg-background">
