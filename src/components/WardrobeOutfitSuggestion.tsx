@@ -68,11 +68,75 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   useEffect(() => {
     const initializeData = async () => {
+      await cleanupDuplicates();
       await checkForNewItems();
       await getUserLocation();
     };
     initializeData();
   }, []);
+
+  const cleanupDuplicates = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get all saved outfits with their items
+      const { data: savedOutfits } = await supabase
+        .from('outfits')
+        .select(`
+          id,
+          name,
+          occasion,
+          style_tag,
+          created_at,
+          outfit_items (
+            item_id
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('saved_to_lookbook', true)
+        .order('created_at', { ascending: true });
+
+      if (!savedOutfits || savedOutfits.length === 0) return;
+
+      // Group by name, occasion, style_tag, and item IDs
+      const groups: Record<string, any[]> = {};
+      
+      savedOutfits.forEach(outfit => {
+        const itemIds = outfit.outfit_items
+          .map((oi: any) => oi.item_id)
+          .sort()
+          .join(',');
+        const key = `${outfit.name}|${outfit.occasion}|${outfit.style_tag}|${itemIds}`;
+        
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(outfit);
+      });
+
+      // Find duplicates and delete newer ones
+      const toDelete: string[] = [];
+      Object.values(groups).forEach(group => {
+        if (group.length > 1) {
+          // Keep the first (oldest), delete the rest
+          toDelete.push(...group.slice(1).map(o => o.id));
+        }
+      });
+
+      if (toDelete.length > 0) {
+        console.log(`Cleaning up ${toDelete.length} duplicate outfits`);
+        await supabase
+          .from('outfits')
+          .delete()
+          .in('id', toDelete);
+        
+        toast.success(`Removed ${toDelete.length} duplicate outfit${toDelete.length > 1 ? 's' : ''} from lookbook`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up duplicates:', error);
+    }
+  };
 
   // Process cached outfits when they load
   useEffect(() => {
@@ -321,33 +385,77 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: newOutfit, error: outfitError } = await supabase
+      // Get the item IDs for this outfit
+      const itemIds = outfit.items.map(item => item.id).sort();
+
+      // Check if an identical outfit already exists
+      const { data: existingOutfits } = await supabase
         .from('outfits')
-        .insert({
-          user_id: user.id,
-          name: outfit.name,
-          occasion: outfit.occasion,
-          style_tag: outfit.style_tag,
-          preview_image_url: outfit.preview_image_url,
-          saved_to_lookbook: true
-        })
-        .select()
-        .single();
+        .select(`
+          id,
+          name,
+          occasion,
+          style_tag,
+          saved_to_lookbook,
+          outfit_items (
+            item_id
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('name', outfit.name)
+        .eq('occasion', outfit.occasion || '')
+        .eq('style_tag', outfit.style_tag || '');
 
-      if (outfitError) throw outfitError;
+      // Find exact match by comparing item IDs
+      const exactMatch = existingOutfits?.find(existing => {
+        const existingItemIds = existing.outfit_items
+          .map((oi: any) => oi.item_id)
+          .sort();
+        return JSON.stringify(existingItemIds) === JSON.stringify(itemIds);
+      });
 
-      const itemInserts = outfit.items.map(item => ({
-        outfit_id: newOutfit.id,
-        item_id: item.id,
-        item_type: item.category,
-        ai_virtual: false
-      }));
+      let savedOutfitId: string;
 
-      const { error: itemsError } = await supabase
-        .from('outfit_items')
-        .insert(itemInserts);
+      if (exactMatch) {
+        // Update existing outfit to mark as saved
+        const { error: updateError } = await supabase
+          .from('outfits')
+          .update({ saved_to_lookbook: true })
+          .eq('id', exactMatch.id);
 
-      if (itemsError) throw itemsError;
+        if (updateError) throw updateError;
+        savedOutfitId = exactMatch.id;
+      } else {
+        // Create new outfit
+        const { data: newOutfit, error: outfitError } = await supabase
+          .from('outfits')
+          .insert({
+            user_id: user.id,
+            name: outfit.name,
+            occasion: outfit.occasion,
+            style_tag: outfit.style_tag,
+            preview_image_url: outfit.preview_image_url,
+            saved_to_lookbook: true
+          })
+          .select()
+          .single();
+
+        if (outfitError) throw outfitError;
+
+        const itemInserts = outfit.items.map(item => ({
+          outfit_id: newOutfit.id,
+          item_id: item.id,
+          item_type: item.category,
+          ai_virtual: false
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('outfit_items')
+          .insert(itemInserts);
+
+        if (itemsError) throw itemsError;
+        savedOutfitId = newOutfit.id;
+      }
 
       // Mark outfit as saved
       const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
@@ -356,7 +464,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       // Invalidate outfit cache since we saved one
       invalidateOutfits();
 
-      toast.success('Outfit added to your lookbook');
+      toast.success(exactMatch ? 'Outfit marked as saved' : 'Outfit added to your lookbook');
     } catch (error) {
       console.error(error);
       toast.error('Failed to save outfit');
