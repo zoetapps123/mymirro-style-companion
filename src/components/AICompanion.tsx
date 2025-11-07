@@ -446,6 +446,54 @@ const AICompanion = () => {
       let assistantMessage = '';
       let collectedToolCalls: ToolCall[] = [];
 
+      const maybeGenerateClientFallback = async () => {
+        try {
+          if (collectedToolCalls.length > 0) return;
+          const lastUser = [...userMessages].reverse().find(m => m.role === 'user');
+          const text = (lastUser?.content || '').toLowerCase();
+          const guessOccasion = /wedding|party|office|work|interview|date|college|school|gym|beach/.exec(text)?.[0] || undefined;
+          const guessStyle = /casual|smart casual|business|formal|street|athleisure|minimal|edgy|preppy|classic/.exec(text)?.[0] || undefined;
+
+          const { data, error } = await supabase.functions.invoke('generate-outfit', {
+            body: {
+              generationType: 'general',
+              occasion: guessOccasion,
+              style: guessStyle,
+              anchorItem: null,
+              wardrobeItems,
+              maxOutfits: 3,
+              userLocation: null,
+              bypassCache: false,
+            }
+          });
+          if ((error as any)) {
+            console.warn('Client fallback generate-outfit failed:', error);
+            return;
+          }
+          const apiOutfits = (data?.outfits || []) as any[];
+          if (!apiOutfits.length) return;
+
+          const tc: ToolCall = {
+            type: 'create_outfit_suggestion',
+            data: {
+              outfits: apiOutfits.map((o: any) => ({
+                outfit_name: o.name || 'Styled Look',
+                item_ids: (o.items || []).map((it: any) => it.id).filter(Boolean),
+                reasoning: o.reasoning || 'Balanced look from your wardrobe.',
+              }))
+            }
+          };
+
+          collectedToolCalls.push(tc);
+          setMessages(prev => {
+            const updated = prev.map(m => m.id === assistantMsgId ? { ...m, toolCalls: collectedToolCalls } : m);
+            persistMessages(updated);
+            return updated;
+          });
+        } catch (e) {
+          console.warn('Fallback generation error:', e);
+        }
+      };
       if (isMobileSafari) {
         try {
           const fullText = await response.text();
@@ -457,20 +505,25 @@ const AICompanion = () => {
             try {
               const parsed = JSON.parse(jsonStr);
               const delta = parsed.choices?.[0]?.delta;
-              const content = delta?.content;
-              const toolCalls = delta?.tool_calls;
+              const messageObj = parsed.choices?.[0]?.message;
+              const content = delta?.content ?? messageObj?.content;
+              const toolCallsDelta = delta?.tool_calls;
+              const toolCallsMessage = messageObj?.tool_calls;
+
               if (content) assistantMessage += content;
-              if (toolCalls) {
-                console.log('AICompanion: received tool calls', { count: toolCalls.length, tools: toolCalls });
-                toolCalls.forEach((tc: any) => {
-                  if (tc.function?.name && tc.function?.arguments) {
+
+              const toProcess = toolCallsDelta || toolCallsMessage;
+              if (toProcess && Array.isArray(toProcess)) {
+                console.log('AICompanion: received tool calls', { count: toProcess.length, tools: toProcess });
+                toProcess.forEach((tc: any) => {
+                  const fn = tc.function || tc?.["function_call"]; // be tolerant
+                  const name = fn?.name;
+                  const argsStr = fn?.arguments;
+                  if (name && typeof argsStr === 'string') {
                     try {
-                      const args = JSON.parse(tc.function.arguments);
-                      console.log('AICompanion: parsed tool call', { type: tc.function.name, data: args });
-                      collectedToolCalls.push({
-                        type: tc.function.name as any,
-                        data: args,
-                      });
+                      const args = JSON.parse(argsStr);
+                      console.log('AICompanion: parsed tool call', { type: name, data: args });
+                      collectedToolCalls.push({ type: name as any, data: args });
                     } catch (e) {
                       console.error('Failed to parse tool call args:', e);
                     }
@@ -490,6 +543,7 @@ const AICompanion = () => {
           persistMessages(updated);
           return updated;
         });
+        await maybeGenerateClientFallback();
         trackCustom("reply_delivered");
         if (timeoutId) clearTimeout(timeoutId);
         abortControllerRef.current = null;
@@ -531,8 +585,10 @@ const AICompanion = () => {
               try {
                 const parsed = JSON.parse(jsonStr);
                 const delta = parsed.choices?.[0]?.delta;
-                const content = delta?.content;
-                const toolCalls = delta?.tool_calls;
+                const messageObj = parsed.choices?.[0]?.message;
+                const content = delta?.content ?? messageObj?.content;
+                const toolCallsDelta = delta?.tool_calls;
+                const toolCallsMessage = messageObj?.tool_calls;
 
                 if (content) {
                   assistantMessage += content;
@@ -545,15 +601,19 @@ const AICompanion = () => {
                   });
                 }
 
-                if (toolCalls) {
-                  console.log('AICompanion: received tool calls', { count: toolCalls.length, tools: toolCalls });
-                  toolCalls.forEach((tc: any) => {
-                    if (tc.function?.name && tc.function?.arguments) {
+                const toProcess = toolCallsDelta || toolCallsMessage;
+                if (toProcess && Array.isArray(toProcess)) {
+                  console.log('AICompanion: received tool calls', { count: toProcess.length, tools: toProcess });
+                  toProcess.forEach((tc: any) => {
+                    const fn = tc.function || tc?.["function_call"]; // be tolerant
+                    const name = fn?.name;
+                    const argsStr = fn?.arguments;
+                    if (name && typeof argsStr === 'string') {
                       try {
-                        const args = JSON.parse(tc.function.arguments);
-                        console.log('AICompanion: parsed tool call', { type: tc.function.name, data: args });
+                        const args = JSON.parse(argsStr);
+                        console.log('AICompanion: parsed tool call', { type: name, data: args });
                         collectedToolCalls.push({
-                          type: tc.function.name as any,
+                          type: name as any,
                           data: args
                         });
                       } catch (e) {
