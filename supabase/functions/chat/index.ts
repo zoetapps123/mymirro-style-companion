@@ -153,25 +153,24 @@ serve(async (req) => {
       lastUserText.trim() === 'what do i have';
     
     // 5. OUTFIT CREATION QUERIES (what should I wear for occasion)
-    const verbKeywords = ['create','generate','make','suggest','recommend','give','show','plan','build','pick'];
-    const outfitKeywords = ['outfit','outfits','look','looks','fit','fits','what should i wear','style me','dress me'];
-    const occasionKeywords = ['wedding','date','party','business','formal','interview','office','work','workout','gym','beach','vacation','travel','holiday','dinner','brunch','festival','college','school','casual','smart casual'];
+    // STRICT MATCHING: Only generate outfits when user explicitly asks for them
+    const explicitOutfitPhrases = [
+      /what (should|can|do) i wear/i,
+      /suggest (an?|some) outfit/i,
+      /create (an?|some) outfit/i,
+      /make (me )?(an?|some) outfit/i,
+      /outfit for (a|the|my)/i,
+      /outfit.*(wedding|date|party|interview|office|work|event)/i,
+      /dress me (for|up)/i,
+      /style me (for)?/i,
+      /what to wear (for|to)/i
+    ];
     
-    const hasVerb = verbKeywords.some(k => lastUserText.includes(k));
-    const hasOutfitWord = outfitKeywords.some(k => lastUserText.includes(k));
-    const hasOccasion = occasionKeywords.some(k => lastUserText.includes(k));
-    
-    // Only trigger outfit creation if:
-    // - Has outfit word + (verb OR occasion) AND not a shopping/wardrobe analysis query
-    // - OR has clear "what should I wear" phrasing
     const outfitCreationQuery = 
       !shoppingAdviceQuery && 
       !wardrobeAnalysisQuery && 
       !anchorItemQuery &&
-      (
-        (hasOutfitWord && (hasVerb || hasOccasion)) ||
-        /what (should|can|do) i wear/i.test(lastUserText)
-      );
+      explicitOutfitPhrases.some(pattern => pattern.test(lastUserText));
     
     console.log('Chat: Intent classification', {
       query: lastUserText.substring(0, 100),
@@ -324,8 +323,10 @@ serve(async (req) => {
       }
 
       if (items.length > 0) {
-        // Detect if request is vague (no specific occasion)
-        const isVagueRequest = hasVerb && hasOutfitWord && !hasOccasion;
+        // Detect if request is vague (no specific occasion mentioned)
+        const occasionKeywords = ['wedding', 'date', 'party', 'interview', 'office', 'work', 'business', 'formal', 'casual', 'beach', 'gym', 'dinner', 'brunch'];
+        const hasSpecificOccasion = occasionKeywords.some(k => lastUserText.includes(k));
+        const isVagueRequest = !hasSpecificOccasion;
         
         console.log('Chat: fast-path outfit generation', { count: items.length, query: lastUserText, isVague: isVagueRequest });
         

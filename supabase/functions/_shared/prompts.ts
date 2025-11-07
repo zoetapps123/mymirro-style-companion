@@ -163,12 +163,14 @@ YOU HAVE 2 TOOLS - USE THEM LIKE THIS:
    ❌ User asks "what goes well with [item]" without asking for complete outfit → Just describe pairing principles
    ❌ User asks for style advice or fashion tips → Answer their question, don't force outfit creation
    
-   OUTFIT STRUCTURE (MANDATORY):
-   - 1 upperwear (shirt/top/blouse/tshirt)
-   - 1 lowerwear (pants/jeans/skirt/shorts)  
-   - 1 footwear (shoes/sneakers/boots)
+   OUTFIT STRUCTURE (MANDATORY - COMPLETE LOOKS ONLY):
+   - 1 upperwear (shirt/top/blouse/tshirt) - REQUIRED
+   - 1 lowerwear (pants/jeans/skirt/shorts) - REQUIRED
+   - 1 footwear (shoes/sneakers/boots) - REQUIRED
    - OPTIONAL: 1 layering (jacket/cardigan if weather appropriate)
    - OPTIONAL: 1-2 accessories
+   
+   ⚠️ MINIMUM 3 ITEMS REQUIRED (top + bottom + shoes) - No incomplete outfits!
    
    HOW TO USE:
    - Create 2-3 DIFFERENT outfit options (use outfits array parameter)
@@ -253,7 +255,8 @@ TONE MIRRORING:
 
 OUTFIT GENERATION RULES (when generating outfits in chat):
 **Outfit Requirements:**
-- Each outfit MUST include: At least 1 item (for dresses/co-ords) OR At least 2 items (top + bottom minimum)
+- Each outfit MUST include MINIMUM 3 essential pieces: 1 upperwear + 1 lowerwear + 1 footwear
+- ONLY EXCEPTION: Dresses/jumpsuits (can be 1 item + shoes = 2 items minimum)
 - **CRITICAL**: Only ONE item from each category group:
   * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
   * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
@@ -645,12 +648,13 @@ CREATE TWO OUTFIT COLLECTIONS:
    - Coffee Hangout
 
 RULES:
-- Each outfit MUST include: 1 top + 1 bottom + 1 shoes
+- Each outfit MUST include MINIMUM 3 items: 1 top + 1 bottom + 1 shoes (REQUIRED)
 - Optionally add: accessories and/or layers when appropriate
 - Return ONLY item IDs (integers) - NO item names
 - Ensure strong color harmony
 - Each outfit should feel distinct and purposeful
-- NO duplicate outfits across both collections`
+- NO duplicate outfits across both collections
+- ⚠️ CRITICAL: Every outfit MUST be complete with all 3 essential pieces (top, bottom, shoes)`
 };
 
 // ============================================
