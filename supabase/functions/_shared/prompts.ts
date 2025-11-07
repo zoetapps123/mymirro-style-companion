@@ -453,14 +453,15 @@ Example: If occasion is "wedding" but only jeans and t-shirts available → Retu
 
 **OUTFIT CONSTRUCTION RULES:**
 
-CORE REQUIREMENTS:
-- Minimum items per outfit: 2 (top + bottom) OR 1 (if dress/co-ord)
-- Maximum ONE item from each category:
-  * UPPERWEAR: 1 top/shirt/blouse only (exception: layering with jacket)
-  * LOWERWEAR: 1 bottom/pants/skirt/shorts only
-  * LAYERS: 1 jacket/cardigan/coat/blazer only
-  * FOOTWEAR: 1 pair of shoes only
-  * ACCESSORIES: Multiple allowed but minimal
+MANDATORY OUTFIT STRUCTURE (EVERY OUTFIT MUST HAVE):
+1. 🔴 UPPERWEAR (REQUIRED): Exactly 1 top/shirt/blouse/tshirt
+2. 🔴 LOWERWEAR (REQUIRED): Exactly 1 bottom/pants/skirt/shorts  
+3. 🔴 FOOTWEAR (REQUIRED): Exactly 1 pair of shoes/sneakers/boots
+4. 🟡 ACCESSORIES (STRONGLY RECOMMENDED): 1-2 items (watch, bag, belt, jewelry, sunglasses)
+5. ⚪ LAYERING (OPTIONAL): 1 jacket/cardigan/coat (weather-dependent - see below)
+
+🚨 CRITICAL: If wardrobe lacks footwear items, return EMPTY array immediately
+🚨 CRITICAL: Each outfit MUST have upperwear + lowerwear + footwear at minimum
 
 LAYERING LOGIC (Weather-Based):
 - Temperature < 15°C → Include warm layers (jackets, coats)
@@ -474,14 +475,18 @@ FASHION QUALITY STANDARDS:
 ✓ Pattern balance (max 1-2 patterns per outfit)
 ✓ Occasion appropriateness (STRICT - see rules above)
 ✓ Seasonal suitability
+✓ Complete look (not missing essential pieces)
 
 VARIETY REQUIREMENTS:
 ✓ Each outfit VISUALLY DISTINCT from others
 ✓ Vary color palettes across outfits
 ✓ Don't reuse same items across multiple outfits
 ✓ Explore different silhouettes
+✓ Mix accessories to create different vibes
 
 REJECTION CRITERIA (❌ NEVER create outfits that):
+- Missing footwear (CRITICAL - always required)
+- Missing upperwear or lowerwear
 - Violate occasion dress code rules above
 - Clash in color or style
 - Are inappropriate for the occasion/weather

@@ -135,19 +135,19 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning, outfit
     return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
   };
 
-  const displayItems = categorizeItems().slice(0, 4);
+  const displayItems = categorizeItems();
 
   return (
-    <Card className="p-4 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-      <div className="flex items-center gap-2 mb-3">
+    <Card className="p-3 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+      <div className="flex items-center gap-2 mb-2">
         <Sparkles className="w-4 h-4 text-primary" />
-        <h4 className="font-semibold">{outfitName}</h4>
+        <h4 className="font-semibold text-sm">{outfitName}</h4>
       </div>
       
-      <div className="bg-white rounded-xl p-3 mb-3">
-        <div className="grid grid-cols-2 gap-2">
+      <div className="bg-white rounded-lg p-2 mb-2">
+        <div className="flex flex-wrap gap-1.5 justify-center">
           {displayItems.map(item => (
-            <div key={item.id} className="aspect-square flex items-center justify-center p-2">
+            <div key={item.id} className="w-[calc(50%-3px)] aspect-square flex items-center justify-center p-1 bg-background rounded">
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
@@ -158,7 +158,7 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning, outfit
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground italic">{reasoning}</p>
+      <p className="text-xs text-muted-foreground italic leading-tight">{reasoning}</p>
     </Card>
   );
 };
@@ -177,11 +177,11 @@ const MultipleOutfitsDisplay = ({ outfits }: { outfits: OutfitData[] }) => {
   }, [api]);
 
   return (
-    <Card className="p-4 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-      <div className="flex items-center justify-between mb-3">
+    <Card className="p-3 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
-          <h4 className="font-semibold">Your Outfits</h4>
+          <h4 className="font-semibold text-sm">Your Outfits</h4>
         </div>
         <span className="text-xs text-muted-foreground">
           {currentIndex + 1} of {outfits.length}
@@ -194,9 +194,9 @@ const MultipleOutfitsDisplay = ({ outfits }: { outfits: OutfitData[] }) => {
           opts={{ loop: true }}
           setApi={setApi}
         >
-          <CarouselContent className="-ml-2">
+          <CarouselContent className="-ml-1">
             {outfits.map((outfit, idx) => (
-              <CarouselItem key={idx} className="pl-2">
+              <CarouselItem key={idx} className="pl-1">
                 <SingleOutfitCard
                   outfitName={outfit.outfit_name}
                   itemIds={outfit.item_ids}
@@ -236,9 +236,7 @@ const SingleOutfitCard = ({ outfitName, itemIds, reasoning }: { outfitName: stri
   }, [itemIds]);
 
   if (loading) {
-    return (
-      <div className="h-48 bg-muted rounded-xl animate-pulse" />
-    );
+    return <div className="h-48 bg-muted rounded-xl animate-pulse" />;
   }
 
   const categorizeItems = () => {
@@ -258,15 +256,15 @@ const SingleOutfitCard = ({ outfitName, itemIds, reasoning }: { outfitName: stri
     return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
   };
 
-  const displayItems = categorizeItems().slice(0, 4);
+  const displayItems = categorizeItems();
 
   return (
-    <div>
-      <h5 className="font-semibold mb-2 text-center">{outfitName}</h5>
-      <div className="bg-white rounded-xl p-3 mb-3">
-        <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-2">
+      <h5 className="font-semibold text-center text-sm">{outfitName}</h5>
+      <div className="bg-white rounded-lg p-2">
+        <div className="flex flex-wrap gap-1.5 justify-center">
           {displayItems.map(item => (
-            <div key={item.id} className="aspect-square flex items-center justify-center p-2">
+            <div key={item.id} className="w-[calc(50%-3px)] aspect-square flex items-center justify-center p-1 bg-background rounded">
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
@@ -276,7 +274,7 @@ const SingleOutfitCard = ({ outfitName, itemIds, reasoning }: { outfitName: stri
           ))}
         </div>
       </div>
-      <p className="text-sm text-muted-foreground italic">{reasoning}</p>
+      <p className="text-xs text-muted-foreground italic leading-tight">{reasoning}</p>
     </div>
   );
 };
