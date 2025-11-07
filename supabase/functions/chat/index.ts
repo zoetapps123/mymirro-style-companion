@@ -288,15 +288,36 @@ serve(async (req) => {
             
             if (outfitError) throw outfitError;
             
-            toolResults.push({
-              role: 'tool',
-              name: functionName,
-              content: JSON.stringify({
-                success: true,
-                outfits: outfitData?.outfits || [],
-                count: outfitData?.outfits?.length || 0
-              })
-            });
+            const outfits = outfitData?.outfits || [];
+            
+            if (outfits.length > 0) {
+              // Success - tell AI to display them
+              toolResults.push({
+                role: 'tool',
+                name: functionName,
+                content: JSON.stringify({
+                  success: true,
+                  outfits: outfits.map((o: any) => ({
+                    name: o.name || `${args.occasion} Look`,
+                    pieces: o.pieces || o.items || [],
+                    reasoning: o.reasoning || `Perfect for ${args.occasion}`,
+                    item_ids: (o.pieces || o.items || []).map((p: any) => p.wardrobeItemId || p.id).filter(Boolean)
+                  })),
+                  instruction: `Successfully generated ${outfits.length} outfit(s). Use create_outfit_suggestion tool to display them visually with outfit_name, item_ids, and reasoning for each.`
+                })
+              });
+            } else {
+              // No outfits - wardrobe lacks items
+              toolResults.push({
+                role: 'tool',
+                name: functionName,
+                content: JSON.stringify({
+                  success: false,
+                  message: `Could not create outfits for ${args.occasion}. The wardrobe lacks appropriate items for this occasion.`,
+                  instruction: 'Tell user their wardrobe needs items suitable for this occasion. Suggest what types of items they should add.'
+                })
+              });
+            }
           } catch (e) {
             console.error('generate_outfits error:', e);
             toolResults.push({
