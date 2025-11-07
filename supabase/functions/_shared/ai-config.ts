@@ -146,6 +146,9 @@ export async function callGeminiAPIStreaming(options: {
     requestBody.tools = [{
       function_declarations: functionDeclarations
     }];
+    
+    // Note: Streaming doesn't support tool_choice enforcement in the same way
+    // as non-streaming, but we include the tools for context
   }
   
   console.log('Gemini API streaming request:', {
@@ -210,6 +213,16 @@ export async function callGeminiAPI(options: {
     requestBody.tools = [{
       function_declarations: functionDeclarations
     }];
+    
+    // Handle tool_choice to force function calling
+    if (options.tool_choice) {
+      // Gemini uses toolConfig.functionCallingConfig.mode
+      requestBody.toolConfig = {
+        functionCallingConfig: {
+          mode: 'ANY' // Force the model to use one of the provided functions
+        }
+      };
+    }
   }
   
   // For image generation models, specify output modality
