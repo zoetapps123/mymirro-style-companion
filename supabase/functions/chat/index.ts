@@ -206,15 +206,17 @@ serve(async (req) => {
             }
           });
 
-          if (!outfitError && outfitData?.outfit) {
-            const outfit = outfitData.outfit;
+          if (!outfitError && Array.isArray(outfitData?.outfits) && outfitData.outfits.length > 0) {
+            const outfits = outfitData.outfits as any[];
+            const outfit = outfits[0];
+            const total = outfits.length;
             const stream = new ReadableStream({
               start(controller) {
                 const encoder = new TextEncoder();
                 // Text response
-                const textChunk = { choices: [{ delta: { content: `I've created an outfit for you! ${outfit.reasoning || ''}` } }] };
+                const textChunk = { choices: [{ delta: { content: `I've created ${total} outfit${total > 1 ? 's' : ''} for you! Showing the first now.` } }] };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
-                // Tool call to show outfit
+                // Tool call to show first outfit
                 const toolChunk = { 
                   choices: [{ 
                     delta: { 
@@ -224,7 +226,7 @@ serve(async (req) => {
                           name: 'create_outfit_suggestion', 
                           arguments: JSON.stringify({ 
                             outfit_name: outfit.name || 'Your Outfit',
-                            item_ids: outfit.items.map((item: any) => item.id),
+                            item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
                             reasoning: outfit.reasoning || `A ${occasion} outfit that's ${style} and stylish.`
                           }) 
                         } 
@@ -248,7 +250,7 @@ serve(async (req) => {
               },
             });
           } else {
-            console.error('Chat: outfit generation failed', outfitError);
+            console.error('Chat: outfit generation failed or returned no outfits', outfitError);
           }
         } catch (e) {
           console.error('Chat: outfit generation exception', e);
