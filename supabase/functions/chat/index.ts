@@ -108,58 +108,6 @@ serve(async (req) => {
 
     console.log('Chat: processed messages', { count: processedMessages.length });
 
-    // Define tools for visual wardrobe responses
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "show_wardrobe_items",
-          description: "Display specific wardrobe items visually to the user",
-          parameters: {
-            type: "object",
-            properties: {
-              item_ids: {
-                type: "array",
-                items: { type: "string" },
-                description: "Array of wardrobe item IDs to display"
-              },
-              context: {
-                type: "string",
-                description: "Brief explanation of why these items are being shown"
-              }
-            },
-            required: ["item_ids", "context"]
-          }
-        }
-      },
-      {
-        type: "function",
-        function: {
-          name: "create_outfit_suggestion",
-          description: "Create and display a visual outfit suggestion from wardrobe items",
-          parameters: {
-            type: "object",
-            properties: {
-              outfit_name: {
-                type: "string",
-                description: "Name of the outfit"
-              },
-              item_ids: {
-                type: "array",
-                items: { type: "string" },
-                description: "Array of wardrobe item IDs that make up the outfit"
-              },
-              reasoning: {
-                type: "string",
-                description: "Why this outfit works well"
-              }
-            },
-            required: ["outfit_name", "item_ids", "reasoning"]
-          }
-        }
-      }
-]; 
-
     // Fast-path: Classify user intent FIRST before any action
     const lastUserText = (messages?.[messages.length - 1]?.content || '').toLowerCase();
     
@@ -549,13 +497,71 @@ serve(async (req) => {
       }
     }
 
+    // Define tools based on intent - only allow outfit creation for outfit-related queries
+    const tools = [];
+    
+    // Always allow showing wardrobe items
+    tools.push({
+      type: "function",
+      function: {
+        name: "show_wardrobe_items",
+        description: "Display specific wardrobe items visually to the user",
+        parameters: {
+          type: "object",
+          properties: {
+            item_ids: {
+              type: "array",
+              items: { type: "string" },
+              description: "Array of wardrobe item IDs to display"
+            },
+            context: {
+              type: "string",
+              description: "Brief explanation of why these items are being shown"
+            }
+          },
+          required: ["item_ids", "context"]
+        }
+      }
+    });
+    
+    // Only allow outfit creation for outfit-related queries
+    if (outfitCreationQuery || anchorItemQuery) {
+      tools.push({
+        type: "function",
+        function: {
+          name: "create_outfit_suggestion",
+          description: "Create and display a visual outfit suggestion from wardrobe items",
+          parameters: {
+            type: "object",
+            properties: {
+              outfit_name: {
+                type: "string",
+                description: "Name of the outfit"
+              },
+              item_ids: {
+                type: "array",
+                items: { type: "string" },
+                description: "Array of wardrobe item IDs that make up the outfit"
+              },
+              reasoning: {
+                type: "string",
+                description: "Why this outfit works well"
+              }
+            },
+            required: ["outfit_name", "item_ids", "reasoning"]
+          }
+        }
+      });
+    }
+
     // 🔍 LOG 3: Pre-API Call Summary
     console.log('Chat: calling Gemini API', {
       model: 'google/gemini-2.5-flash',
       messageCount: processedMessages.length,
       systemPromptPreview: systemPrompt.substring(0, 200),
       wardrobeCount: wardrobeItems?.length || 0,
-      hasTools: tools.length > 0
+      hasTools: tools.length,
+      allowOutfitCreation: outfitCreationQuery || anchorItemQuery
     });
 
     // Call Gemini API directly with streaming
