@@ -187,8 +187,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           // Fire and forget - don't await the edge function
           console.log('Invoking edge function with body:', { imageUrl: sourceUrl });
           supabase.functions.invoke('process-wardrobe', {
-            body: { imageUrl: sourceUrl },
-            headers: { Authorization: `Bearer ${session.access_token}` }
+            body: { imageUrl: sourceUrl }
           })
           .then(({ data: processData, error: processError }) => {
             if (processError) {
