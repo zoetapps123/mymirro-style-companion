@@ -66,24 +66,30 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
         .select('name, category, color')
         .eq('user_id', user.id);
 
-      // Use the image URL directly instead of converting to base64
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.error('No session found');
-        return;
-      }
+      const response = await fetch(result.image_url);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        const imageData = reader.result as string;
 
-      const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-        body: { imageUrl: result.image_url },
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error('No session found');
+          return;
+        }
 
-      if (error) {
-        console.error('Process wardrobe error:', error);
-        throw new Error('Failed to process image');
-      }
+        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+          body: { imageData },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
 
-      const itemsDetected = data?.items || [];
+        if (error) {
+          console.error('Process wardrobe error:', error);
+          throw new Error('Failed to process image');
+        }
+
+        const itemsDetected = data?.items || [];
         if (itemsDetected.length === 0) {
           toast({
             title: "No items detected",
@@ -169,8 +175,11 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
             description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
           });
         }
-      } catch (error) {
-        console.error('Extract error:', error);
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error('Extract error:', error);
       setExtracting(false);
       toast({
         title: "Extraction failed",
