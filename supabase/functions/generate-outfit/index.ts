@@ -238,7 +238,7 @@ serve(async (req) => {
       // Deterministic fallback: build complete looks from user's wardrobe
       const norm = (s: any) => (s || '').toString().toLowerCase();
       const isTop = (c: string) => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k));
-      const isBottom = (c: string) => ['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k));
+      const isBottom = (c: string) => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => c.includes(k));
       const isShoe = (c: string) => ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k));
       const isLayer = (c: string) => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
       const isAccessory = (c: string) => ['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k));

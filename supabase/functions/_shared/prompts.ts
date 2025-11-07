@@ -507,7 +507,7 @@ export const OUTFIT_GENERATION_PROMPTS = {
     });
     const bottoms = wardrobeItems.filter(i => {
       const c = norm(i.category);
-      return ['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k));
+      return ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => c.includes(k));
     });
     const shoes = wardrobeItems.filter(i => {
       const c = norm(i.category);
