@@ -357,9 +357,24 @@ export const OUTFIT_GENERATION_PROMPTS = {
     const accessories = wardrobeItems.filter(i => i.category === 'Accessories');
     const layers = wardrobeItems.filter(i => i.category === 'Layers' || i.category === 'Jackets');
 
-    return `You are a professional fashion stylist. Create ${maxOutfits || 'as many as viable'} DISTINCT, HIGH-QUALITY outfit combinations for:
+    return `🚨 CRITICAL INSTRUCTION - READ THIS FIRST 🚨
 
-${targetText}${weatherContext}
+YOU MUST USE THE generate_outfit_combinations FUNCTION TOOL TO RESPOND.
+
+❌ DO NOT write outfit descriptions as plain text
+❌ DO NOT explain outfits in prose
+❌ DO NOT return unstructured responses
+✅ YOU MUST CALL the generate_outfit_combinations function
+✅ YOU MUST return structured JSON via function calling
+✅ FUNCTION CALLING IS THE ONLY VALID RESPONSE FORMAT
+
+This is a FUNCTION-CALL-ONLY task. Text responses will be rejected.
+
+═══════════════════════════════════════════════════════════════════
+
+TASK: You are a professional fashion stylist creating ${maxOutfits || 'multiple'} DISTINCT, HIGH-QUALITY outfit combinations.
+
+TARGET: ${targetText}${weatherContext}
 
 AVAILABLE WARDROBE ITEMS:
 - TOPS (${tops.length}): ${tops.map(t => `ID:${t.id} "${t.name}" (${t.color})`).join(', ')}
@@ -368,44 +383,68 @@ AVAILABLE WARDROBE ITEMS:
 - ACCESSORIES (${accessories.length}): ${accessories.length ? accessories.map(a => `ID:${a.id} "${a.name}"`).join(', ') : 'None'}
 - LAYERS/JACKETS (${layers.length}): ${layers.length ? layers.map(l => `ID:${l.id} "${l.name}" (${l.color})`).join(', ') : 'None'}
 
-**OUTFIT REQUIREMENTS:**
-- Each outfit MUST include: At least 1 item (for dresses/co-ords) OR At least 2 items (top + bottom minimum)
-- **CRITICAL**: Only ONE item from each category group:
-  * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
-  * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
-  * LAYERS: Only 1 jacket/cardigan/coat/blazer
-  * FOOTWEAR: Only 1 pair of shoes
-  * ACCESSORIES: Multiple allowed but keep minimal
+═══════════════════════════════════════════════════════════════════
 
-**LAYERING RULES (Weather-Based):**
-- Temperature < 15°C: Include jackets, cardigans, or coats for warmth
-- Temperature 15-25°C: Optional light layers (cardigan, blazer)
-- Temperature > 25°C: NO heavy layers, prioritize breathable fabrics
-- Layering = wearing jacket/cardigan OVER a top (only acceptable way to have 2 upperwear items)
+**OUTFIT CONSTRUCTION RULES:**
 
-**FASHION QUALITY STANDARDS:**
-- Color coordination (complementary, analogous, or monochromatic)
-- Fabric compatibility (don't mix overly casual with formal)
-- Pattern balance (max 1-2 patterns per outfit)
-- Occasion/style appropriateness
-- Seasonal suitability
+CORE REQUIREMENTS:
+- Minimum items per outfit: 2 (top + bottom) OR 1 (if dress/co-ord)
+- Maximum ONE item from each category:
+  * UPPERWEAR: 1 top/shirt/blouse only (exception: layering with jacket)
+  * LOWERWEAR: 1 bottom/pants/skirt/shorts only
+  * LAYERS: 1 jacket/cardigan/coat/blazer only
+  * FOOTWEAR: 1 pair of shoes only
+  * ACCESSORIES: Multiple allowed but minimal
 
-**VARIETY REQUIREMENTS:**
-- Each outfit must be VISUALLY DISTINCT
-- Vary color palettes across outfits
-- Don't reuse the same item in multiple outfits unless necessary
-- Explore different silhouettes
+LAYERING LOGIC (Weather-Based):
+- Temperature < 15°C → Include warm layers (jackets, coats)
+- Temperature 15-25°C → Optional light layers (cardigans, blazers)
+- Temperature > 25°C → NO heavy layers, breathable fabrics only
+- Layering = jacket OVER a top (only valid way to have 2 upperwear items)
 
-**REJECTION RULES (❌ REJECT outfits that):**
+FASHION QUALITY STANDARDS:
+✓ Color coordination (complementary/analogous/monochromatic)
+✓ Fabric compatibility (no casual + formal mix)
+✓ Pattern balance (max 1-2 patterns per outfit)
+✓ Occasion appropriateness
+✓ Seasonal suitability
+
+VARIETY REQUIREMENTS:
+✓ Each outfit VISUALLY DISTINCT from others
+✓ Vary color palettes across outfits
+✓ Don't reuse same items across multiple outfits
+✓ Explore different silhouettes
+
+REJECTION CRITERIA (❌ NEVER create outfits that):
 - Clash in color or style
-- Are inappropriate for the occasion or weather
+- Are inappropriate for the occasion/weather
 - Repeat too many items from previous outfits
-- Have 2+ tops without proper layering (jacket over top)
+- Have 2+ tops (without proper layering)
 - Have 2+ bottoms (NEVER acceptable)
 - Have heavy layers in warm weather
 - Lack warmth in cold weather
 
-Return ONLY item IDs (integers) in the response. NO duplicate outfits.`;
+═══════════════════════════════════════════════════════════════════
+
+🔴 MANDATORY OUTPUT FORMAT 🔴
+
+YOU MUST USE THE generate_outfit_combinations FUNCTION.
+
+Use the function with this exact structure:
+{
+  "outfits": [
+    {
+      "pieces": [
+        { "wardrobeItemId": "<item-id>", "category": "<category>", "role": "<main|layer|accent>" }
+      ],
+      "reasoning": "<1-2 sentences explaining why this outfit works>",
+      "styleTag": "<style descriptor>"
+    }
+  ],
+  "totalGenerated": <number of outfits>
+}
+
+CRITICAL: Call generate_outfit_combinations function NOW. Do not write text. Use function calling.`;
   },
 
   GENERATE_FLATLAY: (outfitItems: any[], occasion?: string, styleTag?: string) =>
