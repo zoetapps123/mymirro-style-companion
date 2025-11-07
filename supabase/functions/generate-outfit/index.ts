@@ -233,17 +233,62 @@ serve(async (req) => {
     console.log(`Generated ${result.totalGenerated ?? (result.outfits?.length ?? 0)} outfits`);
 
     if (!result?.outfits || !Array.isArray(result.outfits) || result.outfits.length === 0) {
-      console.warn('⚠️ AI returned no outfits - NOT caching this result');
-      console.warn('Reason: Empty results should not be cached to allow retries');
-      // DO NOT cache empty results - return immediately without caching
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          outfits: [],
-          message: 'Could not generate outfits with current wardrobe items. Try adding more variety!'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.warn('⚠️ AI returned no outfits - attempting deterministic fallback');
+
+      // Deterministic fallback: build complete looks from user's wardrobe
+      const norm = (s: any) => (s || '').toString().toLowerCase();
+      const isTop = (c: string) => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k));
+      const isBottom = (c: string) => ['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k));
+      const isShoe = (c: string) => ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k));
+      const isLayer = (c: string) => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
+      const isAccessory = (c: string) => ['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k));
+
+      const tops = (wardrobeItems || []).filter((i: any) => isTop(norm(i.category)));
+      const bottoms = (wardrobeItems || []).filter((i: any) => isBottom(norm(i.category)));
+      const shoes = (wardrobeItems || []).filter((i: any) => isShoe(norm(i.category)));
+      const layers = (wardrobeItems || []).filter((i: any) => isLayer(norm(i.category)));
+      const accessories = (wardrobeItems || []).filter((i: any) => isAccessory(norm(i.category)));
+
+      if (tops.length && bottoms.length && shoes.length) {
+        const want = Math.min(maxOutfits || 3, 3);
+        const combos: any[] = [];
+        for (let i = 0; i < want; i++) {
+          const top = tops[i % tops.length];
+          const bottom = bottoms[(i + 1) % bottoms.length];
+          const shoe = shoes[(i + 2) % shoes.length];
+          const layer = (userLocation && userLocation.temp !== undefined && userLocation.temp < 20 && layers.length)
+            ? layers[i % layers.length]
+            : undefined;
+          const accessory = accessories.length ? accessories[i % accessories.length] : undefined;
+
+          const pieces: any[] = [
+            { wardrobeItemId: top.id, category: top.category, role: 'upperwear' },
+            { wardrobeItemId: bottom.id, category: bottom.category, role: 'lowerwear' },
+            { wardrobeItemId: shoe.id, category: shoe.category, role: 'footwear' },
+          ];
+          if (layer) pieces.push({ wardrobeItemId: layer.id, category: layer.category, role: 'layer' });
+          if (accessory) pieces.push({ wardrobeItemId: accessory.id, category: accessory.category, role: 'accessory' });
+
+          combos.push({
+            pieces,
+            reasoning: `Complete ${occasion || style || 'styled'} look using your wardrobe: balanced top, bottom, and footwear${layer ? ', plus a weather-appropriate layer' : ''}.`,
+            styleTag: style || 'versatile'
+          });
+        }
+
+        result = { outfits: combos, totalGenerated: combos.length };
+        console.log(`Fallback generated ${combos.length} complete looks`);
+      } else {
+        console.warn('Fallback failed: missing essential categories (top/bottom/shoes). Returning empty.');
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            outfits: [],
+            message: 'Your wardrobe needs at least a top, a bottom, and footwear to create complete outfits. Try adding the missing categories!'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Step 2: Map outfit items (no image generation)
