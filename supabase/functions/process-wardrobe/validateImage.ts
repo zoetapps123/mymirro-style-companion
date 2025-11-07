@@ -16,8 +16,7 @@ function stripMarkdown(text: string): string {
 }
 
 export async function validateImage(
-  imageUrl: string,
-  apiKey: string
+  imageUrl: string
 ): Promise<ValidationResult> {
   console.log('Step 0: Validating image content...');
   

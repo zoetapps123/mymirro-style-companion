@@ -5,13 +5,13 @@ import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { validateImage } from './validateImage.ts';
 import { WARDROBE_PROMPTS } from '../_shared/prompts.ts';
+import { callGeminiAPI } from '../_shared/ai-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -61,7 +61,7 @@ serve(async (req) => {
 
     // Step 0: Validate image (check for real human or clothing items)
     console.log('Step 0: Validating image...');
-    const validation = await validateImage(imageUrl, LOVABLE_API_KEY!);
+    const validation = await validateImage(imageUrl);
     
     if (!validation.isValidForExtraction) {
       console.log('Image validation failed:', validation.rejectionReason);
@@ -213,22 +213,15 @@ serve(async (req) => {
 });
 
 async function detectItemsWithGemini(imageUrl: string): Promise<DetectedItem[]> {
-  // Use the public URL directly to avoid large base64 conversions
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `${WARDROBE_PROMPTS.DETECT_ITEMS}
+  const data = await callGeminiAPI({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `${WARDROBE_PROMPTS.DETECT_ITEMS}
 
 Return ONLY a JSON array of items, no other text. Example format:
 [
@@ -242,23 +235,16 @@ Return ONLY a JSON array of items, no other text. Example format:
     "style_notes": "Classic fit with button closure"
   }
 ]`
-            },
-            {
-              type: 'image_url',
-              image_url: { url: imageUrl }
-            }
-          ]
-        }
-      ]
-    })
+          },
+          {
+            type: 'image_url',
+            image_url: { url: imageUrl }
+          }
+        ]
+      }
+    ]
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
   const content = data.choices?.[0]?.message?.content || '';
   
   // Extract JSON from response
@@ -294,30 +280,17 @@ Generate a clean product photo on pure white background, as if this item was pho
 
   console.log(`Generating image with prompt: ${prompt.substring(0, 100)}...`);
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-image-preview',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      modalities: ['image', 'text']
-    })
+  const data = await callGeminiAPI({
+    model: 'google/gemini-2.5-flash-image-preview',
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    modalities: ['image', 'text']
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini image generation error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
   const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   
   if (!imageUrl) {
