@@ -78,7 +78,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
+    // Convert to array like onboarding does
+    const fileArray = Array.from(files);
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -89,31 +90,52 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       const user = session.user;
 
-      // Upload the original image first to get a public URL
-      const ext = file.name.split('.').pop() || 'png';
-      const sourceName = `${user.id}/wardrobe_src_${Date.now()}.${ext}`;
-      const { error: srcUploadError } = await supabase.storage
-        .from('outfits')
-        .upload(sourceName, file);
-      if (srcUploadError) throw srcUploadError;
-      
-      const { data: { publicUrl: sourceUrl } } = supabase.storage
-        .from('outfits')
-        .getPublicUrl(sourceName);
+      // Show toast for batch upload
+      toast({
+        title: "Uploading photos",
+        description: `Processing ${fileArray.length} photo${fileArray.length !== 1 ? 's' : ''}...`,
+      });
 
-      // Show immediate feedback with loading tile
+      // Update processing count for ALL files immediately
       const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-      localStorage.setItem('wardrobe_processing_count', (currentCount + 1).toString());
-      setProcessingItems(prev => prev + 1);
+      localStorage.setItem('wardrobe_processing_count', (currentCount + fileArray.length).toString());
+      setProcessingItems(prev => prev + fileArray.length);
 
-      // Process in background (non-blocking)
-      processImageInBackground(sourceUrl, user.id);
+      // Upload and process each file (same pattern as onboarding)
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        try {
+          // Upload the original image first to get a public URL
+          const ext = file.name.split('.').pop() || 'png';
+          const sourceName = `${user.id}/wardrobe_src_${Date.now()}_${i}.${ext}`;
+          
+          const { error: srcUploadError } = await supabase.storage
+            .from('outfits')
+            .upload(sourceName, file);
+            
+          if (srcUploadError) throw srcUploadError;
+          
+          const { data: { publicUrl: sourceUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(sourceName);
+
+          // Process in background (non-blocking) - exactly like onboarding
+          processImageInBackground(sourceUrl, user.id);
+          
+        } catch (error: any) {
+          console.error('Error uploading file:', file.name, error);
+          // Decrement on failure
+          const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+          localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+          setProcessingItems(prev => Math.max(0, prev - 1));
+        }
+      }
 
     } catch (error: any) {
       console.error('Error:', error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload image",
+        description: error.message || "Failed to upload images",
         variant: "destructive",
       });
     } finally {
@@ -366,6 +388,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         onChange={handleImageUpload}
         className="hidden"
       />
