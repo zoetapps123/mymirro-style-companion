@@ -144,7 +144,18 @@ serve(async (req) => {
       });
     }
 
-    const result = { items: itemsWithImages };
+    // Normalize categories to title case
+    const normalizeCategory = (category: string) => {
+      if (!category) return category;
+      return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+    };
+
+    const normalizedItems = itemsWithImages.map(item => ({
+      ...item,
+      category: normalizeCategory(item.category)
+    }));
+
+    const result = { items: normalizedItems };
     
     // Cache result
     const er = (globalThis as any).EdgeRuntime;
