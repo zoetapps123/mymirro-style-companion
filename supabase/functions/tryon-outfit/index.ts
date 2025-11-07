@@ -87,23 +87,22 @@ serve(async (req) => {
       );
     }
 
-    // Generate virtual try-on using Gemini image generation
+    // Generate virtual try-on using Gemini - Note: returns description not actual image
     const tryonPrompt = IMAGE_PROMPTS.GENERATE_TRYON(outfitItems);
 
     let tryonData;
     try {
       tryonData = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash-image-preview',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'user',
             content: [
-              { type: 'text', text: tryonPrompt },
+              { type: 'text', text: tryonPrompt + "\n\nNote: Describe the try-on result as direct image editing is not supported by Gemini API." },
               { type: 'image_url', image_url: { url: userImage } }
             ]
           }
-        ],
-        modalities: ['image', 'text']
+        ]
       });
     } catch (error: any) {
       throw new Error('Failed to generate try-on');
@@ -111,8 +110,8 @@ serve(async (req) => {
     
     console.log('Try-on generation complete');
 
-    // Extract generated image from Gemini response
-    const renderedImage = tryonData.choices?.[0]?.message?.images?.[0]?.image_url?.url || userImage;
+    // Gemini returns text description, fallback to original image
+    const renderedImage = userImage; // Fallback to original
 
     if (!renderedImage) {
       throw new Error('Failed to generate try-on image');

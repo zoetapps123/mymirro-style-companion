@@ -104,31 +104,6 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
     return ['All', ...Array.from(uniqueOccasions), ...Array.from(uniqueStyles)];
   }, [outfits]);
 
-  const unsaveOutfit = async (outfitId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('outfits')
-        .update({ saved_to_lookbook: false })
-        .eq('id', outfitId);
-
-      if (error) throw error;
-
-      setOutfits(prev => prev.filter(o => o.id !== outfitId));
-      toast({
-        title: 'Removed from Lookbook',
-        description: 'Outfit removed from your lookbook',
-      });
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Error',
-        description: 'Failed to remove outfit from lookbook',
-        variant: 'destructive'
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Feature Icons */}
@@ -221,12 +196,7 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                           alt={outfit.style_tag || outfit.name}
                           className="w-full h-full object-contain"
                         />
-                        <button
-                          onClick={(e) => unsaveOutfit(outfit.id, e)}
-                          className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
-                        >
-                          <Heart className="w-6 h-6 fill-primary text-primary" />
-                        </button>
+                        <Heart className="absolute top-2 right-2 w-6 h-6 fill-primary text-primary" />
                       </div>
                     ) : (
                       <div className="aspect-square bg-white p-3 grid grid-cols-2 gap-2 relative">
@@ -239,12 +209,7 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                             />
                           </div>
                         ))}
-                        <button
-                          onClick={(e) => unsaveOutfit(outfit.id, e)}
-                          className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
-                        >
-                          <Heart className="w-6 h-6 fill-primary text-primary" />
-                        </button>
+                        <Heart className="absolute top-2 right-2 w-6 h-6 fill-primary text-primary" />
                       </div>
                     )}
                     <div className="p-3">

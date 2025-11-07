@@ -163,7 +163,6 @@ const Index = () => {
         onComplete={() => {
           safeLocalStorage.set("walkthroughComplete", "true");
           setShowPhotos(false);
-          setActiveTab("home"); // Ensure user lands on Chat (AICompanion) after onboarding
         }}
         onBack={() => {
           setShowPhotos(false);

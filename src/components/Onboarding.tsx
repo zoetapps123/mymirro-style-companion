@@ -96,7 +96,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Name Input */}
             <div className="space-y-2">
               <Input
@@ -107,14 +107,14 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
                     const capitalized = e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1);
                     setData({ ...data, name: capitalized });
                   }}
-                  className="h-12 bg-white border-gray-200 text-gray-900 text-base placeholder:text-[#A7A7A7] rounded-xl shadow-sm"
+                  className="h-12 bg-white border-gray-200 text-gray-900 text-base"
                   maxLength={50}
               />
             </div>
 
             {/* Gender Selection */}
-            <div className="space-y-2 pt-4">
-              <label className="text-base font-semibold text-gray-900 block text-left">Gender</label>
+            <div className="space-y-3">
+              <label className="text-xl font-bold text-gray-900">Gender</label>
               <div className="grid grid-cols-3 gap-3">
                 {genderOptions.map((option) => (
             <motion.button
@@ -135,8 +135,8 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
             </div>
 
             {/* Age Selection */}
-            <div className="space-y-2 pt-4">
-              <label className="text-base font-semibold text-gray-900 block text-left">Age</label>
+            <div className="space-y-3">
+              <label className="text-xl font-bold text-gray-900">Age</label>
               <div className="grid grid-cols-3 gap-2">
                 {ageRanges.map((range) => (
                   <motion.button

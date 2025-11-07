@@ -22,7 +22,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [extracting, setExtracting] = useState(false);
-  const [extracted, setExtracted] = useState(false);
   const [extractedItems, setExtractedItems] = useState<any[]>([]);
   const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const [elevating, setElevating] = useState(false);
@@ -38,7 +37,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
         if (typeof s.uploadedImage === 'string' || s.uploadedImage === null) setUploadedImage(s.uploadedImage);
         if (s.result) setResult(s.result);
         if (Array.isArray(s.extractedItems)) setExtractedItems(s.extractedItems);
-        if (typeof s.extracted === 'boolean') setExtracted(s.extracted);
         if (typeof s.elevatedImage === 'string' || s.elevatedImage === null) setElevatedImage(s.elevatedImage);
       }
     } catch (e) {
@@ -48,11 +46,11 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
   // Persist while tab is open (clears on session close)
   useEffect(() => {
-    const state = { selectedOccasion, uploadedImage, result, extractedItems, extracted, elevatedImage };
+    const state = { selectedOccasion, uploadedImage, result, extractedItems, elevatedImage };
     try {
       sessionStorage.setItem('style_check_state', JSON.stringify(state));
     } catch {}
-  }, [selectedOccasion, uploadedImage, result, extractedItems, extracted, elevatedImage]);
+  }, [selectedOccasion, uploadedImage, result, extractedItems, elevatedImage]);
 
   useEffect(() => {
     loadWardrobeItems();
@@ -101,7 +99,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
     setLoading(true);
     setScanning(true);
-    setExtracted(false);
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -239,135 +236,106 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
       const reader = new FileReader();
       
       reader.onloadend = async () => {
-        try {
-          const imageData = reader.result as string;
+        const imageData = reader.result as string;
 
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token) {
-            console.error('No session found');
-            setExtracting(false);
-            toast({
-              title: "Session expired",
-              description: "Please refresh the page and try again",
-              variant: "destructive",
-            });
-            return;
-          }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error('No session found');
+          return;
+        }
 
-          const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-            body: { imageData },
-            headers: { Authorization: `Bearer ${session.access_token}` }
+        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+          body: { imageData },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
+
+        if (error) {
+          console.error('Process wardrobe error:', error);
+          throw new Error('Failed to process image');
+        }
+
+        const itemsDetected = data?.items || [];
+        if (itemsDetected.length === 0) {
+          toast({
+            title: "No items detected",
+            description: "Try a clearer photo with visible clothing items.",
+            variant: "destructive",
           });
+          setExtracting(false);
+          return;
+        }
 
-          if (error) {
-            console.error('Process wardrobe error:', error);
-            setExtracting(false);
-            toast({
-              title: "Processing failed",
-              description: error.message || "Failed to process image",
-              variant: "destructive",
-            });
-            return;
-          }
+        let addedCount = 0;
+        let skippedCount = 0;
+        const addedItemsPreview: any[] = [];
 
-          const itemsDetected = data?.items || [];
-          if (itemsDetected.length === 0) {
-            toast({
-              title: "No items detected",
-              description: "Try a clearer photo with visible clothing items.",
-              variant: "destructive",
-            });
-            setExtracting(false);
-            return;
-          }
+        for (const item of itemsDetected) {
+          const isDuplicate = existingItems?.some(existing => 
+            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+             (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+              Math.abs((existing.name?.length || 0) - (item.name?.length || 0)) < 5))
+          );
 
-          let addedCount = 0;
-          let skippedCount = 0;
-          const addedItemsPreview: any[] = [];
-
-          for (const item of itemsDetected) {
-            const isDuplicate = existingItems?.some(existing => 
-              existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-              (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-               item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-               (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
-                Math.abs((existing.name?.length || 0) - (item.name?.length || 0)) < 5))
-            );
-
-            if (isDuplicate) {
-              skippedCount++;
-              continue;
-            }
-
-            const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
-          const sourceDataUrl = (item.processedImageUrl as string | undefined) || data?.compositeImageUrl || imageData;
-          if (typeof sourceDataUrl !== 'string' || !sourceDataUrl.includes(',')) {
-            console.warn('No per-item image; skipping upload for', item?.name || 'unknown');
+          if (isDuplicate) {
             skippedCount++;
             continue;
           }
-          const base64Data = sourceDataUrl.split(',')[1];
-            const binaryData = atob(base64Data);
-            const bytes = new Uint8Array(binaryData.length);
-            for (let i = 0; i < binaryData.length; i++) {
-              bytes[i] = binaryData.charCodeAt(i);
-            }
-            const processedBlob = new Blob([bytes], { type: 'image/png' });
 
-            const { error: uploadError } = await supabase.storage
-              .from('outfits')
-              .upload(fileName, processedBlob);
+          const fileName = `${Date.now()}-${Math.random()}-${item.name.replace(/\s+/g, '-')}.png`;
+          const base64Data = item.processedImageUrl.split(',')[1];
+          const binaryData = atob(base64Data);
+          const bytes = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i);
+          }
+          const processedBlob = new Blob([bytes], { type: 'image/png' });
 
-            if (uploadError) {
-              console.error('Upload error:', uploadError);
-              continue;
-            }
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, processedBlob);
 
-            const { data: { publicUrl } } = supabase.storage
-              .from('outfits')
-              .getPublicUrl(fileName);
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
 
-            const { error: insertError } = await supabase.from('wardrobe_items').insert({
-              user_id: user.id,
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
+
+          const { error: insertError } = await supabase.from('wardrobe_items').insert({
+            user_id: user.id,
+            name: item.name,
+            category: item.category,
+            color: item.color,
+            image_url: publicUrl,
+            processed_image_url: publicUrl,
+          });
+
+          if (!insertError) {
+            addedCount++;
+            addedItemsPreview.push({
               name: item.name,
               category: item.category,
-              color: item.color,
               image_url: publicUrl,
-              processed_image_url: publicUrl,
-            });
-
-            if (!insertError) {
-              addedCount++;
-              addedItemsPreview.push({
-                name: item.name,
-                category: item.category,
-                image_url: publicUrl,
-              });
-            }
-          }
-
-          setExtractedItems(addedItemsPreview);
-          setExtracting(false);
-          setExtracted(true);
-
-          if (addedCount > 0) {
-            toast({
-              title: "Added to wardrobe!",
-              description: `${addedCount} item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`,
-            });
-          } else {
-            toast({
-              title: "All items already in wardrobe",
-              description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
             });
           }
-        } catch (readerError) {
-          console.error('Reader error:', readerError);
-          setExtracting(false);
+        }
+
+        setExtractedItems(addedItemsPreview);
+        setExtracting(false);
+
+        if (addedCount > 0) {
           toast({
-            title: "Extraction failed",
-            description: "An error occurred while processing items",
-            variant: "destructive",
+            title: "Added to wardrobe!",
+            description: `${addedCount} item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped)` : ''}.`,
+          });
+        } else {
+          toast({
+            title: "All items already in wardrobe",
+            description: `${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save credits.`,
           });
         }
       };
@@ -653,6 +621,29 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
           </Button>
         </div>
 
+        {/* Where are you heading? */}
+        <div>
+          <h2 className="text-xl font-semibold text-primary mb-3">
+            Where are you heading?
+          </h2>
+          <div className="flex gap-2 flex-wrap">
+            {occasions.map((occasion) => (
+              <Button
+                key={occasion}
+                variant={selectedOccasion === occasion ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedOccasion(occasion)}
+                className={`rounded-full border-2 ${
+                  selectedOccasion === occasion
+                    ? "bg-white text-black border-black"
+                    : "bg-transparent border-border text-foreground"
+                }`}
+              >
+                {occasion}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         {/* Upload Image */}
         {!result && (
@@ -752,10 +743,10 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                     variant="default"
                     className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg"
                     onClick={extractToWardrobe}
-                    disabled={extracting || extracted}
+                    disabled={extracting}
                   >
                     <Package className="w-4 h-4 mr-2" />
-                    {extracted ? 'Added' : extracting ? 'Extracting...' : 'Extract to Wardrobe'}
+                    {extracting ? 'Extracting...' : 'Extract to Wardrobe'}
                   </Button>
                 </div>
               )}
@@ -837,15 +828,15 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
 
               {/* What Works, Doesn't Work, Quick Fixes - ALWAYS VISIBLE */}
               <div className="space-y-3">
-                <div className="bg-[#43B581]/10 rounded-xl p-4">
+                <div className="bg-accent/10 rounded-xl p-4">
                   <div className="flex items-start gap-2">
-                    <CheckCircle className="w-5 h-5 text-[#43B581] flex-shrink-0 mt-0.5" />
+                    <CheckCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
                     <div className="w-full">
-                      <p className="font-semibold text-[#43B581] mb-2">What Works</p>
+                      <p className="font-semibold text-accent mb-2">What Works</p>
                       <ul className="space-y-1">
                         {(Array.isArray(result.what_works) ? result.what_works : [result.what_works || result.verdict_positive]).map((item: string, idx: number) => (
                           <li key={idx} className="text-sm text-muted-foreground flex items-start">
-                            <span className="mr-2 text-[#43B581]">•</span>
+                            <span className="mr-2">•</span>
                             <span>{item}</span>
                           </li>
                         ))}
@@ -855,15 +846,15 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                 </div>
 
                 {(result.what_didnt_work || result.what_could_be_better || result.verdict_improvements) && (
-                  <div className="bg-[#E26D6D]/10 rounded-xl p-4">
+                  <div className="bg-destructive/10 rounded-xl p-4">
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-[#E26D6D] flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                       <div className="w-full">
-                        <p className="font-semibold text-[#E26D6D] mb-2">What Doesn't Work</p>
+                        <p className="font-semibold text-destructive mb-2">What Doesn't Work</p>
                         <ul className="space-y-1">
                           {(Array.isArray(result.what_didnt_work) ? result.what_didnt_work : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements]).map((item: string, idx: number) => (
                             <li key={idx} className="text-sm text-muted-foreground flex items-start">
-                              <span className="mr-2 text-[#E26D6D]">•</span>
+                              <span className="mr-2">•</span>
                               <span>{item}</span>
                             </li>
                           ))}
@@ -915,7 +906,6 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
                   setResult(null);
                   setUploadedImage(null);
                   setExtractedItems([]);
-                  setExtracted(false);
                   setElevatedImage(null);
                 }}
               >

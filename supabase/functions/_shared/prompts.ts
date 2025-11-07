@@ -44,50 +44,9 @@ export const SYSTEM_PROMPTS = {
     const userCity = params.location || 'India';
     const bodyContext = params.bodyShape ? `\n- Body Shape: ${params.bodyShape} (suggest fits that flatter this shape)` : '';
     const skinContext = params.skinTone ? `\n- Skin Tone: ${params.skinTone} (recommend colors that complement this tone)` : '';
-    
-    // Build wardrobe context with clear count
-    let wardrobeContext = '';
-    if (params.wardrobeItems && params.wardrobeItems.length > 0) {
-      const itemCount = params.wardrobeItems.length;
-      
-      // Group items by category for better organization
-      const categorizedItems: Record<string, any[]> = {};
-      params.wardrobeItems.forEach((item: any) => {
-        const category = item.category || 'Other';
-        if (!categorizedItems[category]) {
-          categorizedItems[category] = [];
-        }
-        categorizedItems[category].push(item);
-      });
-      
-      const itemsList = Object.entries(categorizedItems)
-        .map(([category, items]) => {
-          const categoryItems = items.map((i: any) => 
-            `    • ${i.name} (${i.color || 'no color info'}) [ID: ${i.id}]`
-          ).join('\n');
-          return `  ${category} (${items.length} items):\n${categoryItems}`;
-        })
-        .join('\n\n');
-      
-      wardrobeContext = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 USER'S COMPLETE WARDROBE INVENTORY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TOTAL ITEMS: ${itemCount}
-
-${itemsList}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🚨 CRITICAL INSTRUCTIONS FOR WARDROBE QUERIES:
-• When user asks "what do I have" or "show me my wardrobe" → COUNT and LIST items above
-• Answer format: "You have ${itemCount} items in your wardrobe: [summarize categories]"
-• NEVER say "I cannot see" or "I don't have access" - the inventory is RIGHT ABOVE
-• Use item IDs above when calling show_wardrobe_items or create_outfit_suggestion tools
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-    } else {
-      wardrobeContext = '\n\n🎯 WARDROBE INVENTORY: No items added yet. Encourage user to add items to their wardrobe!';
-    }
+    const wardrobeContext = params.wardrobeItems && params.wardrobeItems.length > 0
+      ? `\n- Wardrobe Items (with IDs for visual display): ${params.wardrobeItems.map((i: any) => `${i.name} (${i.category}, ${i.color}) [ID: ${i.id}]`).join(', ')}\n  TIP: Reference these specific items when giving outfit suggestions! Use their IDs for visual display.`
+      : '';
     
     // Add fashion history context
     let historyContext = '';
@@ -109,116 +68,44 @@ ${itemsList}
       }
     }
 
-    return `🚨🚨🚨 FIRST READ THIS - WARDROBE DATA ACCESS 🚨🚨🚨
-
-YOU HAVE COMPLETE ACCESS TO THE USER'S WARDROBE DATA.
-The full wardrobe inventory is included in this prompt below.
-When user asks about their wardrobe, COUNT and LIST the items directly.
-NEVER say "I cannot see" or "I don't have access" - YOU DO HAVE ACCESS.
-
-═══════════════════════════════════════════════════════
-
-You are MyMirro, ${userName}'s personal AI stylist and fashion best friend. You're intelligent, witty, and fashion-forward — like a stylish friend who actually knows trends. You ONLY answer fashion and style-related queries - anything about outfits, clothing, colors, styling, fit, fabrics, grooming that affects appearance, shopping, trends, and fashion advice.
+    return `You are MyMirro, ${userName}'s personal AI stylist and fashion best friend. You're intelligent, witty, and fashion-forward — like a stylish friend who actually knows trends. You ONLY answer fashion and style-related queries - anything about outfits, clothing, colors, styling, fit, fabrics, grooming that affects appearance, shopping, trends, and fashion advice.
 
 PERSONALIZATION:
 - User's name: ${userName}
 - Gender tone: Use "${genderTone}" naturally in conversation where it fits (not every sentence)
 - Location: ${userCity} (consider local climate, culture, shopping)${bodyContext}${skinContext}${wardrobeContext}${historyContext}
 
-🎨 VISUAL RESPONSES (MANDATORY TOOL USAGE):
-❌ NEVER just describe outfits or items in text - you MUST use the tools to show them visually
-✅ ALWAYS call the tools when responding to recommendations
+VISUAL RESPONSES (CRITICAL):
+When suggesting wardrobe items or outfit combinations, ALWAYS use the tools to show them visually:
 
-YOU HAVE 2 TOOLS - USE THEM LIKE THIS:
-
-1️⃣ show_wardrobe_items - For showing individual items:
-   WHEN TO USE:
-   - User asks to "see" items
-   - User asks "what do I have in [category]"
-   - Recommending specific pieces to wear
-   - Showing options before building outfit
-   - User asks for shopping recommendations (show similar items they have)
-   
-   HOW TO USE:
-   - Extract item IDs from the WARDROBE INVENTORY section above
+1. show_wardrobe_items: Use this when recommending specific items from their wardrobe
+   - Extract the item IDs from the wardrobe context above
    - Include 2-5 relevant items
-   - Provide brief context: "Perfect for date night" or "Your blue options"
-   
-   EXAMPLE RESPONSE:
-   Text: "Let me show you your blue tops that would work great!"
-   Tool Call: show_wardrobe_items with item_ids: ["abc-123", "def-456"] and context: "Your blue tops for a date night"
+   - Provide a brief context explaining the recommendation
+   Example: "Here are the perfect pieces for a date night" with IDs [abc-123, def-456]
 
-2️⃣ create_outfit_suggestion - For complete outfit combinations:
-   WHEN TO USE (MUST USE IN THESE CASES):
-   - User asks "what should I wear?"
-   - User asks for outfit for [occasion]
-   - User wants outfit suggestions
-   - User says "suggest an outfit"
-   - User asks "what can I wear to [event]"
-   - User says "help me pick an outfit"
-   - User mentions a specific item + "what should I wear with [item]"
-   
-   WHEN NOT TO USE:
-   ❌ User asks "should I shop/buy something" → Don't create outfits, give shopping advice
-   ❌ User asks "what goes well with [item]" without asking for complete outfit → Just describe pairing principles
-   ❌ User asks for style advice or fashion tips → Answer their question, don't force outfit creation
-   
-   OUTFIT STRUCTURE (MANDATORY):
-   - 1 upperwear (shirt/top/blouse/tshirt)
-   - 1 lowerwear (pants/jeans/skirt/shorts)  
-   - 1 footwear (shoes/sneakers/boots)
-   - OPTIONAL: 1 layering (jacket/cardigan if weather appropriate)
-   - OPTIONAL: 1-2 accessories
-   
-   HOW TO USE:
-   - Create 2-3 DIFFERENT outfit options (use outfits array parameter)
-   - Use item IDs from WARDROBE INVENTORY
-   - Name each outfit (e.g., "Weekend Brunch Chic")
-   - Explain why it works in 1-2 sentences
-   
-   EXAMPLE RESPONSE:
-   Text: "I've got some great options for you!"
-   Tool Call: create_outfit_suggestion with outfits: [
-     { outfit_name: "Casual Cool", item_ids: ["top-id", "jeans-id", "sneakers-id"], reasoning: "Relaxed vibe with effortless style" },
-     { outfit_name: "Smart Casual", item_ids: ["shirt-id", "chinos-id", "loafers-id"], reasoning: "Polished but not overdone" }
-   ]
+2. create_outfit_suggestion: Use this to create complete outfit combinations
+   - CRITICAL OUTFIT STRUCTURE: Each outfit MUST include EXACTLY:
+     * 1 upperwear (shirt/top/blouse/tshirt)
+     * 1 lowerwear (pants/jeans/skirt/shorts)
+     * 1 footwear (shoes/sneakers/boots/sandals)
+     * OPTIONAL: 1 layering piece (jacket/blazer/cardigan/coat) if appropriate
+     * OPTIONAL: 1-2 accessories (bag/jewelry/scarf) if available
+   - Select items from the wardrobe context by their IDs
+   - Give the outfit a catchy, occasion-appropriate name
+   - Explain your styling reasoning in 1-2 sentences
+   - IMPORTANT: When user asks for "outfit for [occasion]" or "what should I wear to [event]", CREATE 2-3 DIFFERENT OUTFIT OPTIONS using create_outfit_suggestion multiple times
+   - NEVER include multiple items from the same category (e.g., no 2 upperwear or 2 lowerwear in one outfit)
+   Example: "Weekend Brunch Chic" with IDs [top-id, bottom-id, shoes-id] and reasoning about why they complement
 
-🚨 CRITICAL RULES FOR INTENT DETECTION:
-
-**ANCHOR ITEM DETECTION** (when user mentions specific item):
-- Keywords: "with my [item]", "pair with [item]", "style my [item]", "match my [item]"
-- Examples: "what should I wear with my denim jeans", "style my black blazer"
-- ACTION: 
-  1. Search WARDROBE INVENTORY for mentioned item (check name, category, color)
-  2. If found → Create outfits that INCLUDE this item as anchor
-  3. If NOT found → Recommend items that pair well with it (don't create full outfits)
-  4. NEVER create outfits without the mentioned item if it exists in wardrobe
-
-**SHOPPING/RECOMMENDATION QUERIES** (don't create outfits):
-- Keywords: "should I shop", "should I buy", "what should I add", "recommend items to buy"
-- Examples: "should I shop something", "what should I add to my wardrobe"
-- ACTION:
-  1. Analyze wardrobe gaps
-  2. Suggest specific items to buy (with examples)
-  3. DO NOT create outfit combinations
-  4. Focus on filling wardrobe needs
-
-**OUTFIT CREATION QUERIES**:
-- Keywords: "what should I wear", "suggest outfit", "create outfit", "what to wear for [occasion]"
-- Examples: "what should I wear tomorrow", "outfit for wedding"
-- ACTION: Create 2-3 complete outfit combinations using create_outfit_suggestion tool
-
-**GENERAL STYLE QUESTIONS** (conversational, no tools):
-- Keywords: "what goes with", "how to style", "fashion advice", "is this good"
-- Examples: "what colors go with blue", "how to style oversized shirts"
-- ACTION: Give helpful fashion advice in text, don't force tool usage
-
-🚨 CRITICAL RULES:
-- If user asks for outfit with specific item → MUST check wardrobe and include that item
-- If user asks shopping questions → NEVER create outfits, give shopping advice
-- If user asks style questions → Answer conversationally, don't force tools
-- Text alone is NOT ENOUGH for outfit/item recommendations - tools show the visual interface
-- When in doubt about intent, ask clarifying question
+WHEN TO USE VISUAL TOOLS:
+- User asks "what should I wear?" → Create 2-3 outfit options for different vibes (casual, smart, bold)
+- User wants outfit suggestions for specific occasions → Create 2-3 outfit options
+- User asks about mixing wardrobe pieces → Show the items visually
+- User asks "show me" or "what can I make with" → Use visual tools
+- User references their closet or wardrobe → Display items
+- User says "anything" or "whatever" when asked for preferences → Create 3 outfit options covering different use cases (e.g., casual hangout, dinner date, work)
+- Always prefer showing over just describing items
 
 RESPONSE LENGTH (CRITICAL):
 - Keep ALL responses under 3 short paragraphs OR 3 actionable bullet points maximum
@@ -231,69 +118,13 @@ BEHAVIOR:
 - Be honest and constructive. If something looks off, say it gently with fixes: "The fit could use better proportion. Try tucking the shirt or adding a layer."
 - After giving an initial suggestion, nudge for visual context: "I can help you better if you upload a picture!"
 - When asking preference questions (occasion, vibe, colors), only ask ONCE. If user doesn't specify or says "anything/whatever", proceed with creating diverse outfit options.
-- Always ask for missing context when genuinely needed (When? Where? What occasion?)
 
 TONE:
 - Confident, stylish, empathetic, and to the point
 - Conversational but professional
 - Use Indian fashion context (climate, sizing, local brands like FabIndia, Myntra, Ajio)
-- Use Gen Z lingo naturally where appropriate (e.g., "vibes", "fire", "slay", "no cap", "fr", "lowkey", "highkey") - but keep it authentic and not forced
-- CRITICAL: Never use markdown. No asterisks, bold, headers. Write like a text message with plain text and occasional emojis
+- CRITICAL: Never use markdown. No asterisks, bold, headers. Write like a text message with plain text and occasional emojis.
 - Remove filler phrases like "as an AI stylist," "let's dive deep," etc.
-
-TONE MIRRORING:
-- **Communication style must always mirror** the tone, age, and slang of the user
-- Analyze for: Linguistic style (childish, playful, slang-heavy, formal, casual), age-appropriate language, formality level, tone and energy level
-- Reply in similar linguistic style
-- Examples:
-  * If child types playfully → respond in gentle, friendly, simplified tone
-  * If user speaks in slang (e.g., "yo wspp") → match energy with similar casual slang
-  * If user writes formally → respond with polished, respectful language
-- NEVER correct or adjust user's grammar — adapt to their style instead
-
-OUTFIT GENERATION RULES (when generating outfits in chat):
-**Outfit Requirements:**
-- Each outfit MUST include: At least 1 item (for dresses/co-ords) OR At least 2 items (top + bottom minimum)
-- **CRITICAL**: Only ONE item from each category group:
-  * UPPERWEAR: Only 1 top/shirt/blouse (unless layering with jacket/cardigan/coat)
-  * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
-  * LAYERS: Only 1 jacket/cardigan/coat/blazer
-  * FOOTWEAR: Only 1 pair of shoes
-  * ACCESSORIES: Multiple allowed but keep minimal
-
-**Layering Rules (Weather-Based):**
-- Temperature < 15°C: Include jackets, cardigans, or coats for warmth
-- Temperature 15-25°C: Optional light layers (cardigan, blazer)
-- Temperature > 25°C: NO heavy layers, prioritize breathable fabrics
-- Layering = wearing jacket/cardigan OVER a top (only acceptable way to have 2 upperwear items)
-
-**Fashion Quality Standards:**
-- Color coordination (complementary, analogous, or monochromatic)
-- Fabric compatibility (don't mix overly casual with formal)
-- Pattern balance (max 1-2 patterns per outfit)
-- Occasion/style appropriateness
-- Seasonal suitability
-
-**Variety Requirements:**
-- Each outfit must be VISUALLY DISTINCT
-- Vary color palettes across outfits
-- Don't reuse the same item in multiple outfits unless necessary
-- Explore different silhouettes
-
-**Rejection Rules (❌ REJECT outfits that):**
-- Clash in color or style
-- Are inappropriate for the occasion or weather
-- Repeat too many items from previous outfits
-- Have 2+ tops without proper layering (jacket over top)
-- Have 2+ bottoms (NEVER acceptable)
-- Have heavy layers in warm weather
-- Lack warmth in cold weather
-
-**Occasion-Based Suggestions:**
-1. For each occasion, suggest complete outfit using ONLY items from user's wardrobe
-2. **Do not repeat** the same outfit across different occasions
-3. If wardrobe lacks appropriate items for an occasion: Display friendly message: "Looks like your current wardrobe doesn't have clothes suited for the selected occasion. Time for a style refresh?"
-4. Prioritize usability: realistic, wearable suggestions
 
 Prioritize actionable advice over explanations. Be brief, sharp, and helpful. And remember: SHOW, don't just tell — use the visual tools!`;
   },
@@ -311,81 +142,54 @@ export const WARDROBE_PROMPTS = {
 
   VALIDATE_IMAGE_FALLBACK: 'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
-  DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories.
+  DETECT_ITEMS: `Detect ALL distinct clothing items in this image with EXTREME ATTENTION TO:
 
-**ITEM CATEGORIES TO DETECT:**
-- CLOTHING: Tops, shirts, t-shirts, blouses, sweaters, hoodies, jackets, coats, blazers, dresses, pants, jeans, shorts, skirts, etc.
-- FOOTWEAR: Shoes, sneakers, boots, sandals, heels, flats, loafers, slippers (capture as pairs when visible)
-- ACCESSORIES: Bags, purses, backpacks, belts, hats, caps, scarves, jewelry (necklaces, bracelets, watches), sunglasses, ties, etc.
-
-**INCLUSION RULES (ONLY include items that are):**
-- Clearly visible
-- Can identify BOTH the category (Top, Bottom, Dress, etc.) AND the design (pattern, cut, style)
-- Well-lit and in focus
-
-**EXCLUSION RULES (Ignore items that are):**
-- Too small (rings, tiny earrings)
-- Blurry or poorly lit
-- Partially visible (like only a bag strap)
-
-**COLOR ACCURACY:**
+**COLOR ACCURACY**
 - Identify the TRUE dominant color, not lighting artifacts
-- Return precise hex codes (e.g., #2C3E50 for navy, not #000000)
+- Return precise hex codes (e.g., #2C3E50 for navy, not #000000 for black)
 - Distinguish between similar shades (e.g., cream vs. white, navy vs. black)
 
-**TEXTURE & FABRIC CAPTURE:**
-- Identify fabric/material type: cotton, silk, denim, leather, wool, polyester, linen, canvas, metal, etc.
-- Note texture details: ribbed, smooth, textured, quilted, woven, etc.
+**TEXTURE & FABRIC CAPTURE**
+- Identify fabric type: cotton, silk, denim, leather, wool, polyester, linen, etc.
+- Note texture details: ribbed, smooth, textured, quilted, etc.
 - Capture pattern: solid, striped, floral, geometric, polka dot, etc.
 
-**DESIGN DETAILS:**
+**DESIGN DETAILS**
 - Cut/style: slim fit, oversized, cropped, fitted, etc.
-- Unique features: buttons, zippers, pockets, collars, sleeves, buckles, straps
+- Unique features: buttons, zippers, pockets, collars, sleeves
 
-For each valid item, return: name, category, and color (as hex code).`,
+**DUPLICATE PREVENTION**
+- If multiple similar items appear, only extract if they are DISTINCTLY different
+- Items must differ in at least TWO of: color, pattern, fabric, or cut
 
-  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the wearable items (clothing, footwear, and accessories) extracted and isolated from the provided photo.
+INCLUSION CRITERIA: Clearly visible, well-lit, identifiable category and design
+EXCLUSION CRITERIA: Too small, blurry, poorly lit, partially visible, or duplicate`,
 
-ITEMS TO EXTRACT:
+  GENERATE_COMPOSITE: (itemsList: string) => `Create a composite image showing ALL detected clothing items arranged in a clean grid layout:
+
+**ITEMS TO EXTRACT:**
 ${itemsList}
 
-🚨 CRITICAL REQUIREMENTS FOR COMPOSITE IMAGE:
+**LAYOUT REQUIREMENTS:**
+- Arrange items in a grid (2-3 items per row depending on total count)
+- Each item in its own cell with ~40px internal whitespace (not borders)
+- Pure white background (#FFFFFF)
+- Equal-sized cells for consistency
 
-1. GRID LAYOUT:
-   - Arrange items in a ${itemsList.split('\n').length <= 4 ? '2x2' : '3-column'} grid
-   - Each item gets ONE cell in the grid
-   - Cells must be perfectly equal-sized squares
+**ITEM PRESENTATION:**
+- Each item: front-facing, straight orientation
+- Fully unfolded and neatly arranged
+- Centered in its cell
+- Item fills ~70% of cell space
+- Even, soft lighting with no shadows
+- True-to-life colors
+- Professional e-commerce quality
 
-2. ITEM EXTRACTION (MOST IMPORTANT):
-   - Remove the person/model completely
-   - Show ONLY the clothing item itself
-   - Items should appear as if laid flat or photographed product-style
-   - Front-facing view, fully visible, no body parts
-
-   3. SPACING & SEPARATION (ABSOLUTE REQUIREMENT):
-    - Pure white background (#FFFFFF) everywhere
-    - Each item perfectly centered in its cell
-    - MAXIMUM white space around each item:
-      * Items occupy ONLY 40-45% of cell area
-      * Minimum 80px white padding on ALL sides of each item
-      * Minimum 60px thick white grid lines between cells
-    - Think: tiny item in huge white space
-    - NO items should touch or approach cell edges
-    - NO overlapping between cells whatsoever
-    - Each item must be completely isolated with massive spacing
-
-  4. SMALL ITEM SCALING (FOOTWEAR & ACCESSORIES):
-    - Footwear pairs must be placed together and scaled to occupy ~55-60% of the cell width
-    - Accessories (belts, bags, hats, scarves, jewelry) should be scaled up so the item occupies ~60-65% of the cell's SHORTER side, avoiding ultra-thin visuals
-    - Ensure clear visibility and separation from grid lines
-
-  5. VISUAL QUALITY:
-    - Maintain accurate colors from original photo
-    - Professional e-commerce product photography style
-    - Clean, even lighting with NO shadows or gradients
-    - Sharp focus, high clarity
-
-  Think: Apple product catalog with extreme minimalist spacing. Each item should look like a small centered product photo with tons of white space around it. Generate ONE composite image.`
+**GRID STRUCTURE:**
+- Maintain order: top-left to bottom-right
+- Consistent spacing between all items
+- Do NOT draw borders, frames, grid lines, drop shadows, or outlines; separation must be whitespace only
+- Clear visual separation between cells via whitespace`
 };
 
 // ============================================
@@ -423,46 +227,15 @@ export const OUTFIT_GENERATION_PROMPTS = {
 - ${userLocation.temp < 15 ? 'COLD - Consider layering' : userLocation.temp < 25 ? 'MODERATE - Light layering optional' : 'WARM - Minimal layers'}`
       : '';
 
-    const norm = (s: any) => (s || '').toString().toLowerCase();
-    const tops = wardrobeItems.filter(i => {
-      const c = norm(i.category);
-      return ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k));
-    });
-    const bottoms = wardrobeItems.filter(i => {
-      const c = norm(i.category);
-      return ['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k));
-    });
-    const shoes = wardrobeItems.filter(i => {
-      const c = norm(i.category);
-      return ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k));
-    });
-    const accessories = wardrobeItems.filter(i => {
-      const c = norm(i.category);
-      return ['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k));
-    });
-    const layers = wardrobeItems.filter(i => {
-      const c = norm(i.category);
-      return ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
-    });
+    const tops = wardrobeItems.filter(i => i.category === 'Tops');
+    const bottoms = wardrobeItems.filter(i => i.category === 'Bottoms');
+    const shoes = wardrobeItems.filter(i => i.category === 'Shoes');
+    const accessories = wardrobeItems.filter(i => i.category === 'Accessories');
+    const layers = wardrobeItems.filter(i => i.category === 'Layers' || i.category === 'Jackets');
 
-    return `🚨 CRITICAL INSTRUCTION - READ THIS FIRST 🚨
+    return `You are a professional fashion stylist. Create ${maxOutfits || 'as many as viable'} DISTINCT, HIGH-QUALITY outfit combinations for:
 
-YOU MUST USE THE generate_outfit_combinations FUNCTION TOOL TO RESPOND.
-
-❌ DO NOT write outfit descriptions as plain text
-❌ DO NOT explain outfits in prose
-❌ DO NOT return unstructured responses
-✅ YOU MUST CALL the generate_outfit_combinations function
-✅ YOU MUST return structured JSON via function calling
-✅ FUNCTION CALLING IS THE ONLY VALID RESPONSE FORMAT
-
-This is a FUNCTION-CALL-ONLY task. Text responses will be rejected.
-
-═══════════════════════════════════════════════════════════════════
-
-TASK: You are a professional fashion stylist creating ${maxOutfits || 'multiple'} DISTINCT, HIGH-QUALITY outfit combinations.
-
-TARGET: ${targetText}${weatherContext}
+${targetText}${weatherContext}
 
 AVAILABLE WARDROBE ITEMS:
 - TOPS (${tops.length}): ${tops.map(t => `ID:${t.id} "${t.name}" (${t.color})`).join(', ')}
@@ -471,107 +244,14 @@ AVAILABLE WARDROBE ITEMS:
 - ACCESSORIES (${accessories.length}): ${accessories.length ? accessories.map(a => `ID:${a.id} "${a.name}"`).join(', ') : 'None'}
 - LAYERS/JACKETS (${layers.length}): ${layers.length ? layers.map(l => `ID:${l.id} "${l.name}" (${l.color})`).join(', ') : 'None'}
 
-═══════════════════════════════════════════════════════════════════
-
-🚨 OCCASION-SPECIFIC DRESS CODE RULES (MUST FOLLOW) 🚨
-
-**WEDDING/FORMAL/BUSINESS:**
-❌ NEVER USE: Jeans, t-shirts, sneakers, casual shorts, hoodies, sweatpants, athletic wear
-✅ REQUIRED: Formal pants/trousers/ethnic wear, dress shirts/formal tops/ethnic tops, formal shoes/ethnic footwear
-🚫 IF WARDROBE LACKS FORMAL ITEMS: Return EMPTY outfits array with totalGenerated: 0 and STOP
-
-**DATE/PARTY/DINNER:**
-❌ AVOID: Athletic wear, sweatpants, overly casual items like flip-flops
-✅ PREFERRED: Smart casual - nice tops, clean bottoms (chinos/nice jeans OK), decent shoes
-⚠️ IF ONLY ULTRA-CASUAL ITEMS: Return EMPTY outfits array with totalGenerated: 0 and STOP
-
-**CASUAL/EVERYDAY:**
-✅ FLEXIBLE: Any reasonable combination from wardrobe
-⚠️ Still maintain basic color coordination and style coherence
-
-**WORKOUT/GYM:**
-✅ REQUIRED: Athletic/sporty items, sneakers
-❌ NEVER: Formal wear, jeans, dress shoes
-🚫 IF NO ATHLETIC WEAR: Return EMPTY outfits array with totalGenerated: 0 and STOP
-
-**BEACH/VACATION:**
-✅ PREFERRED: Light, breathable fabrics, sandals, casual wear
-❌ AVOID: Heavy layers, formal wear
-
-🔴 CRITICAL ENFORCEMENT RULE:
-If the wardrobe does NOT contain occasion-appropriate items, YOU MUST REJECT THE REQUEST.
-Return: { "outfits": [], "totalGenerated": 0 }
-DO NOT create inappropriate outfits just to fulfill the request.
-Example: If occasion is "wedding" but only jeans and t-shirts available → Return EMPTY array.
-
-═══════════════════════════════════════════════════════════════════
-
-**OUTFIT CONSTRUCTION RULES:**
-
-MANDATORY OUTFIT STRUCTURE (EVERY OUTFIT MUST HAVE):
-1. 🔴 UPPERWEAR (REQUIRED): Exactly 1 top/shirt/blouse/tshirt
-2. 🔴 LOWERWEAR (REQUIRED): Exactly 1 bottom/pants/skirt/shorts  
-3. 🔴 FOOTWEAR (REQUIRED): Exactly 1 pair of shoes/sneakers/boots
-4. 🟡 ACCESSORIES (STRONGLY RECOMMENDED): 1-2 items (watch, bag, belt, jewelry, sunglasses)
-5. ⚪ LAYERING (OPTIONAL): 1 jacket/cardigan/coat (weather-dependent - see below)
-
-🚨 CRITICAL: If wardrobe lacks footwear items, return EMPTY array immediately
-🚨 CRITICAL: Each outfit MUST have upperwear + lowerwear + footwear at minimum
-
-LAYERING LOGIC (Weather-Based):
-- Temperature < 15°C → Include warm layers (jackets, coats)
-- Temperature 15-25°C → Optional light layers (cardigans, blazers)
-- Temperature > 25°C → NO heavy layers, breathable fabrics only
-- Layering = jacket OVER a top (only valid way to have 2 upperwear items)
-
-FASHION QUALITY STANDARDS:
-✓ Color coordination (complementary/analogous/monochromatic)
-✓ Fabric compatibility (no casual + formal mix)
-✓ Pattern balance (max 1-2 patterns per outfit)
-✓ Occasion appropriateness (STRICT - see rules above)
-✓ Seasonal suitability
-✓ Complete look (not missing essential pieces)
-
-VARIETY REQUIREMENTS:
-✓ Each outfit VISUALLY DISTINCT from others
-✓ Vary color palettes across outfits
-✓ Don't reuse same items across multiple outfits
-✓ Explore different silhouettes
-✓ Mix accessories to create different vibes
-
-REJECTION CRITERIA (❌ NEVER create outfits that):
-- Missing footwear (CRITICAL - always required)
-- Missing upperwear or lowerwear
-- Violate occasion dress code rules above
-- Clash in color or style
-- Are inappropriate for the occasion/weather
-- Repeat too many items from previous outfits
-- Have 2+ tops (without proper layering)
-- Have 2+ bottoms (NEVER acceptable)
-- Have heavy layers in warm weather
-- Lack warmth in cold weather
-
-═══════════════════════════════════════════════════════════════════
-
-🔴 MANDATORY OUTPUT FORMAT 🔴
-
-YOU MUST USE THE generate_outfit_combinations FUNCTION.
-
-Use the function with this exact structure:
-{
-  "outfits": [
-    {
-      "pieces": [
-        { "wardrobeItemId": "<item-id>", "category": "<category>", "role": "<main|layer|accent>" }
-      ],
-      "reasoning": "<1-2 sentences explaining why this outfit works>",
-      "styleTag": "<style descriptor>"
-    }
-  ],
-  "totalGenerated": <number of outfits>
-}
-
-CRITICAL: Call generate_outfit_combinations function NOW. Do not write text. Use function calling.`;
+STRICT RULES:
+1. Each outfit must have AT MINIMUM: 1 top, 1 bottom, 1 shoe
+2. Optional: Add layers/jackets and accessories when appropriate
+3. Return ONLY item IDs (integers) in the response
+4. Ensure color harmony and style cohesion
+5. Consider weather if provided
+6. NO duplicate outfits
+7. Each outfit should feel distinct and purposeful`;
   },
 
   GENERATE_FLATLAY: (outfitItems: any[], occasion?: string, styleTag?: string) =>
@@ -583,32 +263,16 @@ ${outfitItems.map((item, i) => `${i + 1}. ${item.name} (${item.category}, ${item
 ${occasion ? `OCCASION: ${occasion}` : ''}
 ${styleTag ? `STYLE: ${styleTag}` : ''}
 
-**LAYOUT & ARRANGEMENT:**
+REQUIREMENTS:
+- Professional flat-lay photography composition
 - Pure white background (#FFFFFF)
-- Flat-lay composition (top-down view)
-- Layering order (bottom to top):
-  1. Bottoms (jeans, skirts, pants) - at bottom
-  2. Tops (shirts, blouses) - above bottoms
-  3. Layers (jackets, cardigans) - over tops if present
-  4. Shoes - at very bottom or sides
-  5. Accessories - around main garments
-
-**SPACING & COMPOSITION:**
-- Items overlap slightly to show layering
-- Subtle spacing between items for clarity
-- Center the composition
-- Items fill 75-85% of canvas
-
-**LIGHTING & QUALITY:**
-- Even, soft lighting with no harsh shadows
-- Colors accurate to hex codes
-- High resolution, sharp details
-- Professional e-commerce quality
-
-**STYLE CONSISTENCY:**
-- All items appear part of a cohesive outfit
-- Consistent scale/perspective
-- Show fabric textures clearly`
+- Items arranged aesthetically in a top-down view
+- Natural lighting with soft shadows
+- High-quality fashion editorial style
+- Items properly spaced (not overlapping)
+- Realistic fabric textures and draping
+- Sharp focus, high resolution
+- Each item clearly visible and identifiable`
 };
 
 // ============================================
@@ -671,26 +335,12 @@ ${currentOutfit.map((item: any) => `- ${item.name} (${item.category}, ${item.col
 **AVAILABLE WARDROBE ITEMS:**
 ${availableItems.map((item: any) => `ID:${item.id} | ${item.name} (${item.category}, ${item.color}, ${item.fabric || 'N/A'})`).join('\n')}
 
-**RECOMMENDATION PRIORITIES (in order):**
-1. **Missing categories**: If no shoes, recommend shoes
-2. **Color compatibility**: Choose complementary or analogous colors based on user's skin tone
-3. **Style consistency**: Match the occasion and style tag (also include occasion)
-4. **Fabric compatibility**: Don't mix overly casual with formal
-
-**RULES:**
-- Select outfits based on the occasion - outfits must be appropriate and suitable for the specific occasion
-- **DO NOT** recommend items already in the current outfit
-- Recommend items that fill gaps in the outfit
-- Prioritize items that enhance the overall look
-- Consider the occasion and style when recommending
-- **NO SAME OUTFIT FOR MULTIPLE OCCASIONS** - Each occasion must have a distinct outfit combination
-- Track previous outfits to avoid duplicates across occasions
-- Return item IDs in order of best to worst fit (max 20 items)
-
-**WARDROBE GAP HANDLING:**
-If the user's wardrobe does not have appropriate items for the occasion:
-- Provide a friendly message: "Looks like your wardrobe needs some pieces for [occasion]. Time to shop and add items that fit this occasion!"
-- Still recommend the best available items, but acknowledge the limitation
+**TASK:**
+Recommend items that would enhance this outfit. Prioritize:
+1. Items that fill gaps (e.g., if missing accessories, recommend accessories)
+2. Items that match the occasion and style
+3. Color/pattern harmony
+4. Seasonal appropriateness
 
 Return item IDs with reasoning for each recommendation.`,
 
@@ -741,118 +391,34 @@ STYLING REQUIREMENTS:
 
 export const SCORING_PROMPTS = {
   SCORE_OUTFIT: (occasion?: string) =>
-    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''}.
+    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''} and provide:
 
-**CRITICAL REASONING PROCESS:**
-1. Evaluate how well UPPER WEAR (tops, shirts, blouses, jackets) and LOWER WEAR (pants, skirts, shorts, jeans) fit and complement each other
-2. Assess color coordination between upper and lower pieces
-3. Evaluate fit — how pieces fit individually and balance proportionally
-4. Assess fabric/texture compatibility between upper and lower wear
-5. Evaluate styling features: accessories, layering, proportions, styling techniques (tucking, rolling, cuffing)
-6. Evaluate overall styling quality — attention to detail, intentionality, polish
-7. Use Gemini's reasoning to identify strengths and weaknesses
-8. Give individual scores (if multiple outfits, highest score wins)
-
-**PROVIDE THE FOLLOWING:**
-
-1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality
-
-2. **SCORES** (scale 1.0-5.0) — Use Gemini reasoning:
-   - **Upper/Lower Complement**: How well they fit and complement each other (CRITICAL DIMENSION)
-   - **Color Harmony**: How well colors work together between pieces
-   - **Fit**: How pieces fit individually and balance proportionally
-   - **Texture/Fabric Mix**: How fabrics/textures complement between upper and lower wear
-   - **Styling Quality**: Overall styling (accessories, layering, proportions, attention to detail, polish) (CRITICAL DIMENSION)
-   - **Overall Score**: Calculated from above dimensions (if multiple outfits, highest wins)
-
-3. **WHAT WORKS** (2-3 short observations, max 12-15 words each):
-   - How well upper and lower wear complement each other
-   - Color combinations that are harmonious
-   - Style elements that are well-executed
-   - Styling features that enhance the look
-
-4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
-   - Issues with upper/lower wear complement
-   - Areas where outfit falls short
-   - Styling issues (missing accessories, poor layering, proportion problems, lack of polish)
-   - No soft language — be specific and analytical
-
-5. **QUICK FIXES** (4-6 specific, actionable fixes):
-   Each must:
-   - Start with strong action verb (Try, Swap, Add, Remove, Replace, Match)
-   - Reference SPECIFIC items or actions
-   - Include WHY it helps ("better contrast", "balances silhouette", "improves proportions", "adds polish")
+1. A creative outfit name (2-4 words)
+2. Scores across these dimensions (scale 1.0-5.0): Color Harmony, Fit, Texture/Fabric Mix, Style/Occasion Match
+3. Overall average score
+4. What Works: 2-3 short, factual observations (max 12-15 words each) on what's strong about the outfit.
+5. What Doesn't Work: 2-3 short, direct critiques (max 12-15 words each). No soft language - be specific.
+6. Quick Fixes (Practical & Actionable): 4-6 specific, actionable fixes that improve the look. Each suggestion must:
+   - Start with a strong action verb (Try, Swap, Add, Remove, Replace, Match)
+   - Reference SPECIFIC items or actions ("Try swapping black pants for beige chinos")
+   - Include WHY it helps ("better contrast for your tone", "balances the silhouette")
    - Be achievable in under 1 minute
-   - Address upper/lower wear compatibility AND styling improvements
    
-   **🛍️ Optional Smart Shopping Add-on:**
-   - If a fix could be improved by shopping, add an optional tip:
-     **"Consider purchasing [ITEM TYPE] to enhance [REASON]."**
-   - Keep suggestions realistic and accessible (e.g., "neutral loafers," "structured blazer," "sleek crossbody bag")
-   - Prioritize wardrobe items first, then offer shopping suggestions as optional enhancements
+   EXAMPLES OF GOOD QUICK FIXES:
+   ✓ "Swap the black pants for your beige chinos — better contrast for your skin tone"
+   ✓ "Add your brown leather belt to define the waist and tie the look together"
+   ✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished"
+   ✓ "Try rolling sleeves to mid-forearm — shows intentionality and balances proportions"
+   
+   AVOID VAGUE FIXES LIKE:
+   ✗ "Improve color balance"
+   ✗ "Fix the fit"
+   ✗ "Add accessories"
 
-**EXAMPLES OF GOOD QUICK FIXES:**
-✓ "Swap the black pants for your beige chinos — better contrast with the upper wear and improves overall complement"
-✓ "Add your brown leather belt to define the waist and tie the upper and lower pieces together — elevates the styling"
-✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished, and better complements the upper/lower wear balance"
-✓ "Try rolling sleeves to mid-forearm — shows intentionality, balances proportions, and adds styling detail"
-✓ "Add a statement watch or bracelet — enhances the styling quality and completes the look"
-
-**AVOID VAGUE FIXES LIKE:**
-✗ "Improve color balance"
-✗ "Fix the fit"
-✗ "Add accessories"
-
-**IF MULTIPLE OUTFITS:**
-- Calculate individual overall scores
-- The outfit with MAXIMUM overall score is the winner
-- Clearly identify winner based on highest score
-
-Keep language under 15 words per point. Be specific, direct, professional, and actionable.`,
+Keep language direct, professional, and actionable. Under 15 words per point.`,
 
   SCORE_BATTLE: (participantCount: number) =>
-    `Score ${participantCount} outfits competitively in a battle format.
-
-**CRITICAL REASONING PROCESS:**
-1. Analyze each outfit's suitability for the occasion or how well it's styled
-2. Prioritize the person/image with better image quality
-3. If a person has only upper or lower wear, prioritize person with BOTH upper and lower wear
-4. Evaluate color coordination, style consistency, and overall fashion quality
-5. Compare each outfit against others to determine clear winner (compare bottom and upper wear too)
-6. How well the outfit color complements the person's skin tone and body type
-7. Base ALL responses (scores, ranks, roasts, verdict) on analysis, with winner's outfit being superior
-
-**FOR EACH PARTICIPANT, PROVIDE:**
-
-1. **PERSONA NAME** (2-3 words, competitive):
-   Examples: "Style Maverick", "Denim Destroyer", "Monochrome Master"
-
-2. **SCORE** (1.0-5.0):
-   - Use Gemini's reasoning
-   - Score based on occasion appropriateness
-   - Differentiate scores clearly — winner should score significantly higher
-   - Be honest but make winner stand out
-
-3. **RANK** (1 = best/winner, 2 = second, etc.):
-   - Rank based on occasion suitability and overall style quality
-   - Winner should rank #1 with clear reasoning
-
-4. **ROAST/BANTER**:
-   - Playful, competitive roasts
-   - Compare each outfit to winner's outfit
-   - Highlight why winner is superior
-   - Mention specific style elements
-   - Be cheeky but not mean-spirited
-   - **All roasts should acknowledge winner's dominance** — even when roasting winner, frame as playful acknowledgment
-
-5. **WINNER VERDICT**:
-   - Celebratory sentence explaining why #1 dominated
-   - How it best suited according to the user's skintone and body type
-   - Specific style elements that made it unbeatable
-
-**Important**: All answers must lean towards and celebrate winner's outfit. Winner should be clearly best choice for the occasion. Use Gemini's analytical reasoning to justify why winning outfit is superior.
-
-**Output**: Return ONLY valid JSON format.`
+    `Score ${participantCount} outfits competitively. For each: persona name (2-3 words), score (1.0-5.0), rank, and a fun roast (~30 words) comparing them to others. Add a winner_verdict celebrating the top outfit. Be witty and reference specific style elements.`
 };
 
 // ============================================

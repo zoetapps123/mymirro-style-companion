@@ -8,7 +8,6 @@ import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { ItemClassificationDialog } from "./ItemClassificationDialog";
 // Image processing functions imported dynamically when needed
 
 interface WardrobeItem {
@@ -31,7 +30,6 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [progress, setProgress] = useState(0);
-  const [uncertainItem, setUncertainItem] = useState<{ preview: string; item: any; index: number } | null>(null);
 
   useEffect(() => {
     fetchWardrobeItems();
@@ -130,41 +128,36 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           return;
         }
 
+        if (!data?.compositeImageUrl) {
+          toast({
+            title: "Processing incomplete",
+            description: "Failed to process composite image. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          setProgress(0);
+          return;
+        }
+
         let addedCount = 0;
         let skippedCount = 0;
         setProgress(70);
 
-        console.log('Processing items with AI-generated images');
+        // Import image processing functions
+        const { advancedSmartCrop, trimImageBorders } = await import('@/lib/imageProcessing');
 
-        // Process each item - they already have processedImageUrl from backend
+        // Upload and save all detected items with duplicate checking
         for (let idx = 0; idx < itemsDetected.length; idx++) {
           const item = itemsDetected[idx];
 
-          // Enhanced deduplication - check for ≥90% similarity
-          const isDuplicate = existingItems?.some(existing => {
-            const categoryMatch = existing.category?.toLowerCase() === item.category?.toLowerCase();
-            const nameMatch = existing.name?.toLowerCase() === item.name?.toLowerCase();
-            const colorMatch = existing.color?.toLowerCase() === item.color?.toLowerCase();
-            
-            // Calculate similarity score
-            let similarityScore = 0;
-            if (categoryMatch) similarityScore += 0.4;
-            if (colorMatch) similarityScore += 0.3;
-            if (nameMatch) similarityScore += 0.3;
-            
-            // Also check for partial name matches
-            const existingNameWords = existing.name?.toLowerCase().split(' ') || [];
-            const itemNameWords = item.name?.toLowerCase().split(' ') || [];
-            const commonWords = existingNameWords.filter(w => itemNameWords.includes(w)).length;
-            const maxWords = Math.max(existingNameWords.length, itemNameWords.length);
-            const nameOverlap = maxWords > 0 ? commonWords / maxWords : 0;
-            
-            if (categoryMatch && colorMatch && nameOverlap > 0.5) {
-              similarityScore = 0.9; // High similarity if category, color match and significant name overlap
-            }
-            
-            return similarityScore >= 0.9;
-          });
+          // Check for duplicates
+          const isDuplicate = existingItems?.some(existing => 
+            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+             (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
+              Math.abs(existing.name?.length - item.name?.length) < 5))
+          );
 
           if (isDuplicate) {
             console.log(`Skipping duplicate item: ${item.name}`);
@@ -172,11 +165,30 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             continue;
           }
 
-          // Use the processedImageUrl from backend (already generated and uploaded)
-          if (!item.processedImageUrl) {
-            console.warn(`Item ${idx} missing processedImageUrl`);
+          // Smart crop this specific item
+          const croppedBlob = await advancedSmartCrop(
+            data.compositeImageUrl,
+            idx,
+            itemsDetected.length
+          );
+          
+          // Apply border trimming
+          const finalBlob = await trimImageBorders(croppedBlob);
+
+          // Upload final image
+          const fileName = `${user.id}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, finalBlob);
+
+          if (uploadError) {
+            console.error('Upload error for item:', item.name, uploadError);
             continue;
           }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(fileName);
 
           const { error: dbError } = await supabase
             .from('wardrobe_items')
@@ -189,8 +201,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
               texture: item.texture,
               pattern: item.pattern,
               style_notes: item.style_notes,
-              image_url: item.processedImageUrl,
-              processed_image_url: item.processedImageUrl,
+              image_url: publicUrl,
+              processed_image_url: publicUrl,
             });
 
           if (dbError) {
@@ -241,22 +253,6 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
   return (
     <div className="flex flex-col h-full p-4 space-y-4 relative">
-      {/* Classification Dialog */}
-      <ItemClassificationDialog
-        open={!!uncertainItem}
-        onClose={() => setUncertainItem(null)}
-        onSelect={(category) => {
-          if (uncertainItem) {
-            // Update the item category and continue processing
-            const updatedItem = { ...uncertainItem.item, category };
-            // Process with corrected category
-            console.log('User corrected category to:', category);
-          }
-          setUncertainItem(null);
-        }}
-        itemPreview={uncertainItem?.preview}
-      />
-
       {/* Processing Overlay */}
       {loading && (
         <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center">
