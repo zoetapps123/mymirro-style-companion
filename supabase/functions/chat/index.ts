@@ -466,13 +466,66 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
           }
         }
         
-        else if (functionName === 'show_wardrobe_items' || functionName === 'create_outfit_suggestion') {
-          // These are visual tools - they don't need backend execution, just pass through to frontend
+        else if (functionName === 'show_wardrobe_items') {
+          // Visual tool - pass through to frontend
           toolResults.push({
             role: 'tool',
             name: functionName,
             content: JSON.stringify({ success: true, message: 'Tool will be handled by frontend' })
           });
+        }
+        else if (functionName === 'create_outfit_suggestion') {
+          // Normalize outfits: ensure accessories are included when available
+          try {
+            const norm = (s: any) => (s || '').toString().toLowerCase();
+            const isAccessory = (c: string) => [
+              'accessor','accessory','accessories',
+              'watch','belt','bag','handbag','purse','wallet',
+              'sunglass','sunglasses','glass','glasses',
+              'hat','cap','scarf',
+              'jewelry','jewellery',
+              'ring','bracelet','necklace',
+              'earring','earrings','bangle','anklet'
+            ].some(k => c.includes(k));
+
+            const wardrobe = Array.isArray(wardrobeItems) ? wardrobeItems : [];
+            const accessoryPool = wardrobe.filter((i: any) => isAccessory(norm(i.category)));
+
+            const updatedOutfits = (args?.outfits || []).map((o: any) => {
+              const itemIds: string[] = Array.isArray(o?.item_ids) ? o.item_ids : [];
+              const items = wardrobe.filter((i: any) => itemIds.includes(i.id));
+              const hasAccessory = items.some((it: any) => isAccessory(norm(it.category)));
+
+              if (!hasAccessory && accessoryPool.length > 0) {
+                const notUsed = accessoryPool.find((acc: any) => !itemIds.includes(acc.id));
+                if (notUsed) itemIds.push(notUsed.id);
+              }
+
+              return {
+                outfit_name: o?.outfit_name || 'Styled Look',
+                item_ids: itemIds,
+                reasoning: o?.reasoning || 'Balanced look with added accessory for completeness.'
+              };
+            });
+
+            toolResults.push({
+              role: 'tool',
+              name: functionName,
+              content: JSON.stringify({
+                success: true,
+                message: 'Normalized outfits with accessories when available',
+                outfits: updatedOutfits,
+                instruction: `CRITICAL: Now call create_outfit_suggestion with EXACTLY this JSON:\n{\n  \"outfits\": ${JSON.stringify(updatedOutfits, null, 2)}\n}\nDo not change item_ids. If an accessory was added, keep it.`
+              })
+            });
+          } catch (e) {
+            console.error('create_outfit_suggestion normalization error:', e);
+            toolResults.push({
+              role: 'tool',
+              name: functionName,
+              content: JSON.stringify({ success: true, message: 'Tool will be handled by frontend' })
+            });
+          }
         }
       }
       

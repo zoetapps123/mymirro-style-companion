@@ -330,7 +330,7 @@ OUTFIT GENERATION RULES (when generating outfits in chat):
   * LOWERWEAR: Only 1 bottom/pants/skirt/shorts
   * LAYERS: Only 1 jacket/cardigan/coat/blazer
   * FOOTWEAR: Only 1 pair of shoes
-  * ACCESSORIES: Multiple allowed but keep minimal
+  * ACCESSORIES: Include 1–2 when available. If the wardrobe contains any accessories (category includes "Accessories" or terms like watch, belt, bag/handbag, sunglasses, hat, jewelry), you MUST include at least one accessory. If none exist, it's OK to omit.
 
 **Layering Rules (Weather-Based):**
 - Temperature < 15°C: Include jackets, cardigans, or coats for warmth
