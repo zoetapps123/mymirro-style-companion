@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { orderOutfitForDisplay } from "@/lib/utils";
 
 interface WardrobeItem {
   id: string;
@@ -125,7 +126,7 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
         {/* Large Template Preview */}
         <div className="bg-white rounded-2xl p-6 shadow-lg">
           <div className="grid grid-cols-2 gap-4">
-            {selectedItems.slice(0, 4).map((item, idx) => (
+            {orderOutfitForDisplay(selectedItems).map((item, idx) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, scale: 0.9 }}

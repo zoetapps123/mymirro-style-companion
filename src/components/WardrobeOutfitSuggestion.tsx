@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { useOutfits } from '@/hooks/useOutfits';
 import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
+import { orderOutfitForDisplay } from '@/lib/utils';
 
 interface WardrobeItem {
   id: string;
@@ -302,7 +303,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           anchorItem: anchorItem,
           wardrobeItems,
           maxOutfits: 5,
-          userLocation
+          userLocation,
+          bypassCache: true
         },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
@@ -552,7 +554,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               <div className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative aspect-square bg-white p-4 flex items-center justify-center">
                   <div className="grid grid-cols-2 gap-2 w-full h-full max-h-[240px]">
-                    {outfit.items.slice(0, 4).map((item, i) => (
+                    {orderOutfitForDisplay(outfit.items).map((item, i) => (
                       <div key={i} className="flex items-center justify-center bg-white overflow-hidden">
                         <img
                           src={item.processed_image_url || item.image_url}

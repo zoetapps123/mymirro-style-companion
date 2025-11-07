@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { orderOutfitForDisplay } from "@/lib/utils";
 
 interface WardrobeItem {
   id: string;
@@ -71,7 +72,7 @@ export const OutfitMockups = ({ items }: OutfitMockupsProps) => {
           >
             <Card className="flex-shrink-0 w-48 p-3 bg-white shadow-md hover:shadow-lg transition-shadow">
               <div className="grid grid-cols-2 gap-2">
-                {outfit.slice(0, 4).map((item, itemIdx) => (
+                {orderOutfitForDisplay(outfit).map((item, itemIdx) => (
                   <div 
                     key={item.id} 
                     className="aspect-square bg-gray-50 rounded-lg flex items-center justify-center p-1 transform hover:scale-105 transition-transform"

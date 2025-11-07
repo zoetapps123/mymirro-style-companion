@@ -12,6 +12,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import OutfitDetailEditor from "./OutfitDetailEditor";
+import { orderOutfitForDisplay } from "@/lib/utils";
 
 interface WardrobeItem {
   id: string;
@@ -113,7 +114,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     >
       <h4 className="text-base font-semibold text-center mb-3 text-black">{outfit.label}</h4>
       <div className="grid grid-cols-2 gap-2">
-        {outfit.items.slice(0, 4).map((item, idx) => (
+        {orderOutfitForDisplay(outfit.items).map((item, idx) => (
           <div key={idx} className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
             <img
               src={item.processed_image_url}

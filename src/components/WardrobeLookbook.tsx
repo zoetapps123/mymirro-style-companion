@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Heart, Shirt, Calendar, Sparkles, Filter, DoorOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { orderOutfitForDisplay } from '@/lib/utils';
 
 interface WardrobeItem {
   id: string;
@@ -230,7 +231,7 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                       </div>
                     ) : (
                       <div className="aspect-square bg-white p-3 grid grid-cols-2 gap-2 relative">
-                        {(outfit.items || []).slice(0, 4).map((item, i) => (
+                        {orderOutfitForDisplay(outfit.items || []).map((item, i) => (
                           <div key={i} className="flex items-center justify-center bg-white">
                             <img
                               src={item.processed_image_url || item.image_url}

@@ -241,7 +241,15 @@ serve(async (req) => {
       const isBottom = (c: string) => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => c.includes(k));
       const isShoe = (c: string) => ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k));
       const isLayer = (c: string) => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
-      const isAccessory = (c: string) => ['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k));
+      const isAccessory = (c: string) => [
+        'accessor','accessory','accessories',
+        'watch','belt','bag','handbag','purse','wallet',
+        'sunglass','sunglasses','glass','glasses',
+        'hat','cap','scarf',
+        'jewelry','jewellery',
+        'ring','bracelet','necklace',
+        'earring','earrings','bangle','anklet'
+      ].some(k => c.includes(k));
 
       const tops = (wardrobeItems || []).filter((i: any) => isTop(norm(i.category)));
       const bottoms = (wardrobeItems || []).filter((i: any) => isBottom(norm(i.category)));

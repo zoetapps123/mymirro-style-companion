@@ -515,7 +515,15 @@ export const OUTFIT_GENERATION_PROMPTS = {
     });
     const accessories = wardrobeItems.filter(i => {
       const c = norm(i.category);
-      return ['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k));
+      return [
+        'accessor','accessory','accessories',
+        'watch','belt','bag','handbag','purse','wallet',
+        'sunglass','sunglasses','glass','glasses',
+        'hat','cap','scarf',
+        'jewelry','jewellery',
+        'ring','bracelet','necklace',
+        'earring','earrings','bangle','anklet'
+      ].some(k => c.includes(k));
     });
     const layers = wardrobeItems.filter(i => {
       const c = norm(i.category);
