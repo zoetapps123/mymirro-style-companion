@@ -128,9 +128,14 @@ serve(async (req) => {
       /what should i (shop|buy|get|add|purchase)/i.test(lastUserText) ||
       /recommend.*to buy/i.test(lastUserText) ||
       /suggest.*to shop/i.test(lastUserText) ||
+      /do i (need|have) (to )?(shop|buy|get|add|purchase) more/i.test(lastUserText) ||
+      /should i .*shop more/i.test(lastUserText) ||
+      lastUserText.includes('shop more') ||
+      lastUserText.includes('buy more') ||
+      lastUserText.includes('need more clothes') ||
+      lastUserText.includes('need more outfits') ||
       (lastUserText.includes('shop') && !lastUserText.includes('outfit')) ||
       (lastUserText.includes('buy') && !lastUserText.includes('wear'));
-    
     // 3. ANCHOR ITEM QUERIES (what to wear with specific item)
     const anchorItemQuery =
       /what (should|can|do) (i|we) wear with (my|the|this)/i.test(lastUserText) ||
@@ -495,6 +500,58 @@ serve(async (req) => {
           console.error('Chat: outfit generation exception', e);
         }
       }
+    }
+
+    // Fallback: If user mentions wardrobe/closet but no intent matched, provide a quick wardrobe snapshot without creating outfits
+    else if ((lastUserText.includes('wardrobe') || lastUserText.includes('closet'))) {
+      let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
+      if (!items || items.length === 0) {
+        try {
+          const { data } = await supabase
+            .from('wardrobe_items')
+            .select('id, name, category')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(200);
+          items = data || [];
+        } catch (e) {
+          console.error('Chat: fallback wardrobe fetch failed', e);
+        }
+      }
+
+      const norm = (s: any) => (s || '').toString().toLowerCase();
+      const metrics = (items || []).reduce((acc: any, it: any) => {
+        const c = norm(it.category);
+        if (['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k))) acc.tops++;
+        else if (['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k))) acc.bottoms++;
+        else if (['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k))) acc.shoes++;
+        else if (['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k))) acc.layers++;
+        else if (['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k))) acc.accessories++;
+        else acc.other++;
+        return acc;
+      }, { tops:0, bottoms:0, shoes:0, layers:0, accessories:0, other:0 });
+
+      const summary = `Wardrobe snapshot: Tops ${metrics.tops}, Bottoms ${metrics.bottoms}, Shoes ${metrics.shoes}, Layers ${metrics.layers}, Accessories ${metrics.accessories}.`;
+
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          const textChunk = { choices: [{ delta: { content: `${summary} Ask me if you want shopping advice or a specific outfit.` } }] };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        },
+      });
     }
 
     // Define tools based on intent - only allow outfit creation for outfit-related queries
