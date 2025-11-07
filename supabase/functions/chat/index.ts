@@ -118,20 +118,28 @@ serve(async (req) => {
           name: "generate_outfits",
           description: `Generate complete outfit suggestions from user's wardrobe. 
 
-WHEN TO USE (call IMMEDIATELY when user says any of these):
-- "what should I wear for [occasion]"
-- "outfit for [occasion]" 
-- "[occasion] outfit"
-- "what can I wear to [event]"
-- "suggest outfits"
-- "what outfits can I create"
+WHEN TO USE - TWO SCENARIOS:
 
-CRITICAL: Call this tool INSTANTLY - do NOT send confirmation text first like "I'll generate outfits" or "Let me create suggestions". Just call the tool immediately.
+A) USER SPECIFIES OCCASION → Call immediately:
+   - "what should I wear for [occasion]"
+   - "outfit for [occasion]" 
+   - "[occasion] outfit"
+   - "what can I wear to [event]"
+   Examples:
+   - "date night" → Call instantly
+   - "what should I wear casually" → Call instantly
+   - "outfit for work" → Call instantly
 
-Examples:
-- User says "date night" → INSTANTLY call generate_outfits(occasion: "date night")
-- User says "what should I wear casually" → INSTANTLY call generate_outfits(occasion: "casual")
-- User says "outfit for work" → INSTANTLY call generate_outfits(occasion: "work")`,
+B) USER DOESN'T SPECIFY OCCASION → DO NOT CALL, ask for occasion first:
+   - "what outfits can I create"
+   - "what can I wear"
+   - "suggest outfits"
+   - "show me outfit ideas"
+   Examples:
+   - "what outfits can I create with what I have?" → Ask: "What occasion are you dressing for?"
+   - "suggest some outfits" → Ask: "Sure! What's the occasion?"
+   
+After they specify occasion, THEN call this tool immediately.`,
           parameters: {
             type: "object",
             properties: {
