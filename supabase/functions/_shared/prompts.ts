@@ -589,7 +589,9 @@ MANDATORY OUTFIT STRUCTURE (EVERY OUTFIT MUST HAVE):
 1. 🔴 UPPERWEAR (REQUIRED): Exactly 1 top/shirt/blouse/tshirt
 2. 🔴 LOWERWEAR (REQUIRED): Exactly 1 bottom/pants/skirt/shorts  
 3. 🔴 FOOTWEAR (REQUIRED): Exactly 1 pair of shoes/sneakers/boots
-4. 🟡 ACCESSORIES (STRONGLY RECOMMENDED): 1-2 items (watch, bag, belt, jewelry, sunglasses)
+4. 🔴 ACCESSORIES (REQUIRED): 1-2 items (watch, bag, belt, jewelry, sunglasses, hat)
+   - CRITICAL: If accessories available in wardrobe, MUST include at least 1
+   - If NO accessories in wardrobe, outfit is still valid without them
 5. ⚪ LAYERING (OPTIONAL): 1 jacket/cardigan/coat (weather-dependent - see below)
 
 🚨 CRITICAL: If wardrobe lacks footwear items, return EMPTY array immediately
@@ -619,6 +621,7 @@ VARIETY REQUIREMENTS:
 REJECTION CRITERIA (❌ NEVER create outfits that):
 - Missing footwear (CRITICAL - always required)
 - Missing upperwear or lowerwear
+- Missing accessories when available in wardrobe (should include at least 1)
 - Violate occasion dress code rules above
 - Clash in color or style
 - Are inappropriate for the occasion/weather
@@ -723,7 +726,8 @@ CREATE TWO OUTFIT COLLECTIONS:
 
 RULES:
 - Each outfit MUST include MINIMUM 3 items: 1 top + 1 bottom + 1 shoes (REQUIRED)
-- Optionally add: accessories and/or layers when appropriate
+- MUST add 1-2 accessories when available in wardrobe (watches, bags, jewelry, etc.)
+- Optionally add: layers when weather-appropriate
 - Return ONLY item IDs (integers) - NO item names
 - Ensure strong color harmony
 - Each outfit should feel distinct and purposeful
