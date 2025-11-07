@@ -163,11 +163,13 @@ serve(async (req) => {
     // Fast-path: handle outfit creation and wardrobe queries deterministically
     const lastUserText = (messages?.[messages.length - 1]?.content || '').toLowerCase();
     
-    // Check for outfit creation requests
-    const outfitQuery = 
-      (lastUserText.includes('create') || lastUserText.includes('generate') || lastUserText.includes('make') || lastUserText.includes('suggest')) && 
-      (lastUserText.includes('outfit') || lastUserText.includes('look'));
-    
+    // Check for outfit creation requests (broader detection)
+    const verbKeywords = ['create','generate','make','suggest','recommend','give','show','plan','build','pick'];
+    const outfitKeywords = ['outfit','outfits','look','looks','fit','fits','wear','what should i wear','style me','dress me'];
+    const occasionKeywords = ['wedding','date','party','business','formal','interview','office','work','workout','gym','beach','vacation','travel','holiday','dinner','brunch','festival'];
+    const outfitQuery =
+      (outfitKeywords.some(k => lastUserText.includes(k)) || occasionKeywords.some(k => lastUserText.includes(k))) &&
+      (verbKeywords.some(k => lastUserText.includes(k)) || outfitKeywords.some(k => lastUserText.includes(k)));
     if (outfitQuery) {
       let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
       if (!items || items.length === 0) {
@@ -189,11 +191,21 @@ serve(async (req) => {
         // Extract occasion/style from message if present
         let occasion = 'casual';
         let style = 'comfortable';
-        if (lastUserText.includes('formal')) occasion = 'formal';
-        if (lastUserText.includes('business')) occasion = 'business';
+        if (lastUserText.includes('wedding')) { occasion = 'wedding'; style = 'elegant'; }
+        if (lastUserText.includes('formal')) { occasion = 'formal'; style = 'elegant'; }
+        if (lastUserText.includes('business') || lastUserText.includes('office') || lastUserText.includes('work')) occasion = 'business';
+        if (lastUserText.includes('interview')) occasion = 'interview';
         if (lastUserText.includes('date')) occasion = 'date';
-        if (lastUserText.includes('party')) occasion = 'party';
-        if (lastUserText.includes('workout')) occasion = 'workout';
+        if (lastUserText.includes('party') || lastUserText.includes('festival')) occasion = 'party';
+        if (lastUserText.includes('workout') || lastUserText.includes('gym')) occasion = 'workout';
+        if (lastUserText.includes('beach')) occasion = 'beach';
+        if (lastUserText.includes('vacation') || lastUserText.includes('travel') || lastUserText.includes('holiday')) occasion = 'vacation';
+        if (lastUserText.includes('dinner') || lastUserText.includes('brunch')) occasion = lastUserText.includes('dinner') ? 'dinner' : 'brunch';
+        if (lastUserText.includes('casual')) style = 'casual';
+        if (lastUserText.includes('smart') && lastUserText.includes('casual')) style = 'smart casual';
+        if (lastUserText.includes('street')) style = 'streetwear';
+        if (lastUserText.includes('elegant')) style = 'elegant';
+        if (lastUserText.includes('sporty')) style = 'sporty';
         
         // Call generate-outfit function
         try {
