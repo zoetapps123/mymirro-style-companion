@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { LoadingTile } from "@/components/ui/loading-tile";
+import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -12,7 +13,7 @@ interface WardrobeMyItemsProps {
 }
 
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
-  const [items, setItems] = useState<any[]>([]);
+  const { items, isLoading, invalidateItems } = useWardrobeItems();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [processingItems, setProcessingItems] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,8 +27,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   ];
 
   useEffect(() => {
-    fetchItems();
-    
     // Check for items being processed from onboarding or other sources
     const checkProcessingCount = () => {
       const stored = localStorage.getItem('wardrobe_processing_count');
@@ -44,48 +43,11 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     // Poll for processing updates
     const pollInterval = setInterval(() => {
       checkProcessingCount();
-      fetchItems();
+      invalidateItems(); // Refetch items if processing count changes
     }, 2000);
     
     return () => clearInterval(pollInterval);
-  }, []);
-
-  const fetchItems = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setItems([]);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("wardrobe_items")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load wardrobe items.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Remove duplicates based on name, category, and color
-    const uniqueItems = data?.reduce((acc: any[], current: any) => {
-      const isDuplicate = acc.some(item => 
-        item.category?.toLowerCase() === current.category?.toLowerCase() &&
-        item.name?.toLowerCase() === current.name?.toLowerCase() &&
-        item.color?.toLowerCase() === current.color?.toLowerCase()
-      );
-      if (!isDuplicate) {
-        acc.push(current);
-      }
-      return acc;
-    }, []);
-
-    setItems(uniqueItems || []);
-  };
+  }, [invalidateItems]);
 
   const handleDelete = async (itemId: string, itemName: string) => {
     try {
@@ -101,7 +63,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         description: `${itemName} has been removed from your wardrobe.`,
       });
 
-      fetchItems();
+      invalidateItems(); // Refresh cache after deletion
     } catch (error: any) {
       console.error('Delete error:', error);
       toast({
@@ -261,7 +223,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
       localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
       setProcessingItems(prev => Math.max(0, prev - 1));
-      await fetchItems();
+      invalidateItems(); // Refresh cache after adding items
     }
   };
 
