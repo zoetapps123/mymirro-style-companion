@@ -52,14 +52,17 @@ serve(async (req) => {
     
     if (!bypassCache) {
       const cachedOutfits = await getCachedResult(cacheKey);
-      if (cachedOutfits) {
-        console.log('✅ Cache hit - returning cached outfit combinations');
+      if (cachedOutfits && Array.isArray(cachedOutfits) && cachedOutfits.length > 0) {
+        console.log('✅ Cache hit with valid outfits - returning cached combinations');
         return new Response(
           JSON.stringify({ success: true, outfits: cachedOutfits }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      } else if (cachedOutfits) {
+        console.log('⚠️ Cache hit but empty results - ignoring cache and regenerating');
+      } else {
+        console.log('❌ Cache miss - proceeding with AI generation');
       }
-      console.log('❌ Cache miss - proceeding with AI generation');
     } else {
       console.log('🔄 Cache bypassed - forcing fresh generation');
     }
