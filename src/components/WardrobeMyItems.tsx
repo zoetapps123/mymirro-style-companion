@@ -78,7 +78,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
+    const fileArray = Array.from(files);
+    const totalFiles = fileArray.length;
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -89,33 +90,76 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       const user = session.user;
 
-      // Upload the original image first to get a public URL
-      const ext = file.name.split('.').pop() || 'png';
-      const sourceName = `${user.id}/wardrobe_src_${Date.now()}.${ext}`;
-      const { error: srcUploadError } = await supabase.storage
-        .from('outfits')
-        .upload(sourceName, file);
-      if (srcUploadError) throw srcUploadError;
-      
-      const { data: { publicUrl: sourceUrl } } = supabase.storage
-        .from('outfits')
-        .getPublicUrl(sourceName);
+      toast({
+        title: "Uploading photos",
+        description: `Processing ${totalFiles} photo${totalFiles !== 1 ? 's' : ''}...`,
+      });
 
-      // Show immediate feedback with loading tile
       const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-      localStorage.setItem('wardrobe_processing_count', (currentCount + 1).toString());
-      setProcessingItems(prev => prev + 1);
+      localStorage.setItem('wardrobe_processing_count', (currentCount + totalFiles).toString());
+      setProcessingItems(prev => prev + totalFiles);
 
-      // Process in background (non-blocking)
-      processImageInBackground(sourceUrl, user.id);
+      let successCount = 0;
+      let failCount = 0;
+
+      const uploadPromises = fileArray.map(async (file) => {
+        try {
+          const ext = file.name.split('.').pop() || 'png';
+          const sourceName = `${user.id}/wardrobe_src_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+          
+          const { error: srcUploadError } = await supabase.storage
+            .from('outfits')
+            .upload(sourceName, file);
+            
+          if (srcUploadError) throw srcUploadError;
+          
+          const { data: { publicUrl: sourceUrl } } = supabase.storage
+            .from('outfits')
+            .getPublicUrl(sourceName);
+
+          const success = await processImageInBackground(sourceUrl, user.id);
+          if (success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          console.error('Error uploading file:', file.name, error);
+          failCount++;
+          const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+          localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+          setProcessingItems(prev => Math.max(0, prev - 1));
+        }
+      });
+
+      await Promise.all(uploadPromises);
+
+      if (successCount > 0) {
+        toast({
+          title: "Photos uploaded!",
+          description: `Successfully processing ${successCount} photo${successCount !== 1 ? 's' : ''}${failCount > 0 ? `. ${failCount} failed.` : ''}`,
+        });
+      }
+
+      if (failCount > 0 && successCount === 0) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload photos. Please try again.",
+          variant: "destructive",
+        });
+      }
 
     } catch (error: any) {
       console.error('Error:', error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload image",
+        description: error.message || "Failed to upload images",
         variant: "destructive",
       });
+      
+      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+      localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - totalFiles).toString());
+      setProcessingItems(prev => Math.max(0, prev - totalFiles));
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -124,106 +168,80 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   };
 
   // Background processing function - simplified for Gemini-only pipeline
-  const processImageInBackground = async (sourceUrl: string, userId: string) => {
+  const processImageInBackground = async (sourceUrl: string, userId: string): Promise<boolean> => {
     try {
-      // Fetch existing items for duplicate checking
-      const { data: existingItems } = await supabase
-        .from('wardrobe_items')
-        .select('name, category, color')
-        .eq('user_id', userId);
+      console.log("Starting background processing for:", sourceUrl);
+      
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('process-wardrobe', {
+        body: { imageUrl: sourceUrl }
+      });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Authentication required');
+      if (functionError) {
+        console.error("Function error:", functionError);
+        throw functionError;
       }
 
-      console.log('Calling Gemini-only pipeline...');
-      const { data: processData, error: processError } = await supabase.functions.invoke(
-        'process-wardrobe',
-        { 
-          body: { imageUrl: sourceUrl },
-          headers: { Authorization: `Bearer ${session.access_token}` }
+      if (!functionData?.items || functionData.items.length === 0) {
+        console.log("No items detected in image");
+        return false;
+      }
+
+      const detectedItems = functionData.items;
+      console.log("Detected items:", detectedItems);
+
+      const itemsToInsert = [];
+
+      for (const item of detectedItems) {
+        const { data: existing } = await supabase
+          .from("wardrobe_items")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("category", item.category)
+          .eq("name", item.name)
+          .maybeSingle();
+
+        if (!existing) {
+          const itemData = {
+            user_id: userId,
+            name: item.name,
+            category: item.category,
+            color: item.color || null,
+            fabric: item.fabric || null,
+            texture: item.texture || null,
+            pattern: item.pattern || null,
+            style_notes: item.style_notes || null,
+            image_url: sourceUrl,
+            processed_image_url: item.processed_image_url || null,
+            composite_image_url: item.composite_image_url || null
+          };
+          itemsToInsert.push(itemData);
+        } else {
+          console.log(`Skipping duplicate: ${item.category} - ${item.name}`);
         }
-      );
-
-      if (processError) {
-        console.error("Background process error:", processError);
-        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-        setProcessingItems(prev => Math.max(0, prev - 1));
-        toast({
-          title: "Processing failed",
-          description: processError.message || "Failed to process image",
-          variant: "destructive",
-        });
-        return;
       }
 
-      if (!processData?.items || processData.items.length === 0) {
-        console.log('No items detected');
-        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-        setProcessingItems(prev => Math.max(0, prev - 1));
-        toast({
-          title: "No items found",
-          description: "No clothing items were detected in the image.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (itemsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("wardrobe_items")
+          .insert(itemsToInsert);
 
-      // Items now come with generated images from Gemini
-      let addedCount = 0;
-      for (const item of processData.items) {
-        const isDuplicate = existingItems?.some(existing => 
-          existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-          (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-           item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-           (existing.color?.toLowerCase() === item.color?.toLowerCase()))
-        );
-
-        if (isDuplicate) {
-          console.log(`Skipping duplicate: ${item.name}`);
-          continue;
+        if (insertError) {
+          console.error("Insert error:", insertError);
+          throw insertError;
         }
 
-        // Item already has imageUrl from Gemini generation
-        await supabase.from('wardrobe_items').insert({
-          user_id: userId,
-          name: item.name,
-          category: item.category,
-          color: item.color,
-          fabric: item.fabric,
-          texture: item.texture,
-          pattern: item.pattern,
-          style_notes: item.style_notes,
-          processed_image_url: item.imageUrl,
-          image_url: item.imageUrl,
-        });
-
-        addedCount++;
+        console.log(`Successfully inserted ${itemsToInsert.length} new items`);
       }
 
-      if (addedCount > 0) {
-        toast({
-          title: "Items added!",
-          description: `Added ${addedCount} item${addedCount !== 1 ? 's' : ''} to your wardrobe`,
-        });
-      }
-
-      console.log(`Background processing complete: Added ${addedCount} items to wardrobe`);
+      return true;
     } catch (error) {
       console.error("Background processing failed:", error);
-      toast({
-        title: "Processing failed",
-        description: "An error occurred while processing the image",
-        variant: "destructive",
-      });
+      return false;
     } finally {
       const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
       localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
       setProcessingItems(prev => Math.max(0, prev - 1));
-      invalidateItems(); // Refresh cache after adding items
+      invalidateItems();
     }
   };
 
@@ -362,13 +380,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       </div>
 
       {/* Hidden File Input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleImageUpload}
-        className="hidden"
-      />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageUpload}
+          className="hidden"
+        />
 
       {/* Floating Add Button */}
       <motion.button
