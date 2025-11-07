@@ -115,9 +115,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             
           if (srcUploadError) throw srcUploadError;
           
-          const { data: { publicUrl: sourceUrl } } = supabase.storage
+          const { data } = supabase.storage
             .from('outfits')
             .getPublicUrl(sourceName);
+          
+          const sourceUrl = data.publicUrl;
+          
+          if (!sourceUrl) {
+            console.error('Failed to get public URL for:', sourceName);
+            throw new Error('Failed to get image URL');
+          }
+
+          console.log('Uploading file, sourceUrl:', sourceUrl);
 
           // Process in background (non-blocking) - exactly like onboarding
           processImageInBackground(sourceUrl, user.id);
@@ -147,6 +156,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   // Background processing function - fire and forget like onboarding
   const processImageInBackground = (sourceUrl: string, userId: string) => {
+    if (!sourceUrl) {
+      console.error('No sourceUrl provided to processImageInBackground');
+      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+      localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+      setProcessingItems(prev => Math.max(0, prev - 1));
+      return;
+    }
+
     // Fire the request without awaiting - handle response when it comes back
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session?.access_token) {
@@ -157,7 +174,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         return;
       }
 
-      console.log('Calling Gemini-only pipeline...');
+      console.log('Calling process-wardrobe with imageUrl:', sourceUrl);
       
       // Fetch existing items for duplicate checking
       supabase
@@ -167,6 +184,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         .then(({ data: existingItems }) => {
           
           // Fire and forget - don't await the edge function
+          console.log('Invoking edge function with body:', { imageUrl: sourceUrl });
           supabase.functions.invoke('process-wardrobe', {
             body: { imageUrl: sourceUrl },
             headers: { Authorization: `Bearer ${session.access_token}` }
