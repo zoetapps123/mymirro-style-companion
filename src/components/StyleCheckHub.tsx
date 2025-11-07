@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon } from "lucide-react";
+import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -11,9 +11,10 @@ import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
+  onNavigateToBattle?: (outfitData: any) => void;
 }
 
-const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
+const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) => {
   const { trackClick } = useAnalytics();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -503,6 +504,17 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
     link.click();
   };
 
+  const handleBattleNavigation = () => {
+    if (onNavigateToBattle && result) {
+      onNavigateToBattle({
+        imageData: result.image_url,
+        occasion: selectedOccasion,
+        score: result.overall_score,
+        name: result.outfit_name
+      });
+    }
+  };
+
   const handleShare = async () => {
     if (!result) return;
 
@@ -938,6 +950,26 @@ const StyleCheckHub = ({ onNavigate }: StyleCheckHubProps) => {
               >
                 Check Another Outfit
               </Button>
+
+              {/* Battle Button CTA - appears after style check */}
+              {onNavigateToBattle && (
+                <div className="glass-card rounded-2xl p-4 border-2 border-accent/30 bg-gradient-to-r from-accent/10 to-primary/10">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                        <Swords className="w-6 h-6 text-accent" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-semibold">Ready to compete?</h4>
+                        <p className="text-sm text-muted-foreground">Take it to an Outfit Battle</p>
+                      </div>
+                    </div>
+                    <Button onClick={handleBattleNavigation} size="sm" className="min-h-[40px]">
+                      Battle →
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

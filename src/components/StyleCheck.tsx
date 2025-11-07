@@ -19,7 +19,7 @@ const StyleCheck = () => {
   const renderView = () => {
     switch (currentView) {
       case 'hub':
-        return <StyleCheckHub onNavigate={setCurrentView} />;
+        return <StyleCheckHub onNavigate={setCurrentView} onNavigateToBattle={handleNavigateToBattle} />;
       case 'outfit-check':
         return <OutfitCheck onBack={() => setCurrentView('hub')} onNavigateToBattle={handleNavigateToBattle} />;
       case 'outfit-battle':
