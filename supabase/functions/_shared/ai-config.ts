@@ -1,25 +1,17 @@
 /**
- * Centralized AI API Configuration for Direct Gemini API
+ * Centralized AI API Configuration for Lovable AI Gateway
  */
 
-export const GEMINI_API_KEY_ENV_VAR = 'GEMINI_API_KEY';
-
-// Model mapping from Lovable AI Gateway format to direct Gemini models
-const MODEL_MAPPING: Record<string, string> = {
-  'google/gemini-2.5-pro': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash-image': 'gemini-2.5-flash-image-preview',
-  'google/gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image-preview',
-};
+export const LOVABLE_API_KEY_ENV_VAR = 'LOVABLE_API_KEY';
+const LOVABLE_AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
 /**
- * Get the configured Gemini API key from environment
+ * Get the configured Lovable API key from environment
  */
 export function getAIApiKey(): string {
-  const apiKey = Deno.env.get(GEMINI_API_KEY_ENV_VAR);
+  const apiKey = Deno.env.get(LOVABLE_API_KEY_ENV_VAR);
   if (!apiKey) {
-    throw new Error(`${GEMINI_API_KEY_ENV_VAR} not configured`);
+    throw new Error(`${LOVABLE_API_KEY_ENV_VAR} not configured`);
   }
   return apiKey;
 }
@@ -119,7 +111,7 @@ function convertToolsToFunctionDeclarations(tools: any[]): any[] {
 }
 
 /**
- * Make a streaming request to Gemini API
+ * Make a streaming request to Lovable AI Gateway
  */
 export async function callGeminiAPIStreaming(options: {
   model?: string;
@@ -129,39 +121,30 @@ export async function callGeminiAPIStreaming(options: {
   max_tokens?: number;
 }): Promise<Response> {
   const apiKey = getAIApiKey();
-  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
-  
-  const contents = await convertMessagesToContents(options.messages);
-  const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
+  const model = options.model || 'google/gemini-2.5-flash';
   
   const requestBody: any = {
-    contents,
-    generationConfig: {
-      temperature: options.temperature ?? 0.7,
-      maxOutputTokens: options.max_tokens ?? 2048,
-    }
+    model,
+    messages: options.messages,
+    stream: true,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.max_tokens ?? 2048,
   };
   
-  if (functionDeclarations && functionDeclarations.length > 0) {
-    requestBody.tools = [{
-      function_declarations: functionDeclarations
-    }];
-    
-    // Note: Streaming doesn't support tool_choice enforcement in the same way
-    // as non-streaming, but we include the tools for context
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = options.tools;
   }
   
-  console.log('Gemini API streaming request:', {
+  console.log('Lovable AI Gateway streaming request:', {
     model,
-    contentsLength: contents.length,
-    hasFunctions: !!functionDeclarations?.length
+    messagesLength: options.messages.length,
+    hasTools: !!options.tools?.length
   });
   
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
-  
-  const response = await fetch(endpoint, {
+  const response = await fetch(LOVABLE_AI_GATEWAY, {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody)
@@ -169,22 +152,22 @@ export async function callGeminiAPIStreaming(options: {
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Gemini API error:', response.status, errorText);
+    console.error('Lovable AI Gateway error:', response.status, errorText);
     
     if (response.status === 429) {
       throw new Error('RATE_LIMIT');
     }
-    if (response.status === 402 || response.status === 403) {
+    if (response.status === 402) {
       throw new Error('PAYMENT_REQUIRED');
     }
-    throw new Error(`Gemini API error: ${response.status}`);
+    throw new Error(`Lovable AI Gateway error: ${response.status}`);
   }
   
   return response;
 }
 
 /**
- * Make a request to Gemini API with OpenAI-compatible input
+ * Make a request to Lovable AI Gateway with OpenAI-compatible input
  */
 export async function callGeminiAPI(options: {
   model?: string;
@@ -196,52 +179,37 @@ export async function callGeminiAPI(options: {
   modalities?: string[]; // Support for image generation
 }): Promise<any> {
   const apiKey = getAIApiKey();
-  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
-  
-  const contents = await convertMessagesToContents(options.messages);
-  const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
+  const model = options.model || 'google/gemini-2.5-flash';
   
   const requestBody: any = {
-    contents,
-    generationConfig: {
-      temperature: options.temperature ?? 0.7,
-      maxOutputTokens: options.max_tokens ?? 2048,
-    }
+    model,
+    messages: options.messages,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.max_tokens ?? 2048,
   };
   
-  if (functionDeclarations && functionDeclarations.length > 0) {
-    requestBody.tools = [{
-      function_declarations: functionDeclarations
-    }];
-    
-    // Handle tool_choice to force function calling
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = options.tools;
     if (options.tool_choice) {
-      // Gemini uses toolConfig.functionCallingConfig.mode
-      requestBody.toolConfig = {
-        functionCallingConfig: {
-          mode: 'ANY' // Force the model to use one of the provided functions
-        }
-      };
+      requestBody.tool_choice = options.tool_choice;
     }
   }
   
-  // For image generation models, specify output modality
-  if (options.modalities && options.modalities.includes('image')) {
-    requestBody.generationConfig.responseModalities = ['image', 'text'];
+  if (options.modalities && options.modalities.length > 0) {
+    requestBody.modalities = options.modalities;
   }
   
-  console.log('Gemini API request:', {
+  console.log('Lovable AI Gateway request:', {
     model,
-    contentsLength: contents.length,
-    hasFunctions: !!functionDeclarations?.length,
+    messagesLength: options.messages.length,
+    hasTools: !!options.tools?.length,
     hasModalities: !!options.modalities
   });
   
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  
-  const response = await fetch(endpoint, {
+  const response = await fetch(LOVABLE_AI_GATEWAY, {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody)
@@ -249,79 +217,19 @@ export async function callGeminiAPI(options: {
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Gemini API error:', response.status, errorText);
+    console.error('Lovable AI Gateway error:', response.status, errorText);
     
     if (response.status === 429) {
       throw new Error('RATE_LIMIT');
     }
-    if (response.status === 402 || response.status === 403) {
+    if (response.status === 402) {
       throw new Error('PAYMENT_REQUIRED');
     }
-    throw new Error(`Gemini API error: ${response.status}`);
+    throw new Error(`Lovable AI Gateway error: ${response.status} - ${errorText}`);
   }
   
   const data = await response.json();
   
-  // Convert Gemini response to OpenAI-style format
-  const candidate = data.candidates?.[0];
-  if (!candidate) {
-    throw new Error('No candidates in response');
-  }
-  
-  const content = candidate.content;
-  const parts = content.parts || [];
-  
-  // Check for function calls
-  const functionCall = parts.find((p: any) => p.functionCall);
-  if (functionCall) {
-    return {
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: null,
-          tool_calls: [{
-            type: 'function',
-            function: {
-              name: functionCall.functionCall.name,
-              arguments: JSON.stringify(functionCall.functionCall.args)
-            }
-          }]
-        }
-      }]
-    };
-  }
-  
-  // Check for inline_data / inlineData (generated images)
-  const imagePart = parts.find((p: any) => p.inline_data || p.inlineData);
-  if (imagePart) {
-    const imageData = imagePart.inline_data || imagePart.inlineData;
-    const mimeType = imageData.mime_type || imageData.mimeType || 'image/png';
-    const dataB64 = imageData.data;
-    const base64Image = `data:${mimeType};base64,${dataB64}`;
-    return {
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: parts.find((p: any) => p.text)?.text || 'Image generated',
-          images: [{
-            type: 'image_url',
-            image_url: {
-              url: base64Image
-            }
-          }]
-        }
-      }]
-    };
-  }
-  
-  // Regular text response
-  const textPart = parts.find((p: any) => p.text);
-  return {
-    choices: [{
-      message: {
-        role: 'assistant',
-        content: textPart?.text || ''
-      }
-    }]
-  };
+  // Response is already in OpenAI format
+  return data;
 }
