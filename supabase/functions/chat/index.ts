@@ -275,12 +275,30 @@ serve(async (req) => {
         else if (functionName === 'generate_outfits') {
           // Call generate-outfit edge function
           try {
+            // Fetch wardrobe items if not provided
+            let items = wardrobeItems;
+            if (!items || items.length === 0) {
+              console.log('Chat: fetching wardrobe items for outfit generation');
+              const { data } = await supabase
+                .from('wardrobe_items')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(200);
+              items = data || [];
+              console.log('Chat: fetched wardrobe items', { count: items.length });
+            } else {
+              console.log('Chat: using provided wardrobe items', { count: items.length });
+            }
+            
+            console.log('Chat: calling generate-outfit with items', { count: items.length, categories: items.map((i: any) => i.category).slice(0, 10) });
+            
             const { data: outfitData, error: outfitError } = await supabase.functions.invoke('generate-outfit', {
               body: {
                 generationType: 'occasion',
                 occasion: args.occasion,
                 style: args.style || 'versatile',
-                wardrobeItems: wardrobeItems,
+                wardrobeItems: items,
                 maxOutfits: args.count || 3,
               },
               headers: { Authorization: authHeader }
