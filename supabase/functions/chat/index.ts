@@ -459,41 +459,106 @@ DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provid
         ...toolResults
       ];
       
+      console.log('Chat: [FINAL-STREAM] About to call Gemini API for final response', {
+        messageCount: conversationWithTools.length,
+        timestamp: Date.now()
+      });
+      
       const geminiResponse = await callGeminiAPIStreaming({
         model: 'google/gemini-2.5-flash',
         messages: conversationWithTools,
         tools // Keep tools available for potential follow-up calls
       });
       
+      console.log('Chat: [FINAL-STREAM] Gemini API call returned', {
+        hasBody: !!geminiResponse.body,
+        status: geminiResponse.status,
+        timestamp: Date.now()
+      });
+      
       // Convert Gemini SSE stream to OpenAI-compatible format
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
+          const streamStartTime = Date.now();
+          let chunkCount = 0;
+          let lineCount = 0;
+          let textChunkCount = 0;
+          let functionCallCount = 0;
+          
           try {
-            console.log('Chat: starting final Gemini stream');
+            console.log('Chat: [FINAL-STREAM] ReadableStream started', { startTime: streamStartTime });
+            
             const reader = geminiResponse.body?.getReader();
             if (!reader) {
-              console.log('Chat: no response body from Gemini');
+              console.error('Chat: [FINAL-STREAM] ERROR: No response body from Gemini');
               controller.close();
               return;
             }
+            
+            console.log('Chat: [FINAL-STREAM] Reader obtained, starting read loop');
 
             const decoder = new TextDecoder();
             let buffer = '';
+            let loopIteration = 0;
 
             while (true) {
+              loopIteration++;
+              const readStartTime = Date.now();
+              
+              console.log('Chat: [FINAL-STREAM] Waiting for next chunk...', {
+                iteration: loopIteration,
+                bufferSize: buffer.length
+              });
+              
               const { done, value } = await reader.read();
-              if (done) break;
+              
+              const readDuration = Date.now() - readStartTime;
+              
+              if (done) {
+                console.log('Chat: [FINAL-STREAM] Stream read complete', {
+                  totalChunks: chunkCount,
+                  totalLines: lineCount,
+                  textChunks: textChunkCount,
+                  functionCalls: functionCallCount,
+                  totalDuration: Date.now() - streamStartTime,
+                  finalBufferSize: buffer.length
+                });
+                break;
+              }
+              
+              chunkCount++;
+              console.log('Chat: [FINAL-STREAM] Chunk received', {
+                chunkNumber: chunkCount,
+                chunkSize: value.length,
+                readDuration,
+                timestamp: Date.now()
+              });
 
               buffer += decoder.decode(value, { stream: true });
               const lines = buffer.split('\n');
               buffer = lines.pop() || '';
 
+              console.log('Chat: [FINAL-STREAM] Processing lines', {
+                lineCount: lines.length,
+                remainingBuffer: buffer.length
+              });
+
               for (const line of lines) {
-                if (!line.trim() || line.startsWith(':')) continue;
+                lineCount++;
+                
+                if (!line.trim() || line.startsWith(':')) {
+                  console.log('Chat: [FINAL-STREAM] Skipping empty/comment line', { lineNumber: lineCount });
+                  continue;
+                }
                 
                 if (line.startsWith('data: ')) {
                   const data = line.slice(6);
+                  
+                  console.log('Chat: [FINAL-STREAM] Processing data line', {
+                    lineNumber: lineCount,
+                    dataPreview: data.substring(0, 100)
+                  });
                   
                   try {
                     const parsed = JSON.parse(data);
@@ -501,9 +566,22 @@ DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provid
                     const content = candidate?.content;
                     const parts = content?.parts || [];
                     
+                    console.log('Chat: [FINAL-STREAM] Parsed chunk structure', {
+                      hasCandidates: !!parsed.candidates,
+                      candidatesCount: parsed.candidates?.length || 0,
+                      hasContent: !!content,
+                      partsCount: parts.length
+                    });
+                    
                     // Check for text content
                     const textPart = parts.find((p: any) => p.text);
                     if (textPart) {
+                      textChunkCount++;
+                      console.log('Chat: [FINAL-STREAM] Text content found', {
+                        textChunk: textChunkCount,
+                        textPreview: textPart.text.substring(0, 50)
+                      });
+                      
                       const openaiChunk = {
                         choices: [{
                           delta: {
@@ -512,14 +590,19 @@ DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provid
                         }]
                       };
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                      console.log('Chat: [FINAL-STREAM] Text chunk enqueued to client');
                     }
                     
                     // Check for function calls
                     const functionPart = parts.find((p: any) => p.functionCall);
                     if (functionPart) {
-                      console.log('Chat: visual tool call detected', { 
-                        toolName: functionPart.functionCall.name
+                      functionCallCount++;
+                      console.log('Chat: [FINAL-STREAM] Function call detected', { 
+                        functionCallNumber: functionCallCount,
+                        toolName: functionPart.functionCall.name,
+                        argsPreview: JSON.stringify(functionPart.functionCall.args).substring(0, 100)
                       });
+                      
                       const openaiChunk = {
                         choices: [{
                           delta: {
@@ -534,18 +617,40 @@ DO NOT modify the item_ids. DO NOT use item names. Use the exact item_ids provid
                         }]
                       };
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                      console.log('Chat: [FINAL-STREAM] Function call enqueued to client');
+                    }
+                    
+                    if (!textPart && !functionPart) {
+                      console.log('Chat: [FINAL-STREAM] No text or function call in parts', {
+                        partsStructure: parts.map((p: any) => Object.keys(p))
+                      });
                     }
                   } catch (e) {
-                    console.error('Failed to parse Gemini chunk:', e);
+                    console.error('Chat: [FINAL-STREAM] Failed to parse Gemini chunk:', {
+                      error: e instanceof Error ? e.message : 'Unknown error',
+                      dataPreview: data.substring(0, 200)
+                    });
                   }
                 }
               }
             }
 
+            console.log('Chat: [FINAL-STREAM] Sending [DONE] signal');
             controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            console.log('Chat: [FINAL-STREAM] Closing stream controller');
             controller.close();
+            console.log('Chat: [FINAL-STREAM] Stream completed successfully', {
+              totalDuration: Date.now() - streamStartTime
+            });
           } catch (error) {
-            console.error('Stream error:', error);
+            console.error('Chat: [FINAL-STREAM] FATAL ERROR in stream', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              stack: error instanceof Error ? error.stack : undefined,
+              timestamp: Date.now(),
+              duration: Date.now() - streamStartTime,
+              chunkCount,
+              lineCount
+            });
             controller.error(error);
           }
         }
