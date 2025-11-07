@@ -129,6 +129,15 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           const sourceUrl = publicUrlData.publicUrl;
           console.log('Got public URL:', sourceUrl);
 
+          // Validate sourceUrl before processing
+          if (!sourceUrl || typeof sourceUrl !== 'string' || sourceUrl.trim() === '') {
+            console.error('Invalid sourceUrl:', sourceUrl);
+            const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+            localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+            setProcessingItems(prev => Math.max(0, prev - 1));
+            throw new Error('Invalid image URL received');
+          }
+
           // Process in background (non-blocking) - exactly like onboarding
           processImageInBackground(sourceUrl, user.id);
           
@@ -177,6 +186,15 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       console.log('Calling process-wardrobe with imageUrl:', sourceUrl);
       
+      // Validate sourceUrl one more time before calling edge function
+      if (!sourceUrl || typeof sourceUrl !== 'string') {
+        console.error('Invalid sourceUrl before edge function call:', sourceUrl);
+        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
+        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
+        setProcessingItems(prev => Math.max(0, prev - 1));
+        return;
+      }
+      
       // Fetch existing items for duplicate checking
       supabase
         .from('wardrobe_items')
@@ -186,8 +204,13 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           
           // Fire and forget - don't await the edge function
           console.log('Invoking edge function with body:', { imageUrl: sourceUrl });
+          console.log('sourceUrl type:', typeof sourceUrl, 'value:', sourceUrl);
+          
           supabase.functions.invoke('process-wardrobe', {
-            body: { imageUrl: sourceUrl }
+            body: { imageUrl: sourceUrl },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
           })
           .then(({ data: processData, error: processError }) => {
             if (processError) {
