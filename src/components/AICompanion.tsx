@@ -760,6 +760,7 @@ const AICompanion = () => {
                             outfitName={tc.data.outfit_name}
                             itemIds={tc.data.item_ids}
                             reasoning={tc.data.reasoning}
+                            outfits={tc.data.outfits}
                           />
                         )}
                       </div>

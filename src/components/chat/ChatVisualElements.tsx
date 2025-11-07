@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Sparkles } from 'lucide-react';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 interface WardrobeItem {
   id: string;
@@ -68,18 +69,35 @@ export const WardrobeItemsDisplay = ({ itemIds, context }: WardrobeItemsDisplayP
   );
 };
 
-interface OutfitSuggestionDisplayProps {
-  outfitName: string;
-  itemIds: string[];
+interface OutfitData {
+  outfit_name: string;
+  item_ids: string[];
   reasoning: string;
 }
 
-export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning }: OutfitSuggestionDisplayProps) => {
+interface OutfitSuggestionDisplayProps {
+  outfitName?: string;
+  itemIds?: string[];
+  reasoning?: string;
+  outfits?: OutfitData[];
+}
+
+export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning, outfits }: OutfitSuggestionDisplayProps) => {
+  // If outfits array is provided, render carousel
+  if (outfits && outfits.length > 0) {
+    return <MultipleOutfitsDisplay outfits={outfits} />;
+  }
+  
+  // Otherwise render single outfit (backward compatibility)
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchItems = async () => {
+      if (!itemIds || itemIds.length === 0) {
+        setLoading(false);
+        return;
+      }
       const { data } = await supabase
         .from('wardrobe_items')
         .select('*')
@@ -142,5 +160,121 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning }: Outf
 
       <p className="text-sm text-muted-foreground italic">{reasoning}</p>
     </Card>
+  );
+};
+
+// Component for displaying multiple outfits in a carousel
+const MultipleOutfitsDisplay = ({ outfits }: { outfits: OutfitData[] }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [api, setApi] = useState<any>();
+
+  useEffect(() => {
+    if (!api) return;
+    
+    api.on('select', () => {
+      setCurrentIndex(api.selectedScrollSnap());
+    });
+  }, [api]);
+
+  return (
+    <Card className="p-4 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h4 className="font-semibold">Your Outfits</h4>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {currentIndex + 1} of {outfits.length}
+        </span>
+      </div>
+      
+      <Carousel 
+        className="w-full"
+        opts={{ loop: true }}
+        setApi={setApi}
+      >
+        <CarouselContent>
+          {outfits.map((outfit, idx) => (
+            <CarouselItem key={idx}>
+              <SingleOutfitCard
+                outfitName={outfit.outfit_name}
+                itemIds={outfit.item_ids}
+                reasoning={outfit.reasoning}
+              />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        {outfits.length > 1 && (
+          <>
+            <CarouselPrevious className="left-2" />
+            <CarouselNext className="right-2" />
+          </>
+        )}
+      </Carousel>
+    </Card>
+  );
+};
+
+// Individual outfit card within carousel
+const SingleOutfitCard = ({ outfitName, itemIds, reasoning }: { outfitName: string; itemIds: string[]; reasoning: string }) => {
+  const [items, setItems] = useState<WardrobeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchItems = async () => {
+      const { data } = await supabase
+        .from('wardrobe_items')
+        .select('*')
+        .in('id', itemIds);
+      
+      setItems(data || []);
+      setLoading(false);
+    };
+    fetchItems();
+  }, [itemIds]);
+
+  if (loading) {
+    return (
+      <div className="h-48 bg-muted rounded-xl animate-pulse" />
+    );
+  }
+
+  const categorizeItems = () => {
+    const upperwear = items.find(i => i && ['shirt', 'top', 'blouse', 'tshirt', 't-shirt', 'upperwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const lowerwear = items.find(i => i && ['pants', 'jeans', 'trousers', 'skirt', 'shorts', 'lowerwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const footwear = items.find(i => i && ['shoes', 'sneakers', 'boots', 'sandals', 'heels', 'footwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const layering = items.find(i => i && ['jacket', 'blazer', 'cardigan', 'coat', 'sweater', 'hoodie', 'outerwear'].some(cat => i.category?.toLowerCase().includes(cat)));
+    const accessories = items.filter(i => 
+      i && (
+        (!upperwear || i.id !== upperwear.id) &&
+        (!lowerwear || i.id !== lowerwear.id) &&
+        (!footwear || i.id !== footwear.id) &&
+        (!layering || i.id !== layering.id)
+      )
+    );
+    
+    return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
+  };
+
+  const displayItems = categorizeItems().slice(0, 4);
+
+  return (
+    <div>
+      <h5 className="font-semibold mb-2 text-center">{outfitName}</h5>
+      <div className="bg-white rounded-xl p-3 mb-3">
+        <div className="grid grid-cols-2 gap-2">
+          {displayItems.map(item => (
+            <div key={item.id} className="aspect-square flex items-center justify-center p-2">
+              <img
+                src={item.processed_image_url || item.image_url}
+                alt={item.name}
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground italic">{reasoning}</p>
+    </div>
   );
 };
