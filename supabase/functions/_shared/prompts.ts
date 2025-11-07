@@ -338,14 +338,20 @@ export const WARDROBE_PROMPTS = {
 
   DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories.
 
-**ITEM CATEGORIES TO DETECT:**
-- CLOTHING: Tops, shirts, t-shirts, blouses, sweaters, hoodies, jackets, coats, blazers, dresses, pants, jeans, shorts, skirts, etc.
-- FOOTWEAR: Shoes, sneakers, boots, sandals, heels, flats, loafers, slippers (capture as pairs when visible)
-- ACCESSORIES: Bags, purses, backpacks, belts, hats, caps, scarves, jewelry (necklaces, bracelets, watches), sunglasses, ties, etc.
+**STANDARDIZED CATEGORIES (USE EXACTLY AS SHOWN):**
+You MUST use one of these exact category names (case-sensitive):
+- Tops (shirts, t-shirts, blouses, sweaters, hoodies, tank tops, crop tops, polos, kurtas)
+- Bottoms (pants, jeans, shorts, skirts, trousers, chinos, leggings)
+- Shoes (sneakers, boots, sandals, heels, flats, loafers, slippers - capture as pairs when visible)
+- Outerwear (jackets, coats, blazers, cardigans, vests, shawls)
+- Dresses (any full-length dress or gown)
+- Accessories (bags, purses, backpacks, belts, hats, caps, scarves, jewelry, sunglasses, ties, watches)
+
+🚨 CRITICAL: Use ONLY the exact category names above. Do NOT use variations like "Footwear", "Upper wear", "Lower wear", "Top", "Bottom", "Jacket", etc.
 
 **INCLUSION RULES (ONLY include items that are):**
 - Clearly visible
-- Can identify BOTH the category (Top, Bottom, Dress, etc.) AND the design (pattern, cut, style)
+- Can identify BOTH the category AND the design (pattern, cut, style)
 - Well-lit and in focus
 
 **EXCLUSION RULES (Ignore items that are):**
@@ -367,7 +373,7 @@ export const WARDROBE_PROMPTS = {
 - Cut/style: slim fit, oversized, cropped, fitted, etc.
 - Unique features: buttons, zippers, pockets, collars, sleeves, buckles, straps
 
-For each valid item, return: name, category, and color (as hex code).`,
+For each valid item, return: name, category (using exact names above), and color (as hex code).`,
 
   GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the wearable items (clothing, footwear, and accessories) extracted and isolated from the provided photo.
 

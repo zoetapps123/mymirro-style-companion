@@ -144,10 +144,32 @@ serve(async (req) => {
       });
     }
 
-    // Normalize categories to title case
-    const normalizeCategory = (category: string) => {
+    // Normalize categories using the same logic as the database trigger (as fallback)
+    const normalizeCategory = (category: string): string => {
       if (!category) return category;
-      return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+      
+      const lowerCat = category.toLowerCase();
+      
+      // Footwear → Shoes
+      if (['footwear', 'foot wear', 'foot-wear'].includes(lowerCat)) return 'Shoes';
+      
+      // Various top variations → Tops
+      if (['upper wear', 'upperwear', 'upper-wear', 'top', 'shirt', 'tshirt', 't-shirt', 'blouse', 'tee'].includes(lowerCat)) return 'Tops';
+      
+      // Various bottom variations → Bottoms
+      if (['lower wear', 'lowerwear', 'lower-wear', 'bottom', 'pants', 'trouser', 'trousers', 'jean', 'chinos', 'shorts'].includes(lowerCat)) return 'Bottoms';
+      
+      // Various outer wear variations → Outerwear
+      if (['outer wear', 'outerwear', 'outer-wear', 'jacket', 'coat', 'blazer', 'cardigan', 'sweater', 'hoodie'].includes(lowerCat)) return 'Outerwear';
+      
+      // Accessories variations → Accessories
+      if (['accessory', 'accessorie'].includes(lowerCat)) return 'Accessories';
+      
+      // Dresses variations → Dresses
+      if (['dress', 'gown'].includes(lowerCat)) return 'Dresses';
+      
+      // Keep as-is if already standard or unknown
+      return category;
     };
 
     const normalizedItems = itemsWithImages.map(item => ({
