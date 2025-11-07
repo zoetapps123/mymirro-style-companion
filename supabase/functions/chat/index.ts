@@ -340,14 +340,16 @@ serve(async (req) => {
                 })
               });
             } else {
-              // No outfits - wardrobe lacks items
+              // No outfits - show what they have and suggest what's missing
+              const userItemIds = items.slice(0, 12).map((i: any) => i.id);
               toolResults.push({
                 role: 'tool',
                 name: functionName,
                 content: JSON.stringify({
                   success: false,
-                  message: `Could not create outfits for ${args.occasion}. The wardrobe lacks appropriate items for this occasion.`,
-                  instruction: 'Tell user their wardrobe needs items suitable for this occasion. Suggest what types of items they should add.'
+                  message: `Could not create complete outfits for ${args.occasion}. The wardrobe has ${items.length} items but lacks key pieces for this occasion.`,
+                  available_item_ids: userItemIds,
+                  instruction: `First use show_wardrobe_items to display the user's current items (IDs: ${JSON.stringify(userItemIds)}) with context "Here's what you currently have". Then explain what key pieces are missing for ${args.occasion} (e.g., formal shoes, dress shirt, blazer) and suggest adding those items.`
                 })
               });
             }
