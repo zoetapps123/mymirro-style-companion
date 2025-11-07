@@ -529,10 +529,12 @@ const AICompanion = () => {
                 }
 
                 if (toolCalls) {
+                  console.log('AICompanion: received tool calls', { count: toolCalls.length, tools: toolCalls });
                   toolCalls.forEach((tc: any) => {
                     if (tc.function?.name && tc.function?.arguments) {
                       try {
                         const args = JSON.parse(tc.function.arguments);
+                        console.log('AICompanion: parsed tool call', { type: tc.function.name, data: args });
                         collectedToolCalls.push({
                           type: tc.function.name as any,
                           data: args

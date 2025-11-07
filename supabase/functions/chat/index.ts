@@ -233,6 +233,10 @@ serve(async (req) => {
                   // Check for function calls
                   const functionPart = parts.find((p: any) => p.functionCall);
                   if (functionPart) {
+                    console.log('Chat: tool call detected', { 
+                      toolName: functionPart.functionCall.name,
+                      argsPreview: JSON.stringify(functionPart.functionCall.args).substring(0, 100)
+                    });
                     const openaiChunk = {
                       choices: [{
                         delta: {
