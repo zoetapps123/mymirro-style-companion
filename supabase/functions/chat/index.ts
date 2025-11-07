@@ -229,13 +229,69 @@ serve(async (req) => {
       outfitCreation: outfitCreationQuery
     });
     
-    // Handle wardrobe analysis queries - let AI analyze and give text advice
+    // Handle wardrobe analysis queries - provide deterministic text analysis (no outfits)
     if (wardrobeAnalysisQuery || shoppingAdviceQuery) {
-      console.log('Chat: Detected wardrobe analysis or shopping advice query - letting AI handle it');
-      // Don't intercept, let AI analyze wardrobe and give text advice
-      // Continue to AI streaming below (no fast-path)
+      let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
+      if (!items || items.length === 0) {
+        try {
+          const { data } = await supabase
+            .from('wardrobe_items')
+            .select('id, name, category')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(200);
+          items = data || [];
+        } catch (e) {
+          console.error('Chat: wardrobe analysis fetch failed', e);
+        }
+      }
+
+      const norm = (s: any) => (s || '').toString().toLowerCase();
+      const metrics = (items || []).reduce((acc: any, it: any) => {
+        const c = norm(it.category);
+        if (['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k))) acc.tops++;
+        else if (['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k))) acc.bottoms++;
+        else if (['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k))) acc.shoes++;
+        else if (['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k))) acc.layers++;
+        else if (['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k))) acc.accessories++;
+        else acc.other++;
+        return acc;
+      }, { tops:0, bottoms:0, shoes:0, layers:0, accessories:0, other:0 });
+
+      const gaps: string[] = [];
+      if (metrics.shoes === 0) gaps.push('footwear');
+      if (metrics.tops === 0) gaps.push('tops');
+      if (metrics.bottoms === 0) gaps.push('bottoms');
+      if (metrics.layers === 0) gaps.push('layering');
+      if (metrics.accessories === 0) gaps.push('accessories');
+
+      const summary = `Wardrobe snapshot: Tops ${metrics.tops}, Bottoms ${metrics.bottoms}, Shoes ${metrics.shoes}, Layers ${metrics.layers}, Accessories ${metrics.accessories}.`;
+      const advice = gaps.length
+        ? `You’re light on ${gaps.join(', ')}. ${shoppingAdviceQuery ? 'I’d shop these next to unlock more outfit options.' : 'Consider adding these to expand your looks.'}`
+        : `${shoppingAdviceQuery ? 'No urgent shopping needed.' : 'You’re well covered for most outfits.'}`;
+
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          const text = `${summary} ${advice}`;
+          const textChunk = { choices: [{ delta: { content: text } }] };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        },
+      });
     }
-    
+
     // Handle anchor item queries - let AI find the item and create outfits with it
     else if (anchorItemQuery) {
       console.log('Chat: Detected anchor item query - letting AI handle it');

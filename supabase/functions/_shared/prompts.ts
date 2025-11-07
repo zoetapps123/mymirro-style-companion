@@ -423,11 +423,27 @@ export const OUTFIT_GENERATION_PROMPTS = {
 - ${userLocation.temp < 15 ? 'COLD - Consider layering' : userLocation.temp < 25 ? 'MODERATE - Light layering optional' : 'WARM - Minimal layers'}`
       : '';
 
-    const tops = wardrobeItems.filter(i => i.category === 'Tops');
-    const bottoms = wardrobeItems.filter(i => i.category === 'Bottoms');
-    const shoes = wardrobeItems.filter(i => i.category === 'Shoes');
-    const accessories = wardrobeItems.filter(i => i.category === 'Accessories');
-    const layers = wardrobeItems.filter(i => i.category === 'Layers' || i.category === 'Jackets');
+    const norm = (s: any) => (s || '').toString().toLowerCase();
+    const tops = wardrobeItems.filter(i => {
+      const c = norm(i.category);
+      return ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k));
+    });
+    const bottoms = wardrobeItems.filter(i => {
+      const c = norm(i.category);
+      return ['jeans','trouser','pants','chinos','skirt','shorts'].some(k => c.includes(k));
+    });
+    const shoes = wardrobeItems.filter(i => {
+      const c = norm(i.category);
+      return ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k));
+    });
+    const accessories = wardrobeItems.filter(i => {
+      const c = norm(i.category);
+      return ['watch','belt','bag','sunglass','glass','glasses','hat','cap','scarf','jewelry','ring','bracelet','necklace'].some(k => c.includes(k));
+    });
+    const layers = wardrobeItems.filter(i => {
+      const c = norm(i.category);
+      return ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
+    });
 
     return `🚨 CRITICAL INSTRUCTION - READ THIS FIRST 🚨
 
