@@ -169,44 +169,62 @@ serve(async (req) => {
       lastUserText.trim() === 'what do i have in my wardrobe' ||
       lastUserText.trim() === 'what do i have';
     
-    if (wardrobeQuery && Array.isArray(wardrobeItems) && wardrobeItems.length > 0) {
-      const itemIds = wardrobeItems.map((i: any) => i.id).filter(Boolean);
-      // Build category summary
-      const counts: Record<string, number> = {};
-      for (const it of wardrobeItems) {
-        const cat = (it.category || 'Other').toString();
-        counts[cat] = (counts[cat] || 0) + 1;
-      }
-      const summary = Object.entries(counts)
-        .sort((a,b) => b[1]-a[1])
-        .map(([cat, cnt]) => `${cat} (${cnt})`)
-        .join(', ');
-      const context = `Showing all ${itemIds.length} items: ${summary}`;
-      
-      const stream = new ReadableStream({
-        start(controller) {
-          const encoder = new TextEncoder();
-          // 1) short text
-          const textChunk = { choices: [{ delta: { content: `You have ${itemIds.length} items in your wardrobe. I’ll show them below.` } }] };
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
-          // 2) tool call
-          const toolChunk = { choices: [{ delta: { tool_calls: [{ type: 'function', function: { name: 'show_wardrobe_items', arguments: JSON.stringify({ item_ids: itemIds, context }) } }] } }] };
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
-          // done
-          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-          controller.close();
+if (wardrobeQuery) {
+      let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
+      if (!items || items.length === 0) {
+        try {
+          const { data } = await supabase
+            .from('wardrobe_items')
+            .select('id, name, category')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(100);
+          items = data || [];
+        } catch (e) {
+          console.error('Chat: fast-path wardrobe fetch failed', e);
         }
-      });
-      
-      return new Response(stream, {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'X-Accel-Buffering': 'no'
-        },
-      });
+      }
+
+      if (items.length > 0) {
+        console.log('Chat: fast-path wardrobe', { count: items.length });
+        const itemIds = items.map((i: any) => i.id).filter(Boolean);
+        // Build category summary
+        const counts: Record<string, number> = {};
+        for (const it of items) {
+          const cat = (it.category || 'Other').toString();
+          counts[cat] = (counts[cat] || 0) + 1;
+        }
+        const summary = Object.entries(counts)
+          .sort((a,b) => b[1]-a[1])
+          .map(([cat, cnt]) => `${cat} (${cnt})`)
+          .join(', ');
+        const context = `Showing all ${itemIds.length} items: ${summary}`;
+        
+        const stream = new ReadableStream({
+          start(controller) {
+            const encoder = new TextEncoder();
+            // 1) short text
+            const textChunk = { choices: [{ delta: { content: `You have ${itemIds.length} items in your wardrobe. I’ll show them below.` } }] };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
+            // 2) tool call
+            const toolChunk = { choices: [{ delta: { tool_calls: [{ type: 'function', function: { name: 'show_wardrobe_items', arguments: JSON.stringify({ item_ids: itemIds, context }) } }] } }] };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
+            // done
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            controller.close();
+          }
+        });
+        
+        return new Response(stream, {
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          },
+        });
+      }
     }
 
     // 🔍 LOG 3: Pre-API Call Summary
