@@ -160,23 +160,146 @@ serve(async (req) => {
       }
 ]; 
 
-    // Fast-path: handle outfit creation and wardrobe queries deterministically
+    // Fast-path: Classify user intent FIRST before any action
     const lastUserText = (messages?.[messages.length - 1]?.content || '').toLowerCase();
     
-    // Check for outfit creation requests (broader detection)
+    // 1. WARDROBE ANALYSIS QUERIES (look at wardrobe, analyze gaps)
+    const wardrobeAnalysisQuery = 
+      /look at (my|the) wardrobe/i.test(lastUserText) ||
+      /analyze (my|the) wardrobe/i.test(lastUserText) ||
+      /check (my|the) wardrobe/i.test(lastUserText) ||
+      (lastUserText.includes('wardrobe') && (
+        lastUserText.includes('tell me') || 
+        lastUserText.includes('what am i missing') ||
+        lastUserText.includes('gaps')
+      ));
+    
+    // 2. SHOPPING ADVICE QUERIES (should I shop/buy, what to add)
+    const shoppingAdviceQuery = 
+      /should i (shop|buy|get|add|purchase)/i.test(lastUserText) ||
+      /what should i (shop|buy|get|add|purchase)/i.test(lastUserText) ||
+      /recommend.*to buy/i.test(lastUserText) ||
+      /suggest.*to shop/i.test(lastUserText) ||
+      (lastUserText.includes('shop') && !lastUserText.includes('outfit')) ||
+      (lastUserText.includes('buy') && !lastUserText.includes('wear'));
+    
+    // 3. ANCHOR ITEM QUERIES (what to wear with specific item)
+    const anchorItemQuery =
+      /what (should|can|do) (i|we) wear with (my|the|this)/i.test(lastUserText) ||
+      /style (my|the|this)/i.test(lastUserText) ||
+      /pair with (my|the|this)/i.test(lastUserText) ||
+      /match (my|the|this)/i.test(lastUserText) ||
+      /goes (well )?with (my|the|this)/i.test(lastUserText);
+    
+    // 4. WARDROBE INVENTORY QUERIES (what do I have)
+    const wardrobeInventoryQuery =
+      /what.*(do i|do we|do you).*have.*(in)?\s*(my|the|your)?\s*(wardrobe|closet)/i.test(lastUserText) ||
+      /what.*(is|s).*in\s*(my|the|your)?\s*(wardrobe|closet)/i.test(lastUserText) ||
+      /show (me )?(my|the) wardrobe/i.test(lastUserText) ||
+      lastUserText.includes('what do i have in my wardrobe') ||
+      lastUserText.trim() === 'what do i have';
+    
+    // 5. OUTFIT CREATION QUERIES (what should I wear for occasion)
     const verbKeywords = ['create','generate','make','suggest','recommend','give','show','plan','build','pick'];
-    const outfitKeywords = ['outfit','outfits','look','looks','fit','fits','wear','what should i wear','style me','dress me'];
-    const occasionKeywords = ['wedding','date','party','business','formal','interview','office','work','workout','gym','beach','vacation','travel','holiday','dinner','brunch','festival'];
+    const outfitKeywords = ['outfit','outfits','look','looks','fit','fits','what should i wear','style me','dress me'];
+    const occasionKeywords = ['wedding','date','party','business','formal','interview','office','work','workout','gym','beach','vacation','travel','holiday','dinner','brunch','festival','college','school','casual','smart casual'];
     
     const hasVerb = verbKeywords.some(k => lastUserText.includes(k));
     const hasOutfitWord = outfitKeywords.some(k => lastUserText.includes(k));
     const hasOccasion = occasionKeywords.some(k => lastUserText.includes(k));
     
-    // Detect if request is vague (no specific occasion)
-    const isVagueRequest = hasVerb && hasOutfitWord && !hasOccasion;
+    // Only trigger outfit creation if:
+    // - Has outfit word + (verb OR occasion) AND not a shopping/wardrobe analysis query
+    // - OR has clear "what should I wear" phrasing
+    const outfitCreationQuery = 
+      !shoppingAdviceQuery && 
+      !wardrobeAnalysisQuery && 
+      !anchorItemQuery &&
+      (
+        (hasOutfitWord && (hasVerb || hasOccasion)) ||
+        /what (should|can|do) i wear/i.test(lastUserText)
+      );
     
-    const outfitQuery = (hasOutfitWord || hasOccasion) && (hasVerb || hasOutfitWord);
-    if (outfitQuery) {
+    console.log('Chat: Intent classification', {
+      query: lastUserText.substring(0, 100),
+      wardrobeAnalysis: wardrobeAnalysisQuery,
+      shoppingAdvice: shoppingAdviceQuery,
+      anchorItem: anchorItemQuery,
+      wardrobeInventory: wardrobeInventoryQuery,
+      outfitCreation: outfitCreationQuery
+    });
+    
+    // Handle wardrobe analysis queries - let AI analyze and give text advice
+    if (wardrobeAnalysisQuery || shoppingAdviceQuery) {
+      console.log('Chat: Detected wardrobe analysis or shopping advice query - letting AI handle it');
+      // Don't intercept, let AI analyze wardrobe and give text advice
+      // Continue to AI streaming below (no fast-path)
+    }
+    
+    // Handle anchor item queries - let AI find the item and create outfits with it
+    else if (anchorItemQuery) {
+      console.log('Chat: Detected anchor item query - letting AI handle it');
+      // Let AI handle finding the item and creating outfits with it
+      // Continue to AI streaming below (no fast-path)
+    }
+    
+    // Handle wardrobe inventory queries - show items visually
+    else if (wardrobeInventoryQuery) {
+      let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
+      if (!items || items.length === 0) {
+        try {
+          const { data } = await supabase
+            .from('wardrobe_items')
+            .select('id, name, category')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(100);
+          items = data || [];
+        } catch (e) {
+          console.error('Chat: fast-path wardrobe fetch failed', e);
+        }
+      }
+
+      if (items.length > 0) {
+        console.log('Chat: fast-path wardrobe inventory', { count: items.length });
+        const itemIds = items.map((i: any) => i.id).filter(Boolean);
+        const counts: Record<string, number> = {};
+        for (const it of items) {
+          const cat = (it.category || 'Other').toString();
+          counts[cat] = (counts[cat] || 0) + 1;
+        }
+        const summary = Object.entries(counts)
+          .sort((a,b) => b[1]-a[1])
+          .map(([cat, cnt]) => `${cat} (${cnt})`)
+          .join(', ');
+        const context = `Showing all ${itemIds.length} items: ${summary}`;
+        
+        const stream = new ReadableStream({
+          start(controller) {
+            const encoder = new TextEncoder();
+            const textChunk = { choices: [{ delta: { content: `You have ${itemIds.length} items in your wardrobe. I'll show them below.` } }] };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
+            const toolChunk = { choices: [{ delta: { tool_calls: [{ type: 'function', function: { name: 'show_wardrobe_items', arguments: JSON.stringify({ item_ids: itemIds, context }) } }] } }] };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            controller.close();
+          }
+        });
+        
+        return new Response(stream, {
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          },
+        });
+      }
+    }
+    
+    // Handle outfit creation queries - use fast-path
+    else if (outfitCreationQuery) {
       let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
       if (!items || items.length === 0) {
         try {
@@ -192,6 +315,9 @@ serve(async (req) => {
       }
 
       if (items.length > 0) {
+        // Detect if request is vague (no specific occasion)
+        const isVagueRequest = hasVerb && hasOutfitWord && !hasOccasion;
+        
         console.log('Chat: fast-path outfit generation', { count: items.length, query: lastUserText, isVague: isVagueRequest });
         
         // If vague request, generate outfits for multiple occasions
@@ -364,72 +490,6 @@ serve(async (req) => {
         } catch (e) {
           console.error('Chat: outfit generation exception', e);
         }
-      }
-    }
-    
-    // Check for wardrobe queries
-    const wardrobeQuery =
-      /what.*(do i|do we|do you).*have.*(in)?\s*(my|the|your)?\s*(wardrobe|closet)/i.test(lastUserText) ||
-      /what.*(is|s).*in\s*(my|the|your)?\s*(wardrobe|closet)/i.test(lastUserText) ||
-      lastUserText.includes('what do i have in my wardrobe') ||
-      lastUserText.trim() === 'what do i have in my wardrobe' ||
-      lastUserText.trim() === 'what do i have';
-    
-if (wardrobeQuery) {
-      let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
-      if (!items || items.length === 0) {
-        try {
-          const { data } = await supabase
-            .from('wardrobe_items')
-            .select('id, name, category')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(100);
-          items = data || [];
-        } catch (e) {
-          console.error('Chat: fast-path wardrobe fetch failed', e);
-        }
-      }
-
-      if (items.length > 0) {
-        console.log('Chat: fast-path wardrobe', { count: items.length });
-        const itemIds = items.map((i: any) => i.id).filter(Boolean);
-        // Build category summary
-        const counts: Record<string, number> = {};
-        for (const it of items) {
-          const cat = (it.category || 'Other').toString();
-          counts[cat] = (counts[cat] || 0) + 1;
-        }
-        const summary = Object.entries(counts)
-          .sort((a,b) => b[1]-a[1])
-          .map(([cat, cnt]) => `${cat} (${cnt})`)
-          .join(', ');
-        const context = `Showing all ${itemIds.length} items: ${summary}`;
-        
-        const stream = new ReadableStream({
-          start(controller) {
-            const encoder = new TextEncoder();
-            // 1) short text
-            const textChunk = { choices: [{ delta: { content: `You have ${itemIds.length} items in your wardrobe. I’ll show them below.` } }] };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
-            // 2) tool call
-            const toolChunk = { choices: [{ delta: { tool_calls: [{ type: 'function', function: { name: 'show_wardrobe_items', arguments: JSON.stringify({ item_ids: itemIds, context }) } }] } }] };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
-            // done
-            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-            controller.close();
-          }
-        });
-        
-        return new Response(stream, {
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no'
-          },
-        });
       }
     }
 
