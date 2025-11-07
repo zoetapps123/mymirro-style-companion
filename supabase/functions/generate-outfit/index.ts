@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { callGeminiAPI } from '../_shared/ai-config.ts';
+import { callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
 import { OUTFIT_GENERATION_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
@@ -74,89 +74,60 @@ serve(async (req) => {
     // Step 1: Generate outfit combinations
     const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation);
 
-    const response = await fetch(AI_API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional fashion stylist creating fashionable outfit combinations.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'generate_outfit_combinations',
-            description: 'Generate multiple distinct outfit combinations',
-            parameters: {
-              type: 'object',
-              properties: {
-                outfits: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      pieces: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            wardrobeItemId: { type: 'string' },
-                            category: { type: 'string' },
-                            role: { type: 'string' }
-                          },
-                          required: ['wardrobeItemId', 'category', 'role']
-                        }
-                      },
-                      reasoning: { type: 'string' },
-                      styleTag: { type: 'string' }
+    const response = await callGeminiAPI({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a professional fashion stylist creating fashionable outfit combinations.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'generate_outfit_combinations',
+          description: 'Generate multiple distinct outfit combinations',
+          parameters: {
+            type: 'object',
+            properties: {
+              outfits: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    pieces: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          wardrobeItemId: { type: 'string' },
+                          category: { type: 'string' },
+                          role: { type: 'string' }
+                        },
+                        required: ['wardrobeItemId', 'category', 'role']
+                      }
                     },
-                    required: ['pieces', 'reasoning', 'styleTag']
-                  }
-                },
-                totalGenerated: { type: 'number' }
+                    reasoning: { type: 'string' },
+                    styleTag: { type: 'string' }
+                  },
+                  required: ['pieces', 'reasoning', 'styleTag']
+                }
               },
-              required: ['outfits', 'totalGenerated']
-            }
+              totalGenerated: { type: 'number' }
+            },
+            required: ['outfits', 'totalGenerated']
           }
-        }],
-        tool_choice: { type: 'function', function: { name: 'generate_outfit_combinations' } }
-      })
+        }
+      }],
+      tool_choice: { type: 'function', function: { name: 'generate_outfit_combinations' } },
+      temperature: 0.7,
     });
 
-    if (response.status === 429) {
-      return new Response(JSON.stringify({ 
-        error: 'Rate limit exceeded. Please try again in a moment.' 
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (response.status === 402) {
-      return new Response(JSON.stringify({ 
-        error: 'AI credits depleted. Please add credits to continue.' 
-      }), {
-        status: 402,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (!response.ok) {
-      throw new Error('Failed to generate outfits');
-    }
-
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
+    const result = JSON.parse(response.choices[0].message.tool_calls[0].function.arguments);
 
     console.log(`Generated ${result.totalGenerated} outfits`);
 
@@ -228,31 +199,17 @@ async function generateCombinedOutfitImage(
 
   const prompt = OUTFIT_GENERATION_PROMPTS.GENERATE_FLATLAY(items, occasion, styleTag);
 
-  const response = await fetch(AI_API_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-image-preview',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      modalities: ['image', 'text']
-    })
+  const response = await callGeminiAPI({
+    model: 'google/gemini-2.5-flash-image-preview',
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    temperature: 0.7,
   });
 
-  if (!response.ok) {
-    console.error('Failed to generate outfit image');
-    return '';
-  }
-
-  const data = await response.json();
-  const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
+  const imageUrl = response.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   return imageUrl || '';
 }
