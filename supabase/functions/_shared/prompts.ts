@@ -418,6 +418,39 @@ AVAILABLE WARDROBE ITEMS:
 
 ═══════════════════════════════════════════════════════════════════
 
+🚨 OCCASION-SPECIFIC DRESS CODE RULES (MUST FOLLOW) 🚨
+
+**WEDDING/FORMAL/BUSINESS:**
+❌ NEVER USE: Jeans, t-shirts, sneakers, casual shorts, hoodies, sweatpants, athletic wear
+✅ REQUIRED: Formal pants/trousers/ethnic wear, dress shirts/formal tops/ethnic tops, formal shoes/ethnic footwear
+🚫 IF WARDROBE LACKS FORMAL ITEMS: Return EMPTY outfits array with totalGenerated: 0 and STOP
+
+**DATE/PARTY/DINNER:**
+❌ AVOID: Athletic wear, sweatpants, overly casual items like flip-flops
+✅ PREFERRED: Smart casual - nice tops, clean bottoms (chinos/nice jeans OK), decent shoes
+⚠️ IF ONLY ULTRA-CASUAL ITEMS: Return EMPTY outfits array with totalGenerated: 0 and STOP
+
+**CASUAL/EVERYDAY:**
+✅ FLEXIBLE: Any reasonable combination from wardrobe
+⚠️ Still maintain basic color coordination and style coherence
+
+**WORKOUT/GYM:**
+✅ REQUIRED: Athletic/sporty items, sneakers
+❌ NEVER: Formal wear, jeans, dress shoes
+🚫 IF NO ATHLETIC WEAR: Return EMPTY outfits array with totalGenerated: 0 and STOP
+
+**BEACH/VACATION:**
+✅ PREFERRED: Light, breathable fabrics, sandals, casual wear
+❌ AVOID: Heavy layers, formal wear
+
+🔴 CRITICAL ENFORCEMENT RULE:
+If the wardrobe does NOT contain occasion-appropriate items, YOU MUST REJECT THE REQUEST.
+Return: { "outfits": [], "totalGenerated": 0 }
+DO NOT create inappropriate outfits just to fulfill the request.
+Example: If occasion is "wedding" but only jeans and t-shirts available → Return EMPTY array.
+
+═══════════════════════════════════════════════════════════════════
+
 **OUTFIT CONSTRUCTION RULES:**
 
 CORE REQUIREMENTS:
@@ -439,7 +472,7 @@ FASHION QUALITY STANDARDS:
 ✓ Color coordination (complementary/analogous/monochromatic)
 ✓ Fabric compatibility (no casual + formal mix)
 ✓ Pattern balance (max 1-2 patterns per outfit)
-✓ Occasion appropriateness
+✓ Occasion appropriateness (STRICT - see rules above)
 ✓ Seasonal suitability
 
 VARIETY REQUIREMENTS:
@@ -449,6 +482,7 @@ VARIETY REQUIREMENTS:
 ✓ Explore different silhouettes
 
 REJECTION CRITERIA (❌ NEVER create outfits that):
+- Violate occasion dress code rules above
 - Clash in color or style
 - Are inappropriate for the occasion/weather
 - Repeat too many items from previous outfits

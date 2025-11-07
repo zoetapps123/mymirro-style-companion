@@ -167,9 +167,15 @@ serve(async (req) => {
     const verbKeywords = ['create','generate','make','suggest','recommend','give','show','plan','build','pick'];
     const outfitKeywords = ['outfit','outfits','look','looks','fit','fits','wear','what should i wear','style me','dress me'];
     const occasionKeywords = ['wedding','date','party','business','formal','interview','office','work','workout','gym','beach','vacation','travel','holiday','dinner','brunch','festival'];
-    const outfitQuery =
-      (outfitKeywords.some(k => lastUserText.includes(k)) || occasionKeywords.some(k => lastUserText.includes(k))) &&
-      (verbKeywords.some(k => lastUserText.includes(k)) || outfitKeywords.some(k => lastUserText.includes(k)));
+    
+    const hasVerb = verbKeywords.some(k => lastUserText.includes(k));
+    const hasOutfitWord = outfitKeywords.some(k => lastUserText.includes(k));
+    const hasOccasion = occasionKeywords.some(k => lastUserText.includes(k));
+    
+    // Detect if request is vague (no specific occasion)
+    const isVagueRequest = hasVerb && hasOutfitWord && !hasOccasion;
+    
+    const outfitQuery = (hasOutfitWord || hasOccasion) && (hasVerb || hasOutfitWord);
     if (outfitQuery) {
       let items = Array.isArray(wardrobeItems) ? wardrobeItems : [];
       if (!items || items.length === 0) {
@@ -186,7 +192,76 @@ serve(async (req) => {
       }
 
       if (items.length > 0) {
-        console.log('Chat: fast-path outfit generation', { count: items.length, query: lastUserText });
+        console.log('Chat: fast-path outfit generation', { count: items.length, query: lastUserText, isVague: isVagueRequest });
+        
+        // If vague request, generate outfits for multiple occasions
+        if (isVagueRequest) {
+          const multiOccasions = ['casual', 'business', 'date'];
+          const allOutfits: any[] = [];
+          
+          for (const occ of multiOccasions) {
+            try {
+              const { data: outfitData, error: outfitError } = await supabase.functions.invoke('generate-outfit', {
+                body: {
+                  generationType: 'occasion',
+                  occasion: occ,
+                  style: 'versatile',
+                  wardrobeItems: items,
+                  maxOutfits: 1,
+                },
+                headers: { Authorization: authHeader }
+              });
+              
+              if (!outfitError && Array.isArray(outfitData?.outfits) && outfitData.outfits.length > 0) {
+                allOutfits.push(...outfitData.outfits.map((o: any) => ({ ...o, occasion: occ })));
+              }
+            } catch (e) {
+              console.error(`Chat: outfit generation failed for ${occ}`, e);
+            }
+          }
+          
+          if (allOutfits.length > 0) {
+            const stream = new ReadableStream({
+              start(controller) {
+                const encoder = new TextEncoder();
+                const textChunk = { choices: [{ delta: { content: `I've created ${allOutfits.length} versatile outfits for different occasions! Swipe to see all options.` } }] };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
+                const toolChunk = { 
+                  choices: [{ 
+                    delta: { 
+                      tool_calls: [{ 
+                        type: 'function', 
+                        function: { 
+                          name: 'create_outfit_suggestion', 
+                          arguments: JSON.stringify({ 
+                            outfits: allOutfits.map(outfit => ({
+                              outfit_name: `${outfit.occasion.charAt(0).toUpperCase() + outfit.occasion.slice(1)} ${outfit.name || 'Look'}`,
+                              item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
+                              reasoning: outfit.reasoning || `A ${outfit.occasion} outfit that's stylish and versatile.`
+                            }))
+                          }) 
+                        } 
+                      }] 
+                    } 
+                  }] 
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
+                controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                controller.close();
+              }
+            });
+            
+            return new Response(stream, {
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+              },
+            });
+          }
+        }
         
         // Extract occasion/style from message if present
         let occasion = 'casual';
@@ -226,10 +301,8 @@ serve(async (req) => {
             const stream = new ReadableStream({
               start(controller) {
                 const encoder = new TextEncoder();
-                // Text response
                 const textChunk = { choices: [{ delta: { content: `I've created ${total} outfit${total > 1 ? 's' : ''} for you!${total > 1 ? ' Swipe to see all options.' : ''}` } }] };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
-                // Tool call to show all outfits
                 const toolChunk = { 
                   choices: [{ 
                     delta: { 
@@ -250,6 +323,27 @@ serve(async (req) => {
                   }] 
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolChunk)}\n\n`));
+                controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                controller.close();
+              }
+            });
+            
+            return new Response(stream, {
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+              },
+            });
+          } else if (!outfitError && outfitData?.outfits?.length === 0) {
+            // No appropriate items for this occasion
+            const stream = new ReadableStream({
+              start(controller) {
+                const encoder = new TextEncoder();
+                const textChunk = { choices: [{ delta: { content: `I checked your wardrobe, but you don't have the right items for a ${occasion} occasion. For ${occasion}, you'd need ${occasion === 'wedding' || occasion === 'formal' ? 'formal wear like dress pants, formal shirts, and dress shoes' : occasion === 'workout' ? 'athletic wear and sneakers' : 'more appropriate pieces'}. Time to add some new items to your wardrobe! 👔✨` } }] };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(textChunk)}\n\n`));
                 controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
                 controller.close();
               }
