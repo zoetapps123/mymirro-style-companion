@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { LoadingTile } from "@/components/ui/loading-tile";
+import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -12,7 +13,7 @@ interface WardrobeMyItemsProps {
 }
 
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
-  const [items, setItems] = useState<any[]>([]);
+  const { items, isLoading, invalidateItems } = useWardrobeItems();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [processingItems, setProcessingItems] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,8 +27,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   ];
 
   useEffect(() => {
-    fetchItems();
-    
     // Check for items being processed from onboarding or other sources
     const checkProcessingCount = () => {
       const stored = localStorage.getItem('wardrobe_processing_count');
@@ -44,48 +43,11 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     // Poll for processing updates
     const pollInterval = setInterval(() => {
       checkProcessingCount();
-      fetchItems();
+      invalidateItems(); // Refetch items if processing count changes
     }, 2000);
     
     return () => clearInterval(pollInterval);
-  }, []);
-
-  const fetchItems = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setItems([]);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("wardrobe_items")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load wardrobe items.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Remove duplicates based on name, category, and color
-    const uniqueItems = data?.reduce((acc: any[], current: any) => {
-      const isDuplicate = acc.some(item => 
-        item.category?.toLowerCase() === current.category?.toLowerCase() &&
-        item.name?.toLowerCase() === current.name?.toLowerCase() &&
-        item.color?.toLowerCase() === current.color?.toLowerCase()
-      );
-      if (!isDuplicate) {
-        acc.push(current);
-      }
-      return acc;
-    }, []);
-
-    setItems(uniqueItems || []);
-  };
+  }, [invalidateItems]);
 
   const handleDelete = async (itemId: string, itemName: string) => {
     try {
@@ -101,7 +63,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         description: `${itemName} has been removed from your wardrobe.`,
       });
 
-      fetchItems();
+      invalidateItems(); // Refresh cache after deletion
     } catch (error: any) {
       console.error('Delete error:', error);
       toast({
@@ -161,7 +123,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     }
   };
 
-  // Background processing function
+  // Background processing function - simplified for Gemini-only pipeline
   const processImageInBackground = async (sourceUrl: string, userId: string) => {
     try {
       // Fetch existing items for duplicate checking
@@ -175,44 +137,44 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         throw new Error('Authentication required');
       }
 
-      const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-        body: { imageUrl: sourceUrl },
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
+      console.log('Calling Gemini-only pipeline...');
+      const { data: processData, error: processError } = await supabase.functions.invoke(
+        'process-wardrobe',
+        { 
+          body: { imageUrl: sourceUrl },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        }
+      );
 
-      if (error) {
-        console.error('Background process error:', error);
+      if (processError) {
+        console.error("Background process error:", processError);
         const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
         localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
         setProcessingItems(prev => Math.max(0, prev - 1));
+        toast({
+          title: "Processing failed",
+          description: processError.message || "Failed to process image",
+          variant: "destructive",
+        });
         return;
       }
 
-      const itemsDetected = data?.items || [];
-      if (!itemsDetected || itemsDetected.length === 0) {
-        console.log('No items detected in background processing');
+      if (!processData?.items || processData.items.length === 0) {
+        console.log('No items detected');
         const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
         localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
         setProcessingItems(prev => Math.max(0, prev - 1));
+        toast({
+          title: "No items found",
+          description: "No clothing items were detected in the image.",
+          variant: "destructive",
+        });
         return;
       }
 
-      if (!data?.compositeImageUrl) {
-        console.log('No composite image in background processing');
-        const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-        localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-        setProcessingItems(prev => Math.max(0, prev - 1));
-        return;
-      }
-
+      // Items now come with generated images from Gemini
       let addedCount = 0;
-      let skippedCount = 0;
-
-      // Process all items using smart cropping
-      for (let idx = 0; idx < itemsDetected.length; idx++) {
-        const item = itemsDetected[idx];
-
-        // Check for duplicates
+      for (const item of processData.items) {
         const isDuplicate = existingItems?.some(existing => 
           existing.category?.toLowerCase() === item.category?.toLowerCase() &&
           (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
@@ -222,79 +184,72 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
         if (isDuplicate) {
           console.log(`Skipping duplicate: ${item.name}`);
-          skippedCount++;
           continue;
         }
 
-        // Smart crop this specific item
-        const { advancedSmartCrop, trimImageBorders } = await import('@/lib/imageProcessing');
-        const croppedBlob = await advancedSmartCrop(
-          data.compositeImageUrl,
-          idx,
-          itemsDetected.length
-        );
-        
-        // Apply border trimming
-        const finalBlob = await trimImageBorders(croppedBlob);
+        // Item already has imageUrl from Gemini generation
+        await supabase.from('wardrobe_items').insert({
+          user_id: userId,
+          name: item.name,
+          category: item.category,
+          color: item.color,
+          fabric: item.fabric,
+          texture: item.texture,
+          pattern: item.pattern,
+          style_notes: item.style_notes,
+          processed_image_url: item.imageUrl,
+          image_url: item.imageUrl,
+        });
 
-        // Upload cropped image
-        const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, finalBlob);
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          continue;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
-
-        const { error: dbError } = await supabase
-          .from('wardrobe_items')
-          .insert({
-            user_id: userId,
-            name: item.name,
-            category: item.category,
-            color: item.color,
-            fabric: item.fabric,
-            texture: item.texture,
-            pattern: item.pattern,
-            style_notes: item.style_notes,
-            image_url: sourceUrl,
-            processed_image_url: publicUrl,
-          });
-
-        if (!dbError) {
-          addedCount++;
-        }
+        addedCount++;
       }
 
-      console.log(`Background processing complete: Added ${addedCount} items${skippedCount > 0 ? `, skipped ${skippedCount} duplicates` : ''}`);
-      
-      // Refresh items list
-      await fetchItems();
-      const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-      localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-      setProcessingItems(prev => Math.max(0, prev - 1));
+      if (addedCount > 0) {
+        toast({
+          title: "Items added!",
+          description: `Added ${addedCount} item${addedCount !== 1 ? 's' : ''} to your wardrobe`,
+        });
+      }
 
+      console.log(`Background processing complete: Added ${addedCount} items to wardrobe`);
     } catch (error) {
-      console.error('Background processing failed:', error);
+      console.error("Background processing failed:", error);
+      toast({
+        title: "Processing failed",
+        description: "An error occurred while processing the image",
+        variant: "destructive",
+      });
+    } finally {
       const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
       localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
       setProcessingItems(prev => Math.max(0, prev - 1));
+      invalidateItems(); // Refresh cache after adding items
     }
   };
 
-  // Get dynamic categories from existing items
-  const dynamicCategories = ["All", ...Array.from(new Set(items.map(item => item.category).filter(Boolean)))];
+  // Get dynamic categories from existing items with normalized case
+  const normalizeCategory = (category: string) => {
+    if (!category) return '';
+    // Convert to title case (first letter uppercase, rest lowercase)
+    return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+  };
+
+  const dynamicCategories = [
+    "All",
+    ...Array.from(
+      new Set(
+        items
+          .map((item) => item.category)
+          .filter(Boolean)
+          .map(normalizeCategory)
+      )
+    ).sort()
+  ];
 
   const filteredItems =
     selectedCategory === "All"
       ? items
-      : items.filter((item) => item.category === selectedCategory);
+      : items.filter((item) => normalizeCategory(item.category) === selectedCategory);
 
   return (
     <div className="flex flex-col h-full bg-background">

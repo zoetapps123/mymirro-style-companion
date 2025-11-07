@@ -9,7 +9,8 @@ const MODEL_MAPPING: Record<string, string> = {
   'google/gemini-2.5-pro': 'gemini-2.0-flash-exp',
   'google/gemini-2.5-flash': 'gemini-2.0-flash-exp',
   'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash-image-preview': 'gemini-2.0-flash-exp',
+  'google/gemini-2.5-flash-image': 'gemini-2.5-flash-image-preview',
+  'google/gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image-preview',
 };
 
 /**
@@ -26,7 +27,7 @@ export function getAIApiKey(): string {
 /**
  * Convert OpenAI-style messages to Gemini contents format
  */
-function convertMessagesToContents(messages: any[]): any[] {
+async function convertMessagesToContents(messages: any[]): Promise<any[]> {
   const contents: any[] = [];
   
   for (const msg of messages) {
@@ -59,12 +60,35 @@ function convertMessagesToContents(messages: any[]): any[] {
               }
             });
           } else {
-            parts.push({
-              inline_data: {
-                mime_type: 'image/jpeg',
-                data: imageUrl
+            // Fetch URL and convert to base64
+            try {
+              console.log('Fetching image URL:', imageUrl);
+              const imageResponse = await fetch(imageUrl);
+              if (!imageResponse.ok) {
+                throw new Error(`Failed to fetch image: ${imageResponse.status}`);
               }
-            });
+              const imageBuffer = await imageResponse.arrayBuffer();
+              // Convert to base64 safely without blowing the call stack
+              const bytes = new Uint8Array(imageBuffer);
+              const chunkSize = 0x8000; // 32KB chunks
+              let binary = '';
+              for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.subarray(i, i + chunkSize);
+                binary += String.fromCharCode(...chunk);
+              }
+              const base64Data = btoa(binary);
+              const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+              console.log('Successfully converted image, size:', imageBuffer.byteLength, 'type:', mimeType);
+              parts.push({
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              });
+            } catch (error) {
+              console.error('Failed to fetch and convert image URL:', error);
+              throw new Error(`Failed to process image URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
           }
         }
       }
@@ -95,20 +119,19 @@ function convertToolsToFunctionDeclarations(tools: any[]): any[] {
 }
 
 /**
- * Make a request to Gemini API with OpenAI-compatible input
+ * Make a streaming request to Gemini API
  */
-export async function callGeminiAPI(options: {
+export async function callGeminiAPIStreaming(options: {
   model?: string;
   messages: any[];
   tools?: any[];
-  tool_choice?: any;
   temperature?: number;
   max_tokens?: number;
-}): Promise<any> {
+}): Promise<Response> {
   const apiKey = getAIApiKey();
   const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
   
-  const contents = convertMessagesToContents(options.messages);
+  const contents = await convertMessagesToContents(options.messages);
   const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
   
   const requestBody: any = {
@@ -124,6 +147,82 @@ export async function callGeminiAPI(options: {
       function_declarations: functionDeclarations
     }];
   }
+  
+  console.log('Gemini API streaming request:', {
+    model,
+    contentsLength: contents.length,
+    hasFunctions: !!functionDeclarations?.length
+  });
+  
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+  
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API error:', response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error('RATE_LIMIT');
+    }
+    if (response.status === 402 || response.status === 403) {
+      throw new Error('PAYMENT_REQUIRED');
+    }
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+  
+  return response;
+}
+
+/**
+ * Make a request to Gemini API with OpenAI-compatible input
+ */
+export async function callGeminiAPI(options: {
+  model?: string;
+  messages: any[];
+  tools?: any[];
+  tool_choice?: any;
+  temperature?: number;
+  max_tokens?: number;
+  modalities?: string[]; // Support for image generation
+}): Promise<any> {
+  const apiKey = getAIApiKey();
+  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
+  
+  const contents = await convertMessagesToContents(options.messages);
+  const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
+  
+  const requestBody: any = {
+    contents,
+    generationConfig: {
+      temperature: options.temperature ?? 0.7,
+      maxOutputTokens: options.max_tokens ?? 2048,
+    }
+  };
+  
+  if (functionDeclarations && functionDeclarations.length > 0) {
+    requestBody.tools = [{
+      function_declarations: functionDeclarations
+    }];
+  }
+  
+  // For image generation models, specify output modality
+  if (options.modalities && options.modalities.includes('image')) {
+    requestBody.generationConfig.responseModalities = ['image', 'text'];
+  }
+  
+  console.log('Gemini API request:', {
+    model,
+    contentsLength: contents.length,
+    hasFunctions: !!functionDeclarations?.length,
+    hasModalities: !!options.modalities
+  });
   
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
@@ -172,6 +271,29 @@ export async function callGeminiAPI(options: {
             function: {
               name: functionCall.functionCall.name,
               arguments: JSON.stringify(functionCall.functionCall.args)
+            }
+          }]
+        }
+      }]
+    };
+  }
+  
+  // Check for inline_data / inlineData (generated images)
+  const imagePart = parts.find((p: any) => p.inline_data || p.inlineData);
+  if (imagePart) {
+    const imageData = imagePart.inline_data || imagePart.inlineData;
+    const mimeType = imageData.mime_type || imageData.mimeType || 'image/png';
+    const dataB64 = imageData.data;
+    const base64Image = `data:${mimeType};base64,${dataB64}`;
+    return {
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: parts.find((p: any) => p.text)?.text || 'Image generated',
+          images: [{
+            type: 'image_url',
+            image_url: {
+              url: base64Image
             }
           }]
         }

@@ -6,13 +6,17 @@ import { supabase } from '@/integrations/supabase/client';
 import useEmblaCarousel from 'embla-carousel-react';
 import { OutfitDetailView } from './OutfitDetailView';
 import { OutfitLoadingTile } from '@/components/ui/loading-tile';
+import { OutfitMockups } from './OutfitMockups';
 import { motion } from 'framer-motion';
+import { useWardrobeItems } from '@/hooks/useWardrobeItems';
+import { useOutfits } from '@/hooks/useOutfits';
+import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
 
 interface WardrobeItem {
   id: string;
   name: string;
   category: string;
-  color: string;
+  color?: string;
   fabric?: string;
   pattern?: string;
   style_notes?: string;
@@ -39,10 +43,13 @@ const OCCASIONS = ['Wedding', 'Casual', 'Date Night', 'Office', 'Party'];
 const STYLES = ['Minimalist', 'Boho', 'Streetwear', 'Elegant', 'Sporty'];
 
 const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggestionProps) => {
+  // Use cached data from hooks
+  const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
+  const { outfits: cachedOutfits, isLoading: isLoadingOutfits, invalidateOutfits } = useOutfits();
+  
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [selectedAnchorItem, setSelectedAnchorItem] = useState<WardrobeItem | null>(null);
-  const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   const [occasionOutfits, setOccasionOutfits] = useState<Record<string, GeneratedOutfit[]>>({});
   const [styleOutfits, setStyleOutfits] = useState<Record<string, GeneratedOutfit[]>>({});
   const [anchorOutfits, setAnchorOutfits] = useState<GeneratedOutfit[]>([]);
@@ -50,7 +57,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const [hasNewItems, setHasNewItems] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState<GeneratedOutfit | null>(null);
   const [userLocation, setUserLocation] = useState<{ temp: number; weather: string; lat: number } | null>(null);
-  const [isLoadingOutfits, setIsLoadingOutfits] = useState(true);
+  const [savedOutfitIds, setSavedOutfitIds] = useState<Set<string>>(new Set());
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
@@ -61,15 +68,82 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   useEffect(() => {
     const initializeData = async () => {
-      setIsLoadingOutfits(true);
-      await fetchWardrobeItems();
+      await cleanupDuplicates();
       await checkForNewItems();
-      await loadExistingOutfits();
       await getUserLocation();
-      setIsLoadingOutfits(false);
     };
     initializeData();
   }, []);
+
+  const cleanupDuplicates = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get all saved outfits with their items
+      const { data: savedOutfits } = await supabase
+        .from('outfits')
+        .select(`
+          id,
+          name,
+          occasion,
+          style_tag,
+          created_at,
+          outfit_items (
+            item_id
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('saved_to_lookbook', true)
+        .order('created_at', { ascending: true });
+
+      if (!savedOutfits || savedOutfits.length === 0) return;
+
+      // Group by name, occasion, style_tag, and item IDs
+      const groups: Record<string, any[]> = {};
+      
+      savedOutfits.forEach(outfit => {
+        const itemIds = outfit.outfit_items
+          .map((oi: any) => oi.item_id)
+          .sort()
+          .join(',');
+        const key = `${outfit.name}|${outfit.occasion}|${outfit.style_tag}|${itemIds}`;
+        
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(outfit);
+      });
+
+      // Find duplicates and delete newer ones
+      const toDelete: string[] = [];
+      Object.values(groups).forEach(group => {
+        if (group.length > 1) {
+          // Keep the first (oldest), delete the rest
+          toDelete.push(...group.slice(1).map(o => o.id));
+        }
+      });
+
+      if (toDelete.length > 0) {
+        console.log(`Cleaning up ${toDelete.length} duplicate outfits`);
+        await supabase
+          .from('outfits')
+          .delete()
+          .in('id', toDelete);
+        
+        toast.success(`Removed ${toDelete.length} duplicate outfit${toDelete.length > 1 ? 's' : ''} from lookbook`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up duplicates:', error);
+    }
+  };
+
+  // Process cached outfits when they load
+  useEffect(() => {
+    if (!isLoadingOutfits && cachedOutfits.length > 0) {
+      loadExistingOutfits();
+    }
+  }, [cachedOutfits, isLoadingOutfits]);
 
   const checkForNewItems = async () => {
     const lastGen = localStorage.getItem('last_outfit_generation');
@@ -116,48 +190,43 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     }
   };
 
-  const loadExistingOutfits = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  // Deduplicate outfits by comparing item IDs
+  const deduplicateOutfits = (outfits: GeneratedOutfit[]): GeneratedOutfit[] => {
+    const seen = new Set<string>();
+    return outfits.filter(outfit => {
+      const itemIds = outfit.items.map(item => item.id).sort().join(',');
+      if (seen.has(itemIds)) {
+        return false;
+      }
+      seen.add(itemIds);
+      return true;
+    });
+  };
 
-    const { data: outfits } = await supabase
-      .from('outfits')
-      .select(`
-        *,
-        outfit_items (
-          item_id,
-          item_type,
-          wardrobe_items (*)
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('saved_to_lookbook', false);
-
-    if (!outfits || outfits.length === 0) return;
+  const loadExistingOutfits = () => {
+    if (!cachedOutfits || cachedOutfits.length === 0) return;
 
     // Group outfits by occasion/style with sensible fallbacks
     const byOccasion: Record<string, GeneratedOutfit[]> = {};
     const byStyle: Record<string, GeneratedOutfit[]> = {};
     const anchor: GeneratedOutfit[] = [];
 
-    outfits.forEach(outfit => {
-      const items = outfit.outfit_items?.map((oi: any) => oi.wardrobe_items).filter(Boolean) || [];
-      const metadata = outfit.metadata as { type?: string; reasoning?: string } | null;
+    cachedOutfits.forEach(outfit => {
       const generatedOutfit: GeneratedOutfit = {
         id: outfit.id,
         name: outfit.name,
         occasion: outfit.occasion,
         style_tag: outfit.style_tag,
         preview_image_url: outfit.preview_image_url,
-        items,
-        reasoning: metadata?.reasoning
+        items: outfit.items,
+        reasoning: outfit.metadata?.reasoning
       };
 
-      if (metadata?.type === 'occasion' && outfit.occasion) {
+      if (outfit.metadata?.type === 'occasion' && outfit.occasion) {
         (byOccasion[outfit.occasion] ||= []).push(generatedOutfit);
-      } else if (metadata?.type === 'style' && outfit.style_tag) {
+      } else if (outfit.metadata?.type === 'style' && outfit.style_tag) {
         (byStyle[outfit.style_tag] ||= []).push(generatedOutfit);
-      } else if (metadata?.type === 'anchor') {
+      } else if (outfit.metadata?.type === 'anchor') {
         anchor.push(generatedOutfit);
       } else {
         // Fallback grouping when metadata is missing
@@ -169,6 +238,14 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           anchor.push(generatedOutfit);
         }
       }
+    });
+
+    // Deduplicate each group
+    Object.keys(byOccasion).forEach(key => {
+      byOccasion[key] = deduplicateOutfits(byOccasion[key]);
+    });
+    Object.keys(byStyle).forEach(key => {
+      byStyle[key] = deduplicateOutfits(byStyle[key]);
     });
 
     // Persist and restore last selections or pick first available
@@ -187,23 +264,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
     if (!selectedOccasion && nextOcc) setSelectedOccasion(nextOcc);
     if (!selectedStyle && nextStyle) setSelectedStyle(nextStyle);
-  };
-
-  const fetchWardrobeItems = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('wardrobe_items')
-      .select('*')
-      .eq('user_id', user.id);
-
-    if (error) {
-      toast.error('Failed to load wardrobe');
-      return;
-    }
-
-    setWardrobeItems(data || []);
   };
 
   const generateOutfits = async (type: 'occasion' | 'style' | 'anchor', value: string, anchorItem?: WardrobeItem) => {
@@ -250,9 +310,41 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       if (error) throw error;
 
       const outfits = data.outfits || [];
+      const savedOutfits: GeneratedOutfit[] = [];
 
-      // Save outfits to database
+      // Save outfits to database (with duplicate prevention)
       for (const outfit of outfits) {
+        // Get item IDs for this outfit
+        const itemIds = outfit.items.map((item: WardrobeItem) => item.id).sort();
+
+        // Check if an outfit with these exact items already exists for this occasion/style
+        const { data: existingOutfits } = await supabase
+          .from('outfits')
+          .select(`
+            id,
+            saved_to_lookbook,
+            outfit_items (
+              item_id
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('saved_to_lookbook', false)
+          .eq(type === 'occasion' ? 'occasion' : 'style_tag', value);
+
+        // Check if any existing outfit has the exact same items
+        const isDuplicate = existingOutfits?.some(existing => {
+          const existingItemIds = existing.outfit_items
+            .map((oi: any) => oi.item_id)
+            .sort();
+          return JSON.stringify(existingItemIds) === JSON.stringify(itemIds);
+        });
+
+        if (isDuplicate) {
+          console.log('Skipping duplicate outfit with same items');
+          continue;
+        }
+
+        // Save new outfit
         const { data: savedOutfit, error: saveError } = await supabase
           .from('outfits')
           .insert({
@@ -288,17 +380,18 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         await supabase.from('outfit_items').insert(itemInserts);
 
         outfit.id = savedOutfit.id;
+        savedOutfits.push(outfit);
       }
 
       if (type === 'occasion') {
-        setOccasionOutfits(prev => ({ ...prev, [value]: outfits }));
+        setOccasionOutfits(prev => ({ ...prev, [value]: savedOutfits }));
       } else if (type === 'style') {
-        setStyleOutfits(prev => ({ ...prev, [value]: outfits }));
+        setStyleOutfits(prev => ({ ...prev, [value]: savedOutfits }));
       } else {
-        setAnchorOutfits(outfits);
+        setAnchorOutfits(savedOutfits);
       }
 
-      toast.success(`Generated ${outfits.length} outfit${outfits.length > 1 ? 's' : ''}`);
+      toast.success(`Generated ${savedOutfits.length} outfit${savedOutfits.length > 1 ? 's' : ''}`);
     } catch (error) {
       console.error(error);
       toast.error('Failed to generate outfits');
@@ -326,6 +419,9 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       setStyleOutfits({});
       setAnchorOutfits([]);
 
+      // Invalidate cache to refetch
+      invalidateOutfits();
+
       toast.success('Creating fresh outfit suggestions');
 
       localStorage.setItem('last_outfit_generation', new Date().toISOString());
@@ -343,35 +439,86 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: newOutfit, error: outfitError } = await supabase
+      // Get the item IDs for this outfit
+      const itemIds = outfit.items.map(item => item.id).sort();
+
+      // Check if an identical outfit already exists
+      const { data: existingOutfits } = await supabase
         .from('outfits')
-        .insert({
-          user_id: user.id,
-          name: outfit.name,
-          occasion: outfit.occasion,
-          style_tag: outfit.style_tag,
-          preview_image_url: outfit.preview_image_url,
-          saved_to_lookbook: true
-        })
-        .select()
-        .single();
+        .select(`
+          id,
+          name,
+          occasion,
+          style_tag,
+          saved_to_lookbook,
+          outfit_items (
+            item_id
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('name', outfit.name)
+        .eq('occasion', outfit.occasion || '')
+        .eq('style_tag', outfit.style_tag || '');
 
-      if (outfitError) throw outfitError;
+      // Find exact match by comparing item IDs
+      const exactMatch = existingOutfits?.find(existing => {
+        const existingItemIds = existing.outfit_items
+          .map((oi: any) => oi.item_id)
+          .sort();
+        return JSON.stringify(existingItemIds) === JSON.stringify(itemIds);
+      });
 
-      const itemInserts = outfit.items.map(item => ({
-        outfit_id: newOutfit.id,
-        item_id: item.id,
-        item_type: item.category,
-        ai_virtual: false
-      }));
+      let savedOutfitId: string;
 
-      const { error: itemsError } = await supabase
-        .from('outfit_items')
-        .insert(itemInserts);
+      if (exactMatch) {
+        // Update existing outfit to mark as saved
+        const { error: updateError } = await supabase
+          .from('outfits')
+          .update({ saved_to_lookbook: true })
+          .eq('id', exactMatch.id);
 
-      if (itemsError) throw itemsError;
+        if (updateError) throw updateError;
+        savedOutfitId = exactMatch.id;
+      } else {
+        // Create new outfit
+        const { data: newOutfit, error: outfitError } = await supabase
+          .from('outfits')
+          .insert({
+            user_id: user.id,
+            name: outfit.name,
+            occasion: outfit.occasion,
+            style_tag: outfit.style_tag,
+            preview_image_url: outfit.preview_image_url,
+            saved_to_lookbook: true
+          })
+          .select()
+          .single();
 
-      toast.success('Outfit added to your lookbook');
+        if (outfitError) throw outfitError;
+
+        const itemInserts = outfit.items.map(item => ({
+          outfit_id: newOutfit.id,
+          item_id: item.id,
+          item_type: item.category,
+          ai_virtual: false
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('outfit_items')
+          .insert(itemInserts);
+
+        if (itemsError) throw itemsError;
+        savedOutfitId = newOutfit.id;
+      }
+
+      // Mark outfit as saved
+      const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
+      setSavedOutfitIds(prev => new Set(prev).add(outfitKey));
+
+      // Invalidate outfit cache since we saved one
+      invalidateOutfits();
+
+      toast.success(exactMatch ? 'Outfit marked as saved' : 'Outfit added to your lookbook');
     } catch (error) {
       console.error(error);
       toast.error('Failed to save outfit');
@@ -418,18 +565,27 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 </div>
                 <div className="p-4 bg-card">
                   <h4 className="font-semibold mb-3 truncate text-sm">{outfit.style_tag || outfit.name}</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      saveToLookbook(outfit);
-                    }}
-                  >
-                    <Heart className="w-4 h-4 mr-2" />
-                    Save to Lookbook
-                  </Button>
+                  {(() => {
+                    const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
+                    const isSaved = savedOutfitIds.has(outfitKey);
+                    return (
+                      <Button
+                        variant={isSaved ? "default" : "outline"}
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isSaved) {
+                            saveToLookbook(outfit);
+                          }
+                        }}
+                        disabled={isSaved}
+                      >
+                        <Heart className={`w-4 h-4 mr-2 ${isSaved ? 'fill-current' : ''}`} />
+                        {isSaved ? 'Saved to Lookbook' : 'Save to Lookbook'}
+                      </Button>
+                    );
+                  })()}
                 </div>
               </div>
             </motion.div>
@@ -446,9 +602,52 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         onBack={() => setSelectedOutfit(null)}
         onSave={(saved) => {
           setSelectedOutfit(null);
+          invalidateOutfits();
           toast.success('Saved to lookbook!');
         }}
       />
+    );
+  }
+
+  // Show skeleton on first load
+  if (isLoadingOutfits || isLoadingWardrobe) {
+    return (
+      <div className="flex flex-col h-full bg-background">
+        {/* Feature Icons */}
+        <div className="px-4 pt-6 pb-4">
+          <div className="grid grid-cols-4 gap-4">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              const isActive = feature.active;
+              return (
+                <button
+                  key={feature.title}
+                  onClick={() => onNavigate(feature.view)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                      isActive
+                        ? "bg-primary border-2 border-primary"
+                        : "bg-background border-2 border-border"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-7 h-7 ${
+                        isActive ? "text-primary-foreground" : "text-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
+                    {feature.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <OutfitSuggestionSkeleton />
+      </div>
     );
   }
 

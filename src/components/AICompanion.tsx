@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Camera, X, Sparkles, RotateCcw } from "lucide-react";
+import { Send, Camera, X, Sparkles, RotateCcw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
 import { useAnalytics } from "@/hooks/useAnalytics";
@@ -69,6 +69,8 @@ const AICompanion = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -90,12 +92,132 @@ const AICompanion = () => {
     });
   }, []);
 
+  // Fetch all wardrobe items for chat context
+  const fetchWardrobeItems = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: items, error } = await supabase
+        .from('wardrobe_items')
+        .select('id, name, category, color, fabric, texture, pattern, style_notes')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to fetch wardrobe items:', error);
+        return;
+      }
+
+      setWardrobeItems(items || []);
+      console.log(`Chat: Loaded ${items?.length || 0} wardrobe items`);
+    } catch (error) {
+      console.error('Error fetching wardrobe:', error);
+    }
+  };
+
+  // Initial wardrobe load on mount
+  useEffect(() => {
+    fetchWardrobeItems();
+  }, []);
+
+  // Periodic wardrobe refresh (every 45 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchWardrobeItems();
+    }, 45000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh wardrobe when window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchWardrobeItems();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Realtime subscription to wardrobe changes
+  useEffect(() => {
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel('wardrobe-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'wardrobe_items',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Wardrobe realtime update:', payload.eventType);
+            
+            if (payload.eventType === 'INSERT') {
+              const newItem = payload.new as any;
+              setWardrobeItems(prev => [
+                {
+                  id: newItem.id,
+                  name: newItem.name,
+                  category: newItem.category,
+                  color: newItem.color,
+                  fabric: newItem.fabric,
+                  texture: newItem.texture,
+                  pattern: newItem.pattern,
+                  style_notes: newItem.style_notes,
+                },
+                ...prev,
+              ]);
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedItem = payload.new as any;
+              setWardrobeItems(prev =>
+                prev.map(item =>
+                  item.id === updatedItem.id
+                    ? {
+                        id: updatedItem.id,
+                        name: updatedItem.name,
+                        category: updatedItem.category,
+                        color: updatedItem.color,
+                        fabric: updatedItem.fabric,
+                        texture: updatedItem.texture,
+                        pattern: updatedItem.pattern,
+                        style_notes: updatedItem.style_notes,
+                      }
+                    : item
+                )
+              );
+            } else if (payload.eventType === 'DELETE') {
+              const deletedItem = payload.old as any;
+              setWardrobeItems(prev => prev.filter(item => item.id !== deletedItem.id));
+            }
+          }
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    const channelPromise = setupRealtimeSubscription();
+
+    return () => {
+      channelPromise.then(channel => {
+        if (channel) supabase.removeChannel(channel);
+      });
+    };
+  }, []);
+
   const resetChat = () => {
     const userName = userProfile.name || "there";
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName} 👋\nWelcome to your personal style lab.\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName}, welcome back!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
     setMessages([greeting]);
@@ -140,7 +262,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName} 👋\nWelcome to your personal style lab.\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName}, welcome back!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
 
@@ -205,11 +327,10 @@ const AICompanion = () => {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.access_token) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to use the chat feature.",
-        variant: "destructive",
-      });
+      const authMsg = "You need to sign in to chat. Please log in and try again.";
+      console.warn('Chat: missing session token');
+      setChatError(authMsg);
+      toast({ title: "Authentication Required", description: authMsg, variant: "destructive" });
       return;
     }
 
@@ -264,6 +385,7 @@ const AICompanion = () => {
             images: m.images 
           })),
           userProfile,
+          wardrobeItems,
           recentBattles,
           recentStyleChecks,
         }),
@@ -278,26 +400,27 @@ const AICompanion = () => {
         const errorText = await response.text();
         console.error('Chat API error:', response.status, errorText);
         
+        let errorMessage = "Unable to connect to AI. Please try again.";
+        
         if (response.status === 429) {
-          toast({
-            title: "Rate Limit Reached",
-            description: "Too many requests. Please try again in a moment.",
-            variant: "destructive",
-          });
+          errorMessage = "Too many requests. Please try again in a moment.";
           trackCustom("rate_limit_error");
-          return; // Exit early without adding empty message
-        }
-        if (response.status === 402) {
-          toast({
-            title: "Payment Required",
-            description: "Please add credits to your Lovable AI workspace to continue using AI features.",
-            variant: "destructive",
-          });
+        } else if (response.status === 402) {
+          errorMessage = "Service unavailable. Please contact support.";
           trackCustom("payment_required_error");
-          return; // Exit early without adding empty message
+        } else if (response.status === 401) {
+          errorMessage = "Authentication error. Please sign in again.";
+          trackCustom("auth_error");
+        } else {
+          trackCustom("chat_api_error", { status: response.status });
         }
-        throw new Error(`Failed to start chat stream: ${response.status}`);
+        
+        setChatError(errorMessage);
+        return; // Exit early without adding empty message
       }
+      
+      // Clear any previous errors on successful connection
+      setChatError(null);
 
       // Safety timeout to prevent hanging connections on mobile
       if (!timeoutId) {
@@ -323,7 +446,54 @@ const AICompanion = () => {
       let assistantMessage = '';
       let collectedToolCalls: ToolCall[] = [];
 
-      // Always force non-stream fallback on Mobile Safari
+      const maybeGenerateClientFallback = async () => {
+        try {
+          if (collectedToolCalls.length > 0) return;
+          const lastUser = [...userMessages].reverse().find(m => m.role === 'user');
+          const text = (lastUser?.content || '').toLowerCase();
+          const guessOccasion = /wedding|party|office|work|interview|date|college|school|gym|beach/.exec(text)?.[0] || undefined;
+          const guessStyle = /casual|smart casual|business|formal|street|athleisure|minimal|edgy|preppy|classic/.exec(text)?.[0] || undefined;
+
+          const { data, error } = await supabase.functions.invoke('generate-outfit', {
+            body: {
+              generationType: 'general',
+              occasion: guessOccasion,
+              style: guessStyle,
+              anchorItem: null,
+              wardrobeItems,
+              maxOutfits: 3,
+              userLocation: null,
+              bypassCache: false,
+            }
+          });
+          if ((error as any)) {
+            console.warn('Client fallback generate-outfit failed:', error);
+            return;
+          }
+          const apiOutfits = (data?.outfits || []) as any[];
+          if (!apiOutfits.length) return;
+
+          const tc: ToolCall = {
+            type: 'create_outfit_suggestion',
+            data: {
+              outfits: apiOutfits.map((o: any) => ({
+                outfit_name: o.name || 'Styled Look',
+                item_ids: (o.items || []).map((it: any) => it.id).filter(Boolean),
+                reasoning: o.reasoning || 'Balanced look from your wardrobe.',
+              }))
+            }
+          };
+
+          collectedToolCalls.push(tc);
+          setMessages(prev => {
+            const updated = prev.map(m => m.id === assistantMsgId ? { ...m, toolCalls: collectedToolCalls } : m);
+            persistMessages(updated);
+            return updated;
+          });
+        } catch (e) {
+          console.warn('Fallback generation error:', e);
+        }
+      };
       if (isMobileSafari) {
         try {
           const fullText = await response.text();
@@ -334,8 +504,32 @@ const AICompanion = () => {
             if (jsonStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
+              const delta = parsed.choices?.[0]?.delta;
+              const messageObj = parsed.choices?.[0]?.message;
+              const content = delta?.content ?? messageObj?.content;
+              const toolCallsDelta = delta?.tool_calls;
+              const toolCallsMessage = messageObj?.tool_calls;
+
               if (content) assistantMessage += content;
+
+              const toProcess = toolCallsDelta || toolCallsMessage;
+              if (toProcess && Array.isArray(toProcess)) {
+                console.log('AICompanion: received tool calls', { count: toProcess.length, tools: toProcess });
+                toProcess.forEach((tc: any) => {
+                  const fn = tc.function || tc?.["function_call"]; // be tolerant
+                  const name = fn?.name;
+                  const argsStr = fn?.arguments;
+                  if (name && typeof argsStr === 'string') {
+                    try {
+                      const args = JSON.parse(argsStr);
+                      console.log('AICompanion: parsed tool call', { type: name, data: args });
+                      collectedToolCalls.push({ type: name as any, data: args });
+                    } catch (e) {
+                      console.error('Failed to parse tool call args:', e);
+                    }
+                  }
+                });
+              }
             } catch {}
           }
         } catch (e) {
@@ -344,13 +538,13 @@ const AICompanion = () => {
 
         setMessages(prev => {
           const updated = prev.map(m =>
-            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
+            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...', toolCalls: collectedToolCalls } : m
           );
           persistMessages(updated);
           return updated;
         });
+        await maybeGenerateClientFallback();
         trackCustom("reply_delivered");
-        // Cleanup controller/timeout for Safari path
         if (timeoutId) clearTimeout(timeoutId);
         abortControllerRef.current = null;
         return; // Done for Mobile Safari
@@ -391,8 +585,10 @@ const AICompanion = () => {
               try {
                 const parsed = JSON.parse(jsonStr);
                 const delta = parsed.choices?.[0]?.delta;
-                const content = delta?.content;
-                const toolCalls = delta?.tool_calls;
+                const messageObj = parsed.choices?.[0]?.message;
+                const content = delta?.content ?? messageObj?.content;
+                const toolCallsDelta = delta?.tool_calls;
+                const toolCallsMessage = messageObj?.tool_calls;
 
                 if (content) {
                   assistantMessage += content;
@@ -405,13 +601,19 @@ const AICompanion = () => {
                   });
                 }
 
-                if (toolCalls) {
-                  toolCalls.forEach((tc: any) => {
-                    if (tc.function?.name && tc.function?.arguments) {
+                const toProcess = toolCallsDelta || toolCallsMessage;
+                if (toProcess && Array.isArray(toProcess)) {
+                  console.log('AICompanion: received tool calls', { count: toProcess.length, tools: toProcess });
+                  toProcess.forEach((tc: any) => {
+                    const fn = tc.function || tc?.["function_call"]; // be tolerant
+                    const name = fn?.name;
+                    const argsStr = fn?.arguments;
+                    if (name && typeof argsStr === 'string') {
                       try {
-                        const args = JSON.parse(tc.function.arguments);
+                        const args = JSON.parse(argsStr);
+                        console.log('AICompanion: parsed tool call', { type: name, data: args });
                         collectedToolCalls.push({
-                          type: tc.function.name as any,
+                          type: name as any,
                           data: args
                         });
                       } catch (e) {
@@ -459,13 +661,19 @@ const AICompanion = () => {
           console.error('Text fallback failed:', e);
         }
 
-        setMessages(prev => {
-          const updated = prev.map(m =>
-            m.id === assistantMsgId ? { ...m, content: assistantMessage || '...' } : m
-          );
-          persistMessages(updated);
-          return updated;
-        });
+        if (!assistantMessage) {
+          // No content received at all – show banner and remove empty assistant bubble
+          setMessages(prev => prev.filter(m => m.id !== assistantMsgId));
+          setChatError("The AI didn't send a response. Please try again.");
+        } else {
+          setMessages(prev => {
+            const updated = prev.map(m =>
+              m.id === assistantMsgId ? { ...m, content: assistantMessage } : m
+            );
+            persistMessages(updated);
+            return updated;
+          });
+        }
       }
 
       trackCustom("reply_delivered");
@@ -474,11 +682,17 @@ const AICompanion = () => {
       abortControllerRef.current = null;
     } catch (error) {
       console.error('Chat error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to get response. Please try again.",
-        variant: "destructive",
-      });
+      
+      let errorMessage = "Failed to get response. Please try again.";
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "Request cancelled. Please try again.";
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Network error. Please check your connection and try again.";
+        }
+      }
+      
+      setChatError(errorMessage);
       trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
       // Cleanup on error
       try { if (timeoutId) clearTimeout(timeoutId); } catch {}
@@ -496,6 +710,9 @@ const AICompanion = () => {
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || inputValue;
     if ((!textToSend.trim() && selectedImages.length === 0) || isLoading) return;
+
+    // Clear any previous errors
+    setChatError(null);
 
     // Track chat message
     messageCountRef.current += 1;
@@ -538,23 +755,20 @@ const AICompanion = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* New Chat Button */}
-      <div className="px-4 pt-4 pb-2 border-b border-border/50 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Chat</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={resetChat}
-          className="gap-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          New Chat
-        </Button>
-      </div>
+    <div className="flex flex-col h-full bg-background relative">
+      {/* New Chat Button - Top Right */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={resetChat}
+        className="absolute top-4 right-4 z-10 gap-2"
+      >
+        <RotateCcw className="w-4 h-4" />
+        New Chat
+      </Button>
       
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 px-4 py-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 px-4 py-4 pt-16" ref={scrollRef}>
         <div className="space-y-3 max-w-2xl mx-auto">
           {messages.map((message) => (
             <div
@@ -589,7 +803,12 @@ const AICompanion = () => {
                 ) : (
                   <div className="space-y-2">
                     {message.content && (
-                      <div className="rounded-2xl px-4 py-3 bg-muted/50 text-foreground border border-border">
+                      <motion.div 
+                        className="rounded-2xl px-4 py-3 bg-muted/50 text-foreground border border-border"
+                        initial={message.id === "greeting" ? { opacity: 0, y: 10 } : false}
+                        animate={message.id === "greeting" ? { opacity: 1, y: 0 } : false}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                      >
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">
                           {message.id === "greeting" ? (
                             <>
@@ -603,7 +822,7 @@ const AICompanion = () => {
                             message.content || (isLoading ? "..." : "")
                           )}
                         </p>
-                      </div>
+                      </motion.div>
                     )}
                     {message.toolCalls?.map((tc, tcIdx) => (
                       <div key={tcIdx}>
@@ -618,6 +837,7 @@ const AICompanion = () => {
                             outfitName={tc.data.outfit_name}
                             itemIds={tc.data.item_ids}
                             reasoning={tc.data.reasoning}
+                            outfits={tc.data.outfits}
                           />
                         )}
                       </div>
@@ -627,6 +847,47 @@ const AICompanion = () => {
               </div>
             </div>
           ))}
+          
+          {/* Typing Indicator */}
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] sm:max-w-[80%]">
+                <div className="rounded-2xl px-4 py-3 bg-muted/50 border border-border">
+                  <div className="flex gap-1.5">
+                    <motion.div
+                      className="w-2 h-2 bg-foreground/60 rounded-full"
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 bg-foreground/60 rounded-full"
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 0.2
+                      }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 bg-foreground/60 rounded-full"
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 0.4
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </ScrollArea>
 
@@ -659,6 +920,52 @@ const AICompanion = () => {
           </div>
         </div>
       )}
+
+      {/* Error Banner */}
+      <AnimatePresence>
+        {chatError && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="px-4 py-3 border-t border-border/50"
+          >
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-destructive font-medium mb-2">
+                    {chatError}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setChatError(null);
+                      // Retry the last user message
+                      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+                      if (lastUserMsg) {
+                        handleSend(lastUserMsg.content);
+                      }
+                    }}
+                    className="text-xs h-8"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setChatError(null)}
+                  className="h-6 w-6 flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Input Area */}
       <div className="px-4 py-3 border-t border-border bg-background safe-area-bottom">

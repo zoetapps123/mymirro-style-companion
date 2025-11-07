@@ -45,20 +45,21 @@ serve(async (req) => {
 
     const editPrompt = STYLING_PROMPTS.QUICK_STYLE_FIXES(improvements, wardrobeItems);
 
-    // Call Gemini API - Note: Gemini doesn't support image generation, returns text description
+    // Call Gemini API for image generation
     let data;
     try {
       data = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-flash-image-preview',
         messages: [
           {
             role: 'user',
             content: [
-              { type: 'text', text: editPrompt + "\n\nNote: Describe the styling improvements in detail as direct image editing is not supported by Gemini API." },
+              { type: 'text', text: editPrompt },
               { type: 'image_url', image_url: { url: imageData } }
             ]
           }
-        ]
+        ],
+        modalities: ['image', 'text']
       });
     } catch (error: any) {
       if (error.message === 'RATE_LIMIT') {
@@ -78,8 +79,8 @@ serve(async (req) => {
     
     console.log('Style elevation complete');
 
-    // Gemini returns text description, not actual enhanced images
-    const enhancedImage = data.choices?.[0]?.message?.content || imageData; // Fallback to original
+    // Extract generated image from Gemini response
+    const enhancedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url || imageData;
 
     if (!enhancedImage) {
       throw new Error('Failed to generate enhanced image');

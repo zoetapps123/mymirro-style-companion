@@ -386,6 +386,7 @@ export type Database = {
         Row: {
           category: string
           color: string | null
+          composite_image_url: string | null
           created_at: string
           fabric: string | null
           id: string
@@ -401,6 +402,7 @@ export type Database = {
         Insert: {
           category: string
           color?: string | null
+          composite_image_url?: string | null
           created_at?: string
           fabric?: string | null
           id?: string
@@ -416,6 +418,7 @@ export type Database = {
         Update: {
           category?: string
           color?: string | null
+          composite_image_url?: string | null
           created_at?: string
           fabric?: string | null
           id?: string

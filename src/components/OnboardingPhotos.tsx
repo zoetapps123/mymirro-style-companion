@@ -6,7 +6,6 @@ import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { advancedSmartCrop, trimImageBorders } from "@/lib/imageProcessing";
 import { LoadingTile } from "@/components/ui/loading-tile";
 
 interface OnboardingPhotosProps {
@@ -156,7 +155,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     }
   };
 
-  // Background processing function
+  // Background processing function - simplified for Gemini-only pipeline
   const processImagesInBackground = async (urls: string[], userId: string) => {
     try {
       // Get existing wardrobe items for duplicate checking
@@ -174,6 +173,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             throw new Error('Authentication required');
           }
 
+          console.log(`Processing image ${urlIdx + 1}/${urls.length} with Gemini...`);
           const { data: processData, error: processError } = await supabase.functions.invoke(
             'process-wardrobe',
             { 
@@ -190,11 +190,9 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             continue;
           }
 
-          if (processData?.items && processData?.compositeImageUrl) {
-            // Use smart cropping for each item
-            for (let idx = 0; idx < processData.items.length; idx++) {
-              const item = processData.items[idx];
-
+          if (processData?.items && processData.items.length > 0) {
+            // Items come with generated images from Gemini
+            for (const item of processData.items) {
               const isDuplicate = existingItems?.some(existing => 
                 existing.category?.toLowerCase() === item.category?.toLowerCase() &&
                 (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
@@ -207,32 +205,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 continue;
               }
 
-              // Smart crop this specific item
-              const croppedBlob = await advancedSmartCrop(
-                processData.compositeImageUrl,
-                idx,
-                processData.items.length
-              );
-              
-              // Apply border trimming
-              const { trimImageBorders } = await import('@/lib/imageProcessing');
-              const finalBlob = await trimImageBorders(croppedBlob);
-
-              // Upload final processed image
-              const fileName = `${userId}/wardrobe_${Date.now()}_${idx}_${item.name.replace(/\s+/g, '-')}.png`;
-              const { error: uploadError } = await supabase.storage
-                .from('outfits')
-                .upload(fileName, finalBlob);
-
-              if (uploadError) {
-                console.error('Upload error:', uploadError);
-                continue;
-              }
-
-              const { data: { publicUrl } } = supabase.storage
-                .from('outfits')
-                .getPublicUrl(fileName);
-
+              // Item already has imageUrl from Gemini generation
               await supabase.from('wardrobe_items').insert({
                 user_id: userId,
                 name: item.name,
@@ -242,8 +215,8 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 texture: item.texture,
                 pattern: item.pattern,
                 style_notes: item.style_notes,
-                processed_image_url: publicUrl,
-                image_url: url,
+                processed_image_url: item.imageUrl,
+                image_url: item.imageUrl,
               });
 
               totalAdded++;
