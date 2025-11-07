@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Sparkles } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { orderOutfitForDisplay } from '@/lib/utils';
 
 interface WardrobeItem {
   id: string;
@@ -116,25 +117,8 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning, outfit
     );
   }
 
-  // Organize items by category for proper outfit display
-  const categorizeItems = () => {
-    const upperwear = items.find(i => i && ['shirt', 'top', 'blouse', 'tshirt', 't-shirt', 'upperwear'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const lowerwear = items.find(i => i && ['pants', 'jeans', 'trousers', 'skirt', 'shorts', 'lowerwear', 'bottoms', 'bottom'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const footwear = items.find(i => i && ['shoes', 'sneakers', 'boots', 'sandals', 'heels', 'footwear'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const layering = items.find(i => i && ['jacket', 'blazer', 'cardigan', 'coat', 'sweater', 'hoodie', 'outerwear'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const accessories = items.filter(i => 
-      i && (
-        (!upperwear || i.id !== upperwear.id) &&
-        (!lowerwear || i.id !== lowerwear.id) &&
-        (!footwear || i.id !== footwear.id) &&
-        (!layering || i.id !== layering.id)
-      )
-    );
-    
-    return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
-  };
-
-  const displayItems = categorizeItems();
+  // Use shared utility to organize items with accessories prioritized
+  const displayItems = orderOutfitForDisplay(items);
 
   return (
     <Card className="p-3 my-3 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
@@ -238,24 +222,8 @@ const SingleOutfitCard = ({ outfitName, itemIds, reasoning }: { outfitName: stri
     return <div className="h-48 bg-muted rounded-xl animate-pulse" />;
   }
 
-  const categorizeItems = () => {
-    const upperwear = items.find(i => i && ['shirt', 'top', 'blouse', 'tshirt', 't-shirt', 'upperwear'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const lowerwear = items.find(i => i && ['pants', 'jeans', 'trousers', 'skirt', 'shorts', 'lowerwear', 'bottoms', 'bottom'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const footwear = items.find(i => i && ['shoes', 'sneakers', 'boots', 'sandals', 'heels', 'footwear'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const layering = items.find(i => i && ['jacket', 'blazer', 'cardigan', 'coat', 'sweater', 'hoodie', 'outerwear'].some(cat => i.category?.toLowerCase().includes(cat)));
-    const accessories = items.filter(i => 
-      i && (
-        (!upperwear || i.id !== upperwear.id) &&
-        (!lowerwear || i.id !== lowerwear.id) &&
-        (!footwear || i.id !== footwear.id) &&
-        (!layering || i.id !== layering.id)
-      )
-    );
-    
-    return [upperwear, lowerwear, layering, footwear, ...accessories].filter(Boolean) as WardrobeItem[];
-  };
-
-  const displayItems = categorizeItems();
+  // Use shared utility to organize items with accessories prioritized
+  const displayItems = orderOutfitForDisplay(items);
 
   return (
     <div className="space-y-2">
