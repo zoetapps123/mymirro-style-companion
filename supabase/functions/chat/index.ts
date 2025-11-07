@@ -203,7 +203,8 @@ serve(async (req) => {
               occasion,
               style,
               wardrobeItems: items,
-            }
+            },
+            headers: { Authorization: authHeader }
           });
 
           if (!outfitError && Array.isArray(outfitData?.outfits) && outfitData.outfits.length > 0) {
