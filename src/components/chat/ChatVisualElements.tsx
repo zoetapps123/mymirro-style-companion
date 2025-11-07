@@ -60,7 +60,6 @@ export const WardrobeItemsDisplay = ({ itemIds, context }: WardrobeItemsDisplayP
             </div>
             <div className="p-2 bg-card">
               <p className="text-xs font-medium truncate">{item.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{item.color}</p>
             </div>
           </Card>
         ))}
