@@ -92,14 +92,12 @@ serve(async (req) => {
 
     console.log(`Detected ${detectedItems.length} items`);
 
-    // Step 2: Generate individual product images for each item using Gemini
-    console.log('Step 2: Generating product images with Gemini...');
+    // Step 2: Generate individual product images for each item using Gemini (in parallel)
+    console.log('Step 2: Generating product images with Gemini in parallel...');
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const itemsWithImages: Array<DetectedItem & { imageUrl: string }> = [];
-
-    for (let i = 0; i < detectedItems.length; i++) {
-      const item = detectedItems[i];
-      console.log(`Generating image for item ${i + 1}/${detectedItems.length}: ${item.name}`);
+    
+    const itemGenerationPromises = detectedItems.map(async (item, i) => {
+      console.log(`Starting generation for item ${i + 1}/${detectedItems.length}: ${item.name}`);
       
       try {
         const imageData = await generateProductImage(item);
@@ -115,23 +113,26 @@ serve(async (req) => {
 
         if (uploadError) {
           console.error(`Upload error for ${item.name}:`, uploadError);
-          continue;
+          return null;
         }
 
         const { data: { publicUrl } } = supabase.storage
           .from('outfits')
           .getPublicUrl(fileName);
 
-        itemsWithImages.push({
+        console.log(`Generated image for ${item.name}`);
+        return {
           ...item,
           imageUrl: publicUrl
-        });
-
-        console.log(`Generated image for ${item.name}`);
+        };
       } catch (error) {
         console.error(`Failed to generate image for ${item.name}:`, error);
+        return null;
       }
-    }
+    });
+
+    const results = await Promise.all(itemGenerationPromises);
+    const itemsWithImages = results.filter(item => item !== null) as Array<DetectedItem & { imageUrl: string }>;
 
     if (itemsWithImages.length === 0) {
       return new Response(JSON.stringify({ 
