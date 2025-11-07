@@ -57,6 +57,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const [hasNewItems, setHasNewItems] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState<GeneratedOutfit | null>(null);
   const [userLocation, setUserLocation] = useState<{ temp: number; weather: string; lat: number } | null>(null);
+  const [savedOutfitIds, setSavedOutfitIds] = useState<Set<string>>(new Set());
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
@@ -348,6 +349,10 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
       if (itemsError) throw itemsError;
 
+      // Mark outfit as saved
+      const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
+      setSavedOutfitIds(prev => new Set(prev).add(outfitKey));
+
       // Invalidate outfit cache since we saved one
       invalidateOutfits();
 
@@ -398,18 +403,27 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 </div>
                 <div className="p-4 bg-card">
                   <h4 className="font-semibold mb-3 truncate text-sm">{outfit.style_tag || outfit.name}</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      saveToLookbook(outfit);
-                    }}
-                  >
-                    <Heart className="w-4 h-4 mr-2" />
-                    Save to Lookbook
-                  </Button>
+                  {(() => {
+                    const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
+                    const isSaved = savedOutfitIds.has(outfitKey);
+                    return (
+                      <Button
+                        variant={isSaved ? "default" : "outline"}
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isSaved) {
+                            saveToLookbook(outfit);
+                          }
+                        }}
+                        disabled={isSaved}
+                      >
+                        <Heart className={`w-4 h-4 mr-2 ${isSaved ? 'fill-current' : ''}`} />
+                        {isSaved ? 'Saved to Lookbook' : 'Save to Lookbook'}
+                      </Button>
+                    );
+                  })()}
                 </div>
               </div>
             </motion.div>
