@@ -239,6 +239,13 @@ const AICompanion = () => {
     if (lastSession && sessionMessages && (now - parseInt(lastSession)) < SESSION_DURATION) {
       try {
         const savedMessages = JSON.parse(sessionMessages);
+        
+        // Check if the first message is an old greeting format and update it
+        if (savedMessages.length > 0 && savedMessages[0].id === 'greeting') {
+          const userName = userProfile.name || "there";
+          savedMessages[0].content = `Hey ${userName}!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`;
+        }
+        
         // Convert timestamp strings back to Date objects
         const messagesWithDates = savedMessages.map((msg: any) => ({
           ...msg,
