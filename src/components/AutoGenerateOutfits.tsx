@@ -171,7 +171,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         <>
           {/* Style-based Section */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold">By Style</h3>
+            <h3 className="text-lg font-semibold">Select your Style</h3>
             <Carousel className="w-full">
               <CarouselContent>
                 {styleOutfits.map((outfit) => (
@@ -187,7 +187,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
           {/* Occasion-based Section */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold">By Occasion</h3>
+            <h3 className="text-lg font-semibold">Select your occasion</h3>
             <Carousel className="w-full">
               <CarouselContent>
                 {occasionOutfits.map((outfit) => (

@@ -717,7 +717,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         <section>
           <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
             <Calendar className="w-6 h-6" />
-            By Occasion
+            Select your occasion
           </h2>
           <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
             {OCCASIONS.map(occasion => (
@@ -751,7 +751,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         <section>
           <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
             <Palette className="w-6 h-6" />
-            By Style
+            Select your Style
           </h2>
           <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
             {STYLES.map(style => (
