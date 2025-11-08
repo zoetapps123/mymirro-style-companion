@@ -226,14 +226,14 @@ After they specify occasion, THEN call this tool immediately.`,
     ];
 
     console.log('Chat: calling Gemini API', {
-      model: 'google/gemini-2.0-flash',
+      model: 'google/gemini-2.5-flash',
       messageCount: processedMessages.length,
       toolsCount: tools.length
     });
 
     // Step 1: Call Gemini with tools to determine intent
     const initialResponse = await callGeminiAPI({
-      model: 'google/gemini-2.0-flash',
+      model: 'google/gemini-2.5-flash',
       messages: [
         { role: 'system', content: systemPrompt },
         ...processedMessages,
