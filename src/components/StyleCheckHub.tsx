@@ -920,6 +920,15 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               <Button
                 variant="outline"
                 className="w-full rounded-full"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Result
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
                 onClick={() => {
                   setResult(null);
                   setUploadedImage(null);
