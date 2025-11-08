@@ -62,15 +62,13 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full h-full flex items-center justify-center p-4"
+              className="w-full h-full flex items-center justify-center"
             >
-              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-3 shadow-2xl border border-white/30 w-full h-full">
-                <img 
-                  src={slides[currentSlide].image} 
-                  alt={slides[currentSlide].title} 
-                  className="w-full h-full object-contain rounded-2xl"
-                />
-              </div>
+              <img 
+                src={slides[currentSlide].image} 
+                alt={slides[currentSlide].title} 
+                className="w-full h-full object-contain rounded-2xl"
+              />
             </motion.div>
           </AnimatePresence>
         </div>
