@@ -6,9 +6,9 @@ export const GEMINI_API_KEY_ENV_VAR = 'GEMINI_API_KEY';
 
 // Model mapping from Lovable AI Gateway format to direct Gemini models
 const MODEL_MAPPING: Record<string, string> = {
-  'google/gemini-2.5-pro': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash': 'gemini-2.0-flash-exp',
-  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-exp',
+  'google/gemini-2.5-pro': 'gemini-2.0-flash',
+  'google/gemini-2.5-flash': 'gemini-2.0-flash',
+  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash',
   'google/gemini-2.5-flash-image': 'gemini-2.5-flash-image-preview',
   'google/gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image-preview',
 };
@@ -129,7 +129,7 @@ export async function callGeminiAPIStreaming(options: {
   max_tokens?: number;
 }): Promise<Response> {
   const apiKey = getAIApiKey();
-  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
+  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash';
   
   const contents = await convertMessagesToContents(options.messages);
   const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
@@ -196,7 +196,7 @@ export async function callGeminiAPI(options: {
   modalities?: string[]; // Support for image generation
 }): Promise<any> {
   const apiKey = getAIApiKey();
-  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash-exp';
+  const model = MODEL_MAPPING[options.model || 'google/gemini-2.5-flash'] || 'gemini-2.0-flash';
   
   const contents = await convertMessagesToContents(options.messages);
   const functionDeclarations = options.tools ? convertToolsToFunctionDeclarations(options.tools) : undefined;
