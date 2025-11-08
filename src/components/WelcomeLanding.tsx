@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "@/assets/logo.png";
-import slideChat from "@/assets/slide-chat.png";
-import slideWardrobe from "@/assets/slide-wardrobe.png";
-import slideStylecheck from "@/assets/slide-stylecheck.png";
+import slide1 from "@/assets/slide-1.png";
+import slide2 from "@/assets/slide-2.png";
+import slide3 from "@/assets/slide-3.png";
 
 interface WelcomeLandingProps {
   onSignUp: () => void;
@@ -16,16 +16,16 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
 
   const slides = [
     {
-      title: "Ask your stylist anything",
-      image: slideChat
+      title: "Get personalized style advice",
+      image: slide1
     },
     {
-      title: "Create looks from your wardrobe",
-      image: slideWardrobe
+      title: "Organize and style your wardrobe",
+      image: slide2
     },
     {
-      title: "Improve your style using Style Check",
-      image: slideStylecheck
+      title: "Rate your outfits with AI",
+      image: slide3
     }
   ];
 
