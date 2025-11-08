@@ -54,7 +54,7 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
 
       {/* Carousel */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-4 max-w-md mx-auto w-full">
-        <div className="relative w-full flex items-center justify-center">
+        <div className="relative w-full h-[500px] flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -62,13 +62,13 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full flex items-center justify-center p-4"
+              className="w-full h-full flex items-center justify-center p-4"
             >
-              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-3 shadow-2xl border border-white/30">
+              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-3 shadow-2xl border border-white/30 w-full h-full">
                 <img 
                   src={slides[currentSlide].image} 
                   alt={slides[currentSlide].title} 
-                  className="w-full h-auto rounded-2xl"
+                  className="w-full h-full object-contain rounded-2xl"
                 />
               </div>
             </motion.div>
