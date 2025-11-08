@@ -797,6 +797,16 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 </div>
               </div>
 
+              {/* Share Result button */}
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Result
+              </Button>
+
               {/* Elevate Through AI button - RIGHT AFTER SCORES */}
               <Button
                 variant="default"
@@ -916,15 +926,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                   </div>
                 </div>
               )}
-
-              <Button
-                variant="outline"
-                className="w-full rounded-full"
-                onClick={handleShare}
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Result
-              </Button>
 
               <Button
                 variant="outline"
