@@ -111,6 +111,20 @@ const Auth = ({ onEmailCaptured }: AuthProps) => {
           return;
         }
 
+        // Track Snapchat Pixel signup event
+        try {
+          if (typeof window !== 'undefined' && (window as any).snaptr) {
+            (window as any).snaptr('track', 'SIGN_UP', {
+              'sign_up_method': 'email',
+              'uuid_c1': data.user?.id || '',
+              'user_phone_number': '',
+              'user_hashed_phone_number': ''
+            });
+          }
+        } catch (err) {
+          console.error('Snap Pixel tracking error:', err);
+        }
+
         // Store session timestamp
         localStorage.setItem("last_login", Date.now().toString());
         localStorage.setItem("onboard_email", email.trim());

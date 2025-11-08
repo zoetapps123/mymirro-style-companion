@@ -34,6 +34,15 @@ const generateSecureEmail = async (phone: string): Promise<string> => {
   return `${hashHex.substring(0, 32)}@mymirro.app`;
 };
 
+// Utility function to hash phone number for privacy
+const hashPhoneNumber = async (phone: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(phone);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   const [loading, setLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
@@ -68,7 +77,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       const email = await generateSecureEmail(phone);
       
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError, data } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -86,6 +95,21 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
             setError(signUpError.message);
           }
           return;
+        }
+
+        // Track Snapchat Pixel signup event
+        try {
+          const hashedPhone = await hashPhoneNumber(fullPhone);
+          if (typeof window !== 'undefined' && (window as any).snaptr) {
+            (window as any).snaptr('track', 'SIGN_UP', {
+              'sign_up_method': 'phone',
+              'uuid_c1': data.user?.id || '',
+              'user_phone_number': fullPhone,
+              'user_hashed_phone_number': hashedPhone
+            });
+          }
+        } catch (err) {
+          console.error('Snap Pixel tracking error:', err);
         }
 
         localStorage.setItem("last_login", Date.now().toString());
