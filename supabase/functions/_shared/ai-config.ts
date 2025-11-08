@@ -11,6 +11,7 @@ const MODEL_MAPPING: Record<string, string> = {
   'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-exp',
   'google/gemini-2.5-flash-image': 'gemini-2.5-flash-image-preview',
   'google/gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image-preview',
+  'gemini-2.0-flash': 'gemini-2.0-flash',
 };
 
 /**
