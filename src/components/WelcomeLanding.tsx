@@ -54,7 +54,7 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
 
       {/* Carousel */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-4 max-w-md mx-auto w-full">
-        <div className="relative w-full h-[500px] flex items-center justify-center">
+        <div className="relative w-full flex-1 min-h-[300px] max-h-[500px] flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -102,7 +102,7 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
       </div>
 
       {/* CTAs */}
-      <div className="space-y-4 pb-8 max-w-md mx-auto w-full">
+      <div className="space-y-4 pb-safe max-w-md mx-auto w-full">
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button
             onClick={onSignUp}
