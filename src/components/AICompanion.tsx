@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
   type: 'show_wardrobe_items' | 'create_outfit_suggestion' | 'outfits_loading';
@@ -832,7 +833,7 @@ const AICompanion = () => {
                         animate={message.id === "greeting" ? { opacity: 1, y: 0 } : false}
                         transition={{ duration: 0.3, ease: "easeOut" }}
                       >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                        <div className="text-sm leading-relaxed prose prose-sm prose-invert max-w-none">
                           {message.id === "greeting" ? (
                             <>
                               <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
@@ -842,9 +843,19 @@ const AICompanion = () => {
                               {message.content.split('\n').slice(1).join('\n')}
                             </>
                           ) : (
-                            message.content || (isLoading ? "..." : "")
+                            <ReactMarkdown
+                              components={{
+                                p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                                ul: ({children}) => <ul className="list-disc pl-5 space-y-1 my-2">{children}</ul>,
+                                ol: ({children}) => <ol className="list-decimal pl-5 space-y-1 my-2">{children}</ol>,
+                                li: ({children}) => <li className="text-foreground">{children}</li>,
+                                strong: ({children}) => <strong className="font-semibold text-foreground">{children}</strong>,
+                              }}
+                            >
+                              {message.content || (isLoading ? "..." : "")}
+                            </ReactMarkdown>
                           )}
-                        </p>
+                        </div>
                       </motion.div>
                     )}
                     {message.toolCalls?.map((tc, tcIdx) => (
