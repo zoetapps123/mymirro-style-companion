@@ -217,7 +217,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName}, welcome back!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName}!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
     setMessages([greeting]);
@@ -262,7 +262,7 @@ const AICompanion = () => {
     const greeting: Message = {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${userName}, welcome back!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
+      content: `Hey ${userName}!\n\nI'm here to decode your wardrobe, refine your vibe, and make sure every outfit looks like you actually meant it.`,
       timestamp: new Date(),
     };
 
