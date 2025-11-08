@@ -67,7 +67,7 @@ const WelcomeLanding = ({ onSignUp, onLogIn }: WelcomeLandingProps) => {
               <img 
                 src={slides[currentSlide].image} 
                 alt={slides[currentSlide].title} 
-                className="w-full h-full object-cover rounded-2xl"
+                className="w-full h-full object-contain"
               />
             </motion.div>
           </AnimatePresence>
