@@ -762,19 +762,43 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        
+        // Stream state tracking to prevent race conditions
+        let streamClosed = false;
+        const safeEnqueue = (data: Uint8Array) => {
+          if (!streamClosed) {
+            try {
+              controller.enqueue(data);
+            } catch (e) {
+              console.error('Enqueue failed:', e);
+              streamClosed = true;
+            }
+          }
+        };
+        const safeClose = () => {
+          if (!streamClosed) {
+            streamClosed = true;
+            try {
+              controller.close();
+            } catch (e) {
+              console.error('Close failed:', e);
+            }
+          }
+        };
+        
         try {
           console.log('Chat: starting Gemini stream');
           const reader = geminiResponse.body?.getReader();
           if (!reader) {
             console.log('Chat: no response body from Gemini');
-            controller.close();
+            safeClose();
             return;
           }
 
           const decoder = new TextDecoder();
           let buffer = '';
 
-          while (true) {
+          while (!streamClosed) {
             const { done, value } = await reader.read();
             if (done) break;
 
@@ -804,7 +828,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                         }
                       }]
                     };
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                    safeEnqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
                   }
                   
                   // Check for function calls
@@ -925,14 +949,14 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                           for (const l2 of lines2) {
                             if (!l2.trim() || l2.startsWith(':')) continue;
                             if (l2.startsWith('data: ')) {
-                              controller.enqueue(encoder.encode(l2 + '\n\n'));
+                              safeEnqueue(encoder.encode(l2 + '\n\n'));
                             }
                           }
                         }
 
-                        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-                        controller.close();
-                        return; // Stop original stream, we've finished
+                        safeEnqueue(encoder.encode(`data: [DONE]\n\n`));
+                        safeClose();
+                        break; // Exit the while loop cleanly
                       } catch (toolErr) {
                         console.error('Server-side tool execution failed:', toolErr);
                         // Fallback: forward the function call to client to handle visually
@@ -949,7 +973,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                             }
                           }]
                         };
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                        safeEnqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
                       }
                     } else {
                       // Visual tools: forward to client
@@ -966,7 +990,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                           }
                         }]
                       };
-                      controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                      safeEnqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
                     }
                   }
                 } catch (e) {
@@ -976,8 +1000,8 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
             }
           }
 
-          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-          controller.close();
+          safeEnqueue(encoder.encode(`data: [DONE]\n\n`));
+          safeClose();
         } catch (error) {
           console.error('Stream error:', error);
           controller.error(error);
