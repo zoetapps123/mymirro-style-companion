@@ -8,19 +8,19 @@
 // ============================================
 
 export enum PromptCategory {
-  WARDROBE = 'WARDROBE',
-  OUTFIT_GENERATION = 'OUTFIT_GENERATION',
-  STYLING = 'STYLING',
-  CHAT = 'CHAT',
-  SCORING = 'SCORING',
-  IMAGE_PROCESSING = 'IMAGE_PROCESSING'
+  WARDROBE = "WARDROBE",
+  OUTFIT_GENERATION = "OUTFIT_GENERATION",
+  STYLING = "STYLING",
+  CHAT = "CHAT",
+  SCORING = "SCORING",
+  IMAGE_PROCESSING = "IMAGE_PROCESSING",
 }
 
 export enum SystemRole {
-  FASHION_STYLIST = 'FASHION_STYLIST',
-  FASHION_JUDGE = 'FASHION_JUDGE',
-  AI_COMPANION = 'AI_COMPANION',
-  IMAGE_PROCESSOR = 'IMAGE_PROCESSOR'
+  FASHION_STYLIST = "FASHION_STYLIST",
+  FASHION_JUDGE = "FASHION_JUDGE",
+  AI_COMPANION = "AI_COMPANION",
+  IMAGE_PROCESSOR = "IMAGE_PROCESSOR",
 }
 
 // ============================================
@@ -29,9 +29,9 @@ export enum SystemRole {
 // ============================================
 
 export const SYSTEM_PROMPTS = {
-  [SystemRole.AI_COMPANION]: (params: { 
-    userName?: string; 
-    gender?: string; 
+  [SystemRole.AI_COMPANION]: (params: {
+    userName?: string;
+    gender?: string;
     location?: string;
     bodyShape?: string;
     skinTone?: string;
@@ -39,36 +39,40 @@ export const SYSTEM_PROMPTS = {
     recentBattles?: any[];
     recentStyleChecks?: any[];
   }) => {
-    const genderTone = params.gender === 'male' ? 'bro' : params.gender === 'female' ? 'girl' : 'friend';
-    const userName = params.userName || 'there';
-    const userCity = params.location || 'India';
-    const bodyContext = params.bodyShape ? `\n- Body Shape: ${params.bodyShape} (suggest fits that flatter this shape)` : '';
-    const skinContext = params.skinTone ? `\n- Skin Tone: ${params.skinTone} (recommend colors that complement this tone)` : '';
-    
+    const genderTone = params.gender === "male" ? "bro" : params.gender === "female" ? "girl" : "friend";
+    const userName = params.userName || "there";
+    const userCity = params.location || "India";
+    const bodyContext = params.bodyShape
+      ? `\n- Body Shape: ${params.bodyShape} (suggest fits that flatter this shape)`
+      : "";
+    const skinContext = params.skinTone
+      ? `\n- Skin Tone: ${params.skinTone} (recommend colors that complement this tone)`
+      : "";
+
     // Build wardrobe context with clear count
-    let wardrobeContext = '';
+    let wardrobeContext = "";
     if (params.wardrobeItems && params.wardrobeItems.length > 0) {
       const itemCount = params.wardrobeItems.length;
-      
+
       // Group items by category for better organization
       const categorizedItems: Record<string, any[]> = {};
       params.wardrobeItems.forEach((item: any) => {
-        const category = item.category || 'Other';
+        const category = item.category || "Other";
         if (!categorizedItems[category]) {
           categorizedItems[category] = [];
         }
         categorizedItems[category].push(item);
       });
-      
+
       const itemsList = Object.entries(categorizedItems)
         .map(([category, items]) => {
-          const categoryItems = items.map((i: any) => 
-            `    • ${i.name} (${i.color || 'no color info'}) [ID: ${i.id}]`
-          ).join('\n');
+          const categoryItems = items
+            .map((i: any) => `    • ${i.name} (${i.color || "no color info"}) [ID: ${i.id}]`)
+            .join("\n");
           return `  ${category} (${items.length} items):\n${categoryItems}`;
         })
-        .join('\n\n');
-      
+        .join("\n\n");
+
       wardrobeContext = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 USER'S COMPLETE WARDROBE INVENTORY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -86,26 +90,28 @@ ${itemsList}
 • Use item IDs above when calling show_wardrobe_items or create_outfit_suggestion tools
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
     } else {
-      wardrobeContext = '\n\n🎯 WARDROBE INVENTORY: No items added yet. Encourage user to add items to their wardrobe!';
+      wardrobeContext = "\n\n🎯 WARDROBE INVENTORY: No items added yet. Encourage user to add items to their wardrobe!";
     }
-    
+
     // Add fashion history context
-    let historyContext = '';
+    let historyContext = "";
     if (params.recentBattles && params.recentBattles.length > 0) {
-      const battleSummary = params.recentBattles.map((b: any) => {
-        const winner = b.results?.find((r: any) => r.rank === 1);
-        return winner ? `${winner.name} (${winner.score}/5.0)` : 'N/A';
-      }).join(', ');
+      const battleSummary = params.recentBattles
+        .map((b: any) => {
+          const winner = b.results?.find((r: any) => r.rank === 1);
+          return winner ? `${winner.name} (${winner.score}/5.0)` : "N/A";
+        })
+        .join(", ");
       historyContext += `\n- Recent Battle Winners: ${battleSummary}\n  TIP: User likes these winning styles - use them as inspiration!`;
     }
-    
+
     if (params.recentStyleChecks && params.recentStyleChecks.length > 0) {
       const topScored = params.recentStyleChecks
         .filter((s: any) => s.overall_score >= 4.0)
         .map((s: any) => `${s.outfit_name} (${s.overall_score}/5.0 for ${s.occasion})`)
         .slice(0, 2);
       if (topScored.length > 0) {
-        historyContext += `\n- Top Scored Outfits: ${topScored.join(', ')}\n  TIP: User's high-scoring looks - suggest similar styling!`;
+        historyContext += `\n- Top Scored Outfits: ${topScored.join(", ")}\n  TIP: User's high-scoring looks - suggest similar styling!`;
       }
     }
 
@@ -369,7 +375,7 @@ OUTFIT GENERATION RULES (when generating outfits in chat):
 Prioritize actionable advice over explanations. Be brief, sharp, and helpful. And remember: SHOW, don't just tell — use the visual tools!`;
   },
 
-  [SystemRole.IMAGE_PROCESSOR]: 'Respond with STRICT JSON only. No prose.'
+  [SystemRole.IMAGE_PROCESSOR]: "Respond with STRICT JSON only. No prose.",
 };
 
 // ============================================
@@ -378,9 +384,11 @@ Prioritize actionable advice over explanations. Be brief, sharp, and helpful. An
 // ============================================
 
 export const WARDROBE_PROMPTS = {
-  VALIDATE_IMAGE: 'Analyze this image and determine if it contains EITHER: 1) At least one real, non-AI human wearing clothing, OR 2) Clothing items visible on surfaces (bed, floor, hanger, mannequin). Reject images that contain ONLY: animals without clothing context, random objects unrelated to fashion, cartoons or AI-generated scenes, empty rooms or landscapes.',
+  VALIDATE_IMAGE:
+    "Analyze this image and determine if it contains EITHER: 1) At least one real, non-AI human wearing clothing, OR 2) Clothing items visible on surfaces (bed, floor, hanger, mannequin). Reject images that contain ONLY: animals without clothing context, random objects unrelated to fashion, cartoons or AI-generated scenes, empty rooms or landscapes.",
 
-  VALIDATE_IMAGE_FALLBACK: 'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
+  VALIDATE_IMAGE_FALLBACK:
+    'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
   DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories.
 
@@ -421,7 +429,9 @@ You MUST use one of these exact category names (case-sensitive):
 
 For each valid item, return: name, category (using exact names above), and color (as hex code).`,
 
-  GENERATE_COMPOSITE: (itemsList: string) => `Generate a single composite grid image showing ONLY the wearable items (clothing, footwear, and accessories) extracted and isolated from the provided photo.
+  GENERATE_COMPOSITE: (
+    itemsList: string,
+  ) => `Generate a single composite grid image showing ONLY the wearable items (clothing, footwear, and accessories) extracted and isolated from the provided photo.
 
 ITEMS TO EXTRACT:
 ${itemsList}
@@ -429,7 +439,7 @@ ${itemsList}
 🚨 CRITICAL REQUIREMENTS FOR COMPOSITE IMAGE:
 
 1. GRID LAYOUT:
-   - Arrange items in a ${itemsList.split('\n').length <= 4 ? '2x2' : '3-column'} grid
+   - Arrange items in a ${itemsList.split("\n").length <= 4 ? "2x2" : "3-column"} grid
    - Each item gets ONE cell in the grid
    - Cells must be perfectly equal-sized squares
 
@@ -462,7 +472,7 @@ ${itemsList}
     - Clean, even lighting with NO shadows or gradients
     - Sharp focus, high clarity
 
-  Think: Apple product catalog with extreme minimalist spacing. Each item should look like a small centered product photo with tons of white space around it. Generate ONE composite image.`
+  Think: Apple product catalog with extreme minimalist spacing. Each item should look like a small centered product photo with tons of white space around it. Generate ONE composite image.`,
 };
 
 // ============================================
@@ -482,52 +492,74 @@ export const OUTFIT_GENERATION_PROMPTS = {
   }) => {
     const { generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation } = params;
 
-    let targetText = '';
-    if (generationType === 'anchor' && anchorItem) {
+    let targetText = "";
+    if (generationType === "anchor" && anchorItem) {
       targetText = `Build outfits around this anchor item: ${anchorItem.name} (${anchorItem.category}, ${anchorItem.color})`;
-    } else if (generationType === 'occasion' && occasion) {
+    } else if (generationType === "occasion" && occasion) {
       targetText = `Occasion: ${occasion}`;
-    } else if (generationType === 'style' && style) {
+    } else if (generationType === "style" && style) {
       targetText = `Style: ${style}`;
     } else {
-      targetText = 'Generate versatile outfit combinations';
+      targetText = "Generate versatile outfit combinations";
     }
 
     const weatherContext = userLocation
       ? `\n\nCURRENT WEATHER CONTEXT:
 - Temperature: ${userLocation.temp}°C
 - Conditions: ${userLocation.weather}
-- ${userLocation.temp < 15 ? 'COLD - Consider layering' : userLocation.temp < 25 ? 'MODERATE - Light layering optional' : 'WARM - Minimal layers'}`
-      : '';
+- ${userLocation.temp < 15 ? "COLD - Consider layering" : userLocation.temp < 25 ? "MODERATE - Light layering optional" : "WARM - Minimal layers"}`
+      : "";
 
-    const norm = (s: any) => (s || '').toString().toLowerCase();
-    const tops = wardrobeItems.filter(i => {
+    const norm = (s: any) => (s || "").toString().toLowerCase();
+    const tops = wardrobeItems.filter((i) => {
       const c = norm(i.category);
-      return ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => c.includes(k));
+      return ["shirt", "top", "tee", "t-shirt", "blouse", "polo", "kurta"].some((k) => c.includes(k));
     });
-    const bottoms = wardrobeItems.filter(i => {
+    const bottoms = wardrobeItems.filter((i) => {
       const c = norm(i.category);
-      return ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => c.includes(k));
+      return ["jeans", "trouser", "pants", "chinos", "skirt", "shorts", "bottoms", "bottom"].some((k) => c.includes(k));
     });
-    const shoes = wardrobeItems.filter(i => {
+    const shoes = wardrobeItems.filter((i) => {
       const c = norm(i.category);
-      return ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => c.includes(k));
+      return ["shoe", "sneaker", "boot", "loafer", "heel", "sandal", "flip flop", "flip-flop", "slipper"].some((k) =>
+        c.includes(k),
+      );
     });
-    const accessories = wardrobeItems.filter(i => {
+    const accessories = wardrobeItems.filter((i) => {
       const c = norm(i.category);
       return [
-        'accessor','accessory','accessories',
-        'watch','belt','bag','handbag','purse','wallet',
-        'sunglass','sunglasses','glass','glasses',
-        'hat','cap','scarf',
-        'jewelry','jewellery',
-        'ring','bracelet','necklace',
-        'earring','earrings','bangle','anklet'
-      ].some(k => c.includes(k));
+        "accessor",
+        "accessory",
+        "accessories",
+        "watch",
+        "belt",
+        "bag",
+        "handbag",
+        "purse",
+        "wallet",
+        "sunglass",
+        "sunglasses",
+        "glass",
+        "glasses",
+        "hat",
+        "cap",
+        "scarf",
+        "jewelry",
+        "jewellery",
+        "ring",
+        "bracelet",
+        "necklace",
+        "earring",
+        "earrings",
+        "bangle",
+        "anklet",
+      ].some((k) => c.includes(k));
     });
-    const layers = wardrobeItems.filter(i => {
+    const layers = wardrobeItems.filter((i) => {
       const c = norm(i.category);
-      return ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
+      return ["jacket", "blazer", "coat", "cardigan", "sweater", "hoodie", "outerwear", "layer"].some((k) =>
+        c.includes(k),
+      );
     });
 
     return `🚨 CRITICAL INSTRUCTION - READ THIS FIRST 🚨
@@ -545,16 +577,16 @@ This is a FUNCTION-CALL-ONLY task. Text responses will be rejected.
 
 ═══════════════════════════════════════════════════════════════════
 
-TASK: You are a professional fashion stylist creating ${maxOutfits || 'multiple'} DISTINCT, HIGH-QUALITY outfit combinations.
+TASK: You are a professional fashion stylist creating ${maxOutfits || "multiple"} DISTINCT, HIGH-QUALITY outfit combinations.
 
 TARGET: ${targetText}${weatherContext}
 
 AVAILABLE WARDROBE ITEMS:
-- TOPS (${tops.length}): ${tops.map(t => `ID:${t.id} "${t.name}" (${t.color})`).join(', ')}
-- BOTTOMS (${bottoms.length}): ${bottoms.map(b => `ID:${b.id} "${b.name}" (${b.color})`).join(', ')}
-- SHOES (${shoes.length}): ${shoes.map(s => `ID:${s.id} "${s.name}" (${s.color})`).join(', ')}
-- ACCESSORIES (${accessories.length}): ${accessories.length ? accessories.map(a => `ID:${a.id} "${a.name}"`).join(', ') : 'None'}
-- LAYERS/JACKETS (${layers.length}): ${layers.length ? layers.map(l => `ID:${l.id} "${l.name}" (${l.color})`).join(', ') : 'None'}
+- TOPS (${tops.length}): ${tops.map((t) => `ID:${t.id} "${t.name}" (${t.color})`).join(", ")}
+- BOTTOMS (${bottoms.length}): ${bottoms.map((b) => `ID:${b.id} "${b.name}" (${b.color})`).join(", ")}
+- SHOES (${shoes.length}): ${shoes.map((s) => `ID:${s.id} "${s.name}" (${s.color})`).join(", ")}
+- ACCESSORIES (${accessories.length}): ${accessories.length ? accessories.map((a) => `ID:${a.id} "${a.name}"`).join(", ") : "None"}
+- LAYERS/JACKETS (${layers.length}): ${layers.length ? layers.map((l) => `ID:${l.id} "${l.name}" (${l.color})`).join(", ") : "None"}
 
 ═══════════════════════════════════════════════════════════════════
 
@@ -666,10 +698,10 @@ CRITICAL: Call generate_outfit_combinations function NOW. Do not write text. Use
     `Create a professional flat-lay outfit image for the following combination:
 
 OUTFIT ITEMS:
-${outfitItems.map((item, i) => `${i + 1}. ${item.name} (${item.category}, ${item.color})`).join('\n')}
+${outfitItems.map((item, i) => `${i + 1}. ${item.name} (${item.category}, ${item.color})`).join("\n")}
 
-${occasion ? `OCCASION: ${occasion}` : ''}
-${styleTag ? `STYLE: ${styleTag}` : ''}
+${occasion ? `OCCASION: ${occasion}` : ""}
+${styleTag ? `STYLE: ${styleTag}` : ""}
 
 **LAYOUT & ARRANGEMENT:**
 - Pure white background (#FFFFFF)
@@ -696,7 +728,7 @@ ${styleTag ? `STYLE: ${styleTag}` : ''}
 **STYLE CONSISTENCY:**
 - All items appear part of a cohesive outfit
 - Consistent scale/perspective
-- Show fabric textures clearly`
+- Show fabric textures clearly`,
 };
 
 // ============================================
@@ -714,11 +746,11 @@ export const AUTO_OUTFIT_PROMPTS = {
   }) =>
     `You are a professional fashion stylist with deep knowledge of fashion trends, color theory, and style principles. Create curated outfit combinations using the following wardrobe items:
 
-TOPS (${items.tops.length}): ${items.tops.map((t: any) => `ID:${t.id} - ${t.name} (${t.color})`).join(', ')}
-BOTTOMS (${items.bottoms.length}): ${items.bottoms.map((b: any) => `ID:${b.id} - ${b.name} (${b.color})`).join(', ')}
-SHOES (${items.shoes.length}): ${items.shoes.map((s: any) => `ID:${s.id} - ${s.name} (${s.color})`).join(', ')}
-ACCESSORIES (${items.accessories.length}): ${items.accessories.map((a: any) => `ID:${a.id} - ${a.name}`).join(', ') || 'None'}
-LAYERS (${items.layers.length}): ${items.layers.map((l: any) => `ID:${l.id} - ${l.name} (${l.color})`).join(', ') || 'None'}
+TOPS (${items.tops.length}): ${items.tops.map((t: any) => `ID:${t.id} - ${t.name} (${t.color})`).join(", ")}
+BOTTOMS (${items.bottoms.length}): ${items.bottoms.map((b: any) => `ID:${b.id} - ${b.name} (${b.color})`).join(", ")}
+SHOES (${items.shoes.length}): ${items.shoes.map((s: any) => `ID:${s.id} - ${s.name} (${s.color})`).join(", ")}
+ACCESSORIES (${items.accessories.length}): ${items.accessories.map((a: any) => `ID:${a.id} - ${a.name}`).join(", ") || "None"}
+LAYERS (${items.layers.length}): ${items.layers.map((l: any) => `ID:${l.id} - ${l.name} (${l.color})`).join(", ") || "None"}
 
 CREATE TWO OUTFIT COLLECTIONS:
 
@@ -740,7 +772,7 @@ RULES:
 - Ensure strong color harmony
 - Each outfit should feel distinct and purposeful
 - NO duplicate outfits across both collections
-- ⚠️ CRITICAL: Every outfit MUST be complete with all 3 essential pieces (top, bottom, shoes)`
+- ⚠️ CRITICAL: Every outfit MUST be complete with all 3 essential pieces (top, bottom, shoes)`,
 };
 
 // ============================================
@@ -753,13 +785,13 @@ export const STYLING_PROMPTS = {
     `You are a professional fashion stylist. Given this outfit, recommend items from the wardrobe that would pair well.
 
 **CURRENT OUTFIT:**
-${currentOutfit.map((item: any) => `- ${item.name} (${item.category}, ${item.color}, ${item.fabric || 'N/A'})`).join('\n')}
+${currentOutfit.map((item: any) => `- ${item.name} (${item.category}, ${item.color}, ${item.fabric || "N/A"})`).join("\n")}
 
-**OCCASION:** ${occasion || 'General'}
-**STYLE TAG:** ${styleTag || 'N/A'}
+**OCCASION:** ${occasion || "General"}
+**STYLE TAG:** ${styleTag || "N/A"}
 
 **AVAILABLE WARDROBE ITEMS:**
-${availableItems.map((item: any) => `ID:${item.id} | ${item.name} (${item.category}, ${item.color}, ${item.fabric || 'N/A'})`).join('\n')}
+${availableItems.map((item: any) => `ID:${item.id} | ${item.name} (${item.category}, ${item.color}, ${item.fabric || "N/A"})`).join("\n")}
 
 **RECOMMENDATION PRIORITIES (in order):**
 1. **Missing categories**: If no shoes, recommend shoes
@@ -785,10 +817,10 @@ If the user's wardrobe does not have appropriate items for the occasion:
 Return item IDs with reasoning for each recommendation.`,
 
   QUICK_STYLE_FIXES: (improvements: string, wardrobeItems?: any[]) => {
-    let wardrobeContext = '';
+    let wardrobeContext = "";
     if (wardrobeItems && wardrobeItems.length > 0) {
       wardrobeContext = `\n\nAVAILABLE WARDROBE ITEMS (ONLY use these items for suggestions):
-${wardrobeItems.map((item: any, idx: number) => `${idx + 1}. ${item.name} (${item.category}) - ${item.color || 'color not specified'}`).join('\n')}
+${wardrobeItems.map((item: any, idx: number) => `${idx + 1}. ${item.name} (${item.category}) - ${item.color || "color not specified"}`).join("\n")}
 
 IMPORTANT: When suggesting accessories or additional items, ONLY suggest items from the available wardrobe list above. DO NOT suggest random items that don't exist in the wardrobe.`;
     }
@@ -821,7 +853,7 @@ STYLING REQUIREMENTS:
 - Make changes look natural and realistic
 - Maintain original lighting, photo quality, and composition
 - Goal: Show how quick styling fixes from their existing wardrobe can elevate the outfit, not replace it`;
-  }
+  },
 };
 
 // ============================================
@@ -831,7 +863,7 @@ STYLING REQUIREMENTS:
 
 export const SCORING_PROMPTS = {
   SCORE_OUTFIT: (occasion?: string) =>
-    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ''}.
+    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.
 
 **CRITICAL REASONING PROCESS:**
 1. Evaluate how well UPPER WEAR (tops, shirts, blouses, jackets) and LOWER WEAR (pants, skirts, shorts, jeans) fit and complement each other
@@ -942,7 +974,7 @@ Keep language under 15 words per point. Be specific, direct, professional, and a
 
 **Important**: All answers must lean towards and celebrate winner's outfit. Winner should be clearly best choice for the occasion. Use Gemini's analytical reasoning to justify why winning outfit is superior.
 
-**Output**: Return ONLY valid JSON format.`
+**Output**: Return ONLY valid JSON format.`,
 };
 
 // ============================================
@@ -963,7 +995,7 @@ CRITICAL REQUIREMENTS:
 - The item should be laid flat and photographed from above (flat lay style)
 - Remove any black borders, dark edges, or shadowy areas
 
-Complete this ${itemType || 'clothing item'} to show its full, uncut form on a clean pure white background.`,
+Complete this ${itemType || "clothing item"} to show its full, uncut form on a clean pure white background.`,
 
   VALIDATE_TRYON_IMAGE: `Analyze this image for virtual try-on suitability:
 1. Is it a clear, full-length photo?
@@ -974,12 +1006,12 @@ Respond with a boolean 'suitable' and a 'reason' if not suitable.`,
 
   GENERATE_TRYON: (outfitItems: any[]) =>
     `Apply these clothing items to the person in the image realistically:
-${outfitItems.map((item: any) => `- ${item.category}: ${item.name} (${item.color})`).join('\n')}
+${outfitItems.map((item: any) => `- ${item.category}: ${item.name} (${item.color})`).join("\n")}
 
 Maintain:
 - Natural fabric fit and drape
 - Correct perspective and body proportions
 - Original skin tone and features
 - Realistic shadows and lighting
-- Professional fashion photography quality`
+- Professional fashion photography quality`,
 };
