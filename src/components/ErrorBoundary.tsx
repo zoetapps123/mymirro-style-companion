@@ -19,6 +19,37 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
     // Log error details so we can see them in the console tool
     // eslint-disable-next-line no-console
     console.error("ErrorBoundary caught an error:", { error, errorInfo });
+    
+    // Log to backend for customer visibility
+    this.logErrorToBackend(error, errorInfo);
+  }
+
+  private async logErrorToBackend(error: any, errorInfo: any) {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+      );
+      
+      await supabase.functions.invoke('log-error', {
+        body: {
+          error_type: 'unhandled_error',
+          error_message: error?.message || String(error),
+          error_stack: error?.stack,
+          context: {
+            component_stack: errorInfo?.componentStack,
+            user_agent: navigator.userAgent,
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+          },
+          url: window.location.href,
+          session_id: sessionStorage.getItem('session_id') || undefined,
+        },
+      });
+    } catch (logError) {
+      // Silent fail - don't block error UI
+      console.error('Failed to log error to backend:', logError);
+    }
   }
 
   render() {

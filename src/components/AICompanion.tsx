@@ -718,6 +718,27 @@ const AICompanion = () => {
       
       setChatError(errorMessage);
       trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
+      
+      // Log error to backend for customer visibility
+      try {
+        supabase.functions.invoke('log-error', {
+          body: {
+            error_type: 'chat_error',
+            error_message: errorMessage,
+            error_stack: error instanceof Error ? error.stack : undefined,
+            context: {
+              user_agent: navigator.userAgent,
+              viewport: { width: window.innerWidth, height: window.innerHeight },
+              messages_count: messages.length,
+            },
+            url: window.location.href,
+            session_id: undefined,
+          },
+        }).catch(logErr => console.error('Failed to log error:', logErr));
+      } catch (logErr) {
+        // Silent fail - don't block user experience
+      }
+      
       // Cleanup on error
       try { if (timeoutId) clearTimeout(timeoutId); } catch {}
       abortControllerRef.current = null;

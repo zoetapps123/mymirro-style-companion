@@ -101,6 +101,42 @@ export type Database = {
         }
         Relationships: []
       }
+      error_logs: {
+        Row: {
+          context: Json | null
+          created_at: string
+          error_message: string
+          error_stack: string | null
+          error_type: string
+          id: string
+          session_id: string | null
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          error_message: string
+          error_stack?: string | null
+          error_type: string
+          id?: string
+          session_id?: string | null
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          error_message?: string
+          error_stack?: string | null
+          error_type?: string
+          id?: string
+          session_id?: string | null
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       event_outfits: {
         Row: {
           created_at: string
@@ -440,6 +476,7 @@ export type Database = {
     Functions: {
       cleanup_expired_cache: { Args: never; Returns: undefined }
       cleanup_old_analytics: { Args: never; Returns: undefined }
+      cleanup_old_error_logs: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
