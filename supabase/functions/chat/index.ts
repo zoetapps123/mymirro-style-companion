@@ -1000,7 +1000,31 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString()
     });
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+    
+    // Handle rate limit errors with proper status code
+    if (error instanceof Error && error.message === 'RATE_LIMIT') {
+      return new Response(JSON.stringify({ 
+        error: "I'm helping a lot of people right now! ✨ Give me just a moment and I'll be right with you."
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Handle payment/quota errors
+    if (error instanceof Error && error.message === 'PAYMENT_REQUIRED') {
+      return new Response(JSON.stringify({ 
+        error: 'Service temporarily unavailable. Please try again in a moment.' 
+      }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Generic error
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

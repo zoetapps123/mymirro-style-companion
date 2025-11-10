@@ -80,6 +80,38 @@ const AICompanion = () => {
   const chatStartTimeRef = useRef<number>(Date.now());
   const messageCountRef = useRef<number>(0);
 
+  // Retry helper with exponential backoff
+  const retryWithBackoff = async <T,>(
+    fn: () => Promise<T>, 
+    maxRetries = 3
+  ): Promise<T> => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isRateLimit = error?.status === 429 || 
+                            error?.message?.includes('rate limit') ||
+                            error?.message?.includes('Too many requests');
+        
+        if (isRateLimit && attempt < maxRetries - 1) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // 1s, 2s, 4s, max 10s
+          console.log(`Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+          
+          toast({
+            title: 'One moment... ✨',
+            description: "I'm working on your style advice - almost ready!",
+            duration: delay,
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error; // Re-throw if not rate limit or max retries reached
+      }
+    }
+    throw new Error('Max retries reached');
+  };
+
   // Load user profile from onboarding
   useEffect(() => {
     const name = localStorage.getItem("onboard_name");
@@ -379,54 +411,61 @@ const AICompanion = () => {
     let timeoutId: number | undefined;
 
     try {
-      const response = await fetch(CHAT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          messages: userMessages.map(m => ({ 
-            role: m.role, 
-            content: m.content,
-            images: m.images 
-          })),
-          userProfile,
-          wardrobeItems,
-          recentBattles,
-          recentStyleChecks,
-        }),
-        cache: 'no-store',
-        keepalive: !isMobileSafari,
-        mode: 'cors',
-        signal: controller.signal,
-      });
+      const response = await retryWithBackoff(async () => {
+        const res = await fetch(CHAT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            messages: userMessages.map(m => ({ 
+              role: m.role, 
+              content: m.content,
+              images: m.images 
+            })),
+            userProfile,
+            wardrobeItems,
+            recentBattles,
+            recentStyleChecks,
+          }),
+          cache: 'no-store',
+          keepalive: !isMobileSafari,
+          mode: 'cors',
+          signal: controller.signal,
+        });
 
-      // Check for errors BEFORE adding assistant message
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Chat API error:', response.status, errorText);
-        
-        let errorMessage = "Unable to connect to AI. Please try again.";
-        
-        if (response.status === 429) {
-          errorMessage = "Too many requests. Please try again in a moment.";
-          trackCustom("rate_limit_error");
-        } else if (response.status === 402) {
-          errorMessage = "Service unavailable. Please contact support.";
-          trackCustom("payment_required_error");
-        } else if (response.status === 401) {
-          errorMessage = "Authentication error. Please sign in again.";
-          trackCustom("auth_error");
-        } else {
-          trackCustom("chat_api_error", { status: response.status });
+        // Check for errors BEFORE adding assistant message
+        if (!res.ok) {
+          // For retry logic to work, throw on rate limits
+          if (res.status === 429) {
+            throw { status: 429, message: 'Rate limit exceeded' };
+          }
+          
+          // For other errors, handle normally
+          const errorText = await res.text();
+          console.error('Chat API error:', res.status, errorText);
+          
+          let errorMessage = "Unable to connect to AI. Please try again.";
+          
+          if (res.status === 402) {
+            errorMessage = "Service unavailable. Please contact support.";
+            trackCustom("payment_required_error");
+          } else if (res.status === 401) {
+            errorMessage = "Authentication error. Please sign in again.";
+            trackCustom("auth_error");
+          } else {
+            trackCustom("chat_api_error", { status: res.status });
+          }
+          
+          setChatError(errorMessage);
+          throw { status: res.status, message: errorMessage };
         }
         
-        setChatError(errorMessage);
-        return; // Exit early without adding empty message
-      }
-      
+        return res;
+      });
+
       // Clear any previous errors on successful connection
       setChatError(null);
 
