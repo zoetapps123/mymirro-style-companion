@@ -79,6 +79,7 @@ const AICompanion = () => {
   const { trackCustom } = useAnalytics();
   const chatStartTimeRef = useRef<number>(Date.now());
   const messageCountRef = useRef<number>(0);
+  const [lastChatTime, setLastChatTime] = useState<number>(0);
 
   // Retry helper with exponential backoff
   const retryWithBackoff = async <T,>(
@@ -794,6 +795,22 @@ const AICompanion = () => {
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || inputValue;
     if ((!textToSend.trim() && selectedImages.length === 0) || isLoading) return;
+
+    // Debouncing: prevent rapid requests
+    const now = Date.now();
+    const cooldownMs = 3000; // 3 seconds
+    
+    if (now - lastChatTime < cooldownMs) {
+      const remainingTime = Math.ceil((cooldownMs - (now - lastChatTime)) / 1000);
+      toast({
+        title: "Hold on! 😊",
+        description: `Let me finish thinking about your last question first! (${remainingTime}s)`,
+        duration: 2000,
+      });
+      return;
+    }
+    
+    setLastChatTime(now);
 
     // Clear any previous errors
     setChatError(null);
