@@ -26,12 +26,11 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   // Check existing wardrobe items count
   useEffect(() => {
     const checkExistingItems = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
-        const { data: items } = await supabase
-          .from('wardrobe_items')
-          .select('id')
-          .eq('user_id', user.id);
+        const { data: items } = await supabase.from("wardrobe_items").select("id").eq("user_id", user.id);
         setExistingItemsCount(items?.length || 0);
       }
     };
@@ -40,16 +39,16 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     if (files.length === 0) return;
-    
-    setPhotos(prev => [...prev, ...files]);
+
+    setPhotos((prev) => [...prev, ...files]);
 
     // Create previews for all selected files
-    files.forEach(file => {
+    files.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreviews(prev => [...prev, reader.result as string]);
+        setPreviews((prev) => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
     });
@@ -65,7 +64,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     if (photos.length < minRequired) {
       toast({
         title: "More photos needed",
-        description: `Please upload at least ${minRequired} more photo${minRequired !== 1 ? 's' : ''}`,
+        description: `Please upload at least ${minRequired} more photo${minRequired !== 1 ? "s" : ""}`,
         variant: "destructive",
       });
       return;
@@ -76,26 +75,26 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     setStatusText("Uploading photos...");
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const uploadedUrls: string[] = [];
-      
+
       // Upload all photos
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
-        const fileExt = photo.name.split('.').pop();
+        const fileExt = photo.name.split(".").pop();
         const fileName = `${user.id}/onboarding_${Date.now()}_${i}.${fileExt}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, photo);
+        const { data: uploadData, error: uploadError } = await supabase.storage.from("outfits").upload(fileName, photo);
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("outfits").getPublicUrl(fileName);
 
         uploadedUrls.push(publicUrl);
         setProgress(10 + (i / photos.length) * 80);
@@ -106,18 +105,18 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
       // Set up basic profile immediately
       const demoImage = uploadedUrls[0];
-      await supabase.from('user_profiles').upsert({
+      await supabase.from("user_profiles").upsert({
         id: user.id,
         demo_stylecheck_image_url: demoImage,
-        body_shape: 'rectangle',
-        skin_tone: 'medium',
+        body_shape: "rectangle",
+        skin_tone: "medium",
       });
 
       await supabase.auth.updateUser({
         data: {
           onboarding_complete: true,
           demo_stylecheck_image_url: demoImage,
-        }
+        },
       });
 
       setProgress(100);
@@ -130,7 +129,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
       // Set initial processing count
       const processingCount = uploadedUrls.length;
-      localStorage.setItem('wardrobe_processing_count', processingCount.toString());
+      localStorage.setItem("wardrobe_processing_count", processingCount.toString());
       setProcessingCount(processingCount);
 
       // Process images in the background (non-blocking)
@@ -140,9 +139,8 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
       setTimeout(() => {
         onComplete();
       }, 1500);
-
     } catch (error: any) {
-      console.error('Onboarding photos error:', error);
+      console.error("Onboarding photos error:", error);
       toast({
         title: "Upload Failed",
         description: error.message || "Failed to process photos",
@@ -160,84 +158,82 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     try {
       // Get existing wardrobe items for duplicate checking
       const { data: existingItems } = await supabase
-        .from('wardrobe_items')
-        .select('name, category, color')
-        .eq('user_id', userId);
+        .from("wardrobe_items")
+        .select("name, category, color")
+        .eq("user_id", userId);
 
       let totalAdded = 0;
-      
+
       // Process images sequentially with delays to avoid rate limits
       for (let urlIdx = 0; urlIdx < urls.length; urlIdx++) {
         const url = urls[urlIdx];
-        
+
         // Add delay between requests (except for first one)
         if (urlIdx > 0) {
           console.log(`Waiting 2 seconds before processing next image...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-        
+
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (!session?.access_token) {
-            throw new Error('Authentication required');
+            throw new Error("Authentication required");
           }
 
           console.log(`Processing image ${urlIdx + 1}/${urls.length} (please wait)...`);
-          
+
           // Retry logic with exponential backoff
           let retryCount = 0;
           const maxRetries = 2;
           let processData = null;
           let processError = null;
-          
+
           while (retryCount <= maxRetries) {
-            const result = await supabase.functions.invoke(
-              'process-wardrobe',
-              { 
-                body: { imageUrl: url },
-                headers: { Authorization: `Bearer ${session.access_token}` }
-              }
-            );
-            
+            const result = await supabase.functions.invoke("process-wardrobe", {
+              body: { imageUrl: url },
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+
             processData = result.data;
             processError = result.error;
-            
+
             // Check if it's a rate limit error
             if (processError) {
-              const errorMsg = processError.message?.toLowerCase() || '';
-              const isRateLimit = errorMsg.includes('rate') || 
-                                 errorMsg.includes('429') || 
-                                 errorMsg.includes('busy');
-              
+              const errorMsg = processError.message?.toLowerCase() || "";
+              const isRateLimit = errorMsg.includes("rate") || errorMsg.includes("429") || errorMsg.includes("busy");
+
               if (isRateLimit && retryCount < maxRetries) {
                 const waitTime = Math.pow(2, retryCount) * 3000; // 3s, 6s
-                console.log(`Rate limit hit, retrying in ${waitTime/1000} seconds...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
+                console.log(`Rate limit hit, retrying in ${waitTime / 1000} seconds...`);
+                await new Promise((resolve) => setTimeout(resolve, waitTime));
                 retryCount++;
                 continue;
               }
             }
-            
+
             // Success or non-retryable error
             break;
           }
 
           if (processError) {
             console.error("Background process error:", processError);
-            const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-            localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-            setProcessingCount(prev => Math.max(0, prev - 1));
+            const currentCount = parseInt(localStorage.getItem("wardrobe_processing_count") || "0");
+            localStorage.setItem("wardrobe_processing_count", Math.max(0, currentCount - 1).toString());
+            setProcessingCount((prev) => Math.max(0, prev - 1));
             continue;
           }
 
           if (processData?.items && processData.items.length > 0) {
             // Items come with generated images from Gemini
             for (const item of processData.items) {
-              const isDuplicate = existingItems?.some(existing => 
-                existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-                (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-                 item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-                 (existing.color?.toLowerCase() === item.color?.toLowerCase()))
+              const isDuplicate = existingItems?.some(
+                (existing) =>
+                  existing.category?.toLowerCase() === item.category?.toLowerCase() &&
+                  (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+                    item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
+                    existing.color?.toLowerCase() === item.color?.toLowerCase()),
               );
 
               if (isDuplicate) {
@@ -246,10 +242,11 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
               }
 
               // Item already has imageUrl from Gemini generation
-              const { mapDetectedItemToDbRecord } = await import('@/lib/wardrobeItemMapper');
-              await supabase.from('wardrobe_items').insert([
-                mapDetectedItemToDbRecord(item, userId, item.imageUrl, item.imageUrl)
-              ]);
+              const { mapDetectedItemToDbRecord } = await import("@/lib/wardrobeItemMapper");
+              console.log("item", item);
+              await supabase
+                .from("wardrobe_items")
+                .insert([mapDetectedItemToDbRecord(item, userId, item.imageUrl, item.imageUrl)]);
 
               totalAdded++;
             }
@@ -257,37 +254,30 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
         } catch (err) {
           console.error("Error processing wardrobe item:", err);
         } finally {
-          const currentCount = parseInt(localStorage.getItem('wardrobe_processing_count') || '0');
-          localStorage.setItem('wardrobe_processing_count', Math.max(0, currentCount - 1).toString());
-          setProcessingCount(prev => Math.max(0, prev - 1));
+          const currentCount = parseInt(localStorage.getItem("wardrobe_processing_count") || "0");
+          localStorage.setItem("wardrobe_processing_count", Math.max(0, currentCount - 1).toString());
+          setProcessingCount((prev) => Math.max(0, prev - 1));
         }
       }
 
       console.log(`Background processing complete: Added ${totalAdded} items to wardrobe`);
     } catch (error) {
       console.error("Background processing failed:", error);
-      localStorage.setItem('wardrobe_processing_count', '0');
+      localStorage.setItem("wardrobe_processing_count", "0");
       setProcessingCount(0);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md mx-auto"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md mx-auto">
         {/* Logo */}
         <div className="text-center pt-4 mb-8">
           <img src={logo} alt="MyMirro" className="h-16 mx-auto" />
         </div>
-        
+
         {/* Back Button */}
-        <button 
-          onClick={onBack}
-          className="p-2 hover:bg-white/50 rounded-full transition-colors mb-4"
-        >
+        <button onClick={onBack} className="p-2 hover:bg-white/50 rounded-full transition-colors mb-4">
           <ArrowLeft className="w-6 h-6 text-gray-700" />
         </button>
 
@@ -297,8 +287,8 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             <p className="text-gray-600">
               {existingItemsCount > 0 ? (
                 <>
-                  You have {existingItemsCount} item{existingItemsCount !== 1 ? 's' : ''} uploaded. 
-                  Upload {3 - existingItemsCount} more to continue – the more you share, the better I get at styling you.
+                  You have {existingItemsCount} item{existingItemsCount !== 1 ? "s" : ""} uploaded. Upload{" "}
+                  {3 - existingItemsCount} more to continue – the more you share, the better I get at styling you.
                 </>
               ) : (
                 <>Upload at least 3 outfit pics – the more you share, the better I get at styling you.</>
@@ -326,11 +316,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
             <div className="grid grid-cols-3 gap-3">
               {previews.map((preview, index) => (
                 <div key={index} className="relative aspect-square">
-                  <img
-                    src={preview}
-                    alt={`Upload ${index + 1}`}
-                    className="w-full h-full object-cover rounded-2xl"
-                  />
+                  <img src={preview} alt={`Upload ${index + 1}`} className="w-full h-full object-cover rounded-2xl" />
                   <button
                     onClick={() => removePhoto(index)}
                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
@@ -349,9 +335,13 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
                 const minRequired = Math.max(0, 3 - existingItemsCount);
                 const totalAfterUpload = existingItemsCount + photos.length;
                 return totalAfterUpload >= 3 ? (
-                  <span className="text-green-600">✓ {photos.length} photos selected (total: {totalAfterUpload} items)</span>
+                  <span className="text-green-600">
+                    ✓ {photos.length} photos selected (total: {totalAfterUpload} items)
+                  </span>
                 ) : (
-                  <span className="text-gray-600">{photos.length} photos selected (need {minRequired - photos.length} more)</span>
+                  <span className="text-gray-600">
+                    {photos.length} photos selected (need {minRequired - photos.length} more)
+                  </span>
                 );
               })()}
             </p>
@@ -366,7 +356,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
           <Button
             onClick={handleSubmit}
-            disabled={(existingItemsCount + photos.length < 3) || loading}
+            disabled={existingItemsCount + photos.length < 3 || loading}
             className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl"
           >
             {loading ? (
