@@ -155,7 +155,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
     }
   };
 
-  // Background processing function - simplified for Gemini-only pipeline
+  // Background processing function with rate limit handling
   const processImagesInBackground = async (urls: string[], userId: string) => {
     try {
       // Get existing wardrobe items for duplicate checking
@@ -165,22 +165,62 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
         .eq('user_id', userId);
 
       let totalAdded = 0;
+      
+      // Process images sequentially with delays to avoid rate limits
       for (let urlIdx = 0; urlIdx < urls.length; urlIdx++) {
         const url = urls[urlIdx];
+        
+        // Add delay between requests (except for first one)
+        if (urlIdx > 0) {
+          console.log(`Waiting 2 seconds before processing next image...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session?.access_token) {
             throw new Error('Authentication required');
           }
 
-          console.log(`Processing image ${urlIdx + 1}/${urls.length} with Gemini...`);
-          const { data: processData, error: processError } = await supabase.functions.invoke(
-            'process-wardrobe',
-            { 
-              body: { imageUrl: url },
-              headers: { Authorization: `Bearer ${session.access_token}` }
+          console.log(`Processing image ${urlIdx + 1}/${urls.length} (please wait)...`);
+          
+          // Retry logic with exponential backoff
+          let retryCount = 0;
+          const maxRetries = 2;
+          let processData = null;
+          let processError = null;
+          
+          while (retryCount <= maxRetries) {
+            const result = await supabase.functions.invoke(
+              'process-wardrobe',
+              { 
+                body: { imageUrl: url },
+                headers: { Authorization: `Bearer ${session.access_token}` }
+              }
+            );
+            
+            processData = result.data;
+            processError = result.error;
+            
+            // Check if it's a rate limit error
+            if (processError) {
+              const errorMsg = processError.message?.toLowerCase() || '';
+              const isRateLimit = errorMsg.includes('rate') || 
+                                 errorMsg.includes('429') || 
+                                 errorMsg.includes('busy');
+              
+              if (isRateLimit && retryCount < maxRetries) {
+                const waitTime = Math.pow(2, retryCount) * 3000; // 3s, 6s
+                console.log(`Rate limit hit, retrying in ${waitTime/1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                retryCount++;
+                continue;
+              }
             }
-          );
+            
+            // Success or non-retryable error
+            break;
+          }
 
           if (processError) {
             console.error("Background process error:", processError);
