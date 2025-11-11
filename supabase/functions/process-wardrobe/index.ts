@@ -115,9 +115,32 @@ serve(async (req) => {
 
     console.log('Image validation passed:', validation.contentType);
 
-    // Step 1: Detect items using Gemini Vision
+    // Step 1: Detect items using Gemini Vision (with retry/backoff)
     console.log('Step 1: Detecting items with Gemini Vision...');
-    const detectedItems = await detectItemsWithGemini(imageUrl);
+
+    let detectedItems: DetectedItem[] = [];
+    {
+      let attempts = 0;
+      const maxAttempts = 3;
+      const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+      while (attempts < maxAttempts) {
+        try {
+          detectedItems = await detectItemsWithGemini(imageUrl);
+          break;
+        } catch (err) {
+          const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+          const isRate = msg.includes('rate') || msg.includes('429') || msg.includes('resource exhausted');
+          if (isRate && attempts < maxAttempts - 1) {
+            const wait = (attempts + 1) * 2000; // 2s, 4s
+            console.warn(`Rate limited on detection, retrying in ${wait / 1000}s...`);
+            await sleep(wait);
+            attempts++;
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
     
     if (!detectedItems || detectedItems.length === 0) {
       return new Response(JSON.stringify({ 
@@ -152,56 +175,71 @@ serve(async (req) => {
 
     const uniqueDetectedItems = dedupeResult.uniqueItems;
 
-    // Step 2: Generate individual product images for each item using Gemini (in parallel)
-    console.log('Step 2: Generating product images with Gemini in parallel...');
+    // Step 2: Generate individual product images for each item using Gemini (sequential with backoff)
+    console.log('Step 2: Generating product images with Gemini sequentially...');
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
-    const itemGenerationPromises = uniqueDetectedItems.map(async (item, i) => {
+
+    const itemsWithImages: Array<DetectedItem & { imageUrl: string }> = [];
+
+    // Helper sleep
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+    for (let i = 0; i < uniqueDetectedItems.length; i++) {
+      const item = uniqueDetectedItems[i];
       console.log(`Starting generation for item ${i + 1}/${uniqueDetectedItems.length}: ${item.name}`);
-      
-      try {
-        const imageData = await generateProductImage(item);
-        
-        // Upload to Supabase storage
-        const fileName = `${user.id}/wardrobe_gen_${Date.now()}_${i}_${item.name.replace(/\s+/g, '-')}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('outfits')
-          .upload(fileName, imageData, {
-            contentType: 'image/png',
-            upsert: false
-          });
 
-        if (uploadError) {
-          console.error(`Upload error for ${item.name}:`, uploadError);
-          return null;
+      let attempts = 0;
+      const maxAttempts = 3; // 1 try + 2 retries
+
+      while (attempts < maxAttempts) {
+        try {
+          const imageData = await generateProductImage(item);
+
+          // Upload to Storage
+          const fileName = `${user.id}/wardrobe_gen_${Date.now()}_${i}_${item.name.replace(/\s+/g, '-')}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from('outfits')
+            .upload(fileName, imageData, {
+              contentType: 'image/png',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error(`Upload error for ${item.name}:`, uploadError);
+            break; // don't retry on storage errors
+          }
+
+          const { data: { publicUrl } } = supabase.storage.from('outfits').getPublicUrl(fileName);
+
+          console.log(`Generated image for ${item.name}`);
+          itemsWithImages.push({ ...item, imageUrl: publicUrl });
+          break; // success
+        } catch (err) {
+          const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+          const isRate = msg.includes('rate') || msg.includes('429') || msg.includes('resource exhausted');
+
+          if (isRate && attempts < maxAttempts - 1) {
+            const wait = (attempts + 1) * 3000; // 3s, 6s
+            console.warn(`Rate limited while generating '${item.name}', retrying in ${wait / 1000}s...`);
+            await sleep(wait);
+            attempts++;
+            continue;
+          }
+
+          console.error(`Failed to generate image for ${item.name}:`, err);
+          break; // non-retryable or maxed out
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('outfits')
-          .getPublicUrl(fileName);
-
-        console.log(`Generated image for ${item.name}`);
-        return {
-          ...item,
-          imageUrl: publicUrl
-        };
-      } catch (error) {
-        console.error(`Failed to generate image for ${item.name}:`, error);
-        return null;
       }
-    });
 
-    const results = await Promise.all(itemGenerationPromises);
-    const itemsWithImages = results.filter(item => item !== null) as Array<DetectedItem & { imageUrl: string }>;
+      // small pacing delay between items to reduce burstiness
+      await sleep(500);
+    }
 
     if (itemsWithImages.length === 0) {
-      return new Response(JSON.stringify({ 
-        error: 'Failed to generate images for detected items',
-        items: []
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate images for detected items', items: [] }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Normalize categories using the same logic as the database trigger (as fallback)
