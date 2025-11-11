@@ -85,128 +85,187 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         .select('name, category, color')
         .eq('user_id', user.id);
 
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setProgress(30);
+      // Upload the image to storage and call backend with URL (enables caching and smaller payloads)
+      setProgress(20);
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          console.error('Authentication required');
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
-          body: { imageData },
-          headers: { Authorization: `Bearer ${session.access_token}` }
+      const uploadPath = `${user.id}/wardrobe_uploads/${Date.now()}_${file.name.replace(/\s+/g, '-')}`;
+      const { error: uploadError } = await supabase.storage
+        .from('outfits')
+        .upload(uploadPath, file, {
+          contentType: file.type || 'image/jpeg',
+          upsert: false,
         });
-        
-        setProgress(60);
 
-        if (error) {
-          console.error('Process wardrobe error:', error);
-          toast({
-            title: "Processing failed",
-            description: "Couldn’t analyze the photo. Try another image with clear items.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          setProgress(0);
-          return;
-        }
-        
-        console.log('Wardrobe processing response:', data);
-
-        const itemsDetected = data?.items || [];
-        
-        if (!itemsDetected || itemsDetected.length === 0) {
-          toast({
-            title: "No items detected",
-            description: "Try a clearer outfit photo with items fully visible.",
-          });
-          setLoading(false);
-          setProgress(0);
-          return;
-        }
-
-        let addedCount = 0;
-        let skippedCount = 0;
-        setProgress(70);
-
-        console.log('Processing items with AI-generated images');
-
-        // Process each item - they already have processedImageUrl from backend
-        for (let idx = 0; idx < itemsDetected.length; idx++) {
-          const item = itemsDetected[idx];
-
-          // Simplified deduplication using color and category
-          const isDuplicate = existingItems?.some(existing => {
-            const categoryMatch = existing.category?.toLowerCase() === item.category?.toLowerCase();
-            const colorMatch = existing.color?.toLowerCase() === item.color?.toLowerCase();
-            const nameMatch = existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-                             item.name?.toLowerCase().includes(existing.name?.toLowerCase());
-            
-            // Duplicate if same category and (same color or similar name)
-            return categoryMatch && (colorMatch || nameMatch);
-          });
-
-          if (isDuplicate) {
-            console.log(`Skipping duplicate item: ${item.name}`);
-            skippedCount++;
-            continue;
-          }
-
-          // Use the processedImageUrl from backend (already generated and uploaded)
-          if (!item.processedImageUrl) {
-            console.warn(`Item ${idx} missing processedImageUrl`);
-            continue;
-          }
-
-          const { error: dbError } = await supabase
-            .from('wardrobe_items')
-            .insert({
-              user_id: user.id,
-              name: item.name,
-              category: item.category,
-              color: item.color,
-              fabric: item.fabric,
-              texture: item.texture,
-              pattern: item.pattern,
-              style_notes: item.style_notes,
-              image_url: item.processedImageUrl,
-              processed_image_url: item.processedImageUrl,
-            });
-
-          if (dbError) {
-            console.error('DB error for item:', item.name, dbError);
-          } else {
-            addedCount++;
-          }
-        }
-        
-        setProgress(90);
-
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
         toast({
-          title: addedCount > 0 ? "Added to your wardrobe!" : "Items already exist",
-          description: addedCount > 0
-            ? `${addedCount} new item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save AI credits)` : ''}.`
-            : `All detected items already exist in your wardrobe.`,
+          title: 'Upload failed',
+          description: 'Could not upload image. Please try again.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        setProgress(0);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('outfits').getPublicUrl(uploadPath);
+      const imageUrl = publicUrlData.publicUrl;
+
+      setProgress(40);
+
+      // Invoke with exponential backoff on rate limits (429)
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      if (!freshSession?.access_token) {
+        console.error('Authentication required');
+        setLoading(false);
+        setProgress(0);
+        return;
+      }
+
+      async function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+
+      const maxAttempts = 3;
+      let attempt = 0;
+      let invokeData: any = null;
+      let invokeError: any = null;
+
+      while (attempt < maxAttempts) {
+        const { data, error } = await supabase.functions.invoke('process-wardrobe', {
+          body: { imageUrl },
+          headers: { Authorization: `Bearer ${freshSession.access_token}` },
         });
 
-        // Track wardrobe item additions
-        trackCustom('wardrobe_items_added', {
-          items_added: addedCount,
-          items_skipped: skippedCount,
-          total_detected: itemsDetected.length,
-          upload_method: 'manual_photo'
+        // If success and not rate-limit sentinel from backend, stop
+        const isRateLimited = !!(error && /429|rate/i.test(error?.message || '')) ||
+                              (!!data && data.code === 'RATE_LIMIT' && data.retryable);
+
+        if (!isRateLimited && !error) {
+          invokeData = data;
+          break;
+        }
+
+        attempt++;
+        if (attempt >= maxAttempts) {
+          invokeError = error || data;
+          break;
+        }
+
+        const backoffs = [2000, 5000, 8000];
+        const wait = backoffs[attempt - 1] || 8000;
+        console.warn(`Rate limited calling process-wardrobe, retry ${attempt}/${maxAttempts} in ${wait}ms`);
+        toast({
+          title: 'AI is busy',
+          description: `Retrying analysis... (${attempt}/${maxAttempts})`,
         });
+        await sleep(wait);
+      }
+
+      setProgress(60);
+
+      if (!invokeData) {
+        console.error('Process wardrobe error:', invokeError);
+        toast({
+          title: 'Processing failed',
+          description: 'The AI service is busy. Please try again in a few seconds.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        setProgress(0);
+        return;
+      }
+
+      console.log('Wardrobe processing response:', invokeData);
+
+      // Edge returns items with imageUrl; normalize to processedImageUrl for downstream logic
+      const itemsDetected = (invokeData?.items || []).map((it: any) => ({
+        ...it,
+        processedImageUrl: it.processedImageUrl || it.imageUrl,
+      }));
+
+      if (!itemsDetected || itemsDetected.length === 0) {
+        toast({
+          title: 'No items detected',
+          description: 'Try a clearer outfit photo with items fully visible.',
+        });
+        setLoading(false);
+        setProgress(0);
+        return;
+      }
+
+      let addedCount = 0;
+      let skippedCount = 0;
+      setProgress(70);
+
+      console.log('Processing items with AI-generated images');
+
+      // Process each item - they already have processedImageUrl from backend
+      for (let idx = 0; idx < itemsDetected.length; idx++) {
+        const item = itemsDetected[idx];
+
+        // Simplified deduplication using color and category
+        const isDuplicate = existingItems?.some(existing => {
+          const categoryMatch = existing.category?.toLowerCase() === item.category?.toLowerCase();
+          const itemColor = (item.color || item.primary_color || '').toLowerCase();
+          const colorMatch = existing.color?.toLowerCase() === itemColor;
+          const nameMatch = existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
+                           item.name?.toLowerCase().includes(existing.name?.toLowerCase());
+          return categoryMatch && (colorMatch || nameMatch);
+        });
+
+        if (isDuplicate) {
+          console.log(`Skipping duplicate item: ${item.name}`);
+          skippedCount++;
+          continue;
+        }
+
+        // Use the processedImageUrl from backend (already generated and uploaded)
+        if (!item.processedImageUrl) {
+          console.warn(`Item ${idx} missing processedImageUrl`);
+          continue;
+        }
+
+        const { error: dbError } = await supabase
+          .from('wardrobe_items')
+          .insert({
+            user_id: user.id,
+            name: item.name,
+            category: item.category,
+            color: item.color || item.primary_color,
+            fabric: (item as any).fabric || item.fabric_primary,
+            texture: item.texture,
+            pattern: (item as any).pattern || item.pattern_type,
+            style_notes: (item as any).style_notes || item.style_notes_detailed,
+            image_url: item.processedImageUrl,
+            processed_image_url: item.processedImageUrl,
+          });
+
+        if (dbError) {
+          console.error('DB error for item:', item.name, dbError);
+        } else {
+          addedCount++;
+        }
+      }
+      
+      setProgress(90);
+
+      toast({
+        title: addedCount > 0 ? 'Added to your wardrobe!' : 'Items already exist',
+        description: addedCount > 0
+          ? `${addedCount} new item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save AI credits)` : ''}.`
+          : 'All detected items already exist in your wardrobe.',
+      });
+
+      // Track wardrobe item additions
+      trackCustom('wardrobe_items_added', {
+        items_added: addedCount,
+        items_skipped: skippedCount,
+        total_detected: itemsDetected.length,
+        upload_method: 'manual_photo'
+      });
 
       setProgress(100);
       fetchWardrobeItems();
-      };
 
-      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error processing image:', error);
       toast({
