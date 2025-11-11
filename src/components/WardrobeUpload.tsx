@@ -210,11 +210,11 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         }
 
         const { mapDetectedItemToDbRecord } = await import('@/lib/wardrobeItemMapper');
-        const { error: dbError } = await supabase
+        const { data: insertedRows, error: dbError } = await supabase
           .from('wardrobe_items')
           .insert([
             mapDetectedItemToDbRecord(item, user.id, item.processedImageUrl, item.processedImageUrl)
-          ]);
+          ]).select('*');
 
         if (dbError) {
           console.error('DB error for item:', item.name, dbError);

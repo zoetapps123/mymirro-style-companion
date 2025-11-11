@@ -143,9 +143,9 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
             .getPublicUrl(fileName);
 
           const { mapDetectedItemToDbRecord } = await import('@/lib/wardrobeItemMapper');
-          const { error: insertError } = await supabase.from('wardrobe_items').insert([
+          const { data: insertedRows, error: insertError } = await supabase.from('wardrobe_items').insert([
             mapDetectedItemToDbRecord(item, user.id, publicUrl, publicUrl)
-          ]);
+          ]).select('*');
 
           if (!insertError) {
             addedCount++;

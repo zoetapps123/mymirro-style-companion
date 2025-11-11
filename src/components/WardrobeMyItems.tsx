@@ -201,9 +201,9 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
               // Item already has imageUrl from Gemini generation
               const { mapDetectedItemToDbRecord } = await import('@/lib/wardrobeItemMapper');
-              await supabase.from('wardrobe_items').insert([
+              const { data: insertedRows, error } = await supabase.from('wardrobe_items').insert([
                 mapDetectedItemToDbRecord(item, userId, item.imageUrl, item.imageUrl)
-              ]);
+              ]).select('*');
 
               addedCount++;
             });
