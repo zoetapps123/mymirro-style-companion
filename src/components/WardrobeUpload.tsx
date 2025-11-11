@@ -140,17 +140,27 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         for (let idx = 0; idx < itemsDetected.length; idx++) {
           const item = itemsDetected[idx];
 
-          // Enhanced deduplication - check for ≥90% similarity
+          // Enhanced deduplication using comprehensive metadata fingerprint
           const isDuplicate = existingItems?.some(existing => {
             const categoryMatch = existing.category?.toLowerCase() === item.category?.toLowerCase();
             const nameMatch = existing.name?.toLowerCase() === item.name?.toLowerCase();
-            const colorMatch = existing.color?.toLowerCase() === item.color?.toLowerCase();
             
-            // Calculate similarity score
+            // Use enhanced color matching (color_family is more reliable than color hex)
+            const colorFamilyMatch = existing.color_family?.toLowerCase() === item.color_family?.toLowerCase();
+            const primaryColorMatch = existing.primary_color?.toLowerCase() === item.primary_color?.toLowerCase();
+            
+            // Calculate similarity score with enhanced metadata
             let similarityScore = 0;
-            if (categoryMatch) similarityScore += 0.4;
-            if (colorMatch) similarityScore += 0.3;
-            if (nameMatch) similarityScore += 0.3;
+            if (categoryMatch) similarityScore += 0.35;
+            if (colorFamilyMatch || primaryColorMatch) similarityScore += 0.25;
+            if (nameMatch) similarityScore += 0.25;
+            
+            // Check fabric/material similarity
+            if (item.fabric_primary && existing.fabric_primary) {
+              if (existing.fabric_primary?.toLowerCase() === item.fabric_primary?.toLowerCase()) {
+                similarityScore += 0.15;
+              }
+            }
             
             // Also check for partial name matches
             const existingNameWords = existing.name?.toLowerCase().split(' ') || [];
@@ -159,8 +169,9 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             const maxWords = Math.max(existingNameWords.length, itemNameWords.length);
             const nameOverlap = maxWords > 0 ? commonWords / maxWords : 0;
             
-            if (categoryMatch && colorMatch && nameOverlap > 0.5) {
-              similarityScore = 0.9; // High similarity if category, color match and significant name overlap
+            // High confidence duplicate if category + color family + name overlap
+            if (categoryMatch && colorFamilyMatch && nameOverlap > 0.5) {
+              similarityScore = 0.95;
             }
             
             return similarityScore >= 0.9;

@@ -128,7 +128,7 @@ export const SYSTEM_PROMPTS = {
       ? `\n- Skin Tone: ${params.skinTone} (recommend colors that complement this tone)`
       : "";
 
-    // Build wardrobe context with clear count
+    // Build wardrobe context with enhanced metadata
     let wardrobeContext = "";
     if (params.wardrobeItems && params.wardrobeItems.length > 0) {
       const itemCount = params.wardrobeItems.length;
@@ -146,7 +146,7 @@ export const SYSTEM_PROMPTS = {
       const itemsList = Object.entries(categorizedItems)
         .map(([category, items]) => {
           const categoryItems = items
-            .map((i: any) => `    • ${i.name} (${i.color || "no color info"}) [ID: ${i.id}]`)
+            .map((i: any) => `    • ${formatItemForAI(i)}`)
             .join("\n");
           return `  ${category} (${items.length} items):\n${categoryItems}`;
         })
