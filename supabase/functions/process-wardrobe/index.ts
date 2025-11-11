@@ -402,6 +402,9 @@ RESPONSE FORMAT - Return a JSON object with this EXACT structure:
       "primary_color": "#4A90E2",
       "primary_color_name": "Blue",
       "color_family": "blue",
+      "secondary_colors": ["#2C3E50", "#ECF0F1"],
+      "color_distribution": [70, 20, 10],
+      "pattern_colors": [],
       "fabric_primary": "denim",
       "fabric_weight": "medium",
       "material_finish": "washed",
@@ -411,20 +414,35 @@ RESPONSE FORMAT - Return a JSON object with this EXACT structure:
       "fit_type": "regular",
       "silhouette": "classic",
       "length": "hip",
+      "neckline": null,
+      "sleeve_type": "long",
+      "collar_type": "shirt collar",
       "closure_type": "button",
-      "pocket_details": "front pockets",
-      "hardware_details": "metal buttons",
+      "pocket_details": "front chest pockets and side pockets",
+      "hardware_details": "metal buttons and rivets",
       "embellishments": "none",
-      "special_features": [],
-      "style_aesthetic": ["casual"],
+      "special_features": ["distressed details"],
+      "style_aesthetic": ["casual", "americana"],
       "formality_level": "casual",
-      "style_notes_detailed": "Classic fit with button closure",
-      "suitable_occasions": ["casual"],
-      "season": ["all"],
-      "weather_suitability": "cool"
+      "style_notes_detailed": "Classic fit denim jacket with button closure and distressed accents. Features traditional western-style yoke and shirt collar.",
+      "suitable_occasions": ["casual", "everyday"],
+      "season": ["spring", "fall"],
+      "weather_suitability": "cool",
+      "rise": null,
+      "waist_style": null,
+      "heel_type": null,
+      "toe_style": null,
+      "brand": null,
+      "condition": "good"
     }
   ]
 }
+
+IMPORTANT: Include ALL fields shown above for every item. Use null for fields that don't apply to the category (e.g., neckline for jackets, heel_type for non-shoes). Always provide:
+- secondary_colors and color_distribution arrays (even if empty)
+- pattern_colors array
+- All category-specific fields (neckline, sleeve_type, collar_type for tops/outerwear; rise, waist_style for bottoms; heel_type, toe_style for shoes)
+- brand and condition (use null if unknown)
 
 Return ONLY the JSON object, no other text.`;
 
