@@ -256,13 +256,32 @@ serve(async (req) => {
     console.error('Error in process-wardrobe:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-    const isRateLimit = errorMessage.includes('Rate limit') || errorMessage.includes('429');
-    const isCredits = errorMessage.includes('credits') || errorMessage.includes('402');
+    const errorLower = errorMessage.toLowerCase();
+    
+    // Check for rate limiting
+    const isRateLimit = errorLower.includes('rate') || 
+                       errorLower.includes('429') || 
+                       errorMessage.includes('RATE_LIMIT') ||
+                       errorLower.includes('resource exhausted');
+    
+    // Check for credit/payment issues
+    const isCredits = errorLower.includes('credits') || 
+                     errorLower.includes('402') ||
+                     errorLower.includes('billing');
+    
+    // User-friendly error messages
+    let userMessage = errorMessage;
+    if (isRateLimit) {
+      userMessage = 'The AI service is temporarily busy. Please wait a moment and try again.';
+    } else if (isCredits) {
+      userMessage = 'AI service credits depleted. Please contact support.';
+    }
     
     return new Response(
       JSON.stringify({
-        error: errorMessage,
-        details: error instanceof Error ? error.stack : String(error)
+        error: userMessage,
+        code: isRateLimit ? 'RATE_LIMIT' : isCredits ? 'NO_CREDITS' : 'INTERNAL_ERROR',
+        retryable: isRateLimit
       }),
       {
         status: isRateLimit ? 429 : isCredits ? 402 : 500,
