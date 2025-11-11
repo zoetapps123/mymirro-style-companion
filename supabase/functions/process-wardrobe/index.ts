@@ -451,67 +451,10 @@ Return ONLY the JSON object, no other text.`;
 
   const result = JSON.parse(jsonMatch[0]);
 
-  // Normalize items to ensure all required fields exist
-  const normalizedItems = (result.items || []).map((item: any) => normalizeDetectedItem(item));
-
   return {
     isValid: result.isValid || false,
     reason: result.reason,
-    items: normalizedItems,
-  };
-}
-
-/**
- * Normalize a detected item to ensure all required fields exist with defaults
- */
-function normalizeDetectedItem(item: any): DetectedItem {
-  return {
-    name: item.name || "Unknown Item",
-    category: item.category || "Tops",
-    // Enhanced color fields
-    primary_color: item.primary_color || "#808080",
-    primary_color_name: item.primary_color_name || "Gray",
-    color_family: item.color_family || "neutral",
-    secondary_colors: item.secondary_colors || [],
-    color_distribution: item.color_distribution || [],
-    // Fabric & material
-    fabric_primary: item.fabric_primary || "unknown",
-    fabric_weight: item.fabric_weight || "medium",
-    material_finish: item.material_finish || "standard",
-    texture: item.texture || "smooth",
-    // Pattern
-    pattern_type: item.pattern_type || "solid",
-    pattern_scale: item.pattern_scale || "none",
-    pattern_colors: item.pattern_colors || [],
-    // Cut & fit
-    fit_type: item.fit_type || "regular",
-    silhouette: item.silhouette || "standard",
-    length: item.length || "regular",
-    // Design elements
-    neckline: item.neckline,
-    sleeve_type: item.sleeve_type,
-    closure_type: item.closure_type || "none",
-    pocket_details: item.pocket_details || "none",
-    hardware_details: item.hardware_details || "none",
-    embellishments: item.embellishments || "none",
-    special_features: item.special_features || [],
-    // Style & aesthetic
-    style_aesthetic: item.style_aesthetic || ["casual"],
-    formality_level: item.formality_level || "casual",
-    style_notes_detailed: item.style_notes_detailed || "",
-    // Occasion & use
-    suitable_occasions: item.suitable_occasions || ["casual"],
-    season: item.season || ["all"],
-    weather_suitability: item.weather_suitability || "moderate",
-    // Category-specific (optional fields)
-    rise: item.rise,
-    waist_style: item.waist_style,
-    heel_type: item.heel_type,
-    toe_style: item.toe_style,
-    collar_type: item.collar_type,
-    // Optional
-    brand: item.brand,
-    condition: item.condition,
+    items: result.items || [],
   };
 }
 
@@ -591,27 +534,9 @@ async function enhancedSmartDeduplication(
 
         if (hasEnoughMatches) {
           console.log(`🔍 Fingerprint match found for "${newItem.name}":`, {
-            existingItem: {
-              id: existing.id,
-              name: existing.name,
-              category: existing.category,
-              color_family: existing.color_family,
-              fabric_primary: existing.fabric_primary,
-              fit_type: existing.fit_type,
-              pattern_type: existing.pattern_type,
-              silhouette: existing.silhouette,
-            },
-            newItem: {
-              name: newItem.name,
-              category: newItem.category,
-              color_family: newItem.color_family,
-              fabric_primary: newItem.fabric_primary,
-              fit_type: newItem.fit_type,
-              pattern_type: newItem.pattern_type,
-              silhouette: newItem.silhouette,
-            },
+            existing: existing.name,
             matchingFieldsCount: matchingFields.length,
-            matchDetails: {
+            fields: {
               colorFamily: sameColorFamily,
               fabric: sameFabric,
               fit: sameFit,
@@ -658,29 +583,11 @@ async function enhancedSmartDeduplication(
 
         if (isMatch) {
           console.log(`🎨 Color similarity match for "${newItem.name}":`, {
-            existingItem: {
-              id: existing.id,
-              name: existing.name,
-              category: existing.category,
-              primary_color: existingColor,
-              fabric_primary: existing.fabric_primary,
-              silhouette: existing.silhouette,
-              fit_type: existing.fit_type,
-            },
-            newItem: {
-              name: newItem.name,
-              category: newItem.category,
-              primary_color: newColor,
-              fabric_primary: newItem.fabric_primary,
-              silhouette: newItem.silhouette,
-              fit_type: newItem.fit_type,
-            },
+            existing: existing.name,
             colorDistance: Math.round(distance),
-            matches: {
-              fabric: fabricMatch,
-              silhouette: silhouetteMatch,
-              fit: fitMatch,
-            },
+            fabric: fabricMatch,
+            silhouette: silhouetteMatch,
+            fit: fitMatch,
           });
         }
 
@@ -694,10 +601,9 @@ async function enhancedSmartDeduplication(
     }
 
     if (isDuplicate) {
-      console.log(`⏭️  Skipping duplicate: ${skipReason}`);
+      console.log(`⏭️  Skipping: ${skipReason}`);
       skipReasons.push(skipReason);
     } else {
-      console.log(`✅ Adding unique item: "${newItem.name}" (category: ${newItem.category})`);
       uniqueItems.push(newItem);
     }
   }
