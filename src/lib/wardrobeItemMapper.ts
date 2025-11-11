@@ -11,7 +11,7 @@ export interface DetectedItem {
   primary_color_name?: string;
   secondary_colors?: string[];
   color_family?: string;
-  color_distribution?: string[];
+  color_distribution?: number[] | string[];
   pattern_colors?: string[];
   fabric?: string;
   fabric_primary?: string;
@@ -66,7 +66,11 @@ export function mapDetectedItemToDbRecord(
     primary_color_name: item.primary_color_name || null,
     secondary_colors: item.secondary_colors || null,
     color_family: item.color_family || null,
-    color_distribution: null, // DB expects number[], AI returns string[] - skip for now
+    color_distribution: Array.isArray(item.color_distribution)
+      ? (item.color_distribution as any[])
+          .map((v: any) => (typeof v === 'number' ? v : parseFloat(v)))
+          .filter((v: any) => Number.isFinite(v))
+      : null,
     pattern_colors: item.pattern_colors || null,
     
     // Fabric fields
