@@ -198,29 +198,14 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
       console.log('Processing items with AI-generated images');
 
-      // Process each item - they already have processedImageUrl from backend
+      // Process each item - backend already handled deduplication
       for (let idx = 0; idx < itemsDetected.length; idx++) {
         const item = itemsDetected[idx];
-
-        // Simplified deduplication using color and category
-        const isDuplicate = existingItems?.some(existing => {
-          const categoryMatch = existing.category?.toLowerCase() === item.category?.toLowerCase();
-          const itemColor = (item.color || item.primary_color || '').toLowerCase();
-          const colorMatch = existing.color?.toLowerCase() === itemColor;
-          const nameMatch = existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-                           item.name?.toLowerCase().includes(existing.name?.toLowerCase());
-          return categoryMatch && (colorMatch || nameMatch);
-        });
-
-        if (isDuplicate) {
-          console.log(`Skipping duplicate item: ${item.name}`);
-          skippedCount++;
-          continue;
-        }
 
         // Use the processedImageUrl from backend (already generated and uploaded)
         if (!item.processedImageUrl) {
           console.warn(`Item ${idx} missing processedImageUrl`);
+          skippedCount++;
           continue;
         }
 
@@ -230,11 +215,55 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
             user_id: user.id,
             name: item.name,
             category: item.category,
+            // Color fields
             color: item.color || item.primary_color,
+            primary_color: item.primary_color,
+            primary_color_name: item.primary_color_name,
+            color_family: item.color_family,
+            secondary_colors: item.secondary_colors,
+            color_distribution: item.color_distribution,
+            pattern_colors: item.pattern_colors,
+            // Fabric & material
             fabric: (item as any).fabric || item.fabric_primary,
+            fabric_primary: item.fabric_primary,
+            fabric_weight: item.fabric_weight,
+            material_finish: item.material_finish,
             texture: item.texture,
+            // Pattern
             pattern: (item as any).pattern || item.pattern_type,
+            pattern_type: item.pattern_type,
+            pattern_scale: item.pattern_scale,
+            // Cut & fit
+            fit_type: item.fit_type,
+            silhouette: item.silhouette,
+            length: item.length,
+            rise: item.rise,
+            waist_style: item.waist_style,
+            // Design elements
+            neckline: item.neckline,
+            collar_type: item.collar_type,
+            sleeve_type: item.sleeve_type,
+            closure_type: item.closure_type,
+            pocket_details: item.pocket_details,
+            hardware_details: item.hardware_details,
+            embellishments: item.embellishments,
+            special_features: item.special_features,
+            // Style & aesthetic
+            style_aesthetic: item.style_aesthetic,
+            formality_level: item.formality_level,
             style_notes: (item as any).style_notes || item.style_notes_detailed,
+            style_notes_detailed: item.style_notes_detailed,
+            // Occasion & use
+            suitable_occasions: item.suitable_occasions,
+            season: item.season,
+            weather_suitability: item.weather_suitability,
+            // Category-specific
+            heel_type: item.heel_type,
+            toe_style: item.toe_style,
+            // Optional
+            brand: item.brand,
+            condition: item.condition,
+            // Images
             image_url: item.processedImageUrl,
             processed_image_url: item.processedImageUrl,
           });
@@ -248,10 +277,13 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       
       setProgress(90);
 
+      const totalDetected = itemsDetected.length;
+      const successfullyAdded = addedCount;
+      
       toast({
-        title: addedCount > 0 ? 'Added to your wardrobe!' : 'Items already exist',
-        description: addedCount > 0
-          ? `${addedCount} new item${addedCount > 1 ? 's' : ''} extracted${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount > 1 ? 's' : ''} skipped to save AI credits)` : ''}.`
+        title: successfullyAdded > 0 ? 'Added to your wardrobe!' : 'No new items',
+        description: successfullyAdded > 0
+          ? `${successfullyAdded} item${successfullyAdded > 1 ? 's' : ''} added successfully.`
           : 'All detected items already exist in your wardrobe.',
       });
 

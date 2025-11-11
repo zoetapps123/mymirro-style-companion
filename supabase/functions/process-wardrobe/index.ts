@@ -159,13 +159,15 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Validated and detected ${detectedItems.length} items from image`);
+    console.log(`✅ Validated and detected ${detectedItems.length} items from image`);
+    console.log('📊 Sample item metadata:', JSON.stringify(detectedItems[0], null, 2));
 
     // Step 1.5: Enhanced Smart Deduplication
     console.log('Step 1.5: Running enhanced smart deduplication...');
     const dedupeResult = await enhancedSmartDeduplication(detectedItems, user.id);
 
     if (dedupeResult.uniqueItems.length === 0) {
+      console.log('⚠️ All items were duplicates:', dedupeResult.skipReasons);
       return new Response(JSON.stringify({ 
         error: 'All detected items already exist in your wardrobe',
         items: [],
@@ -177,7 +179,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`✅ ${dedupeResult.uniqueItems.length} unique items to process`);
+    console.log(`✅ ${dedupeResult.uniqueItems.length} unique items to process (${dedupeResult.duplicatesSkipped} duplicates skipped)`);
     console.log(`⏭️  ${dedupeResult.duplicatesSkipped} duplicates skipped`);
 
     const uniqueDetectedItems = dedupeResult.uniqueItems;
@@ -465,27 +467,51 @@ async function enhancedSmartDeduplication(
       skipReason = `Exact name: "${newItem.name}"`;
     }
     
-    // LEVEL 2: Enhanced Fingerprint Match
+    // LEVEL 2: Enhanced Fingerprint Match (with null checks)
     if (!isDuplicate) {
+      const bothExistAndMatch = (a: any, b: any) => {
+        return a != null && a !== '' && b != null && b !== '' && a === b;
+      };
+
       const fingerprintMatch = existingItems.find(existing => {
-        const sameCategory = existing.category === newItem.category;
-        const sameColorFamily = existing.color_family === newItem.color_family;
-        const sameFabric = existing.fabric_primary?.toLowerCase() === newItem.fabric_primary?.toLowerCase();
-        const sameFit = existing.fit_type === newItem.fit_type;
-        const samePattern = existing.pattern_type === newItem.pattern_type;
+        const sameCategory = bothExistAndMatch(existing.category, newItem.category);
+        if (!sameCategory) return false;
         
-        if (!sameCategory || !sameColorFamily || !sameFabric) return false;
+        const sameColorFamily = bothExistAndMatch(existing.color_family, newItem.color_family);
+        const sameFabric = bothExistAndMatch(
+          existing.fabric_primary?.toLowerCase(), 
+          newItem.fabric_primary?.toLowerCase()
+        );
+        const sameFit = bothExistAndMatch(existing.fit_type, newItem.fit_type);
+        const samePattern = bothExistAndMatch(existing.pattern_type, newItem.pattern_type);
+        const sameSilhouette = bothExistAndMatch(existing.silhouette, newItem.silhouette);
+        const sameClosure = bothExistAndMatch(existing.closure_type, newItem.closure_type);
+        const sameLength = bothExistAndMatch(existing.length, newItem.length);
         
-        const sameSilhouette = existing.silhouette === newItem.silhouette;
-        const sameClosure = existing.closure_type === newItem.closure_type;
-        const sameLength = existing.length === newItem.length;
-        
-        const matchScore = [
-          sameCategory, sameColorFamily, sameFabric, sameFit, samePattern,
+        const matchingFields = [
+          sameColorFamily, sameFabric, sameFit, samePattern,
           sameSilhouette, sameClosure, sameLength
-        ].filter(Boolean).length;
+        ].filter(Boolean);
         
-        return matchScore >= 6;
+        const hasEnoughMatches = matchingFields.length >= 4;
+        
+        if (hasEnoughMatches) {
+          console.log(`🔍 Fingerprint match found for "${newItem.name}":`, {
+            existing: existing.name,
+            matchingFieldsCount: matchingFields.length,
+            fields: {
+              colorFamily: sameColorFamily,
+              fabric: sameFabric,
+              fit: sameFit,
+              pattern: samePattern,
+              silhouette: sameSilhouette,
+              closure: sameClosure,
+              length: sameLength
+            }
+          });
+        }
+        
+        return hasEnoughMatches;
       });
       
       if (fingerprintMatch) {
@@ -494,20 +520,43 @@ async function enhancedSmartDeduplication(
       }
     }
     
-    // LEVEL 3: Color Similarity
+    // LEVEL 3: Color Similarity (with null checks)
     if (!isDuplicate) {
       const colorSimilarMatch = existingItems.find(existing => {
         if (existing.category !== newItem.category) return false;
-        if (existing.color_family !== newItem.color_family) return false;
         
-        const distance = calculateColorDistance(
-          existing.primary_color || existing.color || '#000000',
-          newItem.primary_color
-        );
+        // Both must have valid primary colors
+        const existingColor = existing.primary_color || existing.color;
+        const newColor = newItem.primary_color;
         
-        return distance < 30 && 
-               existing.fabric_primary === newItem.fabric_primary &&
-               existing.silhouette === newItem.silhouette;
+        if (!existingColor || !newColor) return false;
+        
+        const distance = calculateColorDistance(existingColor, newColor);
+        
+        // Require category + color + at least 2 other attributes
+        const colorMatch = distance < 30;
+        const fabricMatch = existing.fabric_primary && newItem.fabric_primary && 
+                           existing.fabric_primary === newItem.fabric_primary;
+        const silhouetteMatch = existing.silhouette && newItem.silhouette && 
+                               existing.silhouette === newItem.silhouette;
+        const fitMatch = existing.fit_type && newItem.fit_type && 
+                        existing.fit_type === newItem.fit_type;
+        
+        const extraMatches = [fabricMatch, silhouetteMatch, fitMatch].filter(Boolean).length;
+        
+        const isMatch = colorMatch && extraMatches >= 2;
+        
+        if (isMatch) {
+          console.log(`🎨 Color similarity match for "${newItem.name}":`, {
+            existing: existing.name,
+            colorDistance: Math.round(distance),
+            fabric: fabricMatch,
+            silhouette: silhouetteMatch,
+            fit: fitMatch
+          });
+        }
+        
+        return isMatch;
       });
       
       if (colorSimilarMatch) {
