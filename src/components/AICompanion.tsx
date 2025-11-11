@@ -134,7 +134,7 @@ const AICompanion = () => {
 
       const { data: items, error } = await supabase
         .from('wardrobe_items')
-        .select('id, name, category, color, fabric, texture, pattern, style_notes')
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -195,36 +195,11 @@ const AICompanion = () => {
             
             if (payload.eventType === 'INSERT') {
               const newItem = payload.new as any;
-              setWardrobeItems(prev => [
-                {
-                  id: newItem.id,
-                  name: newItem.name,
-                  category: newItem.category,
-                  color: newItem.color,
-                  fabric: newItem.fabric,
-                  texture: newItem.texture,
-                  pattern: newItem.pattern,
-                  style_notes: newItem.style_notes,
-                },
-                ...prev,
-              ]);
+              setWardrobeItems(prev => [newItem, ...prev]);
             } else if (payload.eventType === 'UPDATE') {
               const updatedItem = payload.new as any;
               setWardrobeItems(prev =>
-                prev.map(item =>
-                  item.id === updatedItem.id
-                    ? {
-                        id: updatedItem.id,
-                        name: updatedItem.name,
-                        category: updatedItem.category,
-                        color: updatedItem.color,
-                        fabric: updatedItem.fabric,
-                        texture: updatedItem.texture,
-                        pattern: updatedItem.pattern,
-                        style_notes: updatedItem.style_notes,
-                      }
-                    : item
-                )
+                prev.map(item => item.id === updatedItem.id ? updatedItem : item)
               );
             } else if (payload.eventType === 'DELETE') {
               const deletedItem = payload.old as any;
