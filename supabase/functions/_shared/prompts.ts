@@ -4,6 +4,85 @@
  */
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Formats a wardrobe item with comprehensive metadata for AI consumption
+ */
+export const formatItemForAI = (item: any): string => {
+  const parts = [
+    `ID:${item.id}`,
+    `"${item.name}"`,
+    `[${item.category}]`,
+  ];
+  
+  // Color details
+  if (item.primary_color_name && item.color_family) {
+    parts.push(`Color: ${item.primary_color_name} (${item.color_family} family)`);
+    if (item.secondary_colors?.length) {
+      parts.push(`+ accents: ${item.secondary_colors.join(', ')}`);
+    }
+  } else if (item.color) {
+    parts.push(`Color: ${item.color}`);
+  }
+  
+  // Fabric & material
+  if (item.fabric_primary) {
+    const fabricDesc = [item.fabric_primary];
+    if (item.fabric_weight) fabricDesc.push(item.fabric_weight);
+    if (item.material_finish) fabricDesc.push(item.material_finish);
+    parts.push(`Fabric: ${fabricDesc.join(' ')}`);
+  } else if (item.fabric) {
+    parts.push(`Fabric: ${item.fabric}`);
+  }
+  
+  // Pattern
+  if (item.pattern_type && item.pattern_type !== 'solid') {
+    parts.push(`Pattern: ${item.pattern_scale || ''} ${item.pattern_type}`.trim());
+  } else if (item.pattern && item.pattern !== 'solid') {
+    parts.push(`Pattern: ${item.pattern}`);
+  }
+  
+  // Fit & style
+  if (item.fit_type) parts.push(`Fit: ${item.fit_type}`);
+  if (item.silhouette) parts.push(`Silhouette: ${item.silhouette}`);
+  if (item.length) parts.push(`Length: ${item.length}`);
+  
+  // Style aesthetic
+  if (item.style_aesthetic?.length) {
+    parts.push(`Style: ${item.style_aesthetic.join(', ')}`);
+  }
+  
+  // Formality
+  if (item.formality_level) {
+    parts.push(`Formality: ${item.formality_level}`);
+  }
+  
+  // Occasions
+  if (item.suitable_occasions?.length) {
+    parts.push(`Best for: ${item.suitable_occasions.join(', ')}`);
+  }
+  
+  // Season/weather
+  if (item.season?.length) {
+    parts.push(`Season: ${item.season.join('/')}`);
+  }
+  
+  // Design details (for unique identification)
+  const designDetails = [];
+  if (item.neckline) designDetails.push(item.neckline);
+  if (item.sleeve_type) designDetails.push(item.sleeve_type);
+  if (item.closure_type) designDetails.push(item.closure_type);
+  if (item.hardware_details && item.hardware_details !== 'none') designDetails.push(item.hardware_details);
+  if (designDetails.length) {
+    parts.push(`Details: ${designDetails.join(', ')}`);
+  }
+  
+  return parts.join(' | ');
+};
+
+// ============================================
 // PROMPT TYPE ENUMS
 // ============================================
 
@@ -121,6 +200,21 @@ PERSONALIZATION:
 - User's name: ${userName}
 - Gender tone: Use "${genderTone}" naturally in conversation where it fits (not every sentence)
 - Location: ${userCity} (consider local climate, culture, shopping)${bodyContext}${skinContext}${historyContext}
+
+WARDROBE METADATA CONTEXT:
+The user's wardrobe items include extensive metadata that you MUST leverage for precise styling:
+- **Color**: primary_color, color_family, secondary_colors (for accurate color matching)
+- **Fabric**: fabric_primary, fabric_weight, material_finish (for texture coordination)
+- **Pattern**: pattern_type, pattern_scale (for visual balance)
+- **Fit**: fit_type, silhouette, length (for proportion)
+- **Style**: style_aesthetic (minimalist/streetwear/formal/etc.), formality_level
+- **Occasions**: suitable_occasions, season, weather_suitability
+- **Design**: neckline, sleeve_type, closure_type, hardware_details, embellishments
+
+USE THIS METADATA to provide precise styling advice:
+- "Your black leather jacket (streetwear, oversized fit, silver hardware) pairs perfectly with your slim-fit jeans"
+- "For the wedding, I'll focus on your formal-level items suitable for special events"
+- "Since it's summer, I'll avoid your heavy-weight fabrics and focus on breathable pieces"
 
 🛠️ YOUR AVAILABLE TOOLS:
 You have access to tools that let you interact with the user's wardrobe and create outfit suggestions. Use these tools intelligently based on what the user asks for.
@@ -641,12 +735,21 @@ TASK: You are a professional fashion stylist creating ${maxOutfits || "multiple"
 
 TARGET: ${targetText}${weatherContext}
 
-AVAILABLE WARDROBE ITEMS:
-- TOPS (${tops.length}): ${tops.map((t) => `ID:${t.id} "${t.name}" (${t.color})`).join(", ")}
-- BOTTOMS (${bottoms.length}): ${bottoms.map((b) => `ID:${b.id} "${b.name}" (${b.color})`).join(", ")}
-- SHOES (${shoes.length}): ${shoes.map((s) => `ID:${s.id} "${s.name}" (${s.color})`).join(", ")}
-- ACCESSORIES (${accessories.length}): ${accessories.length ? accessories.map((a) => `ID:${a.id} "${a.name}"`).join(", ") : "None"}
-- LAYERS/JACKETS (${layers.length}): ${layers.length ? layers.map((l) => `ID:${l.id} "${l.name}" (${l.color})`).join(", ") : "None"}
+AVAILABLE WARDROBE ITEMS (with complete metadata for accurate styling):
+- TOPS (${tops.length}): 
+${tops.map((t) => formatItemForAI(t)).join('\n  ')}
+
+- BOTTOMS (${bottoms.length}):
+${bottoms.map((b) => formatItemForAI(b)).join('\n  ')}
+
+- SHOES (${shoes.length}):
+${shoes.map((s) => formatItemForAI(s)).join('\n  ')}
+
+- ACCESSORIES (${accessories.length}):
+${accessories.length ? accessories.map((a) => formatItemForAI(a)).join('\n  ') : "None"}
+
+- LAYERS/JACKETS (${layers.length}):
+${layers.length ? layers.map((l) => formatItemForAI(l)).join('\n  ') : "None"}
 
 ═══════════════════════════════════════════════════════════════════
 
@@ -696,6 +799,44 @@ MANDATORY OUTFIT STRUCTURE (EVERY OUTFIT MUST HAVE):
 
 🚨 CRITICAL: If wardrobe lacks footwear items, return EMPTY array immediately
 🚨 CRITICAL: Each outfit MUST have upperwear + lowerwear + footwear at minimum
+
+**ENHANCED STYLING CONSIDERATIONS:**
+
+🎨 COLOR COORDINATION:
+- Use color_family for harmonious combinations (analogous or complementary)
+- Leverage secondary_colors for accent coordination
+- Consider color_distribution for pattern matching
+- Neutral families (white/black/gray/beige) pair with any color family
+
+🧵 FABRIC COMPATIBILITY:
+- Match fabric_weight appropriately (no heavy + lightweight mismatch)
+- Consider material_finish (matte with matte, glossy with glossy for cohesion)
+- Respect formality_level (formal fabrics with formal occasions)
+- Breathable fabrics (cotton, linen) for warm weather, wool/fleece for cold
+
+✂️ FIT & SILHOUETTE:
+- Balance fit_type across outfit (not all oversized or all slim)
+- Vary silhouette for visual interest (fitted top + relaxed bottom or vice versa)
+- Match length proportions (cropped top + high-waist bottom)
+
+🎯 OCCASION FILTERING (CRITICAL):
+- ONLY use items where suitable_occasions matches target occasion
+- If occasion="wedding", REQUIRE formality_level="formal" or "semi-formal"
+- If occasion="gym", REQUIRE items with suitable_occasions including "gym" or "workout"
+- If occasion="date", prefer formality_level="smart_casual" or "business_casual"
+- Respect season and weather_suitability for the occasion
+
+🎭 STYLE CONSISTENCY:
+- Group items by compatible style_aesthetic
+- Don't mix "streetwear" with "formal" unless intentional contrast
+- Use formality_level as primary filter before style_aesthetic
+- "Minimalist" works well with most styles due to versatility
+
+🔧 DESIGN DETAIL AWARENESS:
+- Avoid clashing hardware (gold + silver unless intentional mixed metals)
+- Consider neckline when selecting layers (V-neck under cardigan works, crew under crew may look bulky)
+- Match closure_type formality (zippers=casual, buttons=versatile, hooks=formal)
+- Embellishments should complement, not compete
 
 LAYERING LOGIC (Weather-Based):
 - Temperature < 15°C → Include warm layers (jackets, coats)
@@ -804,13 +945,22 @@ export const AUTO_OUTFIT_PROMPTS = {
     accessories: any[];
     layers: any[];
   }) =>
-    `You are a professional fashion stylist with deep knowledge of fashion trends, color theory, and style principles. Create curated outfit combinations using the following wardrobe items:
+    `You are a professional fashion stylist with deep knowledge of fashion trends, color theory, and style principles. Create curated outfit combinations using the following wardrobe items with complete metadata:
 
-TOPS (${items.tops.length}): ${items.tops.map((t: any) => `ID:${t.id} - ${t.name} (${t.color})`).join(", ")}
-BOTTOMS (${items.bottoms.length}): ${items.bottoms.map((b: any) => `ID:${b.id} - ${b.name} (${b.color})`).join(", ")}
-SHOES (${items.shoes.length}): ${items.shoes.map((s: any) => `ID:${s.id} - ${s.name} (${s.color})`).join(", ")}
-ACCESSORIES (${items.accessories.length}): ${items.accessories.map((a: any) => `ID:${a.id} - ${a.name}`).join(", ") || "None"}
-LAYERS (${items.layers.length}): ${items.layers.map((l: any) => `ID:${l.id} - ${l.name} (${l.color})`).join(", ") || "None"}
+TOPS (${items.tops.length}):
+${items.tops.map((t: any) => formatItemForAI(t)).join('\n')}
+
+BOTTOMS (${items.bottoms.length}):
+${items.bottoms.map((b: any) => formatItemForAI(b)).join('\n')}
+
+SHOES (${items.shoes.length}):
+${items.shoes.map((s: any) => formatItemForAI(s)).join('\n')}
+
+ACCESSORIES (${items.accessories.length}):
+${items.accessories.length ? items.accessories.map((a: any) => formatItemForAI(a)).join('\n') : "None"}
+
+LAYERS (${items.layers.length}):
+${items.layers.length ? items.layers.map((l: any) => formatItemForAI(l)).join('\n') : "None"}
 
 CREATE TWO OUTFIT COLLECTIONS:
 
@@ -829,10 +979,16 @@ RULES:
 - MUST add 1-2 accessories when available in wardrobe (watches, bags, jewelry, etc.)
 - Optionally add: layers when weather-appropriate
 - Return ONLY item IDs (integers) - NO item names
-- Ensure strong color harmony
 - Each outfit should feel distinct and purposeful
 - NO duplicate outfits across both collections
-- ⚠️ CRITICAL: Every outfit MUST be complete with all 3 essential pieces (top, bottom, shoes)`,
+- ⚠️ CRITICAL: Every outfit MUST be complete with all 3 essential pieces (top, bottom, shoes)
+
+ENHANCED STYLING RULES:
+🎨 Color Harmony: Use color_family for coordination (complementary families, or neutrals with any color)
+🧵 Fabric Balance: Match fabric_weight and material_finish (light with light, heavy with heavy)
+✂️ Fit Variation: Balance fit_type (not all oversized, mix slim/regular/oversized)
+🎯 Style Consistency: Group by compatible style_aesthetic and formality_level
+🔧 Design Details: Match hardware_details, avoid clashing closure types`,
 };
 
 // ============================================
@@ -844,20 +1000,23 @@ export const STYLING_PROMPTS = {
   RECOMMEND_ITEMS: (currentOutfit: any[], availableItems: any[], occasion?: string, styleTag?: string) =>
     `You are a professional fashion stylist. Given this outfit, recommend items from the wardrobe that would pair well.
 
-**CURRENT OUTFIT:**
-${currentOutfit.map((item: any) => `- ${item.name} (${item.category}, ${item.color}, ${item.fabric || "N/A"})`).join("\n")}
+**CURRENT OUTFIT (with full context):**
+${currentOutfit.map((item: any) => formatItemForAI(item)).join('\n')}
 
 **OCCASION:** ${occasion || "General"}
 **STYLE TAG:** ${styleTag || "N/A"}
 
-**AVAILABLE WARDROBE ITEMS:**
-${availableItems.map((item: any) => `ID:${item.id} | ${item.name} (${item.category}, ${item.color}, ${item.fabric || "N/A"})`).join("\n")}
+**AVAILABLE WARDROBE ITEMS (with enhanced metadata):**
+${availableItems.map((item: any) => formatItemForAI(item)).join('\n')}
 
-**RECOMMENDATION PRIORITIES (in order):**
-1. **Missing categories**: If no shoes, recommend shoes
-2. **Color compatibility**: Choose complementary or analogous colors based on user's skin tone
-3. **Style consistency**: Match the occasion and style tag (also include occasion)
-4. **Fabric compatibility**: Don't mix overly casual with formal
+**RECOMMENDATION PRIORITIES (updated with metadata):**
+1. **Occasion match**: Filter by suitable_occasions and formality_level first - items MUST be appropriate for "${occasion || "general"}"
+2. **Missing categories**: If no shoes, recommend shoes; if no accessories, recommend accessories
+3. **Color compatibility**: Use color_family + secondary_colors for harmony (complementary or analogous families)
+4. **Style consistency**: Match style_aesthetic and formality_level from current outfit
+5. **Seasonal appropriateness**: Consider season and weather_suitability
+6. **Design compatibility**: Match hardware_details, material_finish for cohesion
+7. **Fabric compatibility**: Match fabric_weight (light with light, formal with formal)
 
 **RULES:**
 - Select outfits based on the occasion - outfits must be appropriate and suitable for the specific occasion
