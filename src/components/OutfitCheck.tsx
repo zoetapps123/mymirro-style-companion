@@ -60,11 +60,11 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
         return;
       }
       
-      // Fetch existing wardrobe items for duplicate checking
-      const { data: existingItems } = await supabase
-        .from('wardrobe_items')
-        .select('name, category, color')
-        .eq('user_id', user.id);
+        // Fetch existing wardrobe items for duplicate checking (include primary_color and brand)
+        const { data: existingItems } = await supabase
+          .from('wardrobe_items')
+          .select('name, category, color, primary_color, brand')
+          .eq('user_id', user.id);
 
       const response = await fetch(result.image_url);
       const blob = await response.blob();
@@ -103,19 +103,26 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
         let addedCount = 0;
         let skippedCount = 0;
         const addedItemsPreview: any[] = [];
+        const { isLikelyDuplicateWardrobeItem } = await import('@/lib/wardrobeDeduplication');
 
         for (const item of itemsDetected) {
-          // Check for duplicates
-          const isDuplicate = existingItems?.some(existing => 
-            existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-            (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-             item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-             (existing.color?.toLowerCase() === item.color?.toLowerCase() &&
-              Math.abs((existing.name?.length || 0) - (item.name?.length || 0)) < 5))
-          );
+          // Check for duplicates using centralized logic
+          let isDuplicate = false;
+          let duplicateReason = '';
+          
+          if (existingItems && existingItems.length > 0) {
+            for (const existing of existingItems) {
+              const result = isLikelyDuplicateWardrobeItem(existing, item);
+              if (result.isDuplicate) {
+                isDuplicate = true;
+                duplicateReason = result.reason || 'duplicate';
+                break;
+              }
+            }
+          }
 
           if (isDuplicate) {
-            console.log(`Skipping duplicate item: ${item.name}`);
+            console.log(`Skipping duplicate item: ${item.name} [${duplicateReason}]`);
             skippedCount++;
             continue;
           }

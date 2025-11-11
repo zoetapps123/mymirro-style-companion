@@ -161,10 +161,10 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       console.log('Calling Gemini-only pipeline...');
       
-      // Fetch existing items for duplicate checking
+      // Fetch existing items for duplicate checking (include primary_color and brand)
       supabase
         .from('wardrobe_items')
-        .select('name, category, color')
+        .select('name, category, color, primary_color, brand')
         .eq('user_id', userId)
         .then(({ data: existingItems }) => {
           
@@ -173,7 +173,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             body: { imageUrl: sourceUrl },
             headers: { Authorization: `Bearer ${session.access_token}` }
           })
-          .then(({ data: processData, error: processError }) => {
+          .then(async ({ data: processData, error: processError }) => {
             if (processError) {
               console.error("Background process error:", processError);
               return;
@@ -186,16 +186,26 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
             // Items now come with generated images from Gemini
             let addedCount = 0;
+            const { isLikelyDuplicateWardrobeItem } = await import('@/lib/wardrobeDeduplication');
+            
             const insertPromises = processData.items.map(async (item: any) => {
-              const isDuplicate = existingItems?.some(existing => 
-                existing.category?.toLowerCase() === item.category?.toLowerCase() &&
-                (existing.name?.toLowerCase().includes(item.name?.toLowerCase()) ||
-                 item.name?.toLowerCase().includes(existing.name?.toLowerCase()) ||
-                 (existing.color?.toLowerCase() === item.color?.toLowerCase()))
-              );
+              // Check for duplicates using centralized logic
+              let isDuplicate = false;
+              let duplicateReason = '';
+              
+              if (existingItems && existingItems.length > 0) {
+                for (const existing of existingItems) {
+                  const result = isLikelyDuplicateWardrobeItem(existing, item);
+                  if (result.isDuplicate) {
+                    isDuplicate = true;
+                    duplicateReason = result.reason || 'duplicate';
+                    break;
+                  }
+                }
+              }
 
               if (isDuplicate) {
-                console.log(`Skipping duplicate: ${item.name}`);
+                console.log(`Skipping duplicate: ${item.name} [${duplicateReason}]`);
                 return;
               }
 
