@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Sparkles } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { orderOutfitForDisplay } from '@/lib/utils';
-
-interface WardrobeItem {
-  id: string;
-  name: string;
-  category: string;
-  color: string;
-  processed_image_url?: string;
-  image_url: string;
-}
+import { WardrobeItem } from '@/hooks/useWardrobeItems';
 
 interface WardrobeItemsDisplayProps {
   itemIds: string[];
@@ -52,15 +45,36 @@ export const WardrobeItemsDisplay = ({ itemIds, context }: WardrobeItemsDisplayP
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
         {items.map(item => (
           <Card key={item.id} className="flex-shrink-0 w-32 overflow-hidden">
-            <div className="aspect-[3/4] bg-white p-2">
+            <div className="aspect-[3/4] bg-white p-2 relative">
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
                 className="w-full h-full object-contain"
               />
+              {item.formality_level && (
+                <Badge 
+                  variant="secondary" 
+                  className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 h-auto"
+                >
+                  {item.formality_level}
+                </Badge>
+              )}
             </div>
-            <div className="p-2 bg-card">
+            <div className="p-2 bg-card space-y-1">
               <p className="text-xs font-medium truncate">{item.name}</p>
+              {item.suitable_occasions && item.suitable_occasions.length > 0 && (
+                <div className="flex flex-wrap gap-0.5">
+                  {item.suitable_occasions.slice(0, 2).map((occasion, idx) => (
+                    <Badge 
+                      key={idx}
+                      variant="outline" 
+                      className="text-[9px] px-1 py-0 h-auto leading-tight"
+                    >
+                      {occasion}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         ))}
@@ -130,12 +144,20 @@ export const OutfitSuggestionDisplay = ({ outfitName, itemIds, reasoning, outfit
       <div className="bg-white rounded-lg p-2 mb-2">
         <div className="flex flex-wrap gap-1.5 justify-center">
           {displayItems.map(item => (
-            <div key={item.id} className="w-[calc(50%-3px)] aspect-square flex items-center justify-center p-1 bg-background rounded">
+            <div key={item.id} className="w-[calc(50%-3px)] aspect-square flex items-center justify-center p-1 bg-background rounded relative group">
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
                 className="max-w-full max-h-full object-contain"
               />
+              {item.formality_level && (
+                <Badge 
+                  variant="secondary" 
+                  className="absolute top-1 right-1 text-[9px] px-1 py-0.5 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {item.formality_level}
+                </Badge>
+              )}
             </div>
           ))}
         </div>
@@ -231,12 +253,20 @@ const SingleOutfitCard = ({ outfitName, itemIds, reasoning }: { outfitName: stri
       <div className="bg-white rounded-lg p-2">
         <div className="flex flex-wrap gap-1.5 justify-center">
           {displayItems.map(item => (
-            <div key={item.id} className="w-[calc(50%-3px)] aspect-square flex items-center justify-center p-1 bg-background rounded">
+            <div key={item.id} className="w-[calc(50%-3px)] aspect-square flex items-center justify-center p-1 bg-background rounded relative group">
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
                 className="max-w-full max-h-full object-contain"
               />
+              {item.formality_level && (
+                <Badge 
+                  variant="secondary" 
+                  className="absolute top-1 right-1 text-[9px] px-1 py-0.5 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {item.formality_level}
+                </Badge>
+              )}
             </div>
           ))}
         </div>
