@@ -37,9 +37,18 @@ export const formatItemForAI = (item: any): string => {
     parts.push(`Fabric: ${item.fabric}`);
   }
   
+  // Texture (Critical for accurate styling)
+  if (item.texture) {
+    parts.push(`Texture: ${item.texture}`);
+  }
+  
   // Pattern
   if (item.pattern_type && item.pattern_type !== 'solid') {
-    parts.push(`Pattern: ${item.pattern_scale || ''} ${item.pattern_type}`.trim());
+    const patternDesc = [item.pattern_scale, item.pattern_type].filter(Boolean).join(' ');
+    parts.push(`Pattern: ${patternDesc}`);
+    if (item.pattern_colors?.length) {
+      parts.push(`Pattern colors: ${item.pattern_colors.join(', ')}`);
+    }
   } else if (item.pattern && item.pattern !== 'solid') {
     parts.push(`Pattern: ${item.pattern}`);
   }
@@ -71,12 +80,31 @@ export const formatItemForAI = (item: any): string => {
   
   // Design details (for unique identification)
   const designDetails = [];
-  if (item.neckline) designDetails.push(item.neckline);
-  if (item.sleeve_type) designDetails.push(item.sleeve_type);
-  if (item.closure_type) designDetails.push(item.closure_type);
-  if (item.hardware_details && item.hardware_details !== 'none') designDetails.push(item.hardware_details);
+  if (item.neckline) designDetails.push(`neckline: ${item.neckline}`);
+  if (item.sleeve_type) designDetails.push(`sleeves: ${item.sleeve_type}`);
+  if (item.collar_type) designDetails.push(`collar: ${item.collar_type}`);
+  if (item.closure_type) designDetails.push(`closure: ${item.closure_type}`);
+  if (item.pocket_details && item.pocket_details !== 'none') designDetails.push(`pockets: ${item.pocket_details}`);
+  if (item.hardware_details && item.hardware_details !== 'none') designDetails.push(`hardware: ${item.hardware_details}`);
+  if (item.embellishments && item.embellishments !== 'none') designDetails.push(`embellishments: ${item.embellishments}`);
+  if (item.special_features?.length) designDetails.push(`features: ${item.special_features.join(', ')}`);
   if (designDetails.length) {
     parts.push(`Details: ${designDetails.join(', ')}`);
+  }
+  
+  // Category-specific fields
+  if (item.rise) parts.push(`Rise: ${item.rise}`);
+  if (item.waist_style) parts.push(`Waist: ${item.waist_style}`);
+  if (item.heel_type) parts.push(`Heel: ${item.heel_type}`);
+  if (item.toe_style) parts.push(`Toe: ${item.toe_style}`);
+  
+  // Brand and condition
+  if (item.brand) parts.push(`Brand: ${item.brand}`);
+  if (item.condition && item.condition !== 'good') parts.push(`Condition: ${item.condition}`);
+  
+  // Detailed style notes (highly valuable for AI context)
+  if (item.style_notes_detailed) {
+    parts.push(`Notes: "${item.style_notes_detailed}"`);
   }
   
   return parts.join(' | ');
@@ -1081,21 +1109,29 @@ TASK: You are a professional fashion stylist creating ${maxOutfits || "multiple"
 
 TARGET: ${targetText}${weatherContext}
 
-AVAILABLE WARDROBE ITEMS (with complete metadata for accurate styling):
+AVAILABLE WARDROBE ITEMS (with COMPLETE metadata - use ALL details for precise styling):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚨 CRITICAL: Each item includes comprehensive metadata (color families, fabric details, fit type, 
+silhouette, texture, pattern specifics, design elements, and style aesthetics). USE ALL THIS DATA 
+to make informed styling decisions. Don't ignore any field - they all contribute to perfect outfits.
+
 - TOPS (${tops.length}): 
-${tops.map((t) => formatItemForAI(t)).join('\n  ')}
+${tops.map((t) => `  • ${formatItemForAI(t)}`).join('\n')}
 
 - BOTTOMS (${bottoms.length}):
-${bottoms.map((b) => formatItemForAI(b)).join('\n  ')}
+${bottoms.map((b) => `  • ${formatItemForAI(b)}`).join('\n')}
 
 - SHOES (${shoes.length}):
-${shoes.map((s) => formatItemForAI(s)).join('\n  ')}
+${shoes.map((s) => `  • ${formatItemForAI(s)}`).join('\n')}
 
 - ACCESSORIES (${accessories.length}):
-${accessories.length ? accessories.map((a) => formatItemForAI(a)).join('\n  ') : "None"}
+${accessories.length ? accessories.map((a) => `  • ${formatItemForAI(a)}`).join('\n') : "  None available"}
 
 - LAYERS/JACKETS (${layers.length}):
-${layers.length ? layers.map((l) => formatItemForAI(l)).join('\n  ') : "None"}
+${layers.length ? layers.map((l) => `  • ${formatItemForAI(l)}`).join('\n') : "  None available"}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ═══════════════════════════════════════════════════════════════════
 
@@ -1154,16 +1190,20 @@ MANDATORY OUTFIT STRUCTURE (EVERY OUTFIT MUST HAVE):
 - Consider color_distribution for pattern matching
 - Neutral families (white/black/gray/beige) pair with any color family
 
-🧵 FABRIC COMPATIBILITY:
+🧵 FABRIC & TEXTURE COMPATIBILITY (USE METADATA):
 - Match fabric_weight appropriately (no heavy + lightweight mismatch)
 - Consider material_finish (matte with matte, glossy with glossy for cohesion)
+- Use texture field to avoid clashing textures (don't mix overly similar or jarring textures)
 - Respect formality_level (formal fabrics with formal occasions)
 - Breathable fabrics (cotton, linen) for warm weather, wool/fleece for cold
+- Consider fabric_primary for appropriate layering (denim with cotton, not denim with denim)
 
-✂️ FIT & SILHOUETTE:
-- Balance fit_type across outfit (not all oversized or all slim)
-- Vary silhouette for visual interest (fitted top + relaxed bottom or vice versa)
-- Match length proportions (cropped top + high-waist bottom)
+✂️ FIT & SILHOUETTE (CRITICAL - USE METADATA):
+- Use fit_type metadata: Balance fit types across outfit (not all oversized or all slim)
+- Use silhouette metadata: Vary silhouette for visual interest (fitted top + relaxed bottom)
+- Match length proportions from length field (cropped top + high-waist bottom)
+- For bottoms: Use rise field to ensure proper proportions with tops
+- Consider sleeve_type and neckline for season/occasion appropriateness
 
 🎯 OCCASION FILTERING (CRITICAL):
 - ONLY use items where suitable_occasions matches target occasion
@@ -1172,9 +1212,12 @@ MANDATORY OUTFIT STRUCTURE (EVERY OUTFIT MUST HAVE):
 - If occasion="date", prefer formality_level="smart_casual" or "business_casual"
 - Respect season and weather_suitability for the occasion
 
-🎭 STYLE CONSISTENCY:
-- Group items by compatible style_aesthetic
+🎭 STYLE CONSISTENCY (USE METADATA):
+- Use style_aesthetic array to group compatible items
 - Don't mix "streetwear" with "formal" unless intentional contrast
+- Consider embellishments, hardware_details, and special_features for cohesive styling
+- Use style_notes_detailed field for additional context about each item's character
+- Brand compatibility: luxury with luxury, streetwear brands with similar tier brands
 - Use formality_level as primary filter before style_aesthetic
 - "Minimalist" works well with most styles due to versatility
 

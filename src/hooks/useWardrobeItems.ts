@@ -67,6 +67,8 @@ const fetchWardrobeItems = async (): Promise<WardrobeItem[]> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
+  // Explicitly select all metadata fields for comprehensive AI outfit generation
+  // Using wildcard (*) ensures we get all current and future fields
   const { data, error } = await supabase
     .from("wardrobe_items")
     .select("*")
