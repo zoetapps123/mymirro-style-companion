@@ -18,11 +18,50 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 interface DetectedItem {
   name: string;
   category: string;
-  color: string;
-  fabric?: string;
-  texture?: string;
-  pattern?: string;
-  style_notes?: string;
+  // Enhanced color fields
+  primary_color: string;
+  primary_color_name: string;
+  color_family: string;
+  secondary_colors?: string[];
+  color_distribution?: number[];
+  // Fabric & material
+  fabric_primary: string;
+  fabric_weight: string;
+  material_finish: string;
+  texture: string;
+  // Pattern
+  pattern_type: string;
+  pattern_scale: string;
+  pattern_colors?: string[];
+  // Cut & fit
+  fit_type: string;
+  silhouette: string;
+  length: string;
+  // Design elements
+  neckline?: string;
+  sleeve_type?: string;
+  closure_type: string;
+  pocket_details: string;
+  hardware_details: string;
+  embellishments: string;
+  special_features: string[];
+  // Style & aesthetic
+  style_aesthetic: string[];
+  formality_level: string;
+  style_notes_detailed: string;
+  // Occasion & use
+  suitable_occasions: string[];
+  season: string[];
+  weather_suitability: string;
+  // Category-specific
+  rise?: string;
+  waist_style?: string;
+  heel_type?: string;
+  toe_style?: string;
+  collar_type?: string;
+  // Optional
+  brand?: string;
+  condition?: string;
 }
 
 serve(async (req) => {
@@ -90,14 +129,35 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Detected ${detectedItems.length} items`);
+    console.log(`Detected ${detectedItems.length} items from image`);
+
+    // Step 1.5: Enhanced Smart Deduplication
+    console.log('Step 1.5: Running enhanced smart deduplication...');
+    const dedupeResult = await enhancedSmartDeduplication(detectedItems, user.id);
+
+    if (dedupeResult.uniqueItems.length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'All detected items already exist in your wardrobe',
+        items: [],
+        duplicatesSkipped: dedupeResult.duplicatesSkipped,
+        skipReasons: dedupeResult.skipReasons
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`✅ ${dedupeResult.uniqueItems.length} unique items to process`);
+    console.log(`⏭️  ${dedupeResult.duplicatesSkipped} duplicates skipped`);
+
+    const uniqueDetectedItems = dedupeResult.uniqueItems;
 
     // Step 2: Generate individual product images for each item using Gemini (in parallel)
     console.log('Step 2: Generating product images with Gemini in parallel...');
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    const itemGenerationPromises = detectedItems.map(async (item, i) => {
-      console.log(`Starting generation for item ${i + 1}/${detectedItems.length}: ${item.name}`);
+    const itemGenerationPromises = uniqueDetectedItems.map(async (item, i) => {
+      console.log(`Starting generation for item ${i + 1}/${uniqueDetectedItems.length}: ${item.name}`);
       
       try {
         const imageData = await generateProductImage(item);
@@ -257,35 +317,211 @@ Return ONLY a JSON array of items, no other text. Example format:
   return items;
 }
 
+interface DuplicateCheckResult {
+  uniqueItems: DetectedItem[];
+  duplicatesSkipped: number;
+  skipReasons: string[];
+}
+
+async function enhancedSmartDeduplication(
+  detectedItems: DetectedItem[],
+  userId: string
+): Promise<DuplicateCheckResult> {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const { data: existingItems, error } = await supabase
+    .from('wardrobe_items')
+    .select('*')
+    .eq('user_id', userId);
+  
+  if (error || !existingItems || existingItems.length === 0) {
+    console.log('No existing items, all detected items are unique');
+    return {
+      uniqueItems: detectedItems,
+      duplicatesSkipped: 0,
+      skipReasons: []
+    };
+  }
+  
+  const uniqueItems: DetectedItem[] = [];
+  const skipReasons: string[] = [];
+  
+  for (const newItem of detectedItems) {
+    let isDuplicate = false;
+    let skipReason = '';
+    
+    // LEVEL 1: Exact name match
+    const exactMatch = existingItems.find(
+      e => e.name?.toLowerCase().trim() === newItem.name.toLowerCase().trim()
+    );
+    
+    if (exactMatch) {
+      isDuplicate = true;
+      skipReason = `Exact name: "${newItem.name}"`;
+    }
+    
+    // LEVEL 2: Enhanced Fingerprint Match
+    if (!isDuplicate) {
+      const fingerprintMatch = existingItems.find(existing => {
+        const sameCategory = existing.category === newItem.category;
+        const sameColorFamily = existing.color_family === newItem.color_family;
+        const sameFabric = existing.fabric_primary?.toLowerCase() === newItem.fabric_primary?.toLowerCase();
+        const sameFit = existing.fit_type === newItem.fit_type;
+        const samePattern = existing.pattern_type === newItem.pattern_type;
+        
+        if (!sameCategory || !sameColorFamily || !sameFabric) return false;
+        
+        const sameSilhouette = existing.silhouette === newItem.silhouette;
+        const sameClosure = existing.closure_type === newItem.closure_type;
+        const sameLength = existing.length === newItem.length;
+        
+        const matchScore = [
+          sameCategory, sameColorFamily, sameFabric, sameFit, samePattern,
+          sameSilhouette, sameClosure, sameLength
+        ].filter(Boolean).length;
+        
+        return matchScore >= 6;
+      });
+      
+      if (fingerprintMatch) {
+        isDuplicate = true;
+        skipReason = `Fingerprint match: "${newItem.name}" = "${fingerprintMatch.name}"`;
+      }
+    }
+    
+    // LEVEL 3: Color Similarity
+    if (!isDuplicate) {
+      const colorSimilarMatch = existingItems.find(existing => {
+        if (existing.category !== newItem.category) return false;
+        if (existing.color_family !== newItem.color_family) return false;
+        
+        const distance = calculateColorDistance(
+          existing.primary_color || existing.color || '#000000',
+          newItem.primary_color
+        );
+        
+        return distance < 30 && 
+               existing.fabric_primary === newItem.fabric_primary &&
+               existing.silhouette === newItem.silhouette;
+      });
+      
+      if (colorSimilarMatch) {
+        isDuplicate = true;
+        skipReason = `Color similarity: "${newItem.name}" ~ "${colorSimilarMatch.name}"`;
+      }
+    }
+    
+    if (isDuplicate) {
+      console.log(`⏭️  Skipping: ${skipReason}`);
+      skipReasons.push(skipReason);
+    } else {
+      uniqueItems.push(newItem);
+    }
+  }
+  
+  return {
+    uniqueItems,
+    duplicatesSkipped: detectedItems.length - uniqueItems.length,
+    skipReasons
+  };
+}
+
+function calculateColorDistance(hex1: string, hex2: string): number {
+  const rgb1 = hexToRgb(hex1);
+  const rgb2 = hexToRgb(hex2);
+  
+  if (!rgb1 || !rgb2) return 999;
+  
+  return Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+    Math.pow(rgb1.g - rgb2.g, 2) +
+    Math.pow(rgb1.b - rgb2.b, 2)
+  );
+}
+
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
 async function generateProductImage(item: DetectedItem): Promise<Uint8Array> {
-  const prompt = `Extract and isolate this clothing item: ${item.name}
+  const detailedPrompt = `Create a professional e-commerce product photo of:
 
-CRITICAL REQUIREMENTS (CUTOUT RULES):
-- Display item straight and front-facing
-- Fully unfolded (not crumpled or folded)
-- NO human, background, or other items visible
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ITEM: ${item.name}
+CATEGORY: ${item.category}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**COLOR SPECIFICATION:**
+- Primary: ${item.primary_color_name} (${item.primary_color})
+${item.secondary_colors?.length ? `- Accent Colors: ${item.secondary_colors.join(", ")}` : ""}
+${item.color_distribution ? `- Color Distribution: ${item.primary_color_name} ${item.color_distribution[0]}%, accents ${item.color_distribution.slice(1).join("%, ")}%` : ""}
+- Color Family: ${item.color_family}
+
+**FABRIC & MATERIAL:**
+- Primary Fabric: ${item.fabric_primary}
+- Weight: ${item.fabric_weight}
+- Finish: ${item.material_finish}
+- Texture: ${item.texture}
+
+**PATTERN:**
+- Type: ${item.pattern_type}
+${item.pattern_scale !== 'none' ? `- Scale: ${item.pattern_scale}` : ""}
+${item.pattern_colors?.length ? `- Pattern Colors: ${item.pattern_colors.join(", ")}` : ""}
+
+**CUT & FIT:**
+- Fit: ${item.fit_type}
+- Silhouette: ${item.silhouette}
+- Length: ${item.length}
+
+**DESIGN DETAILS:**
+${item.neckline ? `- Neckline: ${item.neckline}` : ""}
+${item.sleeve_type ? `- Sleeves: ${item.sleeve_type}` : ""}
+- Closure: ${item.closure_type}
+- Pockets: ${item.pocket_details}
+- Hardware: ${item.hardware_details}
+- Embellishments: ${item.embellishments}
+${item.special_features.length ? `- Special Features: ${item.special_features.join(", ")}` : ""}
+
+${item.rise ? `- Rise: ${item.rise}` : ""}
+${item.waist_style ? `- Waist: ${item.waist_style}` : ""}
+${item.heel_type ? `- Heel: ${item.heel_type}` : ""}
+${item.toe_style ? `- Toe: ${item.toe_style}` : ""}
+${item.collar_type ? `- Collar: ${item.collar_type}` : ""}
+
+**STYLE & VIBE:**
+- Aesthetic: ${item.style_aesthetic.join(" + ")}
+- Formality: ${item.formality_level}
+- Detailed Notes: ${item.style_notes_detailed}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 GENERATION REQUIREMENTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 - Pure white background (#FFFFFF)
-- Even lighting, minimal shadows
-- Centered and fully in frame
-- Should look like a professional product catalog photo
+- Front-facing, centered, full visibility
+- Professional e-commerce lighting (no shadows)
+- Item laid flat or on invisible mannequin
+- NO person/body parts visible
+- Maintain ALL specified colors, textures, and details
+- Show ALL mentioned hardware, pockets, and features
+- Capture the exact silhouette and fit described
+- Ultra-high clarity and sharpness
 
-Item Details:
-- Color: ${item.color}
-- Material: ${item.fabric || 'fabric'}
-- Pattern: ${item.pattern || 'solid'}
-- Texture: ${item.texture || 'smooth'}
-- Style: ${item.style_notes || 'N/A'}
+Generate this exact item with precision.`;
 
-Generate a clean product photo on pure white background, as if this item was photographed for an e-commerce catalog.`;
-
-  console.log(`Generating image with prompt: ${prompt.substring(0, 100)}...`);
+  console.log(`Generating image with prompt: ${detailedPrompt.substring(0, 100)}...`);
 
   const data = await callGeminiAPI({
     model: 'google/gemini-2.5-flash-image-preview',
     messages: [
       {
         role: 'user',
-        content: prompt
+        content: detailedPrompt
       }
     ],
     modalities: ['image', 'text']

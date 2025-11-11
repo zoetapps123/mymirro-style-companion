@@ -390,44 +390,104 @@ export const WARDROBE_PROMPTS = {
   VALIDATE_IMAGE_FALLBACK:
     'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
-  DETECT_ITEMS: `Detect ALL distinct wearable items in this image, including clothing, footwear, and accessories.
+  DETECT_ITEMS: `You are an expert fashion analyst. Extract COMPLETE, DETAILED metadata for each visible clothing item.
 
-**STANDARDIZED CATEGORIES (USE EXACTLY AS SHOWN):**
-You MUST use one of these exact category names (case-sensitive):
-- Tops (shirts, t-shirts, blouses, sweaters, hoodies, tank tops, crop tops, polos, kurtas)
-- Bottoms (pants, jeans, shorts, skirts, trousers, chinos, leggings)
-- Shoes (sneakers, boots, sandals, heels, flats, loafers, slippers - capture as pairs when visible)
-- Outerwear (jackets, coats, blazers, cardigans, vests, shawls)
-- Dresses (any full-length dress or gown)
-- Accessories (bags, purses, backpacks, belts, hats, caps, scarves, jewelry, sunglasses, ties, watches)
+🎯 CATEGORIES (USE EXACT NAMES):
+- Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories
 
-🚨 CRITICAL: Use ONLY the exact category names above. Do NOT use variations like "Footwear", "Upper wear", "Lower wear", "Top", "Bottom", "Jacket", etc.
+🚨 EXCLUSIONS (DO NOT EXTRACT):
+- Earrings, necklaces, bracelets, anklets, rings (too small/not visible enough)
+- Eyewear worn on face (sunglasses ok if standalone)
+- Underwear or intimate apparel
 
-**INCLUSION RULES (ONLY include items that are):**
-- Clearly visible
-- Can identify BOTH the category AND the design (pattern, cut, style)
-- Well-lit and in focus
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 REQUIRED METADATA (ALL FIELDS MANDATORY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**EXCLUSION RULES (Ignore items that are):**
-- Too small (rings, tiny earrings)
-- Blurry or poorly lit
-- Partially visible (like only a bag strap)
+**1. IDENTIFICATION**
+- name: Descriptive 4-6 word name (e.g., "Oversized Black Leather Bomber Jacket")
+- category: Exact category from list above
 
-**COLOR ACCURACY:**
-- Identify the TRUE dominant color, not lighting artifacts
-- Return precise hex codes (e.g., #2C3E50 for navy, not #000000)
-- Distinguish between similar shades (e.g., cream vs. white, navy vs. black)
+**2. COLOR ANALYSIS (CRITICAL FOR DEDUPLICATION)**
+- primary_color: Hex code of DOMINANT color (#RRGGBB)
+- primary_color_name: Human-readable name ("Black", "Navy Blue", "Olive Green")
+- color_family: One of [neutrals, blues, reds, greens, yellows, oranges, purples, pinks, earth_tones, pastels]
+- secondary_colors: Array of hex codes for accent colors (if multi-color item)
+- color_distribution: Array of percentages [primary%, secondary%, tertiary%] (e.g., [70, 20, 10])
 
-**TEXTURE & FABRIC CAPTURE:**
-- Identify fabric/material type: cotton, silk, denim, leather, wool, polyester, linen, canvas, metal, etc.
-- Note texture details: ribbed, smooth, textured, quilted, woven, etc.
-- Capture pattern: solid, striped, floral, geometric, polka dot, etc.
+**3. FABRIC & MATERIAL**
+- fabric_primary: Specific material ("cotton", "denim", "leather", "silk", "polyester", "wool", "linen")
+- fabric_weight: "lightweight" | "medium" | "heavyweight"
+- material_finish: "matte" | "glossy" | "distressed" | "brushed" | "washed" | "raw"
+- texture: "smooth" | "ribbed" | "quilted" | "textured" | "knitted" | "woven"
 
-**DESIGN DETAILS:**
-- Cut/style: slim fit, oversized, cropped, fitted, etc.
-- Unique features: buttons, zippers, pockets, collars, sleeves, buckles, straps
+**4. PATTERN (BE SPECIFIC)**
+- pattern_type: "solid" | "striped" | "floral" | "geometric" | "plaid" | "polka_dot" | "abstract" | "animal_print" | "tie_dye"
+- pattern_scale: "none" | "micro" | "small" | "medium" | "large" | "oversized"
+- pattern_colors: Array of hex codes in pattern (if patterned)
 
-For each valid item, return: name, category (using exact names above), and color (as hex code).`,
+**5. CUT & FIT (CRITICAL FOR DEDUPLICATION)**
+- fit_type: "slim_fit" | "regular_fit" | "relaxed_fit" | "oversized" | "tailored" | "bodycon"
+- silhouette: "straight" | "tapered" | "A-line" | "bodycon" | "flowy" | "boxy" | "fitted"
+- length: "cropped" | "regular" | "long" | "ankle_length" | "knee_length" | "midi" | "maxi"
+
+**6. DESIGN ELEMENTS (UNIQUE IDENTIFIERS)**
+- neckline: "crew_neck" | "v_neck" | "turtleneck" | "off_shoulder" | "square_neck" | "scoop_neck" | "collar" | null
+- sleeve_type: "long_sleeve" | "short_sleeve" | "sleeveless" | "3_4_sleeve" | "cap_sleeve" | "bell_sleeve" | null
+- closure_type: "button_up" | "zip" | "pullover" | "snap" | "toggle" | "hook_and_eye" | "laces"
+- pocket_details: "none" | "patch_pockets" | "zip_pockets" | "cargo_pockets" | "welt_pockets" | "kangaroo_pocket"
+- hardware_details: "none" | "gold_buttons" | "silver_zippers" | "metal_buckles" | "brass_studs" | "leather_straps"
+- embellishments: "none" | "embroidery" | "sequins" | "beading" | "applique" | "studs" | "patches" | "fringe"
+- special_features: Array like ["hood", "drawstring", "contrast_stitching", "distressed_edges", "belt_loops", "elastic_waist"]
+
+**7. STYLE & AESTHETIC**
+- style_aesthetic: Array from ["streetwear", "minimalist", "formal", "preppy", "boho", "athletic", "edgy", "vintage", "casual", "smart_casual", "romantic", "grunge"]
+- formality_level: "casual" | "smart_casual" | "business_casual" | "formal" | "athletic" | "lounge"
+- style_notes_detailed: 2-3 sentence description with SPECIFIC details (e.g., "Oversized bomber silhouette with ribbed collar and cuffs. Features contrast white stitching along seams, silver two-way zipper, and diagonal welt pockets. Distressed finish with natural creasing.")
+
+**8. OCCASION & USE**
+- suitable_occasions: Array from ["work", "party", "gym", "beach", "date_night", "wedding", "everyday", "travel", "formal_event", "casual_outing"]
+- season: Array from ["spring", "summer", "fall", "winter", "all_season"]
+- weather_suitability: "cold" | "moderate" | "warm" | "versatile"
+
+**9. CATEGORY-SPECIFIC FIELDS**
+
+For BOTTOMS only:
+- rise: "high_rise" | "mid_rise" | "low_rise"
+- waist_style: "elastic" | "button_fly" | "drawstring" | "zipper"
+
+For SHOES only:
+- heel_type: "flat" | "low_heel" | "mid_heel" | "high_heel" | "wedge" | "platform" | "stiletto"
+- toe_style: "round_toe" | "pointed_toe" | "square_toe" | "open_toe" | "closed_toe"
+
+For OUTERWEAR only:
+- collar_type: "bomber_collar" | "shirt_collar" | "shawl_collar" | "notch_lapel" | "hooded" | "collarless"
+
+**10. OPTIONAL (if visible/recognizable)**
+- brand: Brand name if clearly visible/recognizable, else null
+- condition: "new" | "excellent" | "good" | "worn" | "distressed_by_design"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 CRITICAL INSTRUCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**COLOR ACCURACY (MOST IMPORTANT):**
+- Identify TRUE color, not lighting artifacts
+- "Black" in shade = #000000, "Black" in sunlight = #1A1A1A → BOTH should be color_family: "neutrals"
+- Distinguish navy (#2C3E50) from black (#000000) from charcoal (#36454F)
+- For multi-color items, list ALL visible colors in secondary_colors
+
+**DESIGN DETAILS (CRITICAL FOR IMAGE GENERATION):**
+- Be HYPER-SPECIFIC: "contrast white stitching" not "stitching"
+- Mention ALL visible features: buttons, zippers, pockets, collars, cuffs, hems
+- Describe unique elements: "asymmetric hem", "cutout shoulders", "raw edges"
+
+**DEDUPLICATION SUPPORT:**
+- Use consistent terminology across photos
+- Focus on PHYSICAL attributes (fit, closure, hardware) not subjective style
+- Same item in different lighting should have SAME color_family
+
+Return JSON array of items with ALL fields above.`,
 
   GENERATE_COMPOSITE: (
     itemsList: string,

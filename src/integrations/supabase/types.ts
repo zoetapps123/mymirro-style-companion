@@ -420,52 +420,154 @@ export type Database = {
       }
       wardrobe_items: {
         Row: {
+          brand: string | null
           category: string
+          closure_type: string | null
+          collar_type: string | null
           color: string | null
+          color_distribution: number[] | null
+          color_family: string | null
           composite_image_url: string | null
+          condition: string | null
           created_at: string
+          embellishments: string | null
           fabric: string | null
+          fabric_primary: string | null
+          fabric_weight: string | null
+          fit_type: string | null
+          formality_level: string | null
+          hardware_details: string | null
+          heel_type: string | null
           id: string
           image_url: string
+          length: string | null
+          material_finish: string | null
           name: string
+          neckline: string | null
           pattern: string | null
+          pattern_colors: string[] | null
+          pattern_scale: string | null
+          pattern_type: string | null
+          pocket_details: string | null
+          primary_color: string | null
+          primary_color_name: string | null
           processed_image_url: string | null
+          rise: string | null
+          season: string[] | null
+          secondary_colors: string[] | null
+          silhouette: string | null
+          sleeve_type: string | null
+          special_features: string[] | null
+          style_aesthetic: string[] | null
           style_notes: string | null
+          style_notes_detailed: string | null
+          suitable_occasions: string[] | null
           texture: string | null
+          toe_style: string | null
           updated_at: string
           user_id: string
+          waist_style: string | null
+          weather_suitability: string | null
         }
         Insert: {
+          brand?: string | null
           category: string
+          closure_type?: string | null
+          collar_type?: string | null
           color?: string | null
+          color_distribution?: number[] | null
+          color_family?: string | null
           composite_image_url?: string | null
+          condition?: string | null
           created_at?: string
+          embellishments?: string | null
           fabric?: string | null
+          fabric_primary?: string | null
+          fabric_weight?: string | null
+          fit_type?: string | null
+          formality_level?: string | null
+          hardware_details?: string | null
+          heel_type?: string | null
           id?: string
           image_url: string
+          length?: string | null
+          material_finish?: string | null
           name: string
+          neckline?: string | null
           pattern?: string | null
+          pattern_colors?: string[] | null
+          pattern_scale?: string | null
+          pattern_type?: string | null
+          pocket_details?: string | null
+          primary_color?: string | null
+          primary_color_name?: string | null
           processed_image_url?: string | null
+          rise?: string | null
+          season?: string[] | null
+          secondary_colors?: string[] | null
+          silhouette?: string | null
+          sleeve_type?: string | null
+          special_features?: string[] | null
+          style_aesthetic?: string[] | null
           style_notes?: string | null
+          style_notes_detailed?: string | null
+          suitable_occasions?: string[] | null
           texture?: string | null
+          toe_style?: string | null
           updated_at?: string
           user_id: string
+          waist_style?: string | null
+          weather_suitability?: string | null
         }
         Update: {
+          brand?: string | null
           category?: string
+          closure_type?: string | null
+          collar_type?: string | null
           color?: string | null
+          color_distribution?: number[] | null
+          color_family?: string | null
           composite_image_url?: string | null
+          condition?: string | null
           created_at?: string
+          embellishments?: string | null
           fabric?: string | null
+          fabric_primary?: string | null
+          fabric_weight?: string | null
+          fit_type?: string | null
+          formality_level?: string | null
+          hardware_details?: string | null
+          heel_type?: string | null
           id?: string
           image_url?: string
+          length?: string | null
+          material_finish?: string | null
           name?: string
+          neckline?: string | null
           pattern?: string | null
+          pattern_colors?: string[] | null
+          pattern_scale?: string | null
+          pattern_type?: string | null
+          pocket_details?: string | null
+          primary_color?: string | null
+          primary_color_name?: string | null
           processed_image_url?: string | null
+          rise?: string | null
+          season?: string[] | null
+          secondary_colors?: string[] | null
+          silhouette?: string | null
+          sleeve_type?: string | null
+          special_features?: string[] | null
+          style_aesthetic?: string[] | null
           style_notes?: string | null
+          style_notes_detailed?: string | null
+          suitable_occasions?: string[] | null
           texture?: string | null
+          toe_style?: string | null
           updated_at?: string
           user_id?: string
+          waist_style?: string | null
+          weather_suitability?: string | null
         }
         Relationships: []
       }

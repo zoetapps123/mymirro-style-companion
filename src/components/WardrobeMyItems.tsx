@@ -15,6 +15,8 @@ interface WardrobeMyItemsProps {
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const { items, isLoading, invalidateItems } = useWardrobeItems();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedFormality, setSelectedFormality] = useState<string>("All");
+  const [selectedOccasion, setSelectedOccasion] = useState<string>("All");
   const [processingItems, setProcessingItems] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -256,10 +258,36 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     ).sort()
   ];
 
-  const filteredItems =
-    selectedCategory === "All"
-      ? items
-      : items.filter((item) => normalizeCategory(item.category) === selectedCategory);
+  // Get formality levels from items
+  const formalityLevels = [
+    "All",
+    ...Array.from(
+      new Set(
+        items
+          .map(item => item.formality_level)
+          .filter(Boolean)
+      )
+    ).sort()
+  ];
+
+  // Get occasions from items
+  const occasions = [
+    "All",
+    ...Array.from(
+      new Set(
+        items
+          .flatMap(item => item.suitable_occasions || [])
+          .filter(Boolean)
+      )
+    ).sort()
+  ];
+
+  const filteredItems = items.filter(item => {
+    const categoryMatch = selectedCategory === "All" || normalizeCategory(item.category) === selectedCategory;
+    const formalityMatch = selectedFormality === "All" || item.formality_level === selectedFormality;
+    const occasionMatch = selectedOccasion === "All" || (item.suitable_occasions?.includes(selectedOccasion) ?? false);
+    return categoryMatch && formalityMatch && occasionMatch;
+  });
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -308,7 +336,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       </div>
 
       {/* Category Filter */}
-      <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
+      <div className="px-4 pb-2 overflow-x-auto scrollbar-hide">
+        <div className="text-xs text-muted-foreground mb-1">Category</div>
         <div className="flex gap-2 min-w-max">
           {dynamicCategories.map((category) => (
             <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -328,6 +357,56 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           ))}
         </div>
       </div>
+
+      {/* Formality Filter */}
+      {formalityLevels.length > 1 && (
+        <div className="px-4 pb-2 overflow-x-auto scrollbar-hide">
+          <div className="text-xs text-muted-foreground mb-1">Formality</div>
+          <div className="flex gap-2 min-w-max">
+            {formalityLevels.map((level) => (
+              <motion.div key={level} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant={selectedFormality === level ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedFormality(level)}
+                  className={`rounded-full min-h-[32px] transition-all duration-300 capitalize ${
+                    selectedFormality === level
+                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 shadow-lg"
+                      : "bg-transparent border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {level.replace(/_/g, ' ')}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Occasion Filter */}
+      {occasions.length > 1 && (
+        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
+          <div className="text-xs text-muted-foreground mb-1">Occasion</div>
+          <div className="flex gap-2 min-w-max">
+            {occasions.map((occasion) => (
+              <motion.div key={occasion} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant={selectedOccasion === occasion ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedOccasion(occasion)}
+                  className={`rounded-full min-h-[32px] transition-all duration-300 capitalize ${
+                    selectedOccasion === occasion
+                      ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg"
+                      : "bg-transparent border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {occasion.replace(/_/g, ' ')}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Items Grid */}
       <div className="flex-1 overflow-y-auto px-4 pb-24">
@@ -365,6 +444,11 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
                 <p className="text-white text-sm font-medium truncate">
                   {item.name}
                 </p>
+                {item.formality_level && (
+                  <p className="text-white/80 text-xs capitalize">
+                    {item.formality_level.replace(/_/g, ' ')}
+                  </p>
+                )}
               </div>
             </motion.div>
           ))}
