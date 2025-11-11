@@ -243,7 +243,6 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
               // Item already has imageUrl from Gemini generation
               const { mapDetectedItemToDbRecord } = await import("@/lib/wardrobeItemMapper");
-              console.log("item", item);
               await supabase
                 .from("wardrobe_items")
                 .insert([mapDetectedItemToDbRecord(item, userId, item.imageUrl, item.imageUrl)]);
