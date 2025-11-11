@@ -3,7 +3,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
-import { validateImage } from './validateImage.ts';
 import { WARDROBE_PROMPTS } from '../_shared/prompts.ts';
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 
@@ -88,7 +87,7 @@ serve(async (req) => {
     console.log('Processing image with Gemini-only pipeline...');
 
     // Check cache
-    const cacheKey = await generateCacheKey({ type: 'wardrobe_gemini_v2', imageUrl });
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_gemini_v3', imageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached result');
@@ -98,41 +97,24 @@ serve(async (req) => {
       );
     }
 
-    // Step 0: Validate image (check for real human or clothing items)
-    console.log('Step 0: Validating image...');
-    const validation = await validateImage(imageUrl);
-    
-    if (!validation.isValidForExtraction) {
-      console.log('Image validation failed:', validation.rejectionReason);
-      return new Response(JSON.stringify({ 
-        error: validation.rejectionReason || 'Image does not contain suitable content for wardrobe extraction',
-        items: []
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    // OPTIMIZED: Single API call to validate AND detect items (with retry/backoff)
+    console.log('Step 1: Validating and detecting items in one call...');
 
-    console.log('Image validation passed:', validation.contentType);
-
-    // Step 1: Detect items using Gemini Vision (with retry/backoff)
-    console.log('Step 1: Detecting items with Gemini Vision...');
-
-    let detectedItems: DetectedItem[] = [];
+    let validationAndDetection: { isValid: boolean; reason?: string; items: DetectedItem[] } | null = null;
     {
       let attempts = 0;
       const maxAttempts = 3;
       const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
       while (attempts < maxAttempts) {
         try {
-          detectedItems = await detectItemsWithGemini(imageUrl);
+          validationAndDetection = await validateAndDetectItems(imageUrl);
           break;
         } catch (err) {
           const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
           const isRate = msg.includes('rate') || msg.includes('429') || msg.includes('resource exhausted');
           if (isRate && attempts < maxAttempts - 1) {
             const wait = (attempts + 1) * 2000; // 2s, 4s
-            console.warn(`Rate limited on detection, retrying in ${wait / 1000}s...`);
+            console.warn(`Rate limited on validation+detection, retrying in ${wait / 1000}s...`);
             await sleep(wait);
             attempts++;
             continue;
@@ -141,6 +123,19 @@ serve(async (req) => {
         }
       }
     }
+    
+    if (!validationAndDetection || !validationAndDetection.isValid) {
+      console.log('Image validation failed:', validationAndDetection?.reason);
+      return new Response(JSON.stringify({ 
+        error: validationAndDetection?.reason || 'Image does not contain suitable content for wardrobe extraction',
+        items: []
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const detectedItems = validationAndDetection.items;
     
     if (!detectedItems || detectedItems.length === 0) {
       return new Response(JSON.stringify({ 
@@ -152,7 +147,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Detected ${detectedItems.length} items from image`);
+    console.log(`Validated and detected ${detectedItems.length} items from image`);
 
     // Step 1.5: Enhanced Smart Deduplication
     console.log('Step 1.5: Running enhanced smart deduplication...');
@@ -329,34 +324,70 @@ serve(async (req) => {
   }
 });
 
-async function detectItemsWithGemini(imageUrl: string): Promise<DetectedItem[]> {
+/**
+ * OPTIMIZED: Single API call that validates AND detects items
+ * Reduces API calls from 2→1 per image
+ */
+async function validateAndDetectItems(imageUrl: string): Promise<{
+  isValid: boolean;
+  reason?: string;
+  items: DetectedItem[];
+}> {
+  const combinedPrompt = `You are analyzing a clothing image. Your task is TWO-FOLD:
+
+STEP 1 - VALIDATION: First determine if this image is suitable for wardrobe extraction.
+✅ VALID: Images showing humans wearing clothes OR standalone clothing items on clean backgrounds
+❌ INVALID: Empty images, non-clothing objects, unclear/blurry images, inappropriate content
+
+STEP 2 - DETECTION: If valid, extract ALL visible clothing items with comprehensive metadata.
+
+${WARDROBE_PROMPTS.DETECT_ITEMS}
+
+RESPONSE FORMAT - Return a JSON object with this EXACT structure:
+{
+  "isValid": true/false,
+  "reason": "rejection reason if invalid, otherwise omit",
+  "items": [
+    {
+      "name": "Blue Denim Jacket",
+      "category": "Outerwear",
+      "primary_color": "#4A90E2",
+      "primary_color_name": "Blue",
+      "color_family": "blue",
+      "fabric_primary": "denim",
+      "fabric_weight": "medium",
+      "material_finish": "washed",
+      "texture": "textured",
+      "pattern_type": "solid",
+      "pattern_scale": "none",
+      "fit_type": "regular",
+      "silhouette": "classic",
+      "length": "hip",
+      "closure_type": "button",
+      "pocket_details": "front pockets",
+      "hardware_details": "metal buttons",
+      "embellishments": "none",
+      "special_features": [],
+      "style_aesthetic": ["casual"],
+      "formality_level": "casual",
+      "style_notes_detailed": "Classic fit with button closure",
+      "suitable_occasions": ["casual"],
+      "season": ["all"],
+      "weather_suitability": "cool"
+    }
+  ]
+}
+
+Return ONLY the JSON object, no other text.`;
+
   const data = await callGeminiAPI({
     model: 'google/gemini-2.5-flash',
     messages: [
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: `${WARDROBE_PROMPTS.DETECT_ITEMS}
-
-Return ONLY a JSON array of items, no other text. Example format:
-[
-  {
-    "name": "Blue Denim Jacket",
-    "category": "Outerwear",
-    "color": "#4A90E2",
-    "fabric": "denim",
-    "texture": "textured",
-    "pattern": "solid",
-    "style_notes": "Classic fit with button closure"
-  }
-]`
-          },
-          {
-            type: 'image_url',
-            image_url: { url: imageUrl }
-          }
+          { type: 'text', text: combinedPrompt },
+          { type: 'image_url', image_url: { url: imageUrl } }
         ]
       }
     ]
@@ -365,13 +396,18 @@ Return ONLY a JSON array of items, no other text. Example format:
   const content = data.choices?.[0]?.message?.content || '';
   
   // Extract JSON from response
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('Failed to extract items from Gemini response');
+    throw new Error('Failed to extract validation+detection result from Gemini response');
   }
 
-  const items = JSON.parse(jsonMatch[0]);
-  return items;
+  const result = JSON.parse(jsonMatch[0]);
+  
+  return {
+    isValid: result.isValid || false,
+    reason: result.reason,
+    items: result.items || []
+  };
 }
 
 interface DuplicateCheckResult {
