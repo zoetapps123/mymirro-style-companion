@@ -246,18 +246,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
               }
 
               // Item already has imageUrl from Gemini generation
-              await supabase.from('wardrobe_items').insert({
-                user_id: userId,
-                name: item.name,
-                category: item.category,
-                color: item.color,
-                fabric: item.fabric,
-                texture: item.texture,
-                pattern: item.pattern,
-                style_notes: item.style_notes,
-                processed_image_url: item.imageUrl,
-                image_url: item.imageUrl,
-              });
+              const { mapDetectedItemToDbRecord } = await import('@/lib/wardrobeItemMapper');
+              await supabase.from('wardrobe_items').insert([
+                mapDetectedItemToDbRecord(item, userId, item.imageUrl, item.imageUrl)
+              ]);
 
               totalAdded++;
             }

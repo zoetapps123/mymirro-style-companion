@@ -324,14 +324,10 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           .from('outfits')
           .getPublicUrl(fileName);
 
-        const { error: insertError } = await supabase.from('wardrobe_items').insert({
-          user_id: user.id,
-          name: item.name,
-          category: item.category,
-          color: item.color,
-          image_url: publicUrl,
-          processed_image_url: publicUrl,
-        });
+        const { mapDetectedItemToDbRecord } = await import('@/lib/wardrobeItemMapper');
+        const { error: insertError } = await supabase.from('wardrobe_items').insert([
+          mapDetectedItemToDbRecord(item, user.id, publicUrl, publicUrl)
+        ]);
 
         if (!insertError) {
           addedCount++;
