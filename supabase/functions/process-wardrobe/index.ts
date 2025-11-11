@@ -87,7 +87,7 @@ serve(async (req) => {
     console.log('Processing image with Gemini-only pipeline...');
 
     // Check cache
-    const cacheKey = await generateCacheKey({ type: 'wardrobe_gemini_v3', imageUrl });
+    const cacheKey = await generateCacheKey({ type: 'wardrobe_gemini_v4', imageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached result');
@@ -97,33 +97,45 @@ serve(async (req) => {
       );
     }
 
-    // OPTIMIZED: Single API call to validate AND detect items (with retry/backoff)
+    // OPTIMIZED: Single API call to validate AND detect items (with stronger retry/backoff + model fallback)
     console.log('Step 1: Validating and detecting items in one call...');
 
     let validationAndDetection: { isValid: boolean; reason?: string; items: DetectedItem[] } | null = null;
     {
       let attempts = 0;
-      const maxAttempts = 3;
+      const maxAttempts = 5;
+      let model = 'google/gemini-2.5-flash';
       const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
       while (attempts < maxAttempts) {
         try {
-          validationAndDetection = await validateAndDetectItems(imageUrl);
+          validationAndDetection = await validateAndDetectItems(imageUrl, model);
           break;
         } catch (err) {
           const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
           const isRate = msg.includes('rate') || msg.includes('429') || msg.includes('resource exhausted');
-          if (isRate && attempts < maxAttempts - 1) {
-            const wait = (attempts + 1) * 2000; // 2s, 4s
-            console.warn(`Rate limited on validation+detection, retrying in ${wait / 1000}s...`);
-            await sleep(wait);
-            attempts++;
-            continue;
+
+          if (!isRate) throw err;
+
+          attempts++;
+          if (attempts >= maxAttempts) break;
+
+          // Switch to a lighter model after a couple retries
+          if (attempts === 2 && model !== 'google/gemini-2.5-flash-lite') {
+            model = 'google/gemini-2.5-flash-lite';
+            console.warn('Switching to lighter model for validation/detection due to rate limiting...');
           }
-          throw err;
+
+          // Exponential backoff with jitter
+          const base = [2000, 4000, 8000, 12000][attempts - 1] || 15000;
+          const jitter = Math.floor(Math.random() * 500);
+          const wait = base + jitter;
+          console.warn(`Rate limited on validation+detection, retrying in ${Math.round(wait / 1000)}s...`);
+          await sleep(wait);
         }
       }
     }
-    
+
     if (!validationAndDetection || !validationAndDetection.isValid) {
       console.log('Image validation failed:', validationAndDetection?.reason);
       return new Response(JSON.stringify({ 
@@ -328,7 +340,7 @@ serve(async (req) => {
  * OPTIMIZED: Single API call that validates AND detects items
  * Reduces API calls from 2→1 per image
  */
-async function validateAndDetectItems(imageUrl: string): Promise<{
+async function validateAndDetectItems(imageUrl: string, model: string = 'google/gemini-2.5-flash'): Promise<{
   isValid: boolean;
   reason?: string;
   items: DetectedItem[];
@@ -381,7 +393,7 @@ RESPONSE FORMAT - Return a JSON object with this EXACT structure:
 Return ONLY the JSON object, no other text.`;
 
   const data = await callGeminiAPI({
-    model: 'google/gemini-2.5-flash',
+    model,
     messages: [
       {
         role: 'user',
