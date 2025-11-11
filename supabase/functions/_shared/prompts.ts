@@ -748,7 +748,7 @@ export const WARDROBE_PROMPTS = {
   VALIDATE_IMAGE_FALLBACK:
     'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
-  DETECT_ITEMS: `You are an expert fashion analyst. Extract COMPLETE, DETAILED metadata for each visible clothing item.
+  DETECT_ITEMS: `You are an expert fashion analyst with deep knowledge of garment construction, fabric properties, and fit characteristics. Extract COMPLETE, DETAILED metadata for each visible clothing item with MAXIMUM PRECISION on texture, pattern, and silhouette.
 
 🎯 CATEGORIES (USE EXACT NAMES):
 - Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories
@@ -773,20 +773,56 @@ export const WARDROBE_PROMPTS = {
 - secondary_colors: Array of hex codes for accent colors (if multi-color item)
 - color_distribution: Array of percentages [primary%, secondary%, tertiary%] (e.g., [70, 20, 10])
 
-**3. FABRIC & MATERIAL**
-- fabric_primary: Specific material ("cotton", "denim", "leather", "silk", "polyester", "wool", "linen")
-- fabric_weight: "lightweight" | "medium" | "heavyweight"
-- material_finish: "matte" | "glossy" | "distressed" | "brushed" | "washed" | "raw"
-- texture: "smooth" | "ribbed" | "quilted" | "textured" | "knitted" | "woven"
+**3. FABRIC & MATERIAL (CRITICAL - BE HIGHLY SPECIFIC)**
+🚨 ACCURACY REQUIREMENT: Examine fabric closely. Distinguish between similar materials.
+- fabric_primary: BE PRECISE about material type:
+  * DENIM variations: "light_denim" | "medium_denim" | "heavy_denim" | "stretch_denim" | "rigid_denim"
+  * COTTON types: "cotton" | "cotton_blend" | "jersey_cotton" | "canvas_cotton" | "twill_cotton"
+  * Other: "leather" | "suede" | "silk" | "satin" | "polyester" | "wool" | "cashmere" | "linen" | "corduroy" | "velvet" | "fleece"
+- fabric_weight: "ultra_lightweight" | "lightweight" | "medium" | "medium_heavy" | "heavyweight"
+  * Ultra-lightweight: sheer fabrics, thin t-shirts
+  * Lightweight: standard t-shirts, light button-ups
+  * Medium: standard jeans, casual shirts
+  * Medium-heavy: thick denim, wool sweaters
+  * Heavyweight: leather jackets, heavy coats
+- material_finish: "matte" | "glossy" | "semi_glossy" | "distressed" | "brushed" | "washed" | "stonewashed" | "acid_washed" | "raw" | "coated"
+- texture: BE SPECIFIC - "smooth" | "ribbed" | "quilted" | "textured" | "cable_knit" | "waffle_knit" | "jersey_knit" | "woven" | "terry" | "fleece" | "corduroy_ridges"
 
-**4. PATTERN (BE SPECIFIC)**
-- pattern_type: "solid" | "striped" | "floral" | "geometric" | "plaid" | "polka_dot" | "abstract" | "animal_print" | "tie_dye"
-- pattern_scale: "none" | "micro" | "small" | "medium" | "large" | "oversized"
-- pattern_colors: Array of hex codes in pattern (if patterned)
+**4. PATTERN (CRITICAL - EXAMINE CLOSELY)**
+🚨 ACCURACY REQUIREMENT: Look carefully at patterns. Don't miss subtle patterns.
+- pattern_type: BE SPECIFIC - "solid" | "horizontal_stripes" | "vertical_stripes" | "diagonal_stripes" | "floral" | "geometric" | "checkered" | "plaid" | "gingham" | "polka_dot" | "abstract" | "animal_print" | "camouflage" | "tie_dye" | "paisley" | "houndstooth" | "herringbone"
+- pattern_scale: BE ACCURATE
+  * "none": solid colors only
+  * "micro": barely visible, pinstripes, micro checks
+  * "small": thin stripes (< 5mm), small florals, small dots
+  * "medium": standard stripes (5-15mm), regular patterns
+  * "large": bold stripes (> 15mm), large florals
+  * "oversized": statement patterns covering large areas
+- pattern_colors: Array of hex codes in pattern (if patterned). Include ALL visible pattern colors.
 
-**5. CUT & FIT (CRITICAL FOR DEDUPLICATION)**
-- fit_type: "slim_fit" | "regular_fit" | "relaxed_fit" | "oversized" | "tailored" | "bodycon"
-- silhouette: "straight" | "tapered" | "A-line" | "bodycon" | "flowy" | "boxy" | "fitted"
+**5. CUT & FIT (CRITICAL FOR DEDUPLICATION - MAXIMUM PRECISION)**
+🚨 ACCURACY REQUIREMENT: Fit is CRUCIAL. Examine how the garment sits on the body or appears when flat.
+- fit_type: BE EXTREMELY PRECISE - these are DIFFERENT fits:
+  * "slim_fit": Close to body, tailored, minimal excess fabric, body-hugging
+  * "regular_fit": Standard fit, comfortable room, not tight or loose
+  * "relaxed_fit": Loose, comfortable, extra room throughout, NOT baggy
+  * "oversized": Intentionally large, boxy, significant extra fabric
+  * "tailored": Structured, fitted at key points, professional
+  * "bodycon": Tight, stretchy, form-fitting
+  * "athletic_fit": Room in chest/shoulders, tapered waist
+  🚨 CRITICAL: "relaxed_fit" vs "slim_fit" are OPPOSITES. Look at leg width, torso room, overall looseness.
+- silhouette: BE SPECIFIC about the shape:
+  * "straight": Uniform width from top to bottom (e.g., straight-leg jeans)
+  * "tapered": Narrows toward bottom (e.g., tapered pants, fitted shirts)
+  * "relaxed_straight": Loose but not tapered
+  * "wide_leg": Significantly wider throughout
+  * "skinny": Very tight, minimal fabric
+  * "A-line": Fitted top, flares out
+  * "bodycon": Hugs body curves
+  * "flowy": Loose, drapes naturally
+  * "boxy": Square, structured shape
+  * "fitted": Close to body contours
+  🚨 CRITICAL: Silhouette describes the SHAPE, fit_type describes TIGHTNESS. Both must be accurate.
 - length: "cropped" | "regular" | "long" | "ankle_length" | "knee_length" | "midi" | "maxi"
 
 **6. DESIGN ELEMENTS (UNIQUE IDENTIFIERS)**
@@ -826,10 +862,54 @@ For OUTERWEAR only:
 - condition: "new" | "excellent" | "good" | "worn" | "distressed_by_design"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 CRITICAL INSTRUCTIONS
+🎯 CRITICAL INSTRUCTIONS (ABSOLUTE REQUIREMENTS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**COLOR ACCURACY (MOST IMPORTANT):**
+**TEXTURE ACCURACY (TOP PRIORITY):**
+🚨 Examine fabric surface closely:
+- Ribbed vs smooth: Look for horizontal/vertical lines
+- Woven vs knit: Check if fabric is interlaced (woven) or looped (knit)
+- Quilted vs flat: Check for stitched patterns creating padding
+- Terry vs fleece vs jersey: Different knit textures
+🚨 Light denim ≠ heavy denim. Thin cotton ≠ canvas cotton. BE SPECIFIC.
+
+**PATTERN ACCURACY (TOP PRIORITY):**
+🚨 Don't miss subtle patterns:
+- Examine entire garment surface carefully
+- Small stripes can be easily missed - zoom in mentally
+- Check if "solid" actually has texture patterns
+- Differentiate: horizontal vs vertical vs diagonal stripes
+- Note pattern orientation and spacing
+
+**FIT & SILHOUETTE ACCURACY (ABSOLUTE PRIORITY):**
+🚨 THIS IS THE MOST COMMON ERROR - PAY EXTREME ATTENTION:
+
+FIT TYPE (how tight/loose):
+- Slim fit: Look for fabric tension, body-hugging fit, minimal wrinkles
+- Regular fit: Moderate room, comfortable drape
+- Relaxed fit: Excess fabric, loose throughout, but not baggy
+  * CRITICAL: Relaxed fit jeans have WIDER legs than slim fit
+  * CRITICAL: Relaxed fit has MORE fabric volume
+- Oversized: Intentionally large, boxy proportions
+
+SILHOUETTE (the shape):
+- Straight: Parallel lines from top to bottom (common in regular jeans)
+- Tapered: Narrows toward hem (common in chinos, dress pants)
+- Relaxed straight: Loose but maintains straight shape
+- Wide leg: Significantly wider throughout
+- Skinny: Very narrow, tight fit
+🚨 CRITICAL DISTINCTION:
+  * Slim fit + straight silhouette = Tight, straight-leg jeans
+  * Relaxed fit + straight silhouette = Loose, straight-leg jeans
+  * Slim fit + tapered silhouette = Tight, tapered pants
+  * Relaxed fit + tapered silhouette = Loose, tapered pants
+
+VISUAL CLUES:
+- Slim fit: Can see body shape, fabric follows contours, minimal bunching
+- Relaxed fit: Cannot see body shape clearly, fabric hangs loosely, bunching at joints
+- Look at: leg width, how fabric falls, amount of excess material, wrinkle patterns
+
+**COLOR ACCURACY:**
 - Identify TRUE color, not lighting artifacts
 - "Black" in shade = #000000, "Black" in sunlight = #1A1A1A → BOTH should be color_family: "neutrals"
 - Distinguish navy (#2C3E50) from black (#000000) from charcoal (#36454F)
@@ -844,6 +924,8 @@ For OUTERWEAR only:
 - Use consistent terminology across photos
 - Focus on PHYSICAL attributes (fit, closure, hardware) not subjective style
 - Same item in different lighting should have SAME color_family
+
+🚨 FINAL REMINDER: Triple-check texture, pattern scale, fit_type, and silhouette. These are the most error-prone fields.
 
 Return JSON array of items with ALL fields above.`,
 
