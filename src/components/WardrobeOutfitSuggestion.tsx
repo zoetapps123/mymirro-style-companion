@@ -108,13 +108,11 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
         {/* Empty State */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-          <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-8">
-            <img 
-              src={lockIcon} 
-              alt="Locked" 
-              className="w-16 h-16 object-contain"
-            />
-          </div>
+          <img 
+            src={lockIcon} 
+            alt="Locked" 
+            className="w-48 h-48 mb-8 object-contain"
+          />
           <h3 className="text-2xl font-bold text-primary mb-3 text-center">
             Still off-limits 👀
           </h3>
