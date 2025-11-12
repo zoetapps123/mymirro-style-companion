@@ -1002,7 +1002,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
             let hasQuestion = false;
             
             if (lastAssistant?.content) {
-              const contentStr = String(lastAssistant.content);
+              const contentStr = String(lastAssistant.content).toLowerCase();
               
               // Extract questions (sentences ending with ?)
               const questions = contentStr.split(/[.!]/).filter(s => s.includes('?'));
@@ -1013,66 +1013,105 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               }
             }
 
-            let systemPrompt = '';
-            let userPrompt = '';
+            let suggestions: string[] = [];
+            
+            // Check for pattern-specific suggestions based on the new prompt's DYNAMIC PILL LOGIC
+            if (hasQuestion && questionText) {
+              const lowerQuestion = questionText.toLowerCase();
+              
+              // Occasion questions
+              if (lowerQuestion.includes("occasion") || lowerQuestion.includes("where") || lowerQuestion.includes("event")) {
+                suggestions = ['Date', 'College', 'Work', 'Party', 'Wedding', 'Chill day', 'Formal event', 'Casual hangout'];
+              }
+              // Vibe/style questions
+              else if (lowerQuestion.includes("vibe") || lowerQuestion.includes("style") || lowerQuestion.includes("feel")) {
+                suggestions = ['Comfy', 'Trendy', 'Minimal', 'Extra', 'Chill', 'Sporty', 'Elegant'];
+              }
+              // Yes/no tweaking questions
+              else if (lowerQuestion.includes("tweak") || lowerQuestion.includes("change") || lowerQuestion.includes("adjust")) {
+                suggestions = ['Yes pls', 'Nah I\'m good', 'Show options', 'What would you change'];
+              }
+              // Upload/action questions
+              else if (lowerQuestion.includes("upload") || lowerQuestion.includes("add") || lowerQuestion.includes("photos")) {
+                suggestions = ['On it 💪', 'Later 😴', 'Need help', 'What should I upload'];
+              }
+              // Color preference questions
+              else if (lowerQuestion.includes("color") || lowerQuestion.includes("colours")) {
+                suggestions = ['Black', 'White', 'Blue', 'Neutral tones', 'Bold colors', 'Anything works'];
+              }
+              // Budget/shopping questions
+              else if (lowerQuestion.includes("budget") || lowerQuestion.includes("price") || lowerQuestion.includes("spend")) {
+                suggestions = ['Budget friendly', 'Mid range', 'Premium ok', 'No budget limit'];
+              }
+            }
 
-            if (hasQuestion) {
-              // Generate direct answers to the specific question
-              systemPrompt = `You are helping generate quick reply options for a user. 
-The assistant just asked a specific question. Generate 6-8 SHORT, DIRECT answers to that exact question.
+            // If no pattern-matched suggestions, use AI generation
+            if (suggestions.length === 0) {
+              try {
+                let systemPrompt = '';
+                let userPrompt = '';
+
+                if (hasQuestion) {
+                  // Generate direct answers to the specific question
+                  systemPrompt = `You are helping generate quick reply options for a fashion styling chat. 
+The assistant just asked a specific question. Generate 6-8 SHORT, NATURAL answers.
 
 RULES:
-- Each answer must be 1-4 words maximum
-- These are USER replies to answer the question
-- No punctuation, no question marks  
-- Be specific and accurate
+- Each answer: 1-4 words maximum
+- Casual, Gen Z friendly tone
+- No punctuation unless it's an emoji
+- Be specific and helpful
 - Return ONLY a JSON array: ["answer1", "answer2", ...]
 
 User context: ${userContext.gender} user with ${userContext.wardrobeCount} wardrobe items`;
 
-              userPrompt = `The assistant asked: "${questionText}"
+                  userPrompt = `The fashion assistant asked: "${questionText}"
 
-Generate 6-8 short, direct USER answers to this exact question:`;
-            } else {
-              // No question - generate relevant follow-ups
-              systemPrompt = `Generate 6-8 SHORT follow-up messages the user might want to send next.
+Generate 6-8 short, casual USER answers to this question:`;
+                } else {
+                  // No question - generate relevant follow-ups
+                  systemPrompt = `Generate 6-8 SHORT follow-up messages for a fashion styling conversation.
 
 RULES:
 - 1-4 words each
-- Natural conversation continuations
-- No punctuation, no question marks
-- Fashion/style context when relevant
+- Casual, Gen Z friendly tone
+- Natural conversation flow
+- Fashion/style context
 - Return ONLY a JSON array: ["option1", "option2", ...]`;
 
-              userPrompt = `Recent conversation:\n${conversationContext}\n\nGenerate 6-8 natural USER follow-ups:`;
-            }
+                  userPrompt = `Recent fashion conversation:\n${conversationContext}\n\nGenerate 6-8 natural USER follow-ups:`;
+                }
 
-            console.log('Chat: calling Gemini for suggestions', { 
-              hasQuestion, 
-              questionText,
-              hasWardrobe: userContext.hasWardrobe
-            });
-            const suggestionsResponse = await callGeminiAPI({
-              model: 'google/gemini-2.5-flash',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-              ],
-              temperature: 0.7,
-              max_tokens: 200,
-            });
+                console.log('Chat: calling Gemini for suggestions', { 
+                  hasQuestion, 
+                  questionText,
+                  hasWardrobe: userContext.hasWardrobe
+                });
+                
+                const suggestionsResponse = await callGeminiAPI({
+                  model: 'google/gemini-2.5-flash',
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 200,
+                });
 
-            let suggestions: string[] = [];
-            try {
-              const content = suggestionsResponse.choices[0]?.message?.content || '';
-              const jsonMatch = content.match(/\[[\s\S]*\]/);
-              const raw = jsonMatch ? jsonMatch[0] : content;
-              const parsedArr = JSON.parse(raw);
-              if (Array.isArray(parsedArr)) {
-                suggestions = parsedArr as string[];
+                try {
+                  const content = suggestionsResponse.choices[0]?.message?.content || '';
+                  const jsonMatch = content.match(/\[[\s\S]*\]/);
+                  const raw = jsonMatch ? jsonMatch[0] : content;
+                  const parsedArr = JSON.parse(raw);
+                  if (Array.isArray(parsedArr)) {
+                    suggestions = parsedArr as string[];
+                  }
+                } catch (parseError) {
+                  console.error('Failed to parse suggestions JSON:', parseError);
+                }
+              } catch (error) {
+                console.error('Failed to generate AI suggestions:', error);
               }
-            } catch (parseError) {
-              console.error('Failed to parse suggestions JSON:', parseError);
             }
 
             // Normalize suggestions
@@ -1081,7 +1120,7 @@ RULES:
               .map((s: string) => s.replace(/["']/g, '').trim())
               .map((s: string) => s.replace(/[.!?]$/, ''))
               .filter((s: string) => s && s.length > 0)
-              .filter((s: string) => s.split(/\s+/).length <= 4)
+              .filter((s: string) => s.split(/\s+/).length <= 6)
               .slice(0, 8);
 
             // Fallback if no suggestions generated
