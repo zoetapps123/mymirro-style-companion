@@ -996,104 +996,61 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               hasWardrobe: (wardrobeItems || []).length > 0
             };
 
-            // Sophisticated question detection
+            // Extract the exact question from the assistant's message
             const lastAssistant = [...lastMessages].reverse().find((m: any) => m.role === 'assistant');
-            let questionType = 'none';
             let questionText = '';
-            let specificContext = '';
+            let hasQuestion = false;
             
             if (lastAssistant?.content) {
-              const contentStr = String(lastAssistant.content).toLowerCase();
-              questionText = String(lastAssistant.content);
+              const contentStr = String(lastAssistant.content);
               
-              // Detect question patterns
-              if (contentStr.includes('?')) {
-                const qMatch = contentStr.match(/([^.!]*\?[^?]*)/);
-                if (qMatch) questionText = qMatch[0].trim();
-                
-                // Categorize question type
-                if (/(occasion|event|where.*going|what.*for|dress.*for)/i.test(contentStr)) {
-                  questionType = 'occasion';
-                } else if (/(style|aesthetic|vibe|look.*like|prefer.*style)/i.test(contentStr)) {
-                  questionType = 'style';
-                } else if (/(color|colours?|palette|tone|shade)/i.test(contentStr)) {
-                  questionType = 'color';
-                } else if (/(weather|temperature|season|climate|forecast)/i.test(contentStr)) {
-                  questionType = 'weather';
-                } else if (/(budget|price|spend|afford|cost)/i.test(contentStr)) {
-                  questionType = 'budget';
-                } else if (/(body.*type|shape|fit|size)/i.test(contentStr)) {
-                  questionType = 'body';
-                } else if (/(time|when|date|day)/i.test(contentStr)) {
-                  questionType = 'time';
-                } else {
-                  questionType = 'general';
-                }
+              // Extract questions (sentences ending with ?)
+              const questions = contentStr.split(/[.!]/).filter(s => s.includes('?'));
+              if (questions.length > 0) {
+                // Get the last question
+                questionText = questions[questions.length - 1].trim();
+                hasQuestion = true;
               }
             }
 
-            // Build intelligent prompt based on question type and user context
             let systemPrompt = '';
             let userPrompt = '';
 
-            if (questionType !== 'none') {
-              // Context-aware answer generation
-              const contextInfo = userContext.hasWardrobe 
-                ? `User has ${userContext.wardrobeCount} items: ${userContext.wardrobeCategories.join(', ')}.` 
-                : 'User has no wardrobe uploaded yet.';
-              
-              systemPrompt = `Generate 6-8 VERY SHORT (1-4 words) USER responses to answer the assistant's question.
+            if (hasQuestion) {
+              // Generate direct answers to the specific question
+              systemPrompt = `You are helping generate quick reply options for a user. 
+The assistant just asked a specific question. Generate 6-8 SHORT, DIRECT answers to that exact question.
 
-CRITICAL RULES:
-- These are USER answers/replies (NOT assistant questions)
-- No punctuation, no question marks
-- Be highly specific and intelligent
-- Consider: ${contextInfo}
-- Gender: ${userContext.gender}, Body: ${userContext.bodyShape}
+RULES:
+- Each answer must be 1-4 words maximum
+- These are USER replies to answer the question
+- No punctuation, no question marks  
+- Be specific and accurate
+- Return ONLY a JSON array: ["answer1", "answer2", ...]
 
-Question type: ${questionType}`;
+User context: ${userContext.gender} user with ${userContext.wardrobeCount} wardrobe items`;
 
-              userPrompt = `Assistant asked: "${questionText}"
+              userPrompt = `The assistant asked: "${questionText}"
 
-Generate 6-8 intelligent, specific USER answers (1-4 words each):`;
-
-              // Add type-specific guidance
-              if (questionType === 'occasion') {
-                systemPrompt += '\nExamples: "wedding guest", "business meeting", "beach party", "date night", "job interview"';
-              } else if (questionType === 'style') {
-                systemPrompt += '\nExamples based on wardrobe: "minimalist chic", "smart casual", "streetwear", "elegant classic"';
-                if (userContext.gender === 'female') {
-                  systemPrompt += ', "bohemian", "preppy"';
-                }
-              } else if (questionType === 'color') {
-                const wardrobeColors = userContext.wardrobeColors.slice(0, 5).join(', ');
-                systemPrompt += `\nSuggest from user's wardrobe colors: ${wardrobeColors || 'neutrals, earth tones'}`;
-              } else if (questionType === 'weather') {
-                systemPrompt += '\nExamples: "hot and sunny", "cold and rainy", "mild", "humid", "windy"';
-              }
+Generate 6-8 short, direct USER answers to this exact question:`;
             } else {
-              // No question - suggest relevant follow-ups
-              const lastUserMsg = [...lastMessages].reverse().find((m: any) => m.role === 'user');
-              const userMsgLower = (lastUserMsg?.content || '').toLowerCase();
-              
-              systemPrompt = `Generate 6-8 SHORT (1-4 words) USER follow-up messages.
+              // No question - generate relevant follow-ups
+              systemPrompt = `Generate 6-8 SHORT follow-up messages the user might want to send next.
 
-Context: ${userContext.hasWardrobe ? `User has ${userContext.wardrobeCount} items in wardrobe` : 'No wardrobe yet'}
-Gender: ${userContext.gender}
-
-Rules:
-- Natural next things USER might say
+RULES:
+- 1-4 words each
+- Natural conversation continuations
 - No punctuation, no question marks
-- Intelligent and helpful
-- Fashion context when relevant`;
+- Fashion/style context when relevant
+- Return ONLY a JSON array: ["option1", "option2", ...]`;
 
-              userPrompt = `Recent conversation:\n${conversationContext}\n\nGenerate 6-8 smart USER follow-ups (1-4 words):`;
+              userPrompt = `Recent conversation:\n${conversationContext}\n\nGenerate 6-8 natural USER follow-ups:`;
             }
 
             console.log('Chat: calling Gemini for suggestions', { 
-              questionType, 
-              hasWardrobe: userContext.hasWardrobe,
-              wardrobeCount: userContext.wardrobeCount
+              hasQuestion, 
+              questionText,
+              hasWardrobe: userContext.hasWardrobe
             });
             const suggestionsResponse = await callGeminiAPI({
               model: 'google/gemini-2.5-flash',
@@ -1118,42 +1075,27 @@ Rules:
               console.error('Failed to parse suggestions JSON:', parseError);
             }
 
-            // Normalize and enforce constraints
+            // Normalize suggestions
             suggestions = (suggestions || [])
               .map((s: any) => typeof s === 'string' ? s : '')
               .map((s: string) => s.replace(/["']/g, '').trim())
-              .map((s: string) => s.replace(/[.!]$/, ''))
-              .filter((s: string) => s && !s.includes('?'))
-              .filter((s: string) => s.split(/\s+/).length <= 4);
+              .map((s: string) => s.replace(/[.!?]$/, ''))
+              .filter((s: string) => s && s.length > 0)
+              .filter((s: string) => s.split(/\s+/).length <= 4)
+              .slice(0, 8);
 
-            // Deterministic overrides for critical questions
-            if (questionType === 'occasion') {
-              suggestions = ['party', 'date night', 'business meeting', 'casual', 'wedding', 'formal', 'smart casual', 'travel'];
-            }
-
-            // Heuristic fallbacks when the model doesn't return good answers
+            // Fallback if no suggestions generated
             if (suggestions.length === 0) {
-              const kw = (questionText || '').toLowerCase();
-              if (questionType !== 'none') {
-                if (/(occasion|event|dress|what's the occasion|what is the occasion)/.test(kw)) {
-                  suggestions = ['party', 'date night', 'business meeting', 'casual', 'wedding', 'travel'];
-                } else if (/(style|aesthetic|vibe)/.test(kw)) {
-                  suggestions = ['minimalist', 'streetwear', 'smart casual', 'elegant', 'sporty', 'vintage'];
-                } else if (/(color|colour|palette|tone)/.test(kw)) {
-                  suggestions = ['neutrals', 'earth tones', 'bold colors', 'pastels', 'monochrome', 'primary colors'];
-                } else if (/(weather|temperature|rain|cold|hot)/.test(kw)) {
-                  suggestions = ['hot day', 'rainy', 'cold', 'humid', 'windy'];
-                } else if (/(budget|price|spend|how much)/.test(kw)) {
-                  suggestions = ['under $50', 'under $100', 'splurge', 'best value'];
-                }
-              }
-              if (suggestions.length === 0) {
-                suggestions = ['show options', 'more casual', 'more formal', 'surprise me', 'add accessories', 'change colors'];
+              if (hasQuestion) {
+                // Generic answers if we can't parse the specific question
+                suggestions = ['yes', 'no', 'maybe', 'not sure', 'tell me more', 'show examples'];
+              } else {
+                // Generic follow-ups
+                suggestions = ['show options', 'tell me more', 'something else', 'sounds good', 'what about', 'any ideas'];
               }
             }
 
-            suggestions = suggestions.slice(0, 8);
-            console.log('Chat: suggestions meta', { questionType, questionText, count: suggestions.length, suggestions });
+            console.log('Chat: suggestions generated', { hasQuestion, questionText, count: suggestions.length, suggestions });
 
             if (suggestions.length > 0) {
               console.log('Chat: sending suggestions to client', { count: suggestions.length, suggestions });
