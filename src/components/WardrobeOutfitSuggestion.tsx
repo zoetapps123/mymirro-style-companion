@@ -12,6 +12,7 @@ import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { useOutfits } from '@/hooks/useOutfits';
 import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
 import { orderOutfitForDisplay } from '@/lib/utils';
+import lockIcon from '@/assets/lock-icon.png';
 
 interface WardrobeItem {
   id: string;
@@ -108,11 +109,11 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         {/* Empty State */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
           <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-8">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-foreground">
-              <rect x="5" y="11" width="14" height="10" rx="2" ry="2" strokeWidth="2"/>
-              <path d="M12 11V7" strokeWidth="2"/>
-              <circle cx="12" cy="15" r="1" fill="currentColor"/>
-            </svg>
+            <img 
+              src={lockIcon} 
+              alt="Locked" 
+              className="w-16 h-16 object-contain"
+            />
           </div>
           <h3 className="text-2xl font-bold text-primary mb-3 text-center">
             Still off-limits 👀
