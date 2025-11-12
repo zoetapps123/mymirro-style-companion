@@ -4,9 +4,9 @@ import Wardrobe from "@/components/Wardrobe";
 import StyleCheck from "@/components/StyleCheck";
 import Profile from "@/components/Profile";
 import Onboarding from "@/components/Onboarding";
-import OnboardingPhotos from "@/components/OnboardingPhotos";
+
 import FeatureWalkthrough from "@/components/FeatureWalkthrough";
-import WelcomeLanding from "@/components/WelcomeLanding";
+
 import PhoneAuth from "@/components/PhoneAuth";
 import TopAppBar from "@/components/TopAppBar";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,11 +24,9 @@ const safeLocalStorage = {
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  const [showWelcome, setShowWelcome] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showPhotos, setShowPhotos] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   // Initialize analytics tracking
@@ -47,7 +45,8 @@ const Index = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        setShowWelcome(true);
+        setShowAuth(true);
+        setIsSignUp(true);
         return;
       }
 
@@ -57,7 +56,8 @@ const Index = () => {
       if (!lastLogin || parseInt(lastLogin) <= sevenDaysAgo) {
         await supabase.auth.signOut();
         safeLocalStorage.clear();
-        setShowWelcome(true);
+        setShowAuth(true);
+        setIsSignUp(true);
         return;
       }
 
@@ -72,23 +72,9 @@ const Index = () => {
 
       const hasBasicInfo = profile?.name && profile?.age_range;
 
-      // Check if user has uploaded minimum wardrobe items
-      const { data: wardrobeItems } = await supabase
-        .from('wardrobe_items')
-        .select('id')
-        .eq('user_id', user.id);
-
-      const hasMinimumItems = (wardrobeItems?.length || 0) >= 3;
-
       // Show onboarding only if basic info is missing
       if (!hasBasicInfo) {
         setShowOnboarding(true);
-        return;
-      }
-
-      // Show photos page only if minimum items not uploaded
-      if (!hasMinimumItems) {
-        setShowPhotos(true);
         return;
       }
 
@@ -99,34 +85,17 @@ const Index = () => {
       }
     } catch (err) {
       console.error('checkAuthAndFlow failed:', err);
-      setShowWelcome(true);
+      setShowAuth(true);
+      setIsSignUp(true);
     }
   };
-
-  if (showWelcome) {
-    return (
-      <WelcomeLanding
-        onSignUp={() => {
-          setIsSignUp(true);
-          setShowWelcome(false);
-          setShowAuth(true);
-        }}
-        onLogIn={() => {
-          setIsSignUp(false);
-          setShowWelcome(false);
-          setShowAuth(true);
-        }}
-      />
-    );
-  }
 
   if (showAuth) {
     return (
       <PhoneAuth
         isSignUp={isSignUp}
         onBack={() => {
-          setShowAuth(false);
-          setShowWelcome(true);
+          setIsSignUp(!isSignUp);
         }}
         onSuccess={() => {
           setShowAuth(false);
