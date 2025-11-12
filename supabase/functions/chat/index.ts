@@ -990,24 +990,27 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               messages: [
                 { 
                   role: 'system', 
-                  content: `You are a helpful fashion AI assistant. Based on the conversation context, generate 6-8 short, natural follow-up suggestions that the user might want to say next. 
+                  content: `You are generating quick reply suggestions for a user chatting with a fashion AI assistant. Based on what the assistant just said, generate 6-8 SHORT responses the user might want to reply with.
+
+CRITICAL: These are USER responses/replies to what the assistant just said, NOT questions the assistant would ask.
 
 These suggestions should:
-- Be very short (2-5 words max)
-- Feel natural and conversational
-- Be relevant to what was just discussed
-- Help move the conversation forward
-- Be specific to fashion/style context when applicable
+- Be very short (1-4 words max)
+- Be direct answers or responses the user would naturally say
+- Match the context of what the assistant just asked or said
+- Be conversational and natural
+- Help the user respond quickly without typing
 
 Examples:
-- If discussing style: "minimalistic", "streetwear", "classic and chic", "formal"
-- If about occasions: "for a wedding", "date night", "office wear"
-- If about colors: "earth tones", "bold colors", "monochrome"
-- If asking questions: "show me examples", "tell me more", "something else"
+- If assistant asks about occasion → "party", "date night", "wedding", "work", "casual day"
+- If assistant asks about style → "minimalist", "streetwear", "elegant", "casual", "bold"
+- If assistant shows options → "show more", "that works", "something else", "I like it"
+- If assistant asks about colors → "earth tones", "bright colors", "black & white", "pastels"
+- If assistant asks about preferences → "yes please", "not really", "maybe", "tell me more"
 
-Respond with ONLY a JSON array of strings: ["suggestion 1", "suggestion 2", ...]` 
+Respond with ONLY a JSON array of strings: ["reply 1", "reply 2", ...]` 
                 },
-                { role: 'user', content: `Based on this conversation, generate 6-8 short follow-up suggestions:\n\n${conversationContext}` }
+                { role: 'user', content: `Based on this conversation, generate 6-8 short USER replies to what the assistant just said:\n\n${conversationContext}` }
               ],
               temperature: 0.8,
               max_tokens: 200,
