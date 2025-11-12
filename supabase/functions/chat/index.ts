@@ -1126,6 +1126,11 @@ Rules:
               .filter((s: string) => s && !s.includes('?'))
               .filter((s: string) => s.split(/\s+/).length <= 4);
 
+            // Deterministic overrides for critical questions
+            if (questionType === 'occasion') {
+              suggestions = ['party', 'date night', 'business meeting', 'casual', 'wedding', 'formal', 'smart casual', 'travel'];
+            }
+
             // Heuristic fallbacks when the model doesn't return good answers
             if (suggestions.length === 0) {
               const kw = (questionText || '').toLowerCase();
