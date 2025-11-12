@@ -984,35 +984,45 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
               .join('\n');
 
-            console.log('Chat: calling Gemini for suggestions', { messagesCount: lastMessages.length });
+            // Determine if the assistant asked a question
+            const lastAssistant = [...lastMessages].reverse().find((m: any) => m.role === 'assistant');
+            const lastUserMsg = [...lastMessages].reverse().find((m: any) => m.role === 'user');
+            let askedQuestion = false;
+            let questionText = '';
+            if (lastAssistant?.content) {
+              const contentStr = String(lastAssistant.content);
+              if (contentStr.includes('?')) {
+                askedQuestion = true;
+                const qSentences = contentStr.split(/(?<=\?)/).filter(s => s.trim().endsWith('?'));
+                questionText = (qSentences[qSentences.length - 1] || contentStr).trim();
+              }
+            }
+
+            const systemPrompt = askedQuestion
+              ? `You generate tap-to-send USER answer options to respond to the assistant's question. Output 6-8 answers only.
+- They must be USER replies (not assistant questions)
+- 1-4 words each, no punctuation, no question marks
+- Directly answer this question naturally
+- Fashion context when relevant`
+              : `You generate tap-to-send USER follow-up messages relevant to the conversation. Output 6-8 short options only.
+- 1-4 words each, no punctuation, no question marks
+- Natural, helpful next things the USER might say
+- Fashion context when relevant`;
+
+            const userPrompt = askedQuestion
+              ? `Assistant question: "${questionText}"
+Provide 6-8 concise USER answers (1-4 words each).
+Prior context:\n${conversationContext}`
+              : `Conversation context:\n${conversationContext}\nGenerate 6-8 concise USER follow-ups (1-4 words each).`;
+
+            console.log('Chat: calling Gemini for suggestions', { messagesCount: lastMessages.length, askedQuestion, questionText });
             const suggestionsResponse = await callGeminiAPI({
               model: 'google/gemini-2.5-flash',
               messages: [
-                { 
-                  role: 'system', 
-                  content: `You are generating quick reply suggestions for a user chatting with a fashion AI assistant. Based on what the assistant just said, generate 6-8 SHORT responses the user might want to reply with.
-
-CRITICAL: These are USER responses/replies to what the assistant just said, NOT questions the assistant would ask.
-
-These suggestions should:
-- Be very short (1-4 words max)
-- Be direct answers or responses the user would naturally say
-- Match the context of what the assistant just asked or said
-- Be conversational and natural
-- Help the user respond quickly without typing
-
-Examples:
-- If assistant asks about occasion → "party", "date night", "wedding", "work", "casual day"
-- If assistant asks about style → "minimalist", "streetwear", "elegant", "casual", "bold"
-- If assistant shows options → "show more", "that works", "something else", "I like it"
-- If assistant asks about colors → "earth tones", "bright colors", "black & white", "pastels"
-- If assistant asks about preferences → "yes please", "not really", "maybe", "tell me more"
-
-Respond with ONLY a JSON array of strings: ["reply 1", "reply 2", ...]` 
-                },
-                { role: 'user', content: `Based on this conversation, generate 6-8 short USER replies to what the assistant just said:\n\n${conversationContext}` }
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
               ],
-              temperature: 0.8,
+              temperature: 0.7,
               max_tokens: 200,
             });
 
@@ -1020,19 +1030,46 @@ Respond with ONLY a JSON array of strings: ["reply 1", "reply 2", ...]`
             try {
               const content = suggestionsResponse.choices[0]?.message?.content || '';
               const jsonMatch = content.match(/\[[\s\S]*\]/);
-              if (jsonMatch) {
-                suggestions = JSON.parse(jsonMatch[0]);
-              } else {
-                suggestions = JSON.parse(content);
+              const raw = jsonMatch ? jsonMatch[0] : content;
+              const parsedArr = JSON.parse(raw);
+              if (Array.isArray(parsedArr)) {
+                suggestions = parsedArr as string[];
               }
-              
-              suggestions = suggestions
-                .filter((s: any) => typeof s === 'string' && s.trim().length > 0)
-                .slice(0, 8);
             } catch (parseError) {
-              console.error('Failed to parse suggestions:', parseError);
-              suggestions = ["tell me more", "show examples", "something else", "sounds good"];
+              console.error('Failed to parse suggestions JSON:', parseError);
             }
+
+            // Normalize and enforce constraints
+            suggestions = (suggestions || [])
+              .map((s: any) => typeof s === 'string' ? s : '')
+              .map((s: string) => s.replace(/["']/g, '').trim())
+              .map((s: string) => s.replace(/[.!]$/, ''))
+              .filter((s: string) => s && !s.includes('?'))
+              .filter((s: string) => s.split(/\s+/).length <= 4);
+
+            // Heuristic fallbacks when the model doesn't return good answers
+            if (suggestions.length === 0) {
+              const kw = (questionText || '').toLowerCase();
+              if (askedQuestion) {
+                if (/(occasion|event|dress|what's the occasion|what is the occasion)/.test(kw)) {
+                  suggestions = ['party', 'date night', 'business meeting', 'casual', 'wedding', 'travel'];
+                } else if (/(style|aesthetic|vibe)/.test(kw)) {
+                  suggestions = ['minimalist', 'streetwear', 'smart casual', 'elegant', 'sporty', 'vintage'];
+                } else if (/(color|colour|palette|tone)/.test(kw)) {
+                  suggestions = ['neutrals', 'earth tones', 'bold colors', 'pastels', 'monochrome', 'primary colors'];
+                } else if (/(weather|temperature|rain|cold|hot)/.test(kw)) {
+                  suggestions = ['hot day', 'rainy', 'cold', 'humid', 'windy'];
+                } else if (/(budget|price|spend|how much)/.test(kw)) {
+                  suggestions = ['under $50', 'under $100', 'splurge', 'best value'];
+                }
+              }
+              if (suggestions.length === 0) {
+                suggestions = ['show options', 'more casual', 'more formal', 'surprise me', 'add accessories', 'change colors'];
+              }
+            }
+
+            suggestions = suggestions.slice(0, 8);
+            console.log('Chat: suggestions meta', { askedQuestion, questionText, count: suggestions.length, suggestions });
 
             if (suggestions.length > 0) {
               console.log('Chat: sending suggestions to client', { count: suggestions.length, suggestions });
