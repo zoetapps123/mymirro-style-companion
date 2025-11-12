@@ -8,8 +8,8 @@ interface WardrobeComingSoonProps {
 const WardrobeComingSoon = ({ onBack, onNavigate }: WardrobeComingSoonProps) => {
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
-    { icon: Sparkles, title: "Outfit\nGenerator", view: 'suggestion' as const, active: false },
-    { icon: Calendar, title: "Daily\nCalendar", view: 'calendar' as const, active: true },
+    { icon: Sparkles, title: "Outfits", view: 'suggestion' as const, active: false },
+    { icon: Calendar, title: "Plan Your\nLook", view: 'calendar' as const, active: true },
     { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
   ];
 
