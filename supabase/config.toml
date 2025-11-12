@@ -1,4 +1,4 @@
 project_id = "lwxpedwhtowjkhxrovzx"
 
-# All functions now require authentication by default
-# verify_jwt defaults to true when not specified
+[functions.generate-suggestions]
+verify_jwt = false

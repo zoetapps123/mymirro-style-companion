@@ -72,6 +72,8 @@ const AICompanion = () => {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
   const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -716,6 +718,10 @@ const AICompanion = () => {
       }
 
       trackCustom("reply_delivered");
+      
+      // Generate suggestions after response is complete
+      generateSuggestions();
+      
       // Cleanup controller/timeout
       if (timeoutId) clearTimeout(timeoutId);
       abortControllerRef.current = null;
@@ -758,6 +764,41 @@ const AICompanion = () => {
       try { if (timeoutId) clearTimeout(timeoutId); } catch {}
       abortControllerRef.current = null;
     }
+  };
+
+  const generateSuggestions = async () => {
+    if (messages.length < 2) return; // Need at least user + assistant message
+    
+    setLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-suggestions', {
+        body: { 
+          messages: messages.slice(-6).map(m => ({ 
+            role: m.role, 
+            content: m.content 
+          }))
+        }
+      });
+
+      if (error) {
+        console.error('Failed to generate suggestions:', error);
+        return;
+      }
+
+      if (data?.suggestions && Array.isArray(data.suggestions)) {
+        setSuggestions(data.suggestions);
+      }
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setSuggestions([]); // Clear pills immediately
+    trackCustom("suggestion_clicked", { suggestion });
+    handleSend(suggestion);
   };
 
   const handleCardClick = (query: string) => {
@@ -1067,6 +1108,26 @@ const AICompanion = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Suggestion Pills */}
+      {suggestions.length > 0 && !isLoading && (
+        <div className="px-4 py-2 border-t border-border/50 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 max-w-2xl mx-auto">
+            {suggestions.map((suggestion, index) => (
+              <motion.button
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.05 }}
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="flex-shrink-0 px-4 py-2 rounded-full bg-muted/50 hover:bg-muted border border-border/50 text-sm text-foreground whitespace-nowrap transition-all duration-200 hover:scale-105"
+              >
+                {suggestion}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Input Area */}
       <div className="px-4 py-3 border-t border-border bg-background safe-area-bottom">
