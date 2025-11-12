@@ -34,30 +34,30 @@ const QUERY_CARDS = [
   {
     id: 'shop-smarter',
     icon: '🛍️',
-    title: 'Shop Smarter',
-    subtitle: "Let's Find pieces that feel like you",
-    query: 'Help me find pieces that match my style.'
+    title: 'SHOP SMARTER',
+    subtitle: "Let's find pieces that feel like you.",
+    query: 'Help me find pieces that match my vibe.'
   },
   {
-    id: 'mix-match',
-    icon: '🎨',
-    title: 'Mix & Match',
-    subtitle: 'See what works together.',
-    query: 'What outfits can I create with what I have?'
-  },
-  {
-    id: 'wardrobe-fit',
+    id: 'pick-outfit',
     icon: '👔',
-    title: 'Wardrobe Fit',
-    subtitle: "I'll pull looks straight from your wardrobe.",
-    query: 'Create an outfit from my wardrobe items.'
+    title: 'PICK MY OUTFIT',
+    subtitle: "I'll choose from your wardrobe or beyond.",
+    query: 'Can you pick an outfit for me?'
+  },
+  {
+    id: 'fix-outfit',
+    icon: '✨',
+    title: 'FIX MY OUTFIT',
+    subtitle: "Show me what you're wearing and I'll clean up the chaos.",
+    query: 'Can you fix this outfit and make it better?'
   },
   {
     id: 'plan-fit',
     icon: '📅',
-    title: 'Plan My Fit',
+    title: 'PLAN MY FIT',
     subtitle: "Styling for your next occasion? I've got you.",
-    query: 'Help me plan my outfit for an upcoming event.'
+    query: 'Help me plan an outfit for my next occasion.'
   }
 ];
 

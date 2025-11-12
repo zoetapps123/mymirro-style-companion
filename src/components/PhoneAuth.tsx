@@ -194,7 +194,28 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
       {/* Carousel */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-4 max-w-md mx-auto w-full">
-        <div className="relative w-full flex-1 min-h-[300px] max-h-[500px] flex items-center justify-center">
+        <div 
+          className="relative w-full flex-1 min-h-[300px] max-h-[500px] flex items-center justify-center"
+          onTouchStart={(e) => {
+            const touchStartX = e.touches[0].clientX;
+            e.currentTarget.setAttribute('data-touch-start', touchStartX.toString());
+          }}
+          onTouchEnd={(e) => {
+            const touchStartX = parseFloat(e.currentTarget.getAttribute('data-touch-start') || '0');
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > 50) {
+              if (diff > 0) {
+                // Swipe left - next slide
+                setCurrentSlide((prev) => (prev + 1) % slides.length);
+              } else {
+                // Swipe right - previous slide
+                setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+              }
+            }
+          }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -230,22 +251,19 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           ))}
         </div>
 
-        {/* Title */}
+        {/* Title - Dynamic based on slide */}
         <motion.p 
           key={`title-${currentSlide}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-white text-xl font-semibold text-center px-4"
         >
-          Ask your stylist anything
+          {slides[currentSlide].title}
         </motion.p>
       </div>
 
       {/* Form Section */}
       <div className="space-y-4 pb-safe max-w-md mx-auto w-full">
-        <p className="text-[#6B4D82] text-lg font-medium text-center">
-          Start your fashion journey with MyMirro
-        </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Phone Number */}
