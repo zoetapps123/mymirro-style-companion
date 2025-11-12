@@ -49,7 +49,8 @@ serve(async (req) => {
     const { messages, userProfile, wardrobeItems, recentBattles, recentStyleChecks } = await req.json();
 
     // Fetch user profile
-    let bodyShape, skinTone;
+    let bodyShape: string | null = null;
+    let skinTone: string | null = null;
     try {
       const { data: profile } = await supabase
         .from('user_profiles')
@@ -57,8 +58,8 @@ serve(async (req) => {
         .eq('id', userId)
         .single();
       
-      bodyShape = profile?.body_shape;
-      skinTone = profile?.skin_tone;
+      bodyShape = profile?.body_shape || undefined;
+      skinTone = profile?.skin_tone || undefined;
     } catch (e) {
       console.error('Failed to fetch user context:', e);
     }
@@ -68,8 +69,8 @@ serve(async (req) => {
       userName: userProfile?.name || 'there',
       gender: userProfile?.gender,
       location: userProfile?.location || 'India',
-      bodyShape,
-      skinTone,
+      bodyShape: bodyShape ?? undefined,
+      skinTone: skinTone ?? undefined,
       wardrobeItems,
       recentBattles,
       recentStyleChecks
@@ -984,38 +985,116 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
               .join('\n');
 
-            // Determine if the assistant asked a question
+            // Extract user context for intelligent suggestions
+            const userContext = {
+              gender: userProfile?.gender || 'unspecified',
+              bodyShape: bodyShape || 'unspecified',
+              skinTone: skinTone || 'unspecified',
+              wardrobeCategories: [...new Set((wardrobeItems || []).map((i: any) => i.category).filter(Boolean))].slice(0, 10),
+              wardrobeColors: [...new Set((wardrobeItems || []).flatMap((i: any) => [i.primary_color, i.color].filter(Boolean)))].slice(0, 10),
+              wardrobeCount: (wardrobeItems || []).length,
+              hasWardrobe: (wardrobeItems || []).length > 0
+            };
+
+            // Sophisticated question detection
             const lastAssistant = [...lastMessages].reverse().find((m: any) => m.role === 'assistant');
-            const lastUserMsg = [...lastMessages].reverse().find((m: any) => m.role === 'user');
-            let askedQuestion = false;
+            let questionType = 'none';
             let questionText = '';
+            let specificContext = '';
+            
             if (lastAssistant?.content) {
-              const contentStr = String(lastAssistant.content);
+              const contentStr = String(lastAssistant.content).toLowerCase();
+              questionText = String(lastAssistant.content);
+              
+              // Detect question patterns
               if (contentStr.includes('?')) {
-                askedQuestion = true;
-                const qSentences = contentStr.split(/(?<=\?)/).filter(s => s.trim().endsWith('?'));
-                questionText = (qSentences[qSentences.length - 1] || contentStr).trim();
+                const qMatch = contentStr.match(/([^.!]*\?[^?]*)/);
+                if (qMatch) questionText = qMatch[0].trim();
+                
+                // Categorize question type
+                if (/(occasion|event|where.*going|what.*for|dress.*for)/i.test(contentStr)) {
+                  questionType = 'occasion';
+                } else if (/(style|aesthetic|vibe|look.*like|prefer.*style)/i.test(contentStr)) {
+                  questionType = 'style';
+                } else if (/(color|colours?|palette|tone|shade)/i.test(contentStr)) {
+                  questionType = 'color';
+                } else if (/(weather|temperature|season|climate|forecast)/i.test(contentStr)) {
+                  questionType = 'weather';
+                } else if (/(budget|price|spend|afford|cost)/i.test(contentStr)) {
+                  questionType = 'budget';
+                } else if (/(body.*type|shape|fit|size)/i.test(contentStr)) {
+                  questionType = 'body';
+                } else if (/(time|when|date|day)/i.test(contentStr)) {
+                  questionType = 'time';
+                } else {
+                  questionType = 'general';
+                }
               }
             }
 
-            const systemPrompt = askedQuestion
-              ? `You generate tap-to-send USER answer options to respond to the assistant's question. Output 6-8 answers only.
-- They must be USER replies (not assistant questions)
-- 1-4 words each, no punctuation, no question marks
-- Directly answer this question naturally
-- Fashion context when relevant`
-              : `You generate tap-to-send USER follow-up messages relevant to the conversation. Output 6-8 short options only.
-- 1-4 words each, no punctuation, no question marks
-- Natural, helpful next things the USER might say
+            // Build intelligent prompt based on question type and user context
+            let systemPrompt = '';
+            let userPrompt = '';
+
+            if (questionType !== 'none') {
+              // Context-aware answer generation
+              const contextInfo = userContext.hasWardrobe 
+                ? `User has ${userContext.wardrobeCount} items: ${userContext.wardrobeCategories.join(', ')}.` 
+                : 'User has no wardrobe uploaded yet.';
+              
+              systemPrompt = `Generate 6-8 VERY SHORT (1-4 words) USER responses to answer the assistant's question.
+
+CRITICAL RULES:
+- These are USER answers/replies (NOT assistant questions)
+- No punctuation, no question marks
+- Be highly specific and intelligent
+- Consider: ${contextInfo}
+- Gender: ${userContext.gender}, Body: ${userContext.bodyShape}
+
+Question type: ${questionType}`;
+
+              userPrompt = `Assistant asked: "${questionText}"
+
+Generate 6-8 intelligent, specific USER answers (1-4 words each):`;
+
+              // Add type-specific guidance
+              if (questionType === 'occasion') {
+                systemPrompt += '\nExamples: "wedding guest", "business meeting", "beach party", "date night", "job interview"';
+              } else if (questionType === 'style') {
+                systemPrompt += '\nExamples based on wardrobe: "minimalist chic", "smart casual", "streetwear", "elegant classic"';
+                if (userContext.gender === 'female') {
+                  systemPrompt += ', "bohemian", "preppy"';
+                }
+              } else if (questionType === 'color') {
+                const wardrobeColors = userContext.wardrobeColors.slice(0, 5).join(', ');
+                systemPrompt += `\nSuggest from user's wardrobe colors: ${wardrobeColors || 'neutrals, earth tones'}`;
+              } else if (questionType === 'weather') {
+                systemPrompt += '\nExamples: "hot and sunny", "cold and rainy", "mild", "humid", "windy"';
+              }
+            } else {
+              // No question - suggest relevant follow-ups
+              const lastUserMsg = [...lastMessages].reverse().find((m: any) => m.role === 'user');
+              const userMsgLower = (lastUserMsg?.content || '').toLowerCase();
+              
+              systemPrompt = `Generate 6-8 SHORT (1-4 words) USER follow-up messages.
+
+Context: ${userContext.hasWardrobe ? `User has ${userContext.wardrobeCount} items in wardrobe` : 'No wardrobe yet'}
+Gender: ${userContext.gender}
+
+Rules:
+- Natural next things USER might say
+- No punctuation, no question marks
+- Intelligent and helpful
 - Fashion context when relevant`;
 
-            const userPrompt = askedQuestion
-              ? `Assistant question: "${questionText}"
-Provide 6-8 concise USER answers (1-4 words each).
-Prior context:\n${conversationContext}`
-              : `Conversation context:\n${conversationContext}\nGenerate 6-8 concise USER follow-ups (1-4 words each).`;
+              userPrompt = `Recent conversation:\n${conversationContext}\n\nGenerate 6-8 smart USER follow-ups (1-4 words):`;
+            }
 
-            console.log('Chat: calling Gemini for suggestions', { messagesCount: lastMessages.length, askedQuestion, questionText });
+            console.log('Chat: calling Gemini for suggestions', { 
+              questionType, 
+              hasWardrobe: userContext.hasWardrobe,
+              wardrobeCount: userContext.wardrobeCount
+            });
             const suggestionsResponse = await callGeminiAPI({
               model: 'google/gemini-2.5-flash',
               messages: [
@@ -1050,7 +1129,7 @@ Prior context:\n${conversationContext}`
             // Heuristic fallbacks when the model doesn't return good answers
             if (suggestions.length === 0) {
               const kw = (questionText || '').toLowerCase();
-              if (askedQuestion) {
+              if (questionType !== 'none') {
                 if (/(occasion|event|dress|what's the occasion|what is the occasion)/.test(kw)) {
                   suggestions = ['party', 'date night', 'business meeting', 'casual', 'wedding', 'travel'];
                 } else if (/(style|aesthetic|vibe)/.test(kw)) {
@@ -1069,7 +1148,7 @@ Prior context:\n${conversationContext}`
             }
 
             suggestions = suggestions.slice(0, 8);
-            console.log('Chat: suggestions meta', { askedQuestion, questionText, count: suggestions.length, suggestions });
+            console.log('Chat: suggestions meta', { questionType, questionText, count: suggestions.length, suggestions });
 
             if (suggestions.length > 0) {
               console.log('Chat: sending suggestions to client', { count: suggestions.length, suggestions });
