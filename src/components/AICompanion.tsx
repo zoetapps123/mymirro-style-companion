@@ -73,7 +73,6 @@ const AICompanion = () => {
   const [chatError, setChatError] = useState<string | null>(null);
   const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -529,6 +528,13 @@ const AICompanion = () => {
             if (jsonStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(jsonStr);
+              
+              // Check for custom suggestion event
+              if (parsed.type === 'suggestions' && parsed.suggestions) {
+                setSuggestions(parsed.suggestions);
+                continue;
+              }
+              
               const delta = parsed.choices?.[0]?.delta;
               const messageObj = parsed.choices?.[0]?.message;
               const content = delta?.content ?? messageObj?.content;
@@ -617,6 +623,13 @@ const AICompanion = () => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
+                
+                // Check for custom suggestion event
+                if (parsed.type === 'suggestions' && parsed.suggestions) {
+                  setSuggestions(parsed.suggestions);
+                  continue;
+                }
+                
                 const delta = parsed.choices?.[0]?.delta;
                 const messageObj = parsed.choices?.[0]?.message;
                 const content = delta?.content ?? messageObj?.content;
@@ -719,9 +732,6 @@ const AICompanion = () => {
 
       trackCustom("reply_delivered");
       
-      // Generate suggestions after response is complete
-      generateSuggestions();
-      
       // Cleanup controller/timeout
       if (timeoutId) clearTimeout(timeoutId);
       abortControllerRef.current = null;
@@ -763,35 +773,6 @@ const AICompanion = () => {
       // Cleanup on error
       try { if (timeoutId) clearTimeout(timeoutId); } catch {}
       abortControllerRef.current = null;
-    }
-  };
-
-  const generateSuggestions = async () => {
-    if (messages.length < 2) return; // Need at least user + assistant message
-    
-    setLoadingSuggestions(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-suggestions', {
-        body: { 
-          messages: messages.slice(-6).map(m => ({ 
-            role: m.role, 
-            content: m.content 
-          }))
-        }
-      });
-
-      if (error) {
-        console.error('Failed to generate suggestions:', error);
-        return;
-      }
-
-      if (data?.suggestions && Array.isArray(data.suggestions)) {
-        setSuggestions(data.suggestions);
-      }
-    } catch (error) {
-      console.error('Error generating suggestions:', error);
-    } finally {
-      setLoadingSuggestions(false);
     }
   };
 

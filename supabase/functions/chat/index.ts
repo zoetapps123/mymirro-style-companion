@@ -976,6 +976,70 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
             }
           }
 
+          // Generate contextual suggestions before closing stream
+          try {
+            const lastMessages = messages.slice(-6);
+            const conversationContext = lastMessages
+              .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+              .join('\n');
+
+            const suggestionsResponse = await callGeminiAPI({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                { 
+                  role: 'system', 
+                  content: `You are a helpful fashion AI assistant. Based on the conversation context, generate 6-8 short, natural follow-up suggestions that the user might want to say next. 
+
+These suggestions should:
+- Be very short (2-5 words max)
+- Feel natural and conversational
+- Be relevant to what was just discussed
+- Help move the conversation forward
+- Be specific to fashion/style context when applicable
+
+Examples:
+- If discussing style: "minimalistic", "streetwear", "classic and chic", "formal"
+- If about occasions: "for a wedding", "date night", "office wear"
+- If about colors: "earth tones", "bold colors", "monochrome"
+- If asking questions: "show me examples", "tell me more", "something else"
+
+Respond with ONLY a JSON array of strings: ["suggestion 1", "suggestion 2", ...]` 
+                },
+                { role: 'user', content: `Based on this conversation, generate 6-8 short follow-up suggestions:\n\n${conversationContext}` }
+              ],
+              temperature: 0.8,
+              max_tokens: 200,
+            });
+
+            let suggestions: string[] = [];
+            try {
+              const content = suggestionsResponse.choices[0]?.message?.content || '';
+              const jsonMatch = content.match(/\[[\s\S]*\]/);
+              if (jsonMatch) {
+                suggestions = JSON.parse(jsonMatch[0]);
+              } else {
+                suggestions = JSON.parse(content);
+              }
+              
+              suggestions = suggestions
+                .filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+                .slice(0, 8);
+            } catch (parseError) {
+              console.error('Failed to parse suggestions:', parseError);
+              suggestions = ["tell me more", "show examples", "something else", "sounds good"];
+            }
+
+            if (suggestions.length > 0) {
+              const suggestionsEvent = {
+                type: 'suggestions',
+                suggestions: suggestions
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(suggestionsEvent)}\n\n`));
+            }
+          } catch (error) {
+            console.error('Failed to generate suggestions:', error);
+          }
+
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
           controller.close();
         } catch (error) {
