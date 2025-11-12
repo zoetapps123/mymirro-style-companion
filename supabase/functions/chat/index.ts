@@ -561,6 +561,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
+          let assistantResponseBuffer = ''; // CAPTURE streaming text for pill detection
           const streamStartTime = Date.now();
           let chunkCount = 0;
           let lineCount = 0;
@@ -657,6 +658,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                     // Check for text content
                     const textPart = parts.find((p: any) => p.text);
                     if (textPart) {
+                      assistantResponseBuffer += textPart.text; // CAPTURE text for pills
                       textChunkCount++;
                       console.log('Chat: [FINAL-STREAM] Text content found', {
                         textChunk: textChunkCount,
@@ -716,6 +718,145 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               }
             }
 
+            // Generate contextual suggestions before closing stream
+            console.log('Chat: [FINAL-STREAM] generating suggestions...');
+            try {
+              const lastMessages = messages.slice(-6);
+
+              // Extract user context for intelligent suggestions
+              const userContext = {
+                gender: userProfile?.gender || 'unspecified',
+                bodyShape: bodyShape || 'unspecified',
+                skinTone: skinTone || 'unspecified',
+                wardrobeCategories: [...new Set((wardrobeItems || []).map((i: any) => i.category).filter(Boolean))].slice(0, 10),
+                wardrobeColors: [...new Set((wardrobeItems || []).flatMap((i: any) => [i.primary_color, i.color].filter(Boolean)))].slice(0, 10),
+                wardrobeCount: (wardrobeItems || []).length,
+                hasWardrobe: (wardrobeItems || []).length > 0
+              };
+
+              // Extract the exact question from the just-streamed assistant response
+              let questionText = '';
+              let hasQuestion = false;
+              
+              if (assistantResponseBuffer) {
+                const contentStr = assistantResponseBuffer.toLowerCase();
+                
+                // Normalize unicode punctuation
+                const normalized = contentStr.replace(/['']/g, "'").replace(/[""]/g, '"');
+                
+                // Extract questions (sentences ending with ?)
+                const questions = normalized.split(/[.!।\n]/).filter(s => s.includes('?'));
+                if (questions.length > 0) {
+                  // Get the last question
+                  questionText = questions[questions.length - 1].trim();
+                  hasQuestion = true;
+                  
+                  console.log('Chat: [FINAL-STREAM] detected question from stream', { 
+                    questionText,
+                    bufferPreview: assistantResponseBuffer.slice(-100)
+                  });
+                }
+              }
+
+              let suggestions: string[] = [];
+              
+              // Check for pattern-specific suggestions
+              if (hasQuestion && questionText) {
+                const lowerQuestion = questionText.toLowerCase();
+                
+                // Occasion questions - expanded patterns
+                if (
+                  lowerQuestion.includes("occasion") || 
+                  lowerQuestion.includes("where") || 
+                  lowerQuestion.includes("event") ||
+                  lowerQuestion.includes("going") ||
+                  lowerQuestion.includes("wearing this") ||
+                  /what('s| is) (this|it) for/i.test(questionText)
+                ) {
+                  suggestions = ['Date', 'College', 'Work', 'Party', 'Wedding', 'Chill day', 'Formal event', 'Casual hangout'];
+                }
+                // Vibe/style questions
+                else if (
+                  lowerQuestion.includes("vibe") || 
+                  lowerQuestion.includes("style") || 
+                  lowerQuestion.includes("feel") ||
+                  lowerQuestion.includes("mood") ||
+                  lowerQuestion.includes("looking for")
+                ) {
+                  suggestions = ['Comfy', 'Trendy', 'Minimal', 'Extra', 'Chill', 'Sporty', 'Elegant', 'Edgy'];
+                }
+                // Yes/no confirmation questions
+                else if (
+                  lowerQuestion.includes("want me to") ||
+                  lowerQuestion.includes("should i") ||
+                  lowerQuestion.includes("tweak") || 
+                  lowerQuestion.includes("change") || 
+                  lowerQuestion.includes("adjust")
+                ) {
+                  suggestions = ['Yes pls', 'Nah I\'m good', 'Show options', 'What would you change'];
+                }
+                // Upload prompts
+                else if (
+                  lowerQuestion.includes("upload") || 
+                  lowerQuestion.includes("add") || 
+                  lowerQuestion.includes("photos") ||
+                  lowerQuestion.includes("drop") ||
+                  lowerQuestion.includes("send")
+                ) {
+                  suggestions = ['On it 💪', 'Later 😴', 'Need help', 'What should I upload'];
+                }
+                // Color preference
+                else if (lowerQuestion.includes("color") || lowerQuestion.includes("colour")) {
+                  suggestions = ['Black', 'White', 'Blue', 'Neutral tones', 'Bold colors', 'Anything works'];
+                }
+                // Budget/shopping
+                else if (lowerQuestion.includes("budget") || lowerQuestion.includes("price") || lowerQuestion.includes("spend")) {
+                  suggestions = ['Budget friendly', 'Mid range', 'Premium ok', 'No budget limit'];
+                }
+                // Time/urgency
+                else if (lowerQuestion.includes("when") || lowerQuestion.includes("how soon")) {
+                  suggestions = ['Today', 'This week', 'Next week', 'Just browsing', 'ASAP'];
+                }
+              }
+
+              // Fallback if no pattern-matched suggestions
+              if (suggestions.length === 0) {
+                if (hasQuestion) {
+                  suggestions = ['Yes', 'No', 'Maybe', 'Tell me more'];
+                } else {
+                  suggestions = ['Got it', 'Show me', 'What else', 'Sounds good'];
+                }
+              }
+
+              // Normalize suggestions
+              suggestions = (suggestions || [])
+                .map((s: any) => typeof s === 'string' ? s : '')
+                .map((s: string) => s.replace(/["']/g, '').trim())
+                .map((s: string) => s.replace(/[.!?]$/, ''))
+                .filter((s: string) => s && s.length > 0)
+                .filter((s: string) => s.split(/\s+/).length <= 6)
+                .slice(0, 8);
+
+              console.log('Chat: [FINAL-STREAM] suggestions generated', { 
+                hasQuestion, 
+                questionText, 
+                assistantBufferPreview: assistantResponseBuffer?.slice(-100),
+                count: suggestions.length, 
+                suggestions 
+              });
+
+              if (suggestions.length > 0) {
+                console.log('Chat: [FINAL-STREAM] sending suggestions to client', { count: suggestions.length, suggestions });
+                const suggestionsEvent = {
+                  type: 'suggestions',
+                  suggestions: suggestions
+                };
+                controller.enqueue(encoder.encode(`event: suggestions\ndata: ${JSON.stringify(suggestionsEvent)}\n\n`));
+              }
+            } catch (error) {
+              console.error('Chat: [FINAL-STREAM] Failed to generate suggestions:', error);
+            }
+
             console.log('Chat: [FINAL-STREAM] Sending [DONE] signal');
             controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
             console.log('Chat: [FINAL-STREAM] Closing stream controller');
@@ -763,6 +904,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        let assistantResponseBuffer = ''; // CAPTURE streaming text for pill detection
         try {
           console.log('Chat: starting Gemini stream');
           const reader = geminiResponse.body?.getReader();
@@ -798,6 +940,7 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                   // Check for text content
                   const textPart = parts.find((p: any) => p.text);
                   if (textPart) {
+                    assistantResponseBuffer += textPart.text; // CAPTURE text for pills
                     const openaiChunk = {
                       choices: [{
                         delta: {
@@ -996,20 +1139,27 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
               hasWardrobe: (wardrobeItems || []).length > 0
             };
 
-            // Extract the exact question from the assistant's message
-            const lastAssistant = [...lastMessages].reverse().find((m: any) => m.role === 'assistant');
+            // Extract the exact question from the just-streamed assistant response
             let questionText = '';
             let hasQuestion = false;
             
-            if (lastAssistant?.content) {
-              const contentStr = String(lastAssistant.content).toLowerCase();
+            if (assistantResponseBuffer) {
+              const contentStr = assistantResponseBuffer.toLowerCase();
+              
+              // Normalize unicode punctuation
+              const normalized = contentStr.replace(/['']/g, "'").replace(/[""]/g, '"');
               
               // Extract questions (sentences ending with ?)
-              const questions = contentStr.split(/[.!]/).filter(s => s.includes('?'));
+              const questions = normalized.split(/[.!।\n]/).filter(s => s.includes('?'));
               if (questions.length > 0) {
                 // Get the last question
                 questionText = questions[questions.length - 1].trim();
                 hasQuestion = true;
+                
+                console.log('Chat: detected question from stream', { 
+                  questionText,
+                  bufferPreview: assistantResponseBuffer.slice(-100)
+                });
               }
             }
 
@@ -1019,29 +1169,58 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
             if (hasQuestion && questionText) {
               const lowerQuestion = questionText.toLowerCase();
               
-              // Occasion questions
-              if (lowerQuestion.includes("occasion") || lowerQuestion.includes("where") || lowerQuestion.includes("event")) {
+              // Occasion questions - expanded patterns
+              if (
+                lowerQuestion.includes("occasion") || 
+                lowerQuestion.includes("where") || 
+                lowerQuestion.includes("event") ||
+                lowerQuestion.includes("going") ||
+                lowerQuestion.includes("wearing this") ||
+                /what('s| is) (this|it) for/i.test(questionText)
+              ) {
                 suggestions = ['Date', 'College', 'Work', 'Party', 'Wedding', 'Chill day', 'Formal event', 'Casual hangout'];
               }
               // Vibe/style questions
-              else if (lowerQuestion.includes("vibe") || lowerQuestion.includes("style") || lowerQuestion.includes("feel")) {
-                suggestions = ['Comfy', 'Trendy', 'Minimal', 'Extra', 'Chill', 'Sporty', 'Elegant'];
+              else if (
+                lowerQuestion.includes("vibe") || 
+                lowerQuestion.includes("style") || 
+                lowerQuestion.includes("feel") ||
+                lowerQuestion.includes("mood") ||
+                lowerQuestion.includes("looking for")
+              ) {
+                suggestions = ['Comfy', 'Trendy', 'Minimal', 'Extra', 'Chill', 'Sporty', 'Elegant', 'Edgy'];
               }
-              // Yes/no tweaking questions
-              else if (lowerQuestion.includes("tweak") || lowerQuestion.includes("change") || lowerQuestion.includes("adjust")) {
+              // Yes/no confirmation questions
+              else if (
+                lowerQuestion.includes("want me to") ||
+                lowerQuestion.includes("should i") ||
+                lowerQuestion.includes("tweak") || 
+                lowerQuestion.includes("change") || 
+                lowerQuestion.includes("adjust")
+              ) {
                 suggestions = ['Yes pls', 'Nah I\'m good', 'Show options', 'What would you change'];
               }
-              // Upload/action questions
-              else if (lowerQuestion.includes("upload") || lowerQuestion.includes("add") || lowerQuestion.includes("photos")) {
+              // Upload prompts
+              else if (
+                lowerQuestion.includes("upload") || 
+                lowerQuestion.includes("add") || 
+                lowerQuestion.includes("photos") ||
+                lowerQuestion.includes("drop") ||
+                lowerQuestion.includes("send")
+              ) {
                 suggestions = ['On it 💪', 'Later 😴', 'Need help', 'What should I upload'];
               }
-              // Color preference questions
-              else if (lowerQuestion.includes("color") || lowerQuestion.includes("colours")) {
+              // Color preference
+              else if (lowerQuestion.includes("color") || lowerQuestion.includes("colour")) {
                 suggestions = ['Black', 'White', 'Blue', 'Neutral tones', 'Bold colors', 'Anything works'];
               }
-              // Budget/shopping questions
+              // Budget/shopping
               else if (lowerQuestion.includes("budget") || lowerQuestion.includes("price") || lowerQuestion.includes("spend")) {
                 suggestions = ['Budget friendly', 'Mid range', 'Premium ok', 'No budget limit'];
+              }
+              // Time/urgency
+              else if (lowerQuestion.includes("when") || lowerQuestion.includes("how soon")) {
+                suggestions = ['Today', 'This week', 'Next week', 'Just browsing', 'ASAP'];
               }
             }
 
@@ -1126,15 +1305,21 @@ RULES:
             // Fallback if no suggestions generated
             if (suggestions.length === 0) {
               if (hasQuestion) {
-                // Generic answers if we can't parse the specific question
-                suggestions = ['yes', 'no', 'maybe', 'not sure', 'tell me more', 'show examples'];
+                // Generic confirmations
+                suggestions = ['Yes', 'No', 'Maybe', 'Tell me more'];
               } else {
-                // Generic follow-ups
-                suggestions = ['show options', 'tell me more', 'something else', 'sounds good', 'what about', 'any ideas'];
+                // Safe generic follow-ups
+                suggestions = ['Got it', 'Show me', 'What else', 'Sounds good'];
               }
             }
 
-            console.log('Chat: suggestions generated', { hasQuestion, questionText, count: suggestions.length, suggestions });
+            console.log('Chat: suggestions generated', { 
+              hasQuestion, 
+              questionText, 
+              assistantBufferPreview: assistantResponseBuffer?.slice(-100),
+              count: suggestions.length, 
+              suggestions 
+            });
 
             if (suggestions.length > 0) {
               console.log('Chat: sending suggestions to client', { count: suggestions.length, suggestions });
