@@ -97,6 +97,7 @@ serve(async (req) => {
                 items: {
                   type: 'object',
                   properties: {
+                    outfitId: { type: 'string' },
                     pieces: {
                       type: 'array',
                       items: {
@@ -110,12 +111,35 @@ serve(async (req) => {
                       }
                     },
                     reasoning: { type: 'string' },
-                    styleTag: { type: 'string' }
+                    styleTag: { type: 'string' },
+                    confidence: { type: 'number' },
+                    estimated_formality: { type: 'string' },
+                    warnings: { 
+                      type: 'array',
+                      items: { type: 'string' }
+                    }
                   },
                   required: ['pieces', 'reasoning', 'styleTag']
                 }
               },
-              totalGenerated: { type: 'number' }
+              totalGenerated: { type: 'number' },
+              missingCategories: {
+                type: 'array',
+                items: { type: 'string' }
+              },
+              requiresExternal: { type: 'boolean' },
+              suggestedExternal: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    category: { type: 'string' },
+                    reason: { type: 'string' },
+                    priority: { type: 'string' }
+                  }
+                }
+              },
+              notes: { type: 'string' }
             },
             required: ['outfits', 'totalGenerated']
           }
@@ -232,6 +256,17 @@ serve(async (req) => {
 
     console.log(`Generated ${result.totalGenerated ?? (result.outfits?.length ?? 0)} outfits`);
 
+    // Log additional metadata from new prompt
+    if (result.missingCategories && result.missingCategories.length > 0) {
+      console.log('Missing categories:', result.missingCategories);
+    }
+    if (result.requiresExternal) {
+      console.log('Requires external items:', result.suggestedExternal);
+    }
+    if (result.notes) {
+      console.log('Notes:', result.notes);
+    }
+
     if (!result?.outfits || !Array.isArray(result.outfits) || result.outfits.length === 0) {
       console.warn('⚠️ AI returned no outfits - attempting deterministic fallback');
 
@@ -299,7 +334,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Map outfit items (no image generation)
+    // Step 2: Map outfit items and preserve new metadata
     const outfitsWithItems = result.outfits.map((outfit: any) => {
       const outfitItems = outfit.pieces.map((piece: any) => 
         wardrobeItems.find((item: any) => item.id === piece.wardrobeItemId)
@@ -311,18 +346,40 @@ serve(async (req) => {
         reasoning: outfit.reasoning,
         items: outfitItems,
         occasion: occasion,
-        style_tag: outfit.styleTag
+        style_tag: outfit.styleTag,
+        // New fields from prompt 2
+        ...(outfit.outfitId && { outfitId: outfit.outfitId }),
+        ...(outfit.confidence !== undefined && { confidence: outfit.confidence }),
+        ...(outfit.estimated_formality && { estimated_formality: outfit.estimated_formality }),
+        ...(outfit.warnings && { warnings: outfit.warnings })
       };
     });
+
+    // Build response with new metadata
+    const response: any = {
+      success: true,
+      outfits: outfitsWithItems
+    };
+
+    // Add new prompt 2 fields if present
+    if (result.missingCategories && result.missingCategories.length > 0) {
+      response.missingCategories = result.missingCategories;
+    }
+    if (result.requiresExternal !== undefined) {
+      response.requiresExternal = result.requiresExternal;
+    }
+    if (result.suggestedExternal && result.suggestedExternal.length > 0) {
+      response.suggestedExternal = result.suggestedExternal;
+    }
+    if (result.notes) {
+      response.notes = result.notes;
+    }
 
     // Cache the result
     await setCachedResult(cacheKey, outfitsWithItems);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        outfits: outfitsWithItems
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
