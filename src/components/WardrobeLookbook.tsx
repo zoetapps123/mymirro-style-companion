@@ -167,41 +167,38 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
       </div>
 
       {/* Filters */}
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-primary">Filter by:</span>
+      {Object.keys(groupedOutfits).length > 0 && (
+        <div className="p-4 border-b">
+          <div className="flex items-center gap-2 mb-3">
+            <Filter className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-primary">Filter by:</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {filters.map(filter => (
+              <Button
+                key={filter}
+                variant={selectedFilter === filter ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter(filter)}
+                className="rounded-full"
+              >
+                {filter}
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {filters.map(filter => (
-            <Button
-              key={filter}
-              variant={selectedFilter === filter ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFilter(filter)}
-              className="rounded-full"
-            >
-              {filter}
-            </Button>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 p-6 space-y-8">
         {Object.keys(groupedOutfits).length === 0 ? (
-          <div className="text-center py-12 space-y-4">
-            <Heart className="w-16 h-16 mx-auto text-muted-foreground" />
-            <div>
-              <h3 className="text-lg font-semibold mb-2">No saved outfits yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Start by generating outfits and saving your favorites!
-              </p>
-              <Button onClick={() => onNavigate('suggestion')}>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Get Suggestions
-              </Button>
-            </div>
+          <div className="flex flex-col items-center justify-center py-20 px-6">
+            <h3 className="text-2xl font-bold text-primary mb-3 text-center">
+              No saved fits yet
+            </h3>
+            <p className="text-sm text-muted-foreground text-center max-w-sm">
+              Save curated outfits and create lookbooks for trips, seasons or moods.
+            </p>
           </div>
         ) : (
           Object.entries(groupedOutfits).map(([group, groupOutfits]) => (

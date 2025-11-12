@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { LoadingTile } from "@/components/ui/loading-tile";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
+import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -264,6 +265,77 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     if (selectedCategory === "All") return true;
     return normalizeCategory(item.category) === selectedCategory;
   });
+
+  // Show empty state if no items
+  if (items.length === 0 && processingItems === 0) {
+    return (
+      <div className="flex flex-col h-full bg-background">
+        {/* Feature Icons */}
+        <div className="px-4 pt-6 pb-4">
+          <div className="grid grid-cols-4 gap-4">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              const isActive = feature.active;
+              return (
+                <button
+                  key={feature.title}
+                  onClick={() => onNavigate(feature.view)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                      isActive
+                        ? "bg-primary border-2 border-primary"
+                        : "bg-background border-2 border-border"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-7 h-7 ${
+                        isActive ? "text-primary-foreground" : "text-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
+                    {feature.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+          <img 
+            src={emptyWardrobeImg} 
+            alt="Empty wardrobe" 
+            className="w-64 h-64 mb-8 object-contain"
+          />
+          <h3 className="text-2xl font-bold text-primary mb-3 text-center">
+            Your closet looks a little lonely
+          </h3>
+          <p className="text-sm text-muted-foreground text-center mb-8 max-w-sm">
+            Upload your clothes to unlock outfit ideas, styling and personalised suggestions.
+          </p>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-8 py-3 bg-primary/10 text-primary rounded-full font-medium hover:bg-primary/20 transition-colors"
+          >
+            Add Item +
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background">

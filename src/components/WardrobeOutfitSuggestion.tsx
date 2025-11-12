@@ -67,6 +67,70 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
   ];
 
+  // Show empty state if less than 5 items
+  if (wardrobeItems.length < 5) {
+    return (
+      <div className="flex flex-col h-full bg-background">
+        {/* Feature Icons */}
+        <div className="px-4 pt-6 pb-4">
+          <div className="grid grid-cols-4 gap-4">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              const isActive = feature.active;
+              return (
+                <button
+                  key={feature.title}
+                  onClick={() => onNavigate(feature.view)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                      isActive
+                        ? "bg-primary border-2 border-primary"
+                        : "bg-background border-2 border-border"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-7 h-7 ${
+                        isActive ? "text-primary-foreground" : "text-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
+                    {feature.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+          <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-8">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-foreground">
+              <rect x="5" y="11" width="14" height="10" rx="2" ry="2" strokeWidth="2"/>
+              <path d="M12 11V7" strokeWidth="2"/>
+              <circle cx="12" cy="15" r="1" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-primary mb-3 text-center">
+            Still off-limits 👀
+          </h3>
+          <p className="text-sm text-muted-foreground text-center mb-8 max-w-sm">
+            Add at least 5 items in your wardrobe and unlock outfit ideas made from what you already own
+          </p>
+          <button
+            onClick={() => onNavigate('items')}
+            className="px-8 py-3 bg-primary/10 text-primary rounded-full font-medium hover:bg-primary/20 transition-colors"
+          >
+            Add Item +
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   useEffect(() => {
     const initializeData = async () => {
       await cleanupDuplicates();
