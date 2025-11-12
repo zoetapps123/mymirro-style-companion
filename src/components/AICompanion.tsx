@@ -531,6 +531,7 @@ const AICompanion = () => {
               
               // Check for custom suggestion event
               if (parsed.type === 'suggestions' && parsed.suggestions) {
+                console.log('AICompanion: received suggestions event', { count: parsed.suggestions.length, suggestions: parsed.suggestions });
                 setSuggestions(parsed.suggestions);
                 continue;
               }
@@ -626,6 +627,7 @@ const AICompanion = () => {
                 
                 // Check for custom suggestion event
                 if (parsed.type === 'suggestions' && parsed.suggestions) {
+                  console.log('AICompanion: received suggestions event', { count: parsed.suggestions.length, suggestions: parsed.suggestions });
                   setSuggestions(parsed.suggestions);
                   continue;
                 }

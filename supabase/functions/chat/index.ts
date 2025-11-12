@@ -977,12 +977,14 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
           }
 
           // Generate contextual suggestions before closing stream
+          console.log('Chat: generating suggestions...');
           try {
             const lastMessages = messages.slice(-6);
             const conversationContext = lastMessages
               .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
               .join('\n');
 
+            console.log('Chat: calling Gemini for suggestions', { messagesCount: lastMessages.length });
             const suggestionsResponse = await callGeminiAPI({
               model: 'google/gemini-2.5-flash',
               messages: [
@@ -1030,11 +1032,14 @@ Respond with ONLY a JSON array of strings: ["suggestion 1", "suggestion 2", ...]
             }
 
             if (suggestions.length > 0) {
+              console.log('Chat: sending suggestions to client', { count: suggestions.length, suggestions });
               const suggestionsEvent = {
                 type: 'suggestions',
                 suggestions: suggestions
               };
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(suggestionsEvent)}\n\n`));
+            } else {
+              console.log('Chat: no suggestions generated');
             }
           } catch (error) {
             console.error('Failed to generate suggestions:', error);
