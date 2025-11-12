@@ -8,6 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
+import { VibePredictionSheet } from "./VibePredictionSheet";
+import { OccasionVibeSelector } from "./OccasionVibeSelector";
+import AnalysisLoader from "./AnalysisLoader";
+import { motion } from "framer-motion";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
@@ -20,8 +24,13 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const navigate = useNavigate();
   const [showOccasionModal, setShowOccasionModal] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState<string>("");
+  const [selectedVibe, setSelectedVibe] = useState<string>("");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [predicting, setPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<any>(null);
+  const [showPredictionSheet, setShowPredictionSheet] = useState(false);
+  const [showOccasionSelector, setShowOccasionSelector] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [extracting, setExtracting] = useState(false);
@@ -88,16 +97,63 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     "Gym",
   ];
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
-        setShowOccasionModal(true);
+      reader.onloadend = async () => {
+        const imageData = reader.result as string;
+        setUploadedImage(imageData);
+        setPredicting(true);
+        
+        // Predict vibe with Gemini
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const { data, error } = await supabase.functions.invoke('predict-outfit-vibe', {
+            body: { imageData },
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+          });
+
+          if (error) throw error;
+          
+          setPrediction(data);
+          setSelectedOccasion(data.occasion);
+          setSelectedVibe(data.vibe);
+          setShowPredictionSheet(true);
+        } catch (error) {
+          console.error('Prediction error:', error);
+          toast({
+            title: "Couldn't predict vibe",
+            description: "No worries, let's choose manually",
+          });
+          setShowOccasionModal(true);
+        } finally {
+          setPredicting(false);
+        }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handlePredictionConfirm = () => {
+    setShowPredictionSheet(false);
+    startStyleCheck();
+  };
+
+  const handlePredictionEdit = () => {
+    setShowPredictionSheet(false);
+    setShowOccasionSelector(true);
+  };
+
+  const handleOccasionVibeApply = (occasion: string, vibe: string) => {
+    setSelectedOccasion(occasion);
+    setSelectedVibe(vibe);
+    setPrediction({
+      ...prediction,
+      occasion,
+      vibe,
+      comment: `Looks ${vibe.toLowerCase()}, perfect for ${occasion.toLowerCase()}!`
+    });
   };
 
   const startStyleCheck = async (occasionOverride?: string) => {
@@ -620,88 +676,167 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           setUploadedImage(null);
         }}
       />
+
+      <VibePredictionSheet
+        isOpen={showPredictionSheet}
+        prediction={prediction}
+        onConfirm={handlePredictionConfirm}
+        onEdit={handlePredictionEdit}
+        onClose={() => setShowPredictionSheet(false)}
+      />
+
+      <OccasionVibeSelector
+        isOpen={showOccasionSelector}
+        currentOccasion={selectedOccasion}
+        currentVibe={selectedVibe}
+        onApply={handleOccasionVibeApply}
+        onClose={() => setShowOccasionSelector(false)}
+      />
+
+      <AnalysisLoader
+        isVisible={scanning}
+        processingImage={uploadedImage || undefined}
+        occasion={`Analyzing fit for your ${selectedOccasion?.toLowerCase()} ${selectedVibe?.toLowerCase()} look 🌞`}
+        message="Nice pick 👕 Analyzing your fit..."
+      />
       
-      {scanning && uploadedImage && (
+      {predicting && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-4 sm:space-y-6">
-            <div className="relative">
-              <img src={uploadedImage} alt="Analyzing" className="w-full aspect-square object-cover rounded-2xl" />
-              <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                <div className="scanning-line"></div>
-              </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-card rounded-3xl p-8 max-w-md w-full space-y-6 text-center"
+          >
+            {uploadedImage && (
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="relative w-48 h-64 mx-auto"
+              >
+                <img
+                  src={uploadedImage}
+                  alt="Analyzing"
+                  className="w-full h-full object-cover rounded-2xl"
+                />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-primary/30 to-transparent" />
+              </motion.div>
+            )}
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-gradient-accent">
+                Detecting your outfit's vibe 👀
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                AI is analyzing your style...
+              </p>
             </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Scoring Your Fit</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">Analyzing color, fit, texture, and style...</p>
+            <div className="flex justify-center gap-2">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-primary"
+                  animate={{
+                    scale: [1, 1.5, 1],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 1,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                  }}
+                />
+              ))}
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
       
-      <div className="p-4 space-y-6">
-        {/* Title with History Button */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-primary">Style Check</h1>
-            <p className="text-muted-foreground mt-1 text-base">
-              Pro score and quick fixes for your look
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/history')}
-            className="gap-2 flex-shrink-0"
-          >
-            <HistoryIcon className="w-4 h-4" />
-            History
-          </Button>
-        </div>
-
-
-        {/* Upload Image */}
+      <div className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto w-full">
         {!result && (
-          <div>
-            <label htmlFor="outfit-upload">
-              <div className="bg-muted/30 rounded-2xl p-12 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-muted/50 transition-colors min-h-[280px]">
-                {uploadedImage ? (
-                  <img
-                    src={uploadedImage}
-                    alt="Uploaded outfit"
-                    className="max-h-64 rounded-lg object-contain"
-                  />
-                ) : (
-                  <>
-                    <Camera className="w-16 h-16 text-primary" strokeWidth={1.5} />
-                    <div className="text-center">
-                      <p className="font-semibold text-lg">Upload an Image</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Choose where you're heading above
-                      </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {/* Hero Section */}
+            <div className="text-center space-y-3">
+              <h1 className="text-4xl sm:text-5xl font-bold text-primary">
+                Style Check
+              </h1>
+              <p className="text-muted-foreground text-base sm:text-lg max-w-md mx-auto">
+                Upload your outfit, get AI-powered style insights in seconds ✨
+              </p>
+            </div>
+
+            {/* Upload Card */}
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <label htmlFor="outfit-upload">
+                <Card className="cursor-pointer border-2 border-dashed border-border/50 hover:border-primary/50 transition-all duration-300 overflow-hidden">
+                  {uploadedImage ? (
+                    <div className="relative aspect-[4/5] sm:aspect-video">
+                      <img
+                        src={uploadedImage}
+                        alt="Your outfit"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <p className="text-white font-semibold text-lg">
+                          Looking good! Let's check your style 👀
+                        </p>
+                      </div>
                     </div>
-                  </>
-                )}
-              </div>
-            </label>
-            <input
-              id="outfit-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-            
-            {/* Start Check Button - Right below image */}
-            {canStartCheck && (
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-4 p-12 sm:p-20 min-h-[320px]">
+                      <motion.div
+                        animate={{
+                          y: [0, -10, 0],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      >
+                        <Camera className="w-16 h-16 text-primary" strokeWidth={1.5} />
+                      </motion.div>
+                      <div className="text-center space-y-2">
+                        <p className="font-semibold text-xl text-foreground">
+                          Upload Your Outfit
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Drag & drop or tap to choose
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              </label>
+              <input
+                id="outfit-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+                disabled={predicting || scanning}
+              />
+            </motion.div>
+
+            {/* History Button */}
+            <div className="flex justify-center">
               <Button
-                className="w-full h-12 text-lg rounded-full mt-4"
-                onClick={() => startStyleCheck()}
-                disabled={loading}
+                variant="outline"
+                onClick={() => navigate('/history')}
+                className="gap-2"
               >
-                Start Style Check
+                <HistoryIcon className="w-4 h-4" />
+                View History
               </Button>
-            )}
-          </div>
+            </div>
+          </motion.div>
         )}
 
         {/* Results Display */}

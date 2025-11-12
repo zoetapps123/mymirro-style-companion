@@ -4,6 +4,8 @@ import { Sparkles } from "lucide-react";
 interface AnalysisLoaderProps {
   isVisible: boolean;
   processingImage?: string;
+  occasion?: string;
+  message?: string;
 }
 
 const useCases = [
@@ -14,7 +16,7 @@ const useCases = [
   "Shop smarter, not harder 🛍️",
 ];
 
-const AnalysisLoader = ({ isVisible, processingImage }: AnalysisLoaderProps) => {
+const AnalysisLoader = ({ isVisible, processingImage, occasion, message }: AnalysisLoaderProps) => {
   return (
     <AnimatePresence>
       {isVisible && (
@@ -84,8 +86,13 @@ const AnalysisLoader = ({ isVisible, processingImage }: AnalysisLoaderProps) => 
               className="text-center space-y-6"
             >
               <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Analyzing Your Style
+                {message || "Analyzing Your Style"}
               </h2>
+              {occasion && (
+                <p className="text-base text-muted-foreground">
+                  {occasion}
+                </p>
+              )}
               
               {/* Rotating use cases */}
               <div className="h-16 flex items-center justify-center">
