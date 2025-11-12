@@ -147,27 +147,11 @@ const Index = () => {
       <Onboarding
         onComplete={() => {
           setShowOnboarding(false);
-          setShowPhotos(true);
+          setActiveTab("home"); // Go directly to chat after onboarding
         }}
         onBack={() => {
           setShowOnboarding(false);
           setShowAuth(true);
-        }}
-      />
-    );
-  }
-
-  if (showPhotos) {
-    return (
-      <OnboardingPhotos
-        onComplete={() => {
-          safeLocalStorage.set("walkthroughComplete", "true");
-          setShowPhotos(false);
-          setActiveTab("home"); // Ensure user lands on Chat (AICompanion) after onboarding
-        }}
-        onBack={() => {
-          setShowPhotos(false);
-          setShowOnboarding(true);
         }}
       />
     );
