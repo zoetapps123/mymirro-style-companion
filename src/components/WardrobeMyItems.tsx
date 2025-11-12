@@ -21,8 +21,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: true },
-    { icon: Sparkles, title: "Outfit\nGenerator", view: 'suggestion' as const, active: false },
-    { icon: Calendar, title: "Daily\nCalendar", view: 'calendar' as const, active: false },
+    { icon: Sparkles, title: "Outfits", view: 'suggestion' as const, active: false },
+    { icon: Calendar, title: "Plan Your\nLook", view: 'calendar' as const, active: false },
     { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
   ];
 
@@ -239,30 +239,26 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     });
   };
 
-  // Predefined specific categories
-  const categories = [
-    "All",
-    "T-shirts",
-    "Shirts", 
-    "Tops",
-    "Jeans",
-    "Pants",
-    "Shorts",
-    "Blazers",
-    "Jackets",
-    "Coats",
-    "Dresses",
-    "Skirts",
-    "Shoes",
-    "Sneakers",
-    "Boots",
-    "Accessories"
-  ];
-
   const normalizeCategory = (category: string) => {
     if (!category) return '';
     return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
   };
+
+  // Generate categories dynamically from wardrobe items
+  const categories = (() => {
+    if (!items || items.length === 0) return [];
+    
+    const uniqueCategories = new Set<string>();
+    items.forEach(item => {
+      if (item.category) {
+        const normalized = normalizeCategory(item.category);
+        uniqueCategories.add(normalized);
+      }
+    });
+    
+    const sortedCategories = Array.from(uniqueCategories).sort();
+    return ["All", ...sortedCategories];
+  })();
 
   const filteredItems = items.filter(item => {
     if (selectedCategory === "All") return true;
@@ -316,26 +312,28 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       </div>
 
       {/* Category Filter */}
-      <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 min-w-max">
-          {categories.map((category) => (
-            <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                variant={selectedCategory === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-                className={`rounded-full min-h-[36px] transition-all duration-300 ${
-                  selectedCategory === category
-                    ? "bg-primary text-primary-foreground shadow-lg"
-                    : "bg-transparent border-border text-foreground hover:bg-muted"
-                }`}
-              >
-                {category}
-              </Button>
-            </motion.div>
-          ))}
+      {categories.length > 0 && (
+        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 min-w-max">
+            {categories.map((category) => (
+              <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant={selectedCategory === category ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`rounded-full min-h-[36px] transition-all duration-300 ${
+                    selectedCategory === category
+                      ? "bg-primary text-primary-foreground shadow-lg"
+                      : "bg-transparent border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {category}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Items Grid */}
       <div className="flex-1 overflow-y-auto px-4 pb-24">

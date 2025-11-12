@@ -15,7 +15,7 @@ const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
     },
     {
       icon: Sparkles,
-      title: "Outfit Suggestion",
+      title: "Outfits",
       subtitle: "",
       action: () => onNavigate('suggestion'),
       active: false,
