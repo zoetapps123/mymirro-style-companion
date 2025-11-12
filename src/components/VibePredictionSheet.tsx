@@ -7,6 +7,7 @@ interface VibePredictionSheetProps {
   isOpen: boolean;
   prediction: {
     occasion: string;
+    style: string;
     vibe: string;
     comment: string;
   } | null;
@@ -54,10 +55,13 @@ export const VibePredictionSheet = ({
                   </h3>
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="secondary" className="text-sm px-3 py-1">
-                      {prediction.occasion}
+                      💎 {prediction.occasion}
+                    </Badge>
+                    <Badge variant="secondary" className="text-sm px-3 py-1">
+                      🎨 {prediction.style}
                     </Badge>
                     <Badge variant="outline" className="text-sm px-3 py-1">
-                      {prediction.vibe}
+                      🌈 {prediction.vibe}
                     </Badge>
                   </div>
                 </div>
@@ -86,7 +90,7 @@ export const VibePredictionSheet = ({
                   className="flex-1 h-12 text-base"
                   size="lg"
                 >
-                  Change Occasion
+                  Change Details
                 </Button>
               </div>
             </div>

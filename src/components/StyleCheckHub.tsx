@@ -24,6 +24,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const navigate = useNavigate();
   const [showOccasionModal, setShowOccasionModal] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState<string>("");
+  const [selectedStyle, setSelectedStyle] = useState<string>("");
   const [selectedVibe, setSelectedVibe] = useState<string>("");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -118,6 +119,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           
           setPrediction(data);
           setSelectedOccasion(data.occasion);
+          setSelectedStyle(data.style);
           setSelectedVibe(data.vibe);
           setShowPredictionSheet(true);
         } catch (error) {
@@ -145,12 +147,14 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     setShowOccasionSelector(true);
   };
 
-  const handleOccasionVibeApply = (occasion: string, vibe: string) => {
+  const handleOccasionVibeApply = (occasion: string, style: string, vibe: string) => {
     setSelectedOccasion(occasion);
+    setSelectedStyle(style);
     setSelectedVibe(vibe);
     setPrediction({
       ...prediction,
       occasion,
+      style,
       vibe,
       comment: `Looks ${vibe.toLowerCase()}, perfect for ${occasion.toLowerCase()}!`
     });
@@ -183,7 +187,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const { data, error } = await supabase.functions.invoke('score-outfit', {
-        body: { imageData: uploadedImage, occasion: occasion },
+        body: { imageData: uploadedImage, occasion: occasion, style: selectedStyle, vibe: selectedVibe },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
@@ -688,6 +692,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
       <OccasionVibeSelector
         isOpen={showOccasionSelector}
         currentOccasion={selectedOccasion}
+        currentStyle={selectedStyle}
         currentVibe={selectedVibe}
         onApply={handleOccasionVibeApply}
         onClose={() => setShowOccasionSelector(false)}

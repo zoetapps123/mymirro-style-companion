@@ -7,8 +7,9 @@ import { useState } from "react";
 interface OccasionVibeSelectorProps {
   isOpen: boolean;
   currentOccasion: string;
+  currentStyle: string;
   currentVibe: string;
-  onApply: (occasion: string, vibe: string) => void;
+  onApply: (occasion: string, style: string, vibe: string) => void;
   onClose: () => void;
 }
 
@@ -23,20 +24,35 @@ const occasions = [
   { value: "Athleisure", icon: Dumbbell },
 ];
 
-const vibes = ["Chill", "Sharp", "Bold", "Elegant", "Playful", "Minimal"];
+const styles = [
+  "Minimalist",
+  "Streetwear",
+  "Smart Casual",
+  "Y2K",
+  "Vintage",
+  "Ethnic Fusion",
+  "Boho",
+  "Athletic Luxe",
+  "Grunge",
+  "Preppy",
+];
+
+const vibes = ["Chill", "Sharp", "Bold", "Elegant", "Playful", "Minimal", "Cozy", "Assertive", "Refined", "Youthful", "Romantic", "Relaxed", "Powerful"];
 
 export const OccasionVibeSelector = ({
   isOpen,
   currentOccasion,
+  currentStyle,
   currentVibe,
   onApply,
   onClose,
 }: OccasionVibeSelectorProps) => {
   const [selectedOccasion, setSelectedOccasion] = useState(currentOccasion);
+  const [selectedStyle, setSelectedStyle] = useState(currentStyle);
   const [selectedVibe, setSelectedVibe] = useState(currentVibe);
 
   const handleApply = () => {
-    onApply(selectedOccasion, selectedVibe);
+    onApply(selectedOccasion, selectedStyle, selectedVibe);
     onClose();
   };
 
@@ -79,7 +95,7 @@ export const OccasionVibeSelector = ({
               {/* Occasions */}
               <div className="space-y-3">
                 <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Occasion
+                  💎 Occasion
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {occasions.map(({ value, icon: Icon }) => (
@@ -96,10 +112,29 @@ export const OccasionVibeSelector = ({
                 </div>
               </div>
 
+              {/* Styles */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  🎨 Style
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {styles.map((style) => (
+                    <Badge
+                      key={style}
+                      variant={selectedStyle === style ? "default" : "outline"}
+                      className="cursor-pointer px-4 py-2 text-sm transition-all hover:scale-105"
+                      onClick={() => setSelectedStyle(style)}
+                    >
+                      {style}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
               {/* Vibes */}
               <div className="space-y-3">
                 <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Vibe
+                  🌈 Vibe
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {vibes.map((vibe) => (

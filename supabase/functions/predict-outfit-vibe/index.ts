@@ -48,19 +48,34 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: `Analyze this outfit image and predict:
-1. The most likely occasion (choose one: Work, Casual, Party, Date, Festive, Brunch, Street, Athleisure)
-2. The dominant vibe (choose one: Chill, Sharp, Bold, Elegant, Playful, Minimal)
-3. A brief, friendly comment about the outfit (under 15 words)
+                text: `Analyze this outfit image and predict 3 key dimensions:
+
+💎 1. OCCASION — "Where" (Context)
+Define where this outfit would be worn. Be dynamic and specific.
+Examples: Work meeting, Brunch, Date, Party, Gym, Street, Casual hangout, Wedding, Interview, Travel
+Judging: formality, polish, contrast level, comfort, cultural sensitivity
+
+🎨 2. STYLE — "Aesthetic Language" (Design System)
+Define the visual design language: silhouette + color palette + category.
+Examples: Minimalist, Streetwear, Smart Casual, Y2K, Vintage, Ethnic Fusion, Boho, Athletic Luxe, Grunge, Preppy
+Judging: silhouette harmony, fit proportion, consistency of theme, pattern/texture alignment
+
+🌈 3. VIBE — "Emotional Energy" (Feel)
+Define the emotional tone this look projects. Read the energy instantly.
+Examples: Chill/Cozy, Sharp/Assertive, Elegant/Refined, Playful/Youthful, Bold/Statement, Relaxed, Powerful, Romantic
+Judging: posture, layering, accessories, contrast, effort level
+
+4. A brief, friendly comment about the outfit (under 15 words)
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "occasion": "Casual",
+  "occasion": "Brunch",
+  "style": "Smart Casual",
   "vibe": "Chill",
-  "comment": "Looks comfy and laid-back — perfect for a relaxed day!"
+  "comment": "Effortlessly polished — perfect for a relaxed weekend vibe!"
 }
 
-Be confident in your prediction. Make it feel personal and friendly.`
+Be confident, dynamic, and nuanced. Don't stick to examples if the outfit suggests something else.`
               },
               {
                 type: "image_url",

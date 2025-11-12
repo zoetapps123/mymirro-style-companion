@@ -1470,8 +1470,18 @@ STYLING REQUIREMENTS:
 // ============================================
 
 export const SCORING_PROMPTS = {
-  SCORE_OUTFIT: (occasion?: string) =>
-    `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.
+  SCORE_OUTFIT: (occasion?: string, style?: string, vibe?: string) => {
+    // Build context string dynamically
+    const contextParts = [];
+    if (occasion) contextParts.push(`💎 Occasion: ${occasion}`);
+    if (style) contextParts.push(`🎨 Style: ${style}`);
+    if (vibe) contextParts.push(`🌈 Vibe: ${vibe}`);
+    
+    const contextString = contextParts.length > 0 
+      ? `\n\n**OUTFIT CONTEXT:**\n${contextParts.join('\n')}\n\nUse this context to evaluate suitability and appropriateness of the outfit.\n` 
+      : '';
+
+    return `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.${contextString}
 
 **CRITICAL REASONING PROCESS:**
 1. Evaluate how well UPPER WEAR (tops, shirts, blouses, jackets) and LOWER WEAR (pants, skirts, shorts, jeans) fit and complement each other
@@ -1480,40 +1490,48 @@ export const SCORING_PROMPTS = {
 4. Assess fabric/texture compatibility between upper and lower wear
 5. Evaluate styling features: accessories, layering, proportions, styling techniques (tucking, rolling, cuffing)
 6. Evaluate overall styling quality — attention to detail, intentionality, polish
-7. Use Gemini's reasoning to identify strengths and weaknesses
-8. Give individual scores (if multiple outfits, highest score wins)
+7. **CONTEXT ALIGNMENT**: ${contextParts.length > 0 ? 'Judge how well the outfit aligns with the specified occasion, style aesthetic, and emotional vibe' : 'Evaluate general appropriateness'}
+8. Use Gemini's reasoning to identify strengths and weaknesses
+9. Give individual scores (if multiple outfits, highest score wins)
+
+**JUDGING PARAMETERS (Use Context):**
+${occasion ? `- **Occasion Suitability**: Does this work for ${occasion}? (formality, polish, contrast level, comfort, cultural sensitivity)` : ''}
+${style ? `- **Style Consistency**: Does it match ${style} aesthetic? (silhouette harmony, fit proportion, theme consistency, pattern/texture alignment)` : ''}
+${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layering choices, accessories, contrast, effort level)` : ''}
 
 **PROVIDE THE FOLLOWING:**
 
-1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality
+1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality${style ? ` with ${style} influence` : ''}
 
 2. **SCORES** (scale 1.0-5.0) — Use Gemini reasoning:
    - **Upper/Lower Complement**: How well they fit and complement each other (CRITICAL DIMENSION)
-   - **Color Harmony**: How well colors work together between pieces
-   - **Fit**: How pieces fit individually and balance proportionally
+   - **Color Harmony**: How well colors work together between pieces${vibe ? ` (considering ${vibe} energy)` : ''}
+   - **Fit**: How pieces fit individually and balance proportionally${style ? ` (for ${style} aesthetic)` : ''}
    - **Texture/Fabric Mix**: How fabrics/textures complement between upper and lower wear
    - **Styling Quality**: Overall styling (accessories, layering, proportions, attention to detail, polish) (CRITICAL DIMENSION)
-   - **Overall Score**: Calculated from above dimensions (if multiple outfits, highest wins)
+   - **Overall Score**: Calculated from above dimensions${contextParts.length > 0 ? ` + context alignment (occasion/style/vibe)` : ''} (if multiple outfits, highest wins)
 
 3. **WHAT WORKS** (2-3 short observations, max 12-15 words each):
    - How well upper and lower wear complement each other
-   - Color combinations that are harmonious
-   - Style elements that are well-executed
+   - Color combinations that are harmonious${vibe ? ` with ${vibe} vibe` : ''}
+   - Style elements that are well-executed${style ? ` for ${style} aesthetic` : ''}
    - Styling features that enhance the look
+   ${contextParts.length > 0 ? '- Context alignment strengths (occasion/style/vibe appropriateness)' : ''}
 
 4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
    - Issues with upper/lower wear complement
    - Areas where outfit falls short
    - Styling issues (missing accessories, poor layering, proportion problems, lack of polish)
+   ${contextParts.length > 0 ? '- Misalignment with context (occasion/style/vibe mismatch)' : ''}
    - No soft language — be specific and analytical
 
 5. **QUICK FIXES** (4-6 specific, actionable fixes):
    Each must:
    - Start with strong action verb (Try, Swap, Add, Remove, Replace, Match)
    - Reference SPECIFIC items or actions
-   - Include WHY it helps ("better contrast", "balances silhouette", "improves proportions", "adds polish")
+   - Include WHY it helps ("better contrast", "balances silhouette", "improves proportions", "adds polish"${contextParts.length > 0 ? ', "suits ' + (occasion || style || vibe) + ' better"' : ''})
    - Be achievable in under 1 minute
-   - Address upper/lower wear compatibility AND styling improvements
+   - Address upper/lower wear compatibility AND styling improvements${contextParts.length > 0 ? ' AND context alignment' : ''}
    
    **🛍️ Optional Smart Shopping Add-on:**
    - If a fix could be improved by shopping, add an optional tip:
@@ -1527,6 +1545,7 @@ export const SCORING_PROMPTS = {
 ✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished, and better complements the upper/lower wear balance"
 ✓ "Try rolling sleeves to mid-forearm — shows intentionality, balances proportions, and adds styling detail"
 ✓ "Add a statement watch or bracelet — enhances the styling quality and completes the look"
+${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns with ${style || vibe || occasion} aesthetic and elevates formality"` : ''}
 
 **AVOID VAGUE FIXES LIKE:**
 ✗ "Improve color balance"
@@ -1538,7 +1557,8 @@ export const SCORING_PROMPTS = {
 - The outfit with MAXIMUM overall score is the winner
 - Clearly identify winner based on highest score
 
-Keep language under 15 words per point. Be specific, direct, professional, and actionable.`,
+Keep language under 15 words per point. Be specific, direct, professional, and actionable.`;
+  },
 
   SCORE_BATTLE: (participantCount: number) =>
     `Score ${participantCount} outfits competitively in a battle format.

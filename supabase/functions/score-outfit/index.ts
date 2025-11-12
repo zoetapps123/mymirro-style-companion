@@ -23,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, occasion } = await req.json();
+    const { imageData, occasion, style, vibe } = await req.json();
 
     // Validate input
     if (!imageData || typeof imageData !== 'string') {
@@ -50,7 +50,7 @@ serve(async (req) => {
     console.log('Scoring outfit...');
 
     // Check cache first
-    const cacheKey = await generateCacheKey({ type: 'outfit_score', imageData, occasion });
+    const cacheKey = await generateCacheKey({ type: 'outfit_score', imageData, occasion, style, vibe });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
       console.log('Returning cached outfit score');
@@ -70,7 +70,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: SCORING_PROMPTS.SCORE_OUTFIT(occasion)
+                text: SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe)
               },
               {
                 type: 'image_url',
