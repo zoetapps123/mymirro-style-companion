@@ -32,7 +32,7 @@ FIT SCORING BY STYLE:
 - Minimalist/Quiet Luxury: Tapered is 5.0, straight is 4.5, structured is 4.0 | oversized is 2.0
 - E-girl/E-boy/Alt: Oversized layers 5.0, cropped tops 4.5, baggy bottoms 4.5 | fitted is 3.0
 - Cottagecore/Academia: Relaxed fit 5.0, flowing silhouettes 4.5, vintage cuts 4.0 | athleisure is 2.0
-- Athleisure/Sporty: Fitted is 5.0, tapered joggers 5.0, performance fit 4.5 | boxy is 3.0
+- Athleisure/Sporty: Fitted is 5.0, tapered joggers 5.0, performance fit 4.5 | boxy is 4.0
 - Vintage/Retro: Era-appropriate cuts 5.0 (70s flare, 80s boxy, 90s baggy) | modern slim is 2.5
 - Hypebeast/Hype: Oversized is 5.0, branded fits 4.5, layered looks 4.0 | understated is 2.0
 - Gothic/Dark: Structured is 4.5, dramatic silhouettes 5.0, fitted black 4.5 | loose is 3.0
