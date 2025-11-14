@@ -42,7 +42,7 @@ serve(async (req) => {
     // Check cache first (unless bypassed)
     const itemIds = wardrobeItems?.map((i: any) => i.id).sort() || [];
     const cacheKey = await generateCacheKey({ 
-      type: 'outfit_generation', 
+      type: 'outfit_generation_v2',
       generationType, 
       occasion, 
       style, 

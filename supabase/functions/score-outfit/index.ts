@@ -116,7 +116,7 @@ serve(async (req) => {
     console.log('Scoring outfit with enhanced fashion analysis...');
 
     // Check cache first
-    const cacheKey = await generateCacheKey({ type: 'outfit_score_v4', imageData, occasion, style, vibe });
+    const cacheKey = await generateCacheKey({ type: 'outfit_score_v5', imageData, occasion, style, vibe });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
       console.log('Returning cached outfit score');

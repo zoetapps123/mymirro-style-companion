@@ -55,7 +55,7 @@ serve(async (req) => {
     console.log(`Scoring battle with ${participants.length} participants...`);
 
     // Generate cache key based on participant images
-    const cacheKey = await generateCacheKey({ participants: participants.map(p => ({ name: p.name, imageData: p.imageData })) });
+    const cacheKey = await generateCacheKey({ type: 'battle_v2', participants: participants.map(p => ({ name: p.name, imageData: p.imageData })) });
     
     // Check cache first
     const cachedResult = await getCachedResult<any>(cacheKey);

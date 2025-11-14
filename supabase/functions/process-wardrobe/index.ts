@@ -97,7 +97,7 @@ serve(async (req) => {
     console.log("Processing image with Gemini-only pipeline...");
 
     // Check cache
-    const cacheKey = await generateCacheKey({ type: "wardrobe_gemini_v4", imageUrl });
+    const cacheKey = await generateCacheKey({ type: "wardrobe_gemini_v5", imageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log("Returning cached result");

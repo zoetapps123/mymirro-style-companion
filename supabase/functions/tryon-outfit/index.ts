@@ -20,7 +20,7 @@ serve(async (req) => {
     console.log('Processing virtual try-on...');
 
     // Check cache first
-    const cacheKey = await generateCacheKey({ type: 'tryon', userImage, outfitItems });
+    const cacheKey = await generateCacheKey({ type: 'tryon_v2', userImage, outfitItems });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log('Returning cached try-on result');
