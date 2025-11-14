@@ -1209,49 +1209,101 @@ ${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns 
 Keep language under 15 words per point. Be specific, direct, professional, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string"],\n  "editorial": "string"\n}\n`
   },
 
-  SCORE_BATTLE: (participantCount: number) =>
-    `Score ${participantCount} outfits competitively in a battle format.
+  SCORE_BATTLE: (participantCount: number, hasMetadata: boolean = false) => {
+    const metadataSection = hasMetadata ? `
+**EXTRACTED METADATA PROVIDED:**
+For each participant, you have access to detailed fashion analysis including:
+- **Fit parameters**: silhouette, hemline, sleeves, shoulders, pant stacking
+- **Fabric details**: material, texture, finish, weight
+- **Color harmony**: contrast, complementary schemes
+- **Styling specifics**: tuck status, sleeve treatment, layering
+- **Aesthetics**: cultural aesthetic, price tier, polish level (1-5)
+- **Initial quality scores** from extraction (fit_score, color_score, styling_score, material_score)
+
+**USE THIS METADATA** to make highly specific, accurate scoring decisions.` : '';
+
+    return `Score ${participantCount} outfits competitively in a battle format.
+${metadataSection}
 
 **CRITICAL REASONING PROCESS:**
-1. Analyze each outfit's suitability for the occasion or how well it's styled
-2. Prioritize the person/image with better image quality
-3. If a person has only upper or lower wear, prioritize person with BOTH upper and lower wear
-4. Evaluate color coordination, style consistency, and overall fashion quality
-5. Compare each outfit against others to determine clear winner (compare bottom and upper wear too)
-6. How well the outfit color complements the person's skin tone and body type
-7. Base ALL responses (scores, ranks, roasts, verdict) on analysis, with winner's outfit being superior
+1. ${hasMetadata ? 'USE EXTRACTED METADATA as primary evidence for all scoring decisions' : 'Analyze each outfit\'s visual appearance'}
+2. Evaluate fit quality ${hasMetadata ? '(use extracted silhouette, hemline, shoulder structure)' : ''}
+3. Assess fabric & texture ${hasMetadata ? '(use extracted material, weight, finish)' : ''}
+4. Evaluate color harmony ${hasMetadata ? '(use extracted color contrast and schemes)' : ''}
+5. Assess styling execution ${hasMetadata ? '(use extracted tuck status, layering, sleeves)' : ''}
+6. Judge overall aesthetic ${hasMetadata ? '(use extracted cultural aesthetic, polish level)' : ''}
+7. Prioritize image quality and complete outfit presentation (upper + lower wear)
+8. Compare each outfit using ${hasMetadata ? 'objective metadata metrics' : 'visual analysis'}
+9. Base ALL responses on analysis, with winner demonstrating clear superiority
+
+**SCORING CRITERIA ${hasMetadata ? '(METADATA-DRIVEN)' : ''}:**
+
+1. **Fit Quality** ${hasMetadata ? '(use extracted attributes)' : ''}:
+   - Does the silhouette flatter the body type?
+   - Is the hemline appropriate and well-proportioned?
+   - Are shoulders structured correctly for the look?
+   ${hasMetadata ? '- Reference specific fit values from metadata' : ''}
+
+2. **Fabric & Texture** ${hasMetadata ? '(use extracted attributes)' : ''}:
+   - Is fabric choice appropriate for occasion?
+   - Does texture add visual interest?
+   - Is fabric weight/finish suitable?
+   ${hasMetadata ? '- Cite specific material and texture data' : ''}
+
+3. **Color Harmony** ${hasMetadata ? '(use extracted attributes)' : ''}:
+   - Does color harmony support the overall look?
+   - Is contrast level appropriate?
+   - Do colors complement skin tone?
+   ${hasMetadata ? '- Reference color harmony and contrast values' : ''}
+
+4. **Styling Execution** ${hasMetadata ? '(use extracted attributes)' : ''}:
+   - Are styling details intentional and polished?
+   - Is layering balanced and purposeful?
+   - Do sleeve/tuck treatments enhance the look?
+   ${hasMetadata ? '- Cite specific styling techniques from metadata' : ''}
+
+5. **Overall Aesthetic** ${hasMetadata ? '(use extracted attributes)' : ''}:
+   - Is the aesthetic cohesive?
+   - What's the polish level?
+   - Does it match the intended vibe?
+   ${hasMetadata ? '- Reference cultural aesthetic and polish level data' : ''}
 
 **FOR EACH PARTICIPANT, PROVIDE:**
 
-1. **PERSONA NAME** (2-3 words, competitive):
-   Examples: "Style Maverick", "Denim Destroyer", "Monochrome Master"
+1. **PERSONA NAME** (2-3 words, ${hasMetadata ? 'reference specific attributes' : 'competitive'}):
+   ${hasMetadata ? 'Examples: "Oversized Silhouette King", "Monochrome Minimalist", "Textured Layer Master"' : 'Examples: "Style Maverick", "Denim Destroyer", "Monochrome Master"'}
 
-2. **SCORE** (1.0-5.0):
+2. **SCORE** (1.0-5.0, ${hasMetadata ? 'based on metadata analysis' : 'based on visual analysis'}):
    - Use Gemini's reasoning
-   - Score based on occasion appropriateness
-   - Differentiate scores clearly — winner should score significantly higher
+   ${hasMetadata ? '- Factor in ALL extracted attributes (fit, fabric, color, styling, aesthetics)' : ''}
+   ${hasMetadata ? '- Weight fit, fabric, color, and styling equally' : ''}
+   - Differentiate scores meaningfully (winner 4.2+, others below 4.0)
    - Be honest but make winner stand out
 
 3. **RANK** (1 = best/winner, 2 = second, etc.):
-   - Rank based on occasion suitability and overall style quality
+   - Base on ${hasMetadata ? 'comprehensive metadata comparison' : 'visual comparison'}
    - Winner should rank #1 with clear reasoning
 
-4. **ROAST/BANTER**:
-   - Playful, competitive roasts
-   - Compare each outfit to winner's outfit
-   - Highlight why winner is superior
-   - Mention specific style elements
-   - Be cheeky but not mean-spirited
-   - **All roasts should acknowledge winner's dominance** — even when roasting winner, frame as playful acknowledgment
+4. **ROAST/BANTER** ${hasMetadata ? '(REFERENCE SPECIFIC EXTRACTED ATTRIBUTES)' : ''}:
+   ${hasMetadata ? '- Call out specific fit issues (e.g., "slouchy shoulders vs. structured")' : '- Playful, competitive roasts'}
+   ${hasMetadata ? '- Reference fabric choices (e.g., "cotton tee vs. silk blend")' : '- Compare each outfit to winner\'s outfit'}
+   ${hasMetadata ? '- Mention color harmony specifics (e.g., "jarring contrast vs. tonal balance")' : '- Highlight why winner is superior'}
+   ${hasMetadata ? '- Compare styling details (e.g., "untucked chaos vs. clean half-tuck")' : '- Mention specific style elements'}
+   ${hasMetadata ? '- Compare polish levels and aesthetics (e.g., "2/5 polish vs. 4/5 polish", "streetwear vs. kfashion")' : '- Be cheeky but not mean-spirited'}
+   - **MAKE ROASTS HIGHLY SPECIFIC** using ${hasMetadata ? 'metadata' : 'visual details'}
+   - All roasts should acknowledge winner's dominance
 
 5. **WINNER VERDICT**:
    - Celebratory sentence explaining why #1 dominated
-   - How it best suited according to the user's skintone and body type
-   - Specific style elements that made it unbeatable
+   ${hasMetadata ? '- **CITE SPECIFIC EXTRACTED ATTRIBUTES** that made winner superior' : '- Specific style elements that made it unbeatable'}
+   ${hasMetadata ? '- Example: "The clean silhouette, balanced color harmony, and intentional half-tuck styling created a polished 4.5/5 aesthetic"' : '- How it best suited according to the user\'s skintone and body type'}
 
-**Important**: All answers must lean towards and celebrate winner's outfit. Winner should be clearly best choice for the occasion. Use Gemini's analytical reasoning to justify why winning outfit is superior.
+**CRITICAL**: ${hasMetadata ? 'Use metadata to make scoring objective, specific, and defensible. Every score should be traceable to extracted attributes.' : 'Use visual analysis to make scoring clear and specific.'}
 
-**Output**: Return ONLY valid JSON format.`,
+**Important**: All answers must lean towards and celebrate winner's outfit. Winner should be clearly best choice. Use Gemini's analytical reasoning to justify why winning outfit is superior.
+
+**Output**: Return ONLY valid JSON format.`;
+  },
 };
 
 // ============================================
