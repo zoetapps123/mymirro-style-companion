@@ -365,7 +365,11 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                 setLoading(false);
                 
                 if (status === 429) {
-                  toast({ title: 'Rate limited', description: 'Too many requests. Try again in a minute.', variant: 'destructive' });
+                  toast({ 
+                    title: 'High demand', 
+                    description: 'Our AI is experiencing high traffic. Please wait a moment and try again.', 
+                    variant: 'destructive' 
+                  });
                 } else if (status === 402) {
                   toast({ title: 'Service unavailable', description: 'Please try again later.', variant: 'destructive' });
                 } else {
