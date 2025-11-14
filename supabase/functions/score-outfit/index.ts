@@ -7,7 +7,6 @@ import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/c
 import { EXTRACTION_PROMPT } from '../_shared/fashion/prompt/extractionPrompt.ts';
 import { EDITORIAL_PROMPT } from '../_shared/fashion/prompt/editorialPrompt.ts';
 import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
-import { computeScore } from '../_shared/fashion/scoring/computeScore.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -64,10 +63,18 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Extract visual metadata
+    // Step 1: Extract visual metadata and scores from AI
     let extractionData;
     try {
-      console.log('Step 1: Extracting visual metadata...');
+      console.log('Step 1: Extracting visual metadata and AI scores...');
+      const contextPrompt = `${EXTRACTION_PROMPT}
+
+${occasion ? `OCCASION: ${occasion}` : 'OCCASION: Casual'}
+${style ? `STYLE PREFERENCE: ${style}` : ''}
+${vibe ? `DESIRED VIBE: ${vibe}` : ''}
+
+Analyze this outfit and provide complete metadata + scores in JSON format.`;
+
       extractionData = await callGeminiAPI({
         model: 'google/gemini-2.5-flash',
         messages: [
@@ -76,7 +83,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: EXTRACTION_PROMPT
+                text: contextPrompt
               },
               {
                 type: 'image_url',
@@ -135,12 +142,35 @@ serve(async (req) => {
 
     const validatedMetadata = validationResult.data;
 
-    // Step 3: Compute deterministic scores
-    console.log('Step 3: Computing deterministic scores...');
-    const scoreResults = computeScore(validatedMetadata, occasion || "Casual");
+    // Step 2: Use AI-generated scores (no deterministic computation)
+    console.log('Step 2: Using AI-generated scores...');
+    const aiScores = validatedMetadata.scores;
+    const scoreResults = {
+      overall_score: Math.round(aiScores.overall.value * 4) / 4, // Round to nearest 0.25
+      components: {
+        fit: aiScores.fit.value,
+        color: aiScores.color.value,
+        styling: aiScores.styling.value,
+        material: aiScores.material.value,
+      },
+      confidence: Math.min(
+        aiScores.fit.confidence,
+        aiScores.color.confidence,
+        aiScores.styling.confidence,
+        aiScores.material.confidence
+      ),
+      missing_features: validatedMetadata.missing_features,
+      reasoning: {
+        fit: aiScores.fit.reason || '',
+        color: aiScores.color.reason || '',
+        styling: aiScores.styling.reason || '',
+        material: aiScores.material.reason || '',
+        overall: aiScores.overall.reason || '',
+      }
+    };
 
-    // Step 4: Generate editorial commentary
-    console.log('Step 4: Generating editorial...');
+    // Step 3: Generate editorial commentary
+    console.log('Step 3: Generating editorial...');
     let editorialData;
     try {
       editorialData = await callGeminiAPI({
