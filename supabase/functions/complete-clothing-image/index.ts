@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { IMAGE_PROMPTS } from '../_shared/prompts.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,44 +29,27 @@ serve(async (req) => {
     console.log('Completing clothing image:', { imageUrl, itemType, prompt: completionPrompt });
 
     // Use Gemini image generation for completing clothing items
-    let data;
-    try {
-      data = await callGeminiAPI({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: completionPrompt
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageUrl
-                }
+    const data = await retryWithBackoff(() => callGeminiAPI({
+      model: "google/gemini-2.5-flash-image-preview",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: completionPrompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageUrl
               }
-            ]
-          }
-        ],
-        modalities: ["image", "text"]
-      });
-    } catch (error: any) {
-      if (error.message === 'RATE_LIMIT') {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (error.message === 'PAYMENT_REQUIRED') {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw error;
-    }
+            }
+          ]
+        }
+      ],
+      modalities: ["image", "text"]
+    }));
     
     console.log('AI response received');
 

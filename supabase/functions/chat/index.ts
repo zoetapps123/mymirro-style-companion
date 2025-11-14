@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPIStreaming, callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
 import { SYSTEM_PROMPTS, SystemRole } from '../_shared/prompts.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -233,14 +234,14 @@ After they specify occasion, THEN call this tool immediately.`,
     });
 
     // Step 1: Call Gemini with tools to determine intent
-    const initialResponse = await callGeminiAPI({
+    const initialResponse = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
         { role: 'system', content: systemPrompt },
         ...processedMessages,
       ],
       tools
-    });
+    }));
 
     console.log('Chat: initial response received', {
       hasToolCalls: !!initialResponse.choices?.[0]?.message?.tool_calls,
@@ -1267,7 +1268,7 @@ RULES:
                   hasWardrobe: userContext.hasWardrobe
                 });
                 
-                const suggestionsResponse = await callGeminiAPI({
+                const suggestionsResponse = await retryWithBackoff(() => callGeminiAPI({
                   model: 'google/gemini-2.5-flash',
                   messages: [
                     { role: 'system', content: systemPrompt },
@@ -1275,7 +1276,7 @@ RULES:
                   ],
                   temperature: 0.7,
                   max_tokens: 200,
-                });
+                }));
 
                 try {
                   const content = suggestionsResponse.choices[0]?.message?.content || '';

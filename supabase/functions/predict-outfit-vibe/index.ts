@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { VIBE_PREDICTION_PROMPTS } from '../_shared/prompts.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +23,7 @@ serve(async (req) => {
       });
     }
 
-    const data = await callGeminiAPI({
+    const data = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
         {
@@ -43,7 +44,7 @@ serve(async (req) => {
       ],
       temperature: 0,
       max_tokens: 200
-    });
+    }));
 
     const content = data.choices?.[0]?.message?.content;
     

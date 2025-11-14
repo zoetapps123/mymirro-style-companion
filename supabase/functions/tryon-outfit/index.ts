@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { IMAGE_PROMPTS } from '../_shared/prompts.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,44 +34,36 @@ serve(async (req) => {
     // Validate user image quality first
     const validationPrompt = IMAGE_PROMPTS.VALIDATE_TRYON_IMAGE;
 
-    let validationData;
-    try {
-      validationData = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: validationPrompt },
-              { type: 'image_url', image_url: { url: userImage } }
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'validate_image',
-              description: 'Validate image suitability for try-on',
-              parameters: {
-                type: 'object',
-                properties: {
-                  suitable: { type: 'boolean' },
-                  reason: { type: 'string' }
-                },
-                required: ['suitable']
-              }
+    const validationData = await retryWithBackoff(() => callGeminiAPI({
+      model: 'google/gemini-2.5-flash-lite',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: validationPrompt },
+            { type: 'image_url', image_url: { url: userImage } }
+          ]
+        }
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'validate_image',
+            description: 'Validate image suitability for try-on',
+            parameters: {
+              type: 'object',
+              properties: {
+                suitable: { type: 'boolean' },
+                reason: { type: 'string' }
+              },
+              required: ['suitable']
             }
           }
-        ],
-        tool_choice: { type: 'function', function: { name: 'validate_image' } }
-      });
-    } catch (error: any) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to validate image' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+        }
+      ],
+      tool_choice: { type: 'function', function: { name: 'validate_image' } }
+    }));
     const validation = validationData.choices?.[0]?.message?.tool_calls?.[0];
     const isValid = validation ? JSON.parse(validation.function.arguments) : null;
 
@@ -90,24 +83,19 @@ serve(async (req) => {
     // Generate virtual try-on using Gemini image generation
     const tryonPrompt = IMAGE_PROMPTS.GENERATE_TRYON(outfitItems);
 
-    let tryonData;
-    try {
-      tryonData = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: tryonPrompt },
-              { type: 'image_url', image_url: { url: userImage } }
-            ]
-          }
-        ],
-        modalities: ['image', 'text']
-      });
-    } catch (error: any) {
-      throw new Error('Failed to generate try-on');
-    }
+    const tryonData = await retryWithBackoff(() => callGeminiAPI({
+      model: 'google/gemini-2.5-flash-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: tryonPrompt },
+            { type: 'image_url', image_url: { url: userImage } }
+          ]
+        }
+      ],
+      modalities: ['image', 'text']
+    }));
     
     console.log('Try-on generation complete');
 
