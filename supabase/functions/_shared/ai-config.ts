@@ -212,9 +212,11 @@ async function withRetry<T>(
         throw lastError;
       }
       
-      // Calculate delay with exponential backoff
-      const delayMs = Math.min(initialDelayMs * Math.pow(2, attempt), maxDelayMs);
-      console.log(`Rate limit hit, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+      // Calculate delay with exponential backoff and jitter
+      const baseDelay = Math.min(initialDelayMs * Math.pow(2, attempt), maxDelayMs);
+      const jitter = Math.random() * baseDelay * 0.3; // 0-30% jitter
+      const delayMs = baseDelay + jitter;
+      console.log(`Rate limit hit, retrying in ${Math.round(delayMs)}ms (attempt ${attempt + 1}/${maxRetries})`);
       await sleep(delayMs);
     }
   }
