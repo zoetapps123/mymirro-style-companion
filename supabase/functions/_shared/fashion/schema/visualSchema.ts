@@ -38,6 +38,13 @@ export const VisualSchema = z.object({
     brand_guess: field(z.string()),
     price_tier: field(z.enum(["fast_fashion", "mid_range", "premium", "luxury", "unknown"]))
   }),
+  scores: z.object({
+    fit: field(z.number().min(0).max(5)),
+    color: field(z.number().min(0).max(5)),
+    styling: field(z.number().min(0).max(5)),
+    material: field(z.number().min(0).max(5)),
+    overall: field(z.number().min(1).max(5))
+  }),
   missing_features: z.array(z.string())
 });
 
