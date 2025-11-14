@@ -1204,7 +1204,7 @@ ${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns 
 - The outfit with MAXIMUM overall score is the winner
 - Clearly identify winner based on highest score
 
-Keep language under 15 words per point. Be specific, direct, professional, and actionable.`;
+Keep language under 15 words per point. Be specific, direct, professional, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string"],\n  "editorial": "string"\n}\n`
   },
 
   SCORE_BATTLE: (participantCount: number) =>
