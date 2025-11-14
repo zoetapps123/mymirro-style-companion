@@ -4,6 +4,10 @@ import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
+import { EXTRACTION_PROMPT } from '../_shared/fashion/prompt/extractionPrompt.ts';
+import { EDITORIAL_PROMPT } from '../_shared/fashion/prompt/editorialPrompt.ts';
+import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
+import { computeScore } from '../_shared/fashion/scoring/computeScore.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,10 +51,10 @@ serve(async (req) => {
       );
     }
 
-    console.log('Scoring outfit...');
+    console.log('Scoring outfit with enhanced fashion analysis...');
 
     // Check cache first
-    const cacheKey = await generateCacheKey({ type: 'outfit_score', imageData, occasion, style, vibe });
+    const cacheKey = await generateCacheKey({ type: 'outfit_score_v2', imageData, occasion, style, vibe });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
       console.log('Returning cached outfit score');
@@ -60,9 +64,11 @@ serve(async (req) => {
       );
     }
 
-    let data;
+    // Step 1: Extract visual metadata
+    let extractionData;
     try {
-      data = await callGeminiAPI({
+      console.log('Step 1: Extracting visual metadata...');
+      extractionData = await callGeminiAPI({
         model: 'google/gemini-2.5-flash',
         messages: [
           {
@@ -70,7 +76,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe)
+                text: EXTRACTION_PROMPT
               },
               {
                 type: 'image_url',
@@ -79,49 +85,6 @@ serve(async (req) => {
             ]
           }
         ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'score_outfit',
-              description: 'Score an outfit across multiple fashion dimensions',
-              parameters: {
-                type: 'object',
-                properties: {
-                  outfit_name: { type: 'string', description: 'Creative 2-4 word outfit name' },
-                  color_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  fit_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  texture_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  occasion_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  overall_score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                  what_works: { 
-                    type: 'array', 
-                    items: { type: 'string' },
-                    description: '2-3 short observations (max 15 words each)',
-                    minItems: 2,
-                    maxItems: 3
-                  },
-                  what_didnt_work: { 
-                    type: 'array', 
-                    items: { type: 'string' },
-                    description: '2-3 short critiques (max 15 words each)',
-                    minItems: 2,
-                    maxItems: 3
-                  },
-                  quick_fix: { 
-                    type: 'array', 
-                    items: { type: 'string' },
-                    description: '4-6 quick under-60-second actions with specific verbs (max 15 words each)',
-                    minItems: 4,
-                    maxItems: 6
-                  }
-                },
-                required: ['outfit_name', 'color_score', 'fit_score', 'texture_score', 'occasion_score', 'overall_score', 'what_works', 'what_didnt_work', 'quick_fix']
-              }
-            }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'score_outfit' } },
         temperature: 0
       });
     } catch (error: any) {
@@ -139,30 +102,119 @@ serve(async (req) => {
       }
       throw error;
     }
-    console.log('Scoring response:', data);
 
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    let scores = null as any;
-    if (toolCall?.function?.arguments) {
-      try { scores = JSON.parse(toolCall.function.arguments); } catch (_) {}
+    // Parse extraction response
+    const extractionContent = extractionData.choices?.[0]?.message?.content;
+    if (!extractionContent) {
+      throw new Error('Failed to extract visual metadata');
     }
-    if (!scores) {
-      const content = data.choices?.[0]?.message?.content;
-      if (typeof content === 'string') {
-        const cleaned = content.trim().replace(/^```json\n?|```$/g, '');
-        try { scores = JSON.parse(cleaned); } catch (_) {}
+
+    let metadata;
+    try {
+      const cleaned = extractionContent.trim().replace(/^```json\n?|```$/g, '');
+      metadata = JSON.parse(cleaned);
+    } catch (e) {
+      console.error('Failed to parse extraction JSON:', e);
+      throw new Error('Invalid extraction response format');
+    }
+
+    // Step 2: Validate with schema
+    console.log('Step 2: Validating metadata...');
+    const validationResult = VisualSchema.safeParse(metadata);
+    if (!validationResult.success) {
+      console.error('Schema validation failed:', validationResult.error);
+      throw new Error('Extracted metadata does not match expected schema');
+    }
+
+    const validatedMetadata = validationResult.data;
+
+    // Step 3: Compute deterministic scores
+    console.log('Step 3: Computing deterministic scores...');
+    const scoreResults = computeScore(validatedMetadata);
+
+    // Step 4: Generate editorial commentary
+    console.log('Step 4: Generating editorial...');
+    let editorialData;
+    try {
+      editorialData = await callGeminiAPI({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `${EDITORIAL_PROMPT}
+
+METADATA:
+${JSON.stringify(validatedMetadata, null, 2)}
+
+SCORES:
+${JSON.stringify(scoreResults, null, 2)}
+
+${occasion ? `OCCASION: ${occasion}` : ''}
+${style ? `STYLE: ${style}` : ''}
+${vibe ? `VIBE: ${vibe}` : ''}`
+              },
+              {
+                type: 'image_url',
+                image_url: { url: imageData }
+              }
+            ]
+          }
+        ],
+        temperature: 0.7
+      });
+    } catch (error: any) {
+      console.error('Editorial generation failed, continuing without it:', error);
+      editorialData = null;
+    }
+
+    // Parse editorial
+    let editorial = "A refined outfit with careful attention to fit and proportion.";
+    if (editorialData) {
+      const editorialContent = editorialData.choices?.[0]?.message?.content;
+      if (editorialContent) {
+        try {
+          const editorialCleaned = editorialContent.trim().replace(/^```json\n?|```$/g, '');
+          const editorialObj = JSON.parse(editorialCleaned);
+          editorial = editorialObj.editorial || editorial;
+        } catch (e) {
+          console.error('Failed to parse editorial, using default');
+        }
       }
     }
 
-    if (!scores) {
-      throw new Error('Failed to score outfit');
-    }
+    // Combine results
+    const finalResult = {
+      overall_score: scoreResults.overall_score,
+      components: scoreResults.components,
+      confidence: scoreResults.confidence,
+      editorial,
+      missing_features: scoreResults.missing_features,
+      // Legacy compatibility
+      outfit_name: `${style || 'Contemporary'} Ensemble`,
+      color_score: scoreResults.components.color,
+      fit_score: scoreResults.components.fit,
+      texture_score: scoreResults.components.material,
+      occasion_score: scoreResults.overall_score, // Use overall as fallback
+      what_works: [editorial.split('.')[0] || "Good foundation"],
+      what_didnt_work: scoreResults.missing_features.length > 0 
+        ? [`Limited visibility: ${scoreResults.missing_features.join(', ')}`]
+        : ["Minor refinements possible"],
+      quick_fix: [
+        "Adjust proportions for better balance",
+        "Consider accessory additions",
+        "Review color harmony",
+        "Check hemline placement"
+      ]
+    };
 
     // Cache the result
-    await setCachedResult(cacheKey, scores);
+    await setCachedResult(cacheKey, finalResult);
 
     return new Response(
-      JSON.stringify(scores),
+      JSON.stringify(finalResult),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
