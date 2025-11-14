@@ -13,6 +13,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Retry helper for handling rate limits with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  initialDelayMs = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Only retry on rate limit errors
+      if (error.message === 'RATE_LIMIT' && attempt < maxRetries) {
+        const delayMs = initialDelayMs * Math.pow(2, attempt);
+        console.log(`Rate limited. Retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      
+      // Don't retry other errors
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
 // Helper function to check if a value is meaningful (not N/A or unknown)
 function isMeaningful(val: any): boolean {
   if (!val || val === null || val === undefined) return false;
@@ -166,29 +196,31 @@ ${vibe ? `DESIRED VIBE: ${vibe}` : ''}
 
 Analyze this outfit and provide complete metadata + scores in JSON format.`;
 
-      extractionData = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: contextPrompt
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageData }
-              }
-            ]
-          }
-        ],
-        temperature: 0
-      });
+      extractionData = await retryWithBackoff(() => 
+        callGeminiAPI({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: contextPrompt
+                },
+                {
+                  type: 'image_url',
+                  image_url: { url: imageData }
+                }
+              ]
+            }
+          ],
+          temperature: 0
+        })
+      );
     } catch (error: any) {
       if (error.message === 'RATE_LIMIT') {
         return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }),
+          JSON.stringify({ error: 'Rate limits exceeded. Our AI is experiencing high demand. Please try again in a few moments.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -269,25 +301,27 @@ Analyze this outfit and provide complete metadata + scores in JSON format.`;
     let scoreOutfitData;
     try {
       const scorePrompt = SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe, metadataContext);
-      scoreOutfitData = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: scorePrompt
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageData }
-              }
-            ]
-          }
-        ],
-        temperature: 0.7
-      });
+      scoreOutfitData = await retryWithBackoff(() =>
+        callGeminiAPI({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: scorePrompt
+                },
+                {
+                  type: 'image_url',
+                  image_url: { url: imageData }
+                }
+              ]
+            }
+          ],
+          temperature: 0.7
+        })
+      );
     } catch (error: any) {
       console.error('SCORE_OUTFIT generation failed, will use defaults:', error);
       scoreOutfitData = null;
