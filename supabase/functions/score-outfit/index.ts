@@ -121,7 +121,8 @@ serve(async (req) => {
             }
           }
         ],
-        tool_choice: { type: 'function', function: { name: 'score_outfit' } }
+        tool_choice: { type: 'function', function: { name: 'score_outfit' } },
+        temperature: 0
       });
     } catch (error: any) {
       if (error.message === 'RATE_LIMIT') {
