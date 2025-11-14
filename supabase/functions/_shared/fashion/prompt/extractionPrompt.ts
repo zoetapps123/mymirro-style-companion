@@ -39,6 +39,9 @@ FIT SCORING BY STYLE:
 - Preppy/Coastal: Tailored is 5.0, clean lines 4.5, classic cuts 4.5 | distressed is 2.0
 - Bohemian/Hippie: Flowing is 5.0, relaxed fit 4.5, layered loose 4.5 | structured is 2.5
 - Punk/Hardcore: Distressed fits 5.0, ripped/torn 4.5, DIY alterations 4.5 | pristine is 2.0
+- Fusion/Indo-Western: Relaxed tailored 5.0, kurta silhouettes 4.5, draped layers 4.5 | tight western is 2.5
+- Traditional/Ethnic: Flowing drapes 5.0, traditional cuts 5.0, layered dupattas 4.5 | fitted western is 1.5
+- Desi Streetwear: Oversized kurtas 5.0, wide palazzo 4.5, relaxed joggers 4.5 | slim fit is 3.0
 
 COLOR SCORING BY STYLE:
 - Grunge/Minimalist: Monochrome 5.0, muted tones 4.5 | bright patterns 2.0
@@ -49,6 +52,9 @@ COLOR SCORING BY STYLE:
 - Preppy: Classic combos (navy/white) 5.0, pastels 4.5 | all black 3.0
 - Bohemian: Earthy/warm tones 5.0, mixed patterns 4.5 | stark monochrome 2.5
 - Hypebeast: Bold branded colors 5.0, color blocking 4.5 | muted neutrals 3.0
+- Fusion/Indo-Western: Rich jewel tones 5.0, earth + accent 4.5, block prints 4.5 | all black 2.5
+- Traditional/Ethnic: Vibrant colors 5.0, gold accents 4.5, traditional prints 5.0 | muted grays 2.0
+- Desi Streetwear: Bold colors + neutrals 5.0, contrast combos 4.5, graphic prints 4.5 | all pastels 3.0
 
 STYLING/POLISH BY STYLE:
 - Grunge/Streetwear: Low polish (2-3) is 5.0, effortless vibe 4.5 | high polish (5) is 2.0
@@ -59,6 +65,9 @@ STYLING/POLISH BY STYLE:
 - Preppy/Professional: High polish (4-5) is 5.0, classic accessories 4.5 | distressed is 1.5
 - Athleisure: Functional styling 5.0, minimal accessories 4.5, clean 4.5 | ornate is 2.0
 - Vintage: Era-specific accessories 5.0, authentic details 4.5 | modern minimal is 2.5
+- Fusion/Indo-Western: Moderate polish (3-4) is 5.0, statement jewelry 4.5, dupatta styling 4.5 | no accessories 2.5
+- Traditional/Ethnic: High polish (4-5) is 5.0, traditional jewelry 5.0, bindi/tikka 4.5 | western accessories 1.5
+- Desi Streetwear: Low-moderate polish (2-3) is 5.0, mix jewelry styles 4.5, sneakers + ethnic 4.5 | formal is 2.0
 
 MATERIAL SCORING BY STYLE:
 - Grunge/Punk: Worn/distressed 5.0, thrifted quality 4.0, low-mid tier OK | luxury fabrics 3.0
@@ -67,6 +76,9 @@ MATERIAL SCORING BY STYLE:
 - Gothic: Quality black fabrics 5.0, leather/velvet 4.5, dramatic materials 4.5 | cheap shiny 2.0
 - Cottagecore: Natural fibers 5.0, linen/cotton 4.5, soft textures 4.5 | synthetic 2.5
 - Hypebeast: Branded materials 5.0, premium streetwear 4.5, collab quality 4.5 | unbranded 2.5
+- Fusion/Indo-Western: Cotton/silk blends 5.0, handloom fabrics 4.5, mid-premium tier 4.0 | cheap polyester 2.0
+- Traditional/Ethnic: Silk/cotton 5.0, handwoven 4.5, traditional weaves 5.0, zari work 4.5 | synthetic sarees 2.0
+- Desi Streetwear: Comfortable fabrics 5.0, breathable cotton 4.5, mid-tier OK 4.0 | stiff formal 2.5
 
 CRITICAL: Score based on how well the outfit executes its stated aesthetic, NOT arbitrary standards.
 
