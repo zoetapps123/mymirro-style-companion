@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callGeminiAPI } from '../_shared/ai-config.ts';
+import { VIBE_PREDICTION_PROMPTS } from '../_shared/prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,102 +22,29 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(JSON.stringify({ error: 'AI service not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Extract base64 data if data URL
-    const base64Image = imageData.includes('base64,') 
-      ? imageData.split('base64,')[1] 
-      : imageData;
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this outfit image and predict 3 key dimensions:
-
-💎 1. OCCASION — "Where" (Context)
-Define where this outfit would be worn. Be dynamic and specific.
-Examples: Work meeting, Brunch, Date, Party, Gym, Street, Casual hangout, Wedding, Interview, Travel
-Judging: formality, polish, contrast level, comfort, cultural sensitivity
-
-🎨 2. STYLE — "Aesthetic Language" (Design System)
-Define the visual design language: silhouette + color palette + category.
-Examples: Minimalist, Streetwear, Smart Casual, Y2K, Vintage, Ethnic Fusion, Boho, Athletic Luxe, Grunge, Preppy
-Judging: silhouette harmony, fit proportion, consistency of theme, pattern/texture alignment
-
-🌈 3. VIBE — "Emotional Energy" (Feel)
-Define the emotional tone this look projects. Read the energy instantly.
-Examples: Chill/Cozy, Sharp/Assertive, Elegant/Refined, Playful/Youthful, Bold/Statement, Relaxed, Powerful, Romantic
-Judging: posture, layering, accessories, contrast, effort level
-
-4. A brief, friendly comment about the outfit (under 15 words)
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "occasion": "Brunch",
-  "style": "Smart Casual",
-  "vibe": "Chill",
-  "comment": "Effortlessly polished — perfect for a relaxed weekend vibe!"
-}
-
-Be confident, dynamic, and nuanced. Don't stick to examples if the outfit suggests something else.`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`
-                }
+    const data = await callGeminiAPI({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: VIBE_PREDICTION_PROMPTS.PREDICT_OUTFIT_VIBE
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageData
               }
-            ]
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 200
-      })
+            }
+          ]
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 200
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Payment required' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify({ error: 'AI prediction failed' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) {
@@ -142,8 +71,23 @@ Be confident, dynamic, and nuanced. Don't stick to examples if the outfit sugges
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in predict-outfit-vibe:', error);
+    
+    if (error.message === 'RATE_LIMIT') {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    if (error.message === 'PAYMENT_REQUIRED') {
+      return new Response(JSON.stringify({ error: 'Payment required' }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Prediction failed' 
     }), {
