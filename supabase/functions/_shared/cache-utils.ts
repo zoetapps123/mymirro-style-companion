@@ -48,7 +48,7 @@ export async function getCachedResult<T>(cacheKey: string): Promise<T | null> {
 }
 
 /**
- * Store result in cache with 24-hour TTL
+ * Store result in cache with 1-hour TTL
  */
 export async function setCachedResult(cacheKey: string, result: any): Promise<void> {
   try {
@@ -57,7 +57,7 @@ export async function setCachedResult(cacheKey: string, result: any): Promise<vo
       .upsert({
         cache_key: cacheKey,
         result_json: result,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        expires_at: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString()
       }, {
         onConflict: 'cache_key'
       });
