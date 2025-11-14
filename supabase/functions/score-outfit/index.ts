@@ -109,7 +109,7 @@ serve(async (req) => {
       throw new Error('Failed to extract visual metadata');
     }
 
-    console.log('Raw AI extraction response (first 500 chars):', extractionContent.substring(0, 500));
+    console.log('Raw AI extraction response:', extractionContent);
 
     let metadata;
     try {
@@ -175,6 +175,12 @@ ${vibe ? `VIBE: ${vibe}` : ''}`
     } catch (error: any) {
       console.error('Editorial generation failed, continuing without it:', error);
       editorialData = null;
+    }
+
+    // Log editorial response
+    if (editorialData) {
+      const editorialContent = editorialData.choices?.[0]?.message?.content;
+      console.log('Raw AI editorial response:', editorialContent);
     }
 
     // Parse editorial
