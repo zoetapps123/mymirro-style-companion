@@ -4,7 +4,28 @@ Use advanced proportion theory, color science, drape analysis, textile recogniti
 DO NOT HALLUCINATE. If unsure, return "unknown" and confidence <= 0.35.
 
 TASK — Extract precise visual metadata from the provided image.
-Return EXACT JSON matching this schema (each field is an object with "value" and "confidence"):
+
+CRITICAL FORMAT REQUIREMENT:
+Every single attribute MUST be an object with "value" and "confidence" properties.
+NEVER return plain strings, numbers, or booleans directly.
+
+Example of CORRECT format:
+{
+  "fit": {
+    "sleeve_length": { "value": "mid-bicep", "confidence": 0.85 },
+    "shoulder_structure": { "value": "natural", "confidence": 0.90 }
+  }
+}
+
+Example of WRONG format (DO NOT USE):
+{
+  "fit": {
+    "sleeve_length": "mid-bicep",
+    "shoulder_structure": "natural"
+  }
+}
+
+Return EXACT JSON matching this schema:
 
 {
   "fit": {
@@ -22,10 +43,10 @@ Return EXACT JSON matching this schema (each field is an object with "value" and
     "denim_type": { "value": "rigid"|"stretch"|"washed"|"raw"|"unknown", "confidence": 0.0-1.0 }
   },
   "color": {
-    "top_color": { "value": string|"unknown", "confidence": 0.0-1.0 },
-    "bottom_color": { "value": string|"unknown", "confidence": 0.0-1.0 },
+    "top_color": { "value": "navy"|"black"|"white"|any color|"unknown", "confidence": 0.0-1.0 },
+    "bottom_color": { "value": "indigo"|"black"|"khaki"|any color|"unknown", "confidence": 0.0-1.0 },
     "harmony": { "value": "monochrome"|"analogous"|"complementary"|"contrasting"|"clashing"|"unknown", "confidence": 0.0-1.0 },
-    "color_confidence": 0.0-1.0
+    "color_confidence": 0.85
   },
   "styling": {
     "footwear_type": { "value": "sneakers"|"loafers"|"boots"|"heels"|"sandals"|"unknown", "confidence": 0.0-1.0 },
@@ -35,11 +56,11 @@ Return EXACT JSON matching this schema (each field is an object with "value" and
   },
   "aesthetics": {
     "cultural_aesthetic": { "value": "kfashion"|"jfashion"|"western_streetwear"|"classic"|"quiet_luxury"|"techwear"|"unknown", "confidence": 0.0-1.0 },
-    "brand_guess": { "value": string|"unknown", "confidence": 0.0-1.0 },
+    "brand_guess": { "value": "Uniqlo"|"Nike"|any brand|"unknown", "confidence": 0.0-1.0 },
     "price_tier": { "value": "fast_fashion"|"mid_range"|"premium"|"luxury"|"unknown", "confidence": 0.0-1.0 }
   },
-  "missing_features": []
+  "missing_features": ["feature1", "feature2"]
 }
 
-IMPORTANT: Each attribute must be an object with "value" and "confidence" fields. Never return plain strings or numbers directly.
-Never invent details. Only return JSON.`;
+Remember: EVERY field except "color_confidence" and "missing_features" must be an object with "value" and "confidence".
+Only return valid JSON. No markdown, no explanations.`;
