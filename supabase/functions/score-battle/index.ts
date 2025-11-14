@@ -5,11 +5,151 @@ import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
+import { EXTRACTION_PROMPT } from '../_shared/fashion/prompt/extractionPrompt.ts';
+import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper function to check if a value is meaningful (not N/A or unknown)
+function isMeaningful(val: any): boolean {
+  if (!val || val === null || val === undefined) return false;
+  const str = String(val).toLowerCase().trim();
+  return !['n/a', 'unknown', 'none', 'not applicable', ''].includes(str);
+}
+
+// Build metadata context string for a single participant
+function buildParticipantMetadataContext(name: string, metadata: any): string {
+  const parts: string[] = [`\n**PARTICIPANT: ${name}**\n`];
+  
+  // Fit parameters
+  if (metadata.fit) {
+    const fit = metadata.fit;
+    const fitDetails: string[] = [];
+    if (isMeaningful(fit.silhouette?.value)) fitDetails.push(`${fit.silhouette.value} silhouette`);
+    if (isMeaningful(fit.hemline?.value)) fitDetails.push(`${fit.hemline.value} hemline`);
+    if (isMeaningful(fit.sleeve_length?.value)) fitDetails.push(`${fit.sleeve_length.value} sleeves`);
+    if (isMeaningful(fit.shoulder_structure?.value)) fitDetails.push(`${fit.shoulder_structure.value} shoulders`);
+    if (isMeaningful(fit.pant_stacking?.value)) fitDetails.push(`${fit.pant_stacking.value} pant stacking`);
+    if (fitDetails.length > 0) parts.push(`📏 **FIT:** ${fitDetails.join(', ')}`);
+  }
+  
+  // Fabric details
+  if (metadata.fabric) {
+    const fabric = metadata.fabric;
+    const fabricDetails: string[] = [];
+    if (isMeaningful(fabric.material?.value)) fabricDetails.push(fabric.material.value);
+    if (isMeaningful(fabric.texture?.value)) fabricDetails.push(`${fabric.texture.value} texture`);
+    if (isMeaningful(fabric.finish?.value)) fabricDetails.push(`${fabric.finish.value} finish`);
+    if (isMeaningful(fabric.weight?.value)) fabricDetails.push(`${fabric.weight.value} weight`);
+    if (fabricDetails.length > 0) parts.push(`🧵 **FABRIC:** ${fabricDetails.join(', ')}`);
+  }
+  
+  // Color harmony
+  if (metadata.color) {
+    const color = metadata.color;
+    const colorDetails: string[] = [];
+    if (isMeaningful(color.harmony?.value)) colorDetails.push(`${color.harmony.value} harmony`);
+    if (isMeaningful(color.contrast?.value)) colorDetails.push(`${color.contrast.value} contrast`);
+    if (colorDetails.length > 0) parts.push(`🎨 **COLOR:** ${colorDetails.join(', ')}`);
+  }
+  
+  // Styling details
+  if (metadata.styling) {
+    const styling = metadata.styling;
+    const details: string[] = [];
+    if (isMeaningful(styling.tuck_status?.value)) details.push(`${styling.tuck_status.value} tuck`);
+    if (isMeaningful(styling.sleeve_treatment?.value)) details.push(`${styling.sleeve_treatment.value} sleeves`);
+    if (isMeaningful(styling.layering_pieces?.value)) details.push(`${styling.layering_pieces.value} layer(s)`);
+    if (details.length > 0) parts.push(`✨ **STYLING:** ${details.join(', ')}`);
+  }
+  
+  // Aesthetics
+  if (metadata.aesthetics) {
+    const aes = metadata.aesthetics;
+    const aesDetails: string[] = [];
+    if (isMeaningful(aes.cultural_aesthetic?.value)) aesDetails.push(aes.cultural_aesthetic.value);
+    if (isMeaningful(aes.price_tier?.value)) aesDetails.push(`${aes.price_tier.value} tier`);
+    if (isMeaningful(aes.polish_level?.value)) aesDetails.push(`polish level ${aes.polish_level.value}/5`);
+    if (aesDetails.length > 0) parts.push(`🌟 **AESTHETIC:** ${aesDetails.join(', ')}`);
+  }
+  
+  // AI Scores from extraction
+  if (metadata.scores) {
+    const scores = metadata.scores;
+    const scoreDetails: string[] = [];
+    if (isMeaningful(scores.fit_score?.value)) scoreDetails.push(`fit ${scores.fit_score.value}/5`);
+    if (isMeaningful(scores.color_score?.value)) scoreDetails.push(`color ${scores.color_score.value}/5`);
+    if (isMeaningful(scores.styling_score?.value)) scoreDetails.push(`styling ${scores.styling_score.value}/5`);
+    if (isMeaningful(scores.material_score?.value)) scoreDetails.push(`material ${scores.material_score.value}/5`);
+    if (scoreDetails.length > 0) parts.push(`⚡ **AI SCORES:** ${scoreDetails.join(', ')}`);
+  }
+  
+  return parts.join('\n');
+}
+
+// Extract metadata for a single participant
+async function extractParticipantMetadata(participant: any): Promise<any> {
+  // Check cache first
+  const extractionCacheKey = await generateCacheKey({ 
+    type: 'participant_extraction',
+    imageData: participant.imageData 
+  });
+  
+  const cachedExtraction = await getCachedResult<any>(extractionCacheKey);
+  if (cachedExtraction) {
+    console.log(`Using cached extraction for ${participant.name}`);
+    return cachedExtraction;
+  }
+
+  console.log(`Extracting metadata for ${participant.name}...`);
+  
+  // Call Gemini with VisualSchema to extract detailed outfit attributes
+  const extractionData = await retryWithBackoff(() => callGeminiAPI({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: EXTRACTION_PROMPT
+          },
+          {
+            type: 'image_url',
+            image_url: { url: participant.imageData }
+          }
+        ]
+      }
+    ]
+  }));
+
+  const rawContent = extractionData.choices?.[0]?.message?.content;
+  if (!rawContent) {
+    console.warn(`No extraction data for ${participant.name}, using empty metadata`);
+    return {};
+  }
+
+  // Parse and validate against VisualSchema
+  let extractedMetadata: any = {};
+  try {
+    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const validated = VisualSchema.parse(parsed);
+      extractedMetadata = validated;
+    }
+  } catch (error) {
+    console.warn(`Failed to parse/validate extraction for ${participant.name}:`, error);
+  }
+
+  // Cache the extraction for 24 hours
+  await setCachedResult(extractionCacheKey, extractedMetadata);
+  
+  return extractedMetadata;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -68,16 +208,32 @@ serve(async (req) => {
       );
     }
 
-    // Call Gemini API
+    // PHASE 1: Extract metadata for all participants in parallel
+    console.log('Extracting metadata for all participants...');
+    const metadataPromises = participants.map((p: any) => extractParticipantMetadata(p));
+    const participantMetadata = await Promise.all(metadataPromises);
+    
+    // Build metadata context string for all participants
+    const metadataContext = participantMetadata.map((metadata, idx) => 
+      buildParticipantMetadataContext(participants[idx].name, metadata)
+    ).join('\n');
+    
+    console.log('Metadata extraction complete, proceeding with battle scoring...');
+
+    // PHASE 2: Call Gemini API with metadata-enhanced prompt
     const data = await retryWithBackoff(() => callGeminiAPI({
-      model: 'google/gemini-2.5-flash-lite',
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: SCORING_PROMPTS.SCORE_BATTLE(participants.length)
+              text: SCORING_PROMPTS.SCORE_BATTLE(participants.length, true)
+            },
+            {
+              type: 'text',
+              text: metadataContext
             },
             ...participants.map((p: any, idx: number) => [
               { type: 'text', text: `Participant ${idx + 1}: ${p.name}` },
@@ -139,11 +295,29 @@ serve(async (req) => {
     // Sort by rank to ensure proper ordering
     battleResults.results.sort((a: any, b: any) => a.rank - b.rank);
 
-    // Cache the result for 24 hours
-    await setCachedResult(cacheKey, battleResults);
+    // Enhance results with metadata highlights
+    const enhancedResults = {
+      ...battleResults,
+      results: battleResults.results.map((result: any, idx: number) => {
+        const metadata = participantMetadata[participants.findIndex((p: any) => p.name === result.name)];
+        return {
+          ...result,
+          metadata_highlights: {
+            silhouette: metadata?.fit?.silhouette?.value || 'N/A',
+            color_harmony: metadata?.color?.harmony?.value || 'N/A',
+            polish_level: metadata?.aesthetics?.polish_level?.value || 'N/A',
+            fabric_quality: metadata?.fabric?.material?.value || 'N/A',
+          }
+        };
+      }),
+      participant_metadata: participantMetadata // Include full metadata for advanced features
+    };
+
+    // Cache the enhanced result for 24 hours
+    await setCachedResult(cacheKey, enhancedResults);
 
     return new Response(
-      JSON.stringify(battleResults),
+      JSON.stringify(enhancedResults),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
