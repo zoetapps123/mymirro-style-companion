@@ -1107,7 +1107,7 @@ STYLING REQUIREMENTS:
 // ============================================
 
 export const SCORING_PROMPTS = {
-  SCORE_OUTFIT: (occasion?: string, style?: string, vibe?: string) => {
+  SCORE_OUTFIT: (occasion?: string, style?: string, vibe?: string, metadataContext?: string) => {
     // Build context string dynamically
     const contextParts = [];
     if (occasion) contextParts.push(`💎 Occasion: ${occasion}`);
@@ -1117,8 +1117,12 @@ export const SCORING_PROMPTS = {
     const contextString = contextParts.length > 0 
       ? `\n\n**OUTFIT CONTEXT:**\n${contextParts.join('\n')}\n\nUse this context to evaluate suitability and appropriateness of the outfit.\n` 
       : '';
+    
+    const metadataSection = metadataContext 
+      ? `\n${metadataContext}\n**CRITICAL:** Use the extracted metadata above to make your analysis specific and data-driven. Reference actual parameters (e.g., "oversized silhouette with heavy pant stacking," "monochrome harmony," "kfashion aesthetic") rather than generic observations.\n`
+      : '';
 
-    return `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.${contextString}
+    return `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.${contextString}${metadataSection}
 
 **CRITICAL REASONING PROCESS:**
 1. Evaluate how well UPPER WEAR (tops, shirts, blouses, jackets) and LOWER WEAR (pants, skirts, shorts, jeans) fit and complement each other
@@ -1149,26 +1153,29 @@ ${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layeri
    - **Overall Score**: Calculated from above dimensions${contextParts.length > 0 ? ` + context alignment (occasion/style/vibe)` : ''} (if multiple outfits, highest wins)
 
 3. **WHAT WORKS** (2-3 short observations, max 12-15 words each):
-   - How well upper and lower wear complement each other
-   - Color combinations that are harmonious${vibe ? ` with ${vibe} vibe` : ''}
-   - Style elements that are well-executed${style ? ` for ${style} aesthetic` : ''}
-   - Styling features that enhance the look
+   ${metadataContext ? '- **CITE EXTRACTED DATA**: Reference specific parameters like "oversized silhouette," "monochrome harmony," "smooth jersey fabric," "kfashion aesthetic," "polish level 4/5"' : ''}
+   - How well upper and lower wear complement each other (use fit parameters)
+   - Color combinations that are harmonious${vibe ? ` with ${vibe} vibe` : ''} (reference color harmony data)
+   - Style elements that are well-executed${style ? ` for ${style} aesthetic` : ''} (use styling/aesthetic data)
+   - Fabric/material choices that elevate the look (reference fabric metadata)
    ${contextParts.length > 0 ? '- Context alignment strengths (occasion/style/vibe appropriateness)' : ''}
 
 4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
-   - Issues with upper/lower wear complement
-   - Areas where outfit falls short
-   - Styling issues (missing accessories, poor layering, proportion problems, lack of polish)
-   ${contextParts.length > 0 ? '- Misalignment with context (occasion/style/vibe mismatch)' : ''}
-   - No soft language — be specific and analytical
+   ${metadataContext ? '- **USE METADATA GAPS**: Reference low-confidence fields, low polish levels, clashing harmony, heavy stacking, extended shoulders, etc.' : ''}
+   - Issues with upper/lower wear complement (cite specific fit problems from metadata)
+   - Styling issues (missing accessories, poor layering, proportion problems, lack of polish — use extracted styling data)
+   - Color/fabric mismatches (reference color harmony and fabric compatibility data)
+   ${contextParts.length > 0 ? '- Misalignment with context (occasion/style/vibe mismatch based on aesthetic data)' : ''}
+   - No soft language — be specific, analytical, and cite extracted parameters
 
 5. **QUICK FIXES** (4-6 specific, actionable fixes):
+   ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use terminology from metadata (e.g., "Try a partial tuck to define waist," "Replace heavy pant stacking with pin roll," "Add layered jewelry to boost polish from 3/5 to 4/5")' : ''}
    Each must:
    - Start with strong action verb (Try, Swap, Add, Remove, Replace, Match)
-   - Reference SPECIFIC items or actions
-   - Include WHY it helps ("better contrast", "balances silhouette", "improves proportions", "adds polish"${contextParts.length > 0 ? ', "suits ' + (occasion || style || vibe) + ' better"' : ''})
+   - Reference SPECIFIC items, styling techniques, or parameters from extracted metadata
+   - Include WHY it helps using data ("better contrast with [color harmony]", "balances [silhouette type]", "improves proportions", "boosts polish level", "suits [cultural aesthetic]"${contextParts.length > 0 ? ', "aligns with ' + (occasion || style || vibe) + '"' : ''})
    - Be achievable in under 1 minute
-   - Address upper/lower wear compatibility AND styling improvements${contextParts.length > 0 ? ' AND context alignment' : ''}
+   - Address fit issues (silhouette, hemline, stacking), styling gaps (tuck, accessories, layering), color/fabric problems, and aesthetic alignment${contextParts.length > 0 ? ' AND context alignment' : ''}
    
    **🛍️ Optional Smart Shopping Add-on:**
    - If a fix could be improved by shopping, add an optional tip:
@@ -1177,11 +1184,14 @@ ${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layeri
    - Prioritize wardrobe items first, then offer shopping suggestions as optional enhancements
 
 **EXAMPLES OF GOOD QUICK FIXES:**
+${metadataContext ? '✓ "Try a partial tuck to define the waist — aligns with kfashion aesthetic and adds intentionality"' : ''}
+${metadataContext ? '✓ "Replace heavy pant stacking with a pin roll or tapered hem — cleans up silhouette and reduces bulk"' : ''}
+${metadataContext ? '✓ "Add layered silver jewelry (necklace + rings) — boosts polish level from 3/5 to 4/5 and complements quiet luxury vibe"' : ''}
+${metadataContext ? '✓ "Swap extended shoulder structure for natural fit — improves proportions for your frame"' : ''}
 ✓ "Swap the black pants for your beige chinos — better contrast with the upper wear and improves overall complement"
 ✓ "Add your brown leather belt to define the waist and tie the upper and lower pieces together — elevates the styling"
 ✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished, and better complements the upper/lower wear balance"
 ✓ "Try rolling sleeves to mid-forearm — shows intentionality, balances proportions, and adds styling detail"
-✓ "Add a statement watch or bracelet — enhances the styling quality and completes the look"
 ${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns with ${style || vibe || occasion} aesthetic and elevates formality"` : ''}
 
 **AVOID VAGUE FIXES LIKE:**
