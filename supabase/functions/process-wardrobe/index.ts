@@ -58,6 +58,16 @@ interface DetectedItem {
   heel_type?: string;
   toe_style?: string;
   collar_type?: string;
+  // K-fashion / J-fashion enhanced fit attributes
+  t_shirt_sleeve_length?: string;
+  body_volume_ratio?: string;
+  hemline_placement?: string;
+  pant_stacking?: string;
+  waist_visibility?: string;
+  shoulder_structure?: string;
+  // Enhanced fabric attributes
+  t_shirt_material?: string;
+  denim_type?: string;
   // Optional
   brand?: string;
   condition?: string;
