@@ -4,6 +4,7 @@ import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,72 +69,55 @@ serve(async (req) => {
     }
 
     // Call Gemini API
-    let data;
-    try {
-      data = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: SCORING_PROMPTS.SCORE_BATTLE(participants.length)
-              },
-              ...participants.map((p: any, idx: number) => [
-                { type: 'text', text: `Participant ${idx + 1}: ${p.name}` },
-                { type: 'image_url', image_url: { url: p.imageData } }
-              ]).flat()
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'score_battle',
-              description: 'Score and rank multiple outfits in a fashion battle with fun competitive banter',
-              parameters: {
-                type: 'object',
-                properties: {
-                  results: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        name: { type: 'string', description: 'Original participant name' },
-                        persona_name: { type: 'string', description: 'Competitive persona name (2-3 words)' },
-                        score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                        rank: { type: 'integer', minimum: 1 },
-                        roast: { type: 'string', description: 'Fun competitive banter comparing to others' }
-                      },
-                      required: ['name', 'persona_name', 'score', 'rank', 'roast']
-                    }
-                  },
-                  winner_verdict: { type: 'string' }
+    const data = await retryWithBackoff(() => callGeminiAPI({
+      model: 'google/gemini-2.5-flash-lite',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: SCORING_PROMPTS.SCORE_BATTLE(participants.length)
+            },
+            ...participants.map((p: any, idx: number) => [
+              { type: 'text', text: `Participant ${idx + 1}: ${p.name}` },
+              { type: 'image_url', image_url: { url: p.imageData } }
+            ]).flat()
+          ]
+        }
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'score_battle',
+            description: 'Score and rank multiple outfits in a fashion battle with fun competitive banter',
+            parameters: {
+              type: 'object',
+              properties: {
+                results: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string', description: 'Original participant name' },
+                      persona_name: { type: 'string', description: 'Competitive persona name (2-3 words)' },
+                      score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                      rank: { type: 'integer', minimum: 1 },
+                      roast: { type: 'string', description: 'Fun competitive banter comparing to others' }
+                    },
+                    required: ['name', 'persona_name', 'score', 'rank', 'roast']
+                  }
                 },
-                required: ['results', 'winner_verdict']
-              }
+                winner_verdict: { type: 'string' }
+              },
+              required: ['results', 'winner_verdict']
             }
           }
-        ],
-        tool_choice: { type: 'function', function: { name: 'score_battle' } }
-      });
-    } catch (error: any) {
-      if (error.message === 'RATE_LIMIT') {
-        return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (error.message === 'PAYMENT_REQUIRED') {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw error;
-    }
+        }
+      ],
+      tool_choice: { type: 'function', function: { name: 'score_battle' } }
+    }));
     console.log('Battle scoring response:', data);
 
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];

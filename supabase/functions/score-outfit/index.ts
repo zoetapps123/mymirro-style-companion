@@ -7,41 +7,12 @@ import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/c
 import { EXTRACTION_PROMPT } from '../_shared/fashion/prompt/extractionPrompt.ts';
 import { EDITORIAL_PROMPT } from '../_shared/fashion/prompt/editorialPrompt.ts';
 import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Retry helper for handling rate limits with exponential backoff
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-  initialDelayMs = 1000
-): Promise<T> {
-  let lastError: any;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error: any) {
-      lastError = error;
-      
-      // Only retry on rate limit errors
-      if (error.message === 'RATE_LIMIT' && attempt < maxRetries) {
-        const delayMs = initialDelayMs * Math.pow(2, attempt);
-        console.log(`Rate limited. Retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-        continue;
-      }
-      
-      // Don't retry other errors
-      throw error;
-    }
-  }
-  
-  throw lastError;
-}
 
 // Helper function to check if a value is meaningful (not N/A or unknown)
 function isMeaningful(val: any): boolean {

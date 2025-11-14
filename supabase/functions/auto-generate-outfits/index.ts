@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { AUTO_OUTFIT_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,7 +36,7 @@ serve(async (req) => {
 
     const prompt = AUTO_OUTFIT_PROMPTS.GENERATE_STYLE_AND_OCCASION({ tops, bottoms, shoes, accessories, layers });
 
-    const data = await callGeminiAPI({
+    const data = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash-lite',
       messages: [
         {
@@ -105,7 +106,7 @@ serve(async (req) => {
         }
       ],
       tool_choice: { type: 'function', function: { name: 'create_outfit_collections' } }
-    });
+    }));
     console.log('Outfit generation response received');
 
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];

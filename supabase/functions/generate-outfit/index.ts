@@ -5,6 +5,7 @@ import { callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
 import { OUTFIT_GENERATION_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,7 +73,7 @@ serve(async (req) => {
 
     console.log('Calling Gemini API for outfit generation...');
     
-    const data = await callGeminiAPI({
+    const data = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
         {
@@ -146,7 +147,7 @@ serve(async (req) => {
         }
       }],
       tool_choice: { type: 'function', function: { name: 'generate_outfit_combinations' } }
-    });
+    }));
 
     console.log('Gemini API response structure:', {
       hasChoices: !!data?.choices,

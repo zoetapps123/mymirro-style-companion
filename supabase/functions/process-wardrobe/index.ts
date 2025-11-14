@@ -5,6 +5,7 @@ import { verifyAuth, unauthorizedResponse } from "../_shared/auth-utils.ts";
 import { generateCacheKey, getCachedResult, setCachedResult } from "../_shared/cache-utils.ts";
 import { WARDROBE_PROMPTS } from "../_shared/prompts.ts";
 import { callGeminiAPI } from "../_shared/ai-config.ts";
+import { retryWithBackoff } from "../_shared/retry-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

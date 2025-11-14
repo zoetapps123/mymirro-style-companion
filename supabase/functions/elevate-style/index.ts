@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { STYLING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
+import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,36 +47,19 @@ serve(async (req) => {
     const editPrompt = STYLING_PROMPTS.QUICK_STYLE_FIXES(improvements, wardrobeItems);
 
     // Call Gemini API for image generation
-    let data;
-    try {
-      data = await callGeminiAPI({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: editPrompt },
-              { type: 'image_url', image_url: { url: imageData } }
-            ]
-          }
-        ],
-        modalities: ['image', 'text']
-      });
-    } catch (error: any) {
-      if (error.message === 'RATE_LIMIT') {
-        return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (error.message === 'PAYMENT_REQUIRED') {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw error;
-    }
+    const data = await retryWithBackoff(() => callGeminiAPI({
+      model: 'google/gemini-2.5-flash-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: editPrompt },
+            { type: 'image_url', image_url: { url: imageData } }
+          ]
+        }
+      ],
+      modalities: ['image', 'text']
+    }));
     
     console.log('Style elevation complete');
 
