@@ -137,7 +137,7 @@ serve(async (req) => {
 
     // Step 3: Compute deterministic scores
     console.log('Step 3: Computing deterministic scores...');
-    const scoreResults = computeScore(validatedMetadata);
+    const scoreResults = computeScore(validatedMetadata, occasion || "Casual");
 
     // Step 4: Generate editorial commentary
     console.log('Step 4: Generating editorial...');
