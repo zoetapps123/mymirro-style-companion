@@ -53,7 +53,7 @@ serve(async (req) => {
     console.log('Scoring outfit with enhanced fashion analysis...');
 
     // Check cache first
-    const cacheKey = await generateCacheKey({ type: 'outfit_score_v2', imageData, occasion, style, vibe });
+    const cacheKey = await generateCacheKey({ type: 'outfit_score_v3', imageData, occasion, style, vibe });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
       console.log('Returning cached outfit score');
@@ -169,11 +169,12 @@ Analyze this outfit and provide complete metadata + scores in JSON format.`;
       }
     };
 
-    // Step 3: Generate editorial commentary
-    console.log('Step 3: Generating editorial...');
-    let editorialData;
+    // Step 3: Generate dynamic feedback using SCORE_OUTFIT
+    console.log('Step 3: Generating outfit analysis with SCORE_OUTFIT...');
+    let scoreOutfitData;
     try {
-      editorialData = await callGeminiAPI({
+      const scorePrompt = SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe);
+      scoreOutfitData = await callGeminiAPI({
         model: 'google/gemini-2.5-flash',
         messages: [
           {
@@ -181,17 +182,7 @@ Analyze this outfit and provide complete metadata + scores in JSON format.`;
             content: [
               {
                 type: 'text',
-                text: `${EDITORIAL_PROMPT}
-
-METADATA:
-${JSON.stringify(validatedMetadata, null, 2)}
-
-SCORES:
-${JSON.stringify(scoreResults, null, 2)}
-
-${occasion ? `OCCASION: ${occasion}` : ''}
-${style ? `STYLE: ${style}` : ''}
-${vibe ? `VIBE: ${vibe}` : ''}`
+                text: scorePrompt
               },
               {
                 type: 'image_url',
@@ -203,27 +194,55 @@ ${vibe ? `VIBE: ${vibe}` : ''}`
         temperature: 0.7
       });
     } catch (error: any) {
-      console.error('Editorial generation failed, continuing without it:', error);
-      editorialData = null;
+      console.error('SCORE_OUTFIT generation failed, will use defaults:', error);
+      scoreOutfitData = null;
     }
 
-    // Log editorial response
-    if (editorialData) {
-      const editorialContent = editorialData.choices?.[0]?.message?.content;
-      console.log('Raw AI editorial response:', editorialContent);
+    // Log raw response
+    if (scoreOutfitData) {
+      const content = scoreOutfitData.choices?.[0]?.message?.content;
+      console.log('Raw SCORE_OUTFIT response:', content);
     }
 
-    // Parse editorial
+    // Parse SCORE_OUTFIT response
+    let outfitName = `${style || 'Contemporary'} Ensemble`;
+    let whatWorks = ["Good foundation"];
+    let whatDidntWork = scoreResults.missing_features.length > 0 
+      ? [`Limited visibility: ${scoreResults.missing_features.join(', ')}`]
+      : ["Minor refinements possible"];
+    let quickFix = [
+      "Adjust proportions for better balance",
+      "Consider accessory additions",
+      "Review color harmony",
+      "Check hemline placement"
+    ];
     let editorial = "A refined outfit with careful attention to fit and proportion.";
-    if (editorialData) {
-      const editorialContent = editorialData.choices?.[0]?.message?.content;
-      if (editorialContent) {
+
+    if (scoreOutfitData) {
+      const content = scoreOutfitData.choices?.[0]?.message?.content;
+      if (content) {
         try {
-          const editorialCleaned = editorialContent.trim().replace(/^```json\n?|```$/g, '');
-          const editorialObj = JSON.parse(editorialCleaned);
-          editorial = editorialObj.editorial || editorial;
+          const cleaned = content.trim().replace(/^```json\n?|```$/g, '');
+          const parsed = JSON.parse(cleaned);
+          
+          if (parsed.outfit_name) outfitName = parsed.outfit_name;
+          if (Array.isArray(parsed.what_works) && parsed.what_works.length > 0) {
+            whatWorks = parsed.what_works;
+          }
+          if (Array.isArray(parsed.what_doesnt_work) && parsed.what_doesnt_work.length > 0) {
+            whatDidntWork = parsed.what_doesnt_work;
+          }
+          if (Array.isArray(parsed.quick_fixes) && parsed.quick_fixes.length > 0) {
+            quickFix = parsed.quick_fixes;
+          }
+          // Use first what_works item as editorial fallback if no editorial field
+          if (parsed.editorial) {
+            editorial = parsed.editorial;
+          } else if (whatWorks.length > 0) {
+            editorial = whatWorks.join('. ') + '.';
+          }
         } catch (e) {
-          console.error('Failed to parse editorial, using default');
+          console.error('Failed to parse SCORE_OUTFIT response, using defaults:', e);
         }
       }
     }
@@ -235,22 +254,15 @@ ${vibe ? `VIBE: ${vibe}` : ''}`
       confidence: scoreResults.confidence,
       editorial,
       missing_features: scoreResults.missing_features,
-      // Legacy compatibility
-      outfit_name: `${style || 'Contemporary'} Ensemble`,
+      // Dynamic fields from SCORE_OUTFIT
+      outfit_name: outfitName,
       color_score: scoreResults.components.color,
       fit_score: scoreResults.components.fit,
       texture_score: scoreResults.components.material,
-      occasion_score: scoreResults.overall_score, // Use overall as fallback
-      what_works: [editorial.split('.')[0] || "Good foundation"],
-      what_didnt_work: scoreResults.missing_features.length > 0 
-        ? [`Limited visibility: ${scoreResults.missing_features.join(', ')}`]
-        : ["Minor refinements possible"],
-      quick_fix: [
-        "Adjust proportions for better balance",
-        "Consider accessory additions",
-        "Review color harmony",
-        "Check hemline placement"
-      ]
+      occasion_score: scoreResults.overall_score,
+      what_works: whatWorks,
+      what_didnt_work: whatDidntWork,
+      quick_fix: quickFix
     };
 
     // Cache the result
