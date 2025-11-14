@@ -13,6 +13,69 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to build metadata context string
+function buildMetadataContext(metadata: any): string {
+  const parts: string[] = ['**EXTRACTED OUTFIT METADATA:**\n'];
+  
+  // Fit parameters
+  if (metadata.fit) {
+    const fit = metadata.fit;
+    parts.push(`📏 **FIT:** ${fit.silhouette?.value || 'N/A'} silhouette, ${fit.hemline?.value || 'N/A'} hemline, ${fit.sleeve_length?.value || 'N/A'} sleeves, ${fit.shoulder_structure?.value || 'N/A'} shoulders`);
+    if (fit.pant_stacking?.value) parts.push(`   - Pant stacking: ${fit.pant_stacking.value}`);
+  }
+  
+  // Fabric details
+  if (metadata.fabric) {
+    const fabric = metadata.fabric;
+    parts.push(`🧵 **FABRIC:** ${fabric.material?.value || 'N/A'} (${fabric.texture?.value || 'N/A'} texture, ${fabric.finish?.value || 'N/A'} finish, ${fabric.weight?.value || 'N/A'} weight)`);
+  }
+  
+  // Color harmony
+  if (metadata.color) {
+    const color = metadata.color;
+    parts.push(`🎨 **COLOR:** ${color.harmony?.value || 'N/A'} harmony, ${color.contrast?.value || 'N/A'} contrast`);
+  }
+  
+  // Styling details
+  if (metadata.styling) {
+    const styling = metadata.styling;
+    const details: string[] = [];
+    if (styling.tuck_status?.value) details.push(`${styling.tuck_status.value} tuck`);
+    if (styling.sleeve_treatment?.value) details.push(`${styling.sleeve_treatment.value} sleeves`);
+    if (styling.layering_pieces?.value) details.push(`${styling.layering_pieces.value} layer(s)`);
+    if (details.length > 0) parts.push(`✨ **STYLING:** ${details.join(', ')}`);
+  }
+  
+  // Aesthetics
+  if (metadata.aesthetics) {
+    const aes = metadata.aesthetics;
+    parts.push(`🌟 **AESTHETIC:** ${aes.cultural_aesthetic?.value || 'N/A'}, ${aes.price_tier?.value || 'N/A'} tier, polish level ${aes.polish_level?.value || 'N/A'}/5`);
+  }
+  
+  // AI Scores from extraction
+  if (metadata.scores) {
+    const scores = metadata.scores;
+    parts.push(`\n📊 **INITIAL AI SCORES:**`);
+    parts.push(`   - Fit: ${scores.fit?.value?.toFixed(1)}/5.0 (${scores.fit?.confidence?.toFixed(0)}% confidence)${scores.fit?.reason ? ' — ' + scores.fit.reason : ''}`);
+    parts.push(`   - Color: ${scores.color?.value?.toFixed(1)}/5.0 (${scores.color?.confidence?.toFixed(0)}% confidence)${scores.color?.reason ? ' — ' + scores.color.reason : ''}`);
+    parts.push(`   - Styling: ${scores.styling?.value?.toFixed(1)}/5.0 (${scores.styling?.confidence?.toFixed(0)}% confidence)${scores.styling?.reason ? ' — ' + scores.styling.reason : ''}`);
+    parts.push(`   - Material: ${scores.material?.value?.toFixed(1)}/5.0 (${scores.material?.confidence?.toFixed(0)}% confidence)${scores.material?.reason ? ' — ' + scores.material.reason : ''}`);
+  }
+  
+  // Low confidence warnings
+  const lowConfidenceFields: string[] = [];
+  if (metadata.fit?.silhouette?.confidence < 0.5) lowConfidenceFields.push('silhouette');
+  if (metadata.color?.harmony?.confidence < 0.5) lowConfidenceFields.push('color harmony');
+  if (metadata.aesthetics?.polish_level?.confidence < 0.5) lowConfidenceFields.push('polish level');
+  if (lowConfidenceFields.length > 0) {
+    parts.push(`\n⚠️ **LOW CONFIDENCE AREAS:** ${lowConfidenceFields.join(', ')} — may need better image visibility`);
+  }
+  
+  parts.push(`\n**USE THIS DATA:** Reference specific parameters (e.g., "oversized silhouette," "monochrome harmony," "partial tuck") in your analysis to make feedback data-driven and precise.\n`);
+  
+  return parts.join('\n');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -53,7 +116,7 @@ serve(async (req) => {
     console.log('Scoring outfit with enhanced fashion analysis...');
 
     // Check cache first
-    const cacheKey = await generateCacheKey({ type: 'outfit_score_v3', imageData, occasion, style, vibe });
+    const cacheKey = await generateCacheKey({ type: 'outfit_score_v4', imageData, occasion, style, vibe });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
       console.log('Returning cached outfit score');
@@ -142,6 +205,10 @@ Analyze this outfit and provide complete metadata + scores in JSON format.`;
 
     const validatedMetadata = validationResult.data;
 
+    // Build metadata context for enhanced analysis
+    const metadataContext = buildMetadataContext(validatedMetadata);
+    console.log('Built metadata context:', metadataContext.substring(0, 200) + '...');
+
     // Step 2: Use AI-generated scores (no deterministic computation)
     console.log('Step 2: Using AI-generated scores...');
     const aiScores = validatedMetadata.scores;
@@ -169,11 +236,11 @@ Analyze this outfit and provide complete metadata + scores in JSON format.`;
       }
     };
 
-    // Step 3: Generate dynamic feedback using SCORE_OUTFIT
-    console.log('Step 3: Generating outfit analysis with SCORE_OUTFIT...');
+    // Step 3: Generate dynamic feedback using SCORE_OUTFIT with metadata context
+    console.log('Step 3: Generating outfit analysis with SCORE_OUTFIT and metadata...');
     let scoreOutfitData;
     try {
-      const scorePrompt = SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe);
+      const scorePrompt = SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe, metadataContext);
       scoreOutfitData = await callGeminiAPI({
         model: 'google/gemini-2.5-flash',
         messages: [
