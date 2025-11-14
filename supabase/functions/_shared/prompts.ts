@@ -1161,12 +1161,14 @@ ${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layeri
    ${contextParts.length > 0 ? '- Context alignment strengths (occasion/style/vibe appropriateness)' : ''}
 
 4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
-   ${metadataContext ? '- **USE METADATA GAPS**: Reference low-confidence fields, low polish levels, clashing harmony, heavy stacking, extended shoulders, etc.' : ''}
-   - Issues with upper/lower wear complement (cite specific fit problems from metadata)
-   - Styling issues (missing accessories, poor layering, proportion problems, lack of polish — use extracted styling data)
-   - Color/fabric mismatches (reference color harmony and fabric compatibility data)
+   ${metadataContext ? '- **IGNORE N/A VALUES**: Only mention issues where you have concrete data. Skip fields marked as "unknown", "N/A", or low confidence (<0.3)' : ''}
+   ${metadataContext ? '- **ACTIONABLE ONLY**: Focus on real problems like "heavy pant stacking creates bulk", "clashing color harmony", "extended shoulders disrupt proportions"' : ''}
+   - Issues with upper/lower wear complement (cite specific fit problems from metadata with known values)
+   - Styling issues (missing accessories, poor layering, proportion problems — use extracted styling data with concrete values only)
+   - Color/fabric mismatches (reference color harmony and fabric compatibility data where available)
    ${contextParts.length > 0 ? '- Misalignment with context (occasion/style/vibe mismatch based on aesthetic data)' : ''}
-   - No soft language — be specific, analytical, and cite extracted parameters
+   - No soft language — be specific, analytical, and cite extracted parameters WITH KNOWN VALUES ONLY
+   - **CRITICAL**: If metadata lacks concrete data, use ONLY visual analysis. Never mention N/A, unknown values, or metadata gaps
 
 5. **QUICK FIXES** (4-6 specific, actionable fixes):
    ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use terminology from metadata (e.g., "Try a partial tuck to define waist," "Replace heavy pant stacking with pin roll," "Add layered jewelry to boost polish from 3/5 to 4/5")' : ''}

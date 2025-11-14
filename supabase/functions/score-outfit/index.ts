@@ -13,6 +13,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to check if a value is meaningful (not N/A or unknown)
+function isMeaningful(val: any): boolean {
+  if (!val || val === null || val === undefined) return false;
+  const str = String(val).toLowerCase().trim();
+  return !['n/a', 'unknown', 'none', 'not applicable', ''].includes(str);
+}
+
 // Helper function to build metadata context string
 function buildMetadataContext(metadata: any): string {
   const parts: string[] = ['**EXTRACTED OUTFIT METADATA:**\n'];
@@ -20,53 +27,74 @@ function buildMetadataContext(metadata: any): string {
   // Fit parameters
   if (metadata.fit) {
     const fit = metadata.fit;
-    parts.push(`📏 **FIT:** ${fit.silhouette?.value || 'N/A'} silhouette, ${fit.hemline?.value || 'N/A'} hemline, ${fit.sleeve_length?.value || 'N/A'} sleeves, ${fit.shoulder_structure?.value || 'N/A'} shoulders`);
-    if (fit.pant_stacking?.value) parts.push(`   - Pant stacking: ${fit.pant_stacking.value}`);
+    const fitDetails: string[] = [];
+    if (isMeaningful(fit.silhouette?.value)) fitDetails.push(`${fit.silhouette.value} silhouette`);
+    if (isMeaningful(fit.hemline?.value)) fitDetails.push(`${fit.hemline.value} hemline`);
+    if (isMeaningful(fit.sleeve_length?.value)) fitDetails.push(`${fit.sleeve_length.value} sleeves`);
+    if (isMeaningful(fit.shoulder_structure?.value)) fitDetails.push(`${fit.shoulder_structure.value} shoulders`);
+    if (isMeaningful(fit.pant_stacking?.value)) fitDetails.push(`${fit.pant_stacking.value} pant stacking`);
+    if (fitDetails.length > 0) parts.push(`📏 **FIT:** ${fitDetails.join(', ')}`);
   }
   
   // Fabric details
   if (metadata.fabric) {
     const fabric = metadata.fabric;
-    parts.push(`🧵 **FABRIC:** ${fabric.material?.value || 'N/A'} (${fabric.texture?.value || 'N/A'} texture, ${fabric.finish?.value || 'N/A'} finish, ${fabric.weight?.value || 'N/A'} weight)`);
+    const fabricDetails: string[] = [];
+    if (isMeaningful(fabric.material?.value)) fabricDetails.push(fabric.material.value);
+    if (isMeaningful(fabric.texture?.value)) fabricDetails.push(`${fabric.texture.value} texture`);
+    if (isMeaningful(fabric.finish?.value)) fabricDetails.push(`${fabric.finish.value} finish`);
+    if (isMeaningful(fabric.weight?.value)) fabricDetails.push(`${fabric.weight.value} weight`);
+    if (fabricDetails.length > 0) parts.push(`🧵 **FABRIC:** ${fabricDetails.join(', ')}`);
   }
   
   // Color harmony
   if (metadata.color) {
     const color = metadata.color;
-    parts.push(`🎨 **COLOR:** ${color.harmony?.value || 'N/A'} harmony, ${color.contrast?.value || 'N/A'} contrast`);
+    const colorDetails: string[] = [];
+    if (isMeaningful(color.harmony?.value)) colorDetails.push(`${color.harmony.value} harmony`);
+    if (isMeaningful(color.contrast?.value)) colorDetails.push(`${color.contrast.value} contrast`);
+    if (colorDetails.length > 0) parts.push(`🎨 **COLOR:** ${colorDetails.join(', ')}`);
   }
   
   // Styling details
   if (metadata.styling) {
     const styling = metadata.styling;
     const details: string[] = [];
-    if (styling.tuck_status?.value) details.push(`${styling.tuck_status.value} tuck`);
-    if (styling.sleeve_treatment?.value) details.push(`${styling.sleeve_treatment.value} sleeves`);
-    if (styling.layering_pieces?.value) details.push(`${styling.layering_pieces.value} layer(s)`);
+    if (isMeaningful(styling.tuck_status?.value)) details.push(`${styling.tuck_status.value} tuck`);
+    if (isMeaningful(styling.sleeve_treatment?.value)) details.push(`${styling.sleeve_treatment.value} sleeves`);
+    if (isMeaningful(styling.layering_pieces?.value)) details.push(`${styling.layering_pieces.value} layer(s)`);
     if (details.length > 0) parts.push(`✨ **STYLING:** ${details.join(', ')}`);
   }
   
   // Aesthetics
   if (metadata.aesthetics) {
     const aes = metadata.aesthetics;
-    parts.push(`🌟 **AESTHETIC:** ${aes.cultural_aesthetic?.value || 'N/A'}, ${aes.price_tier?.value || 'N/A'} tier, polish level ${aes.polish_level?.value || 'N/A'}/5`);
+    const aesDetails: string[] = [];
+    if (isMeaningful(aes.cultural_aesthetic?.value)) aesDetails.push(aes.cultural_aesthetic.value);
+    if (isMeaningful(aes.price_tier?.value)) aesDetails.push(`${aes.price_tier.value} tier`);
+    if (isMeaningful(aes.polish_level?.value)) aesDetails.push(`polish level ${aes.polish_level.value}/5`);
+    if (aesDetails.length > 0) parts.push(`🌟 **AESTHETIC:** ${aesDetails.join(', ')}`);
   }
   
-  // AI Scores from extraction
+  // AI Scores from extraction (only show if values exist)
   if (metadata.scores) {
     const scores = metadata.scores;
-    parts.push(`\n📊 **INITIAL AI SCORES:**`);
-    parts.push(`   - Fit: ${scores.fit?.value?.toFixed(1)}/5.0 (${scores.fit?.confidence?.toFixed(0)}% confidence)${scores.fit?.reason ? ' — ' + scores.fit.reason : ''}`);
-    parts.push(`   - Color: ${scores.color?.value?.toFixed(1)}/5.0 (${scores.color?.confidence?.toFixed(0)}% confidence)${scores.color?.reason ? ' — ' + scores.color.reason : ''}`);
-    parts.push(`   - Styling: ${scores.styling?.value?.toFixed(1)}/5.0 (${scores.styling?.confidence?.toFixed(0)}% confidence)${scores.styling?.reason ? ' — ' + scores.styling.reason : ''}`);
-    parts.push(`   - Material: ${scores.material?.value?.toFixed(1)}/5.0 (${scores.material?.confidence?.toFixed(0)}% confidence)${scores.material?.reason ? ' — ' + scores.material.reason : ''}`);
+    const scoreLines: string[] = [];
+    if (scores.fit?.value != null) scoreLines.push(`   - Fit: ${scores.fit.value.toFixed(1)}/5.0 (${scores.fit.confidence?.toFixed(0) || 0}% confidence)${scores.fit.reason ? ' — ' + scores.fit.reason : ''}`);
+    if (scores.color?.value != null) scoreLines.push(`   - Color: ${scores.color.value.toFixed(1)}/5.0 (${scores.color.confidence?.toFixed(0) || 0}% confidence)${scores.color.reason ? ' — ' + scores.color.reason : ''}`);
+    if (scores.styling?.value != null) scoreLines.push(`   - Styling: ${scores.styling.value.toFixed(1)}/5.0 (${scores.styling.confidence?.toFixed(0) || 0}% confidence)${scores.styling.reason ? ' — ' + scores.styling.reason : ''}`);
+    if (scores.material?.value != null) scoreLines.push(`   - Material: ${scores.material.value.toFixed(1)}/5.0 (${scores.material.confidence?.toFixed(0) || 0}% confidence)${scores.material.reason ? ' — ' + scores.material.reason : ''}`);
+    if (scoreLines.length > 0) {
+      parts.push(`\n📊 **INITIAL AI SCORES:**`);
+      parts.push(...scoreLines);
+    }
   }
   
-  // Low confidence warnings
+  // Low confidence warnings (only for meaningful fields with low confidence)
   const lowConfidenceFields: string[] = [];
-  if (metadata.fit?.silhouette?.confidence < 0.5) lowConfidenceFields.push('silhouette');
-  if (metadata.color?.harmony?.confidence < 0.5) lowConfidenceFields.push('color harmony');
-  if (metadata.aesthetics?.polish_level?.confidence < 0.5) lowConfidenceFields.push('polish level');
+  if (isMeaningful(metadata.fit?.silhouette?.value) && metadata.fit?.silhouette?.confidence < 0.5) lowConfidenceFields.push('silhouette');
+  if (isMeaningful(metadata.color?.harmony?.value) && metadata.color?.harmony?.confidence < 0.5) lowConfidenceFields.push('color harmony');
+  if (isMeaningful(metadata.aesthetics?.polish_level?.value) && metadata.aesthetics?.polish_level?.confidence < 0.5) lowConfidenceFields.push('polish level');
   if (lowConfidenceFields.length > 0) {
     parts.push(`\n⚠️ **LOW CONFIDENCE AREAS:** ${lowConfidenceFields.join(', ')} — may need better image visibility`);
   }
