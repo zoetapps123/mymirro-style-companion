@@ -460,7 +460,12 @@ export const WARDROBE_PROMPTS = {
   VALIDATE_IMAGE_FALLBACK:
     'Classify the image. Return JSON with keys: isValidForExtraction (boolean), contentType ("human_wearing"|"clothing_only"|"invalid"), rejectionReason (optional string if invalid). JSON only.',
 
-  DETECT_ITEMS: `You are an expert fashion analyst with deep knowledge of garment construction, fabric properties, and fit characteristics. Extract COMPLETE, DETAILED metadata for each visible clothing item with MAXIMUM PRECISION on texture, pattern, and silhouette.
+  DETECT_ITEMS: `You are a PROFESSIONAL FASHION ANALYST trained on global menswear & womenswear with STRONG EXPERTISE in:
+- K-fashion (Korean silhouettes, layering, oversized balance, proportion play)
+- J-fashion (wide silhouettes, relaxed cuts, streetwear logic, anti-fit aesthetics)
+- Western contemporary fashion (tailored fits, minimalism, smart casual)
+
+Extract COMPLETE, DETAILED metadata for each visible clothing item with MAXIMUM PRECISION on texture, pattern, silhouette, and proportions.
 
 🎯 CATEGORIES (USE EXACT NAMES):
 - Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories
@@ -569,7 +574,66 @@ For SHOES only:
 For OUTERWEAR only:
 - collar_type: "bomber_collar" | "shirt_collar" | "shawl_collar" | "notch_lapel" | "hooded" | "collarless"
 
-**10. OPTIONAL (if visible/recognizable)**
+**10. ENHANCED FIT & PROPORTION ATTRIBUTES** (K-fashion / J-fashion focused)
+🚨 FALLBACK RULE: If uncertain about ANY field → Return "unknown" (NEVER hallucinate)
+
+- t_shirt_sleeve_length: Specific sleeve length for tops
+  * "mid_bicep": Hits middle of bicep (common in K-fashion oversized tees)
+  * "elbow": Reaches elbow
+  * "forearm": Covers forearm
+  * "wrist": Long sleeve to wrist
+  * "unknown": If uncertain or not applicable
+
+- body_volume_ratio: Balance between upper and lower body volumes
+  * "top_heavier": Oversized top + slim bottom (common K-fashion look)
+  * "bottom_heavier": Slim top + wide/baggy bottom
+  * "balanced": Proportional volume distribution
+  * "unknown": If uncertain
+
+- hemline_placement: Where the garment hem sits relative to body
+  * "above_hip": Cropped, hits above hip bone
+  * "mid_hip": Standard, covers hip
+  * "below_hip": Longline, extends past hip
+  * "thigh": Covers thigh area
+  * "unknown": If uncertain
+
+- pant_stacking: How fabric stacks at ankle (critical for J-fashion wide pants)
+  * "none": Clean break, no bunching
+  * "light": Minimal stacking, slight break
+  * "heavy": Significant fabric bunching at ankle
+  * "unknown": If uncertain or not pants
+
+- waist_visibility: How the garment interacts with waistline
+  * "tucked": Shirt fully tucked in
+  * "partial_tuck": Front/side tuck (K-fashion styling technique)
+  * "out": Untucked, worn over waistband
+  * "unknown": If uncertain
+
+- shoulder_structure: Shoulder construction and fit
+  * "natural": Follows natural shoulder line, fitted
+  * "dropped": Shoulder seam falls below natural line, relaxed
+  * "extended": Padded or widened shoulders
+  * "raglan": Diagonal seam from neck to underarm
+  * "unknown": If uncertain
+
+**11. ENHANCED FABRIC ATTRIBUTES**
+
+- t_shirt_material: Specific material for knit tops
+  * "cotton": Standard cotton jersey
+  * "jersey": Soft, stretchy knit
+  * "tech": Synthetic performance fabric
+  * "knit": Structured knit, not jersey
+  * "blend": Mixed materials
+  * "unknown": If uncertain or not applicable
+
+- denim_type: Specific denim characteristics (if applicable)
+  * "rigid": Stiff, non-stretch selvedge
+  * "stretch": Elastane blend, flexible
+  * "washed": Pre-distressed, softened
+  * "raw": Unwashed, dark indigo
+  * "unknown": If uncertain or not denim
+
+**12. OPTIONAL (if visible/recognizable)**
 - brand: Brand name if clearly visible/recognizable, else null
 - condition: "new" | "excellent" | "good" | "worn" | "distressed_by_design"
 
