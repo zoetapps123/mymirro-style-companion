@@ -184,9 +184,48 @@ export async function callGeminiAPIStreaming(options: {
 }
 
 /**
- * Make a request to Gemini API with OpenAI-compatible input
+ * Sleep for a specified number of milliseconds
  */
-export async function callGeminiAPI(options: {
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Execute a function with exponential backoff retry on rate limit errors
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 5,
+  initialDelayMs: number = 1000,
+  maxDelayMs: number = 16000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Only retry on rate limit errors
+      if (lastError.message !== 'RATE_LIMIT' || attempt === maxRetries) {
+        throw lastError;
+      }
+      
+      // Calculate delay with exponential backoff
+      const delayMs = Math.min(initialDelayMs * Math.pow(2, attempt), maxDelayMs);
+      console.log(`Rate limit hit, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await sleep(delayMs);
+    }
+  }
+  
+  throw lastError!;
+}
+
+/**
+ * Make a request to Gemini API with OpenAI-compatible input (internal, without retry)
+ */
+async function callGeminiAPIInternal(options: {
   model?: string;
   messages: any[];
   tools?: any[];
@@ -324,4 +363,19 @@ export async function callGeminiAPI(options: {
       }
     }]
   };
+}
+
+/**
+ * Make a request to Gemini API with OpenAI-compatible input and automatic retry on rate limits
+ */
+export async function callGeminiAPI(options: {
+  model?: string;
+  messages: any[];
+  tools?: any[];
+  tool_choice?: any;
+  temperature?: number;
+  max_tokens?: number;
+  modalities?: string[];
+}): Promise<any> {
+  return withRetry(() => callGeminiAPIInternal(options));
 }
