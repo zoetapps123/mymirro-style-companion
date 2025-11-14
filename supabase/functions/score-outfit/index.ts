@@ -109,12 +109,19 @@ serve(async (req) => {
       throw new Error('Failed to extract visual metadata');
     }
 
+    console.log('Raw AI extraction response (first 500 chars):', extractionContent.substring(0, 500));
+
     let metadata;
     try {
       const cleaned = extractionContent.trim().replace(/^```json\n?|```$/g, '');
       metadata = JSON.parse(cleaned);
+      console.log('Parsed metadata sample:', JSON.stringify({
+        fit_sleeve: metadata?.fit?.sleeve_length,
+        color_top: metadata?.color?.top_color
+      }));
     } catch (e) {
       console.error('Failed to parse extraction JSON:', e);
+      console.error('Raw content:', extractionContent);
       throw new Error('Invalid extraction response format');
     }
 
