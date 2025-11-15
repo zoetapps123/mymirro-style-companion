@@ -858,28 +858,28 @@ ${item.color_distribution ? `- Color Distribution: ${item.primary_color_name} ${
 
 **FABRIC & MATERIAL:**
 - Primary Fabric: ${item.fabric_primary}
-- Weight: ${item.fabric_weight}
-- Finish: ${item.material_finish}
-- Texture: ${item.texture}
+${item.fabric_weight ? `- Weight: ${item.fabric_weight}` : ""}
+${item.material_finish ? `- Finish: ${item.material_finish}` : ""}
+${item.texture ? `- Texture: ${item.texture}` : ""}
 
 **PATTERN:**
 - Type: ${item.pattern_type}
-${item.pattern_scale !== "none" ? `- Scale: ${item.pattern_scale}` : ""}
+${item.pattern_scale && item.pattern_scale !== "none" ? `- Scale: ${item.pattern_scale}` : ""}
 ${item.pattern_colors?.length ? `- Pattern Colors: ${item.pattern_colors.join(", ")}` : ""}
 
 **CUT & FIT:**
-- Fit: ${item.fit_type}
-- Silhouette: ${item.silhouette}
-- Length: ${item.length}
+${item.fit_type ? `- Fit: ${item.fit_type}` : ""}
+${item.silhouette ? `- Silhouette: ${item.silhouette}` : ""}
+${item.length ? `- Length: ${item.length}` : ""}
 
 **DESIGN DETAILS:**
 ${item.neckline ? `- Neckline: ${item.neckline}` : ""}
 ${item.sleeve_type ? `- Sleeves: ${item.sleeve_type}` : ""}
-- Closure: ${item.closure_type}
-- Pockets: ${item.pocket_details}
-- Hardware: ${item.hardware_details}
-- Embellishments: ${item.embellishments}
-${item.special_features.length ? `- Special Features: ${item.special_features.join(", ")}` : ""}
+${item.closure_type ? `- Closure: ${item.closure_type}` : ""}
+${item.pocket_details ? `- Pockets: ${item.pocket_details}` : ""}
+${item.hardware_details ? `- Hardware: ${item.hardware_details}` : ""}
+${item.embellishments ? `- Embellishments: ${item.embellishments}` : ""}
+${item.special_features?.length ? `- Special Features: ${item.special_features.join(", ")}` : ""}
 
 ${item.rise ? `- Rise: ${item.rise}` : ""}
 ${item.waist_style ? `- Waist: ${item.waist_style}` : ""}
@@ -888,9 +888,9 @@ ${item.toe_style ? `- Toe: ${item.toe_style}` : ""}
 ${item.collar_type ? `- Collar: ${item.collar_type}` : ""}
 
 **STYLE & VIBE:**
-- Aesthetic: ${item.style_aesthetic.join(" + ")}
+- Aesthetic: ${item.style_aesthetic?.join(" + ") || "casual"}
 - Formality: ${item.formality_level}
-- Detailed Notes: ${item.style_notes_detailed}
+${item.style_notes_detailed ? `- Detailed Notes: ${item.style_notes_detailed}` : ""}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 GENERATION REQUIREMENTS:
