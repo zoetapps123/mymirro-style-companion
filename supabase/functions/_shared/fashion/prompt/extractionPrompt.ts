@@ -1,6 +1,16 @@
-export const EXTRACTION_PROMPT = `
-You are a world-class fashion stylist with 15+ years across Vogue, GQ, Harper's Bazaar, Paris/Milan runway, Seoul streetwear, and celebrity red carpets.
+export const EXTRACTION_PROMPT = (occasion?: string, style?: string, vibe?: string) => {
+  const contextSection = occasion ? `
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 OCCASION: ${occasion}
+${style ? `🎨 STYLE PREFERENCE: ${style}` : ''}
+${vibe ? `✨ DESIRED VIBE: ${vibe}` : ''}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+` : '';
+
+  return `
+You are a world-class fashion stylist with 15+ years across Vogue, GQ, Harper's Bazaar, Paris/Milan runway, Seoul streetwear, and celebrity red carpets.
+${contextSection}
 CRITICAL: First understand the OCCASION, STYLE, and AESTHETIC context before analyzing the outfit. These determine your scoring approach.
 
 STYLE-AWARE SCORING PRINCIPLES:
@@ -156,3 +166,4 @@ Minimalist + Date Night + Oversized black tee/pants:
 Remember: EVERY field except "color_confidence" and "missing_features" must be an object with "value" and "confidence".
 Scores should have "value", "confidence", AND "reason".
 Only return valid JSON. No markdown, no explanations.`;
+};

@@ -158,15 +158,9 @@ serve(async (req) => {
     let extractionData;
     try {
       console.log('Step 1: Extracting visual metadata and AI scores...');
-      const contextPrompt = `${EXTRACTION_PROMPT}
+      const contextPrompt = EXTRACTION_PROMPT(occasion, style, vibe);
 
-${occasion ? `OCCASION: ${occasion}` : 'OCCASION: Casual'}
-${style ? `STYLE PREFERENCE: ${style}` : ''}
-${vibe ? `DESIRED VIBE: ${vibe}` : ''}
-
-Analyze this outfit and provide complete metadata + scores in JSON format.`;
-
-      extractionData = await retryWithBackoff(() => 
+      extractionData = await retryWithBackoff(() =>
         callGeminiAPI({
           model: 'google/gemini-2.5-flash',
           messages: [
