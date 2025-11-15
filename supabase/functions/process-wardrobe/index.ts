@@ -486,10 +486,6 @@ Return ONLY the JSON object, no other text.`;
     model,
     messages: [
       {
-        role: 'system',
-        content: 'You MUST call the function return_detection with strictly valid JSON. Do not output prose.',
-      },
-      {
         role: "user",
         content: [
           { type: "text", text: combinedPrompt },
@@ -498,7 +494,6 @@ Return ONLY the JSON object, no other text.`;
       },
     ],
     tools,
-    tool_choice: { type: 'function', function: { name: 'return_detection' } },
   });
 
   // If function call is returned, use it
@@ -510,11 +505,22 @@ Return ONLY the JSON object, no other text.`;
         isValid: args.isValid,
         itemCount: Array.isArray(args.items) ? args.items.length : 0,
       });
-      return {
-        isValid: !!args.isValid,
-        reason: args.reason,
-        items: Array.isArray(args.items) ? args.items : [],
-      };
+      console.log('Function call arguments sample:', JSON.stringify(args).substring(0, 500));
+      
+      // Validate that items have required fields
+      const hasValidItems = Array.isArray(args.items) && args.items.length > 0 && 
+        args.items.every((item: any) => item.name && item.category);
+      
+      if (hasValidItems) {
+        return {
+          isValid: !!args.isValid,
+          reason: args.reason,
+          items: args.items,
+        };
+      } else {
+        console.warn('Function call returned items without required fields, falling back to text parsing');
+        // fall through to text parsing below
+      }
     } catch (e: any) {
       console.error('Failed to parse function-call arguments:', e.message);
       // fall through to text parsing below
@@ -794,6 +800,12 @@ function hexToRgb(hex: string) {
 }
 
 async function generateProductImage(item: DetectedItem): Promise<Uint8Array> {
+  // Validate item has required fields
+  if (!item.name || !item.category) {
+    console.error('generateProductImage called with invalid item:', item);
+    throw new Error(`Invalid item: missing name or category`);
+  }
+  
   const detailedPrompt = `Create a professional e-commerce product photo of:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
