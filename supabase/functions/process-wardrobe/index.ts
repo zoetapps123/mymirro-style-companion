@@ -458,9 +458,38 @@ IMPORTANT: Include ALL fields shown above for every item. Use null for fields th
 Return ONLY the JSON object, no other text.`;
 
   console.log('Calling Gemini for wardrobe validation and detection...');
+
+  // Prefer structured output via function-calling to avoid JSON parsing issues
+  const tools = [
+    {
+      type: 'function',
+      function: {
+        name: 'return_detection',
+        description: 'Return validation result and detected wardrobe items.',
+        parameters: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            isValid: { type: 'boolean' },
+            reason: { type: 'string' },
+            items: {
+              type: 'array',
+              items: { type: 'object', additionalProperties: true },
+            },
+          },
+          required: ['isValid', 'items'],
+        },
+      },
+    },
+  ];
+
   const data = await callGeminiAPI({
     model,
     messages: [
+      {
+        role: 'system',
+        content: 'You MUST call the function return_detection with strictly valid JSON. Do not output prose.',
+      },
       {
         role: "user",
         content: [
@@ -469,7 +498,29 @@ Return ONLY the JSON object, no other text.`;
         ],
       },
     ],
+    tools,
+    tool_choice: { type: 'function', function: { name: 'return_detection' } },
   });
+
+  // If function call is returned, use it
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.type === 'function' && toolCall.function?.name === 'return_detection') {
+    try {
+      const args = JSON.parse(toolCall.function.arguments || '{}');
+      console.log('Parsed via function call:', {
+        isValid: args.isValid,
+        itemCount: Array.isArray(args.items) ? args.items.length : 0,
+      });
+      return {
+        isValid: !!args.isValid,
+        reason: args.reason,
+        items: Array.isArray(args.items) ? args.items : [],
+      };
+    } catch (e: any) {
+      console.error('Failed to parse function-call arguments:', e.message);
+      // fall through to text parsing below
+    }
+  }
 
   const content = data.choices?.[0]?.message?.content || "";
   console.log('Gemini response length:', content.length);
@@ -536,7 +587,8 @@ Return ONLY the JSON object, no other text.`;
       console.error('Second JSON parse failed:', secondErr.message);
       console.error('Repaired JSON (first 2000 chars):', repaired.substring(0, 2000));
       console.error('Repaired JSON length:', repaired.length);
-      throw new Error(`Invalid JSON in Gemini response after repair: ${secondErr.message}`);
+      // Graceful fallback: mark as invalid instead of throwing 500
+      result = { isValid: false, reason: 'Malformed AI response (JSON parse failed after repair)', items: [] };
     }
   }
 
