@@ -115,7 +115,7 @@ async function extractParticipantMetadata(participant: any): Promise<any> {
         content: [
           {
             type: 'text',
-            text: EXTRACTION_PROMPT
+            text: EXTRACTION_PROMPT()
           },
           {
             type: 'image_url',
