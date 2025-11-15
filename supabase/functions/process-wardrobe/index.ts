@@ -475,11 +475,22 @@ Return ONLY the JSON object, no other text.`;
   console.log('Gemini response length:', content.length);
   console.log('Gemini response preview (first 300 chars):', content.substring(0, 300));
 
-  // Clean the response - remove markdown code blocks if present
+  // Clean the response - remove markdown code blocks
   let cleanedContent = content.trim();
-  cleanedContent = cleanedContent.replace(/^```json\n?/gm, '').replace(/```$/gm, '');
   
-  console.log('Cleaned content preview (first 300 chars):', cleanedContent.substring(0, 300));
+  // Remove markdown code fences from start and end
+  if (cleanedContent.startsWith('```json')) {
+    cleanedContent = cleanedContent.replace(/^```json\n?/, '');
+  }
+  if (cleanedContent.startsWith('```')) {
+    cleanedContent = cleanedContent.replace(/^```\n?/, '');
+  }
+  if (cleanedContent.endsWith('```')) {
+    cleanedContent = cleanedContent.replace(/```$/, '');
+  }
+  cleanedContent = cleanedContent.trim();
+  
+  console.log('After markdown removal (first 300 chars):', cleanedContent.substring(0, 300));
 
   // Extract JSON from response
   const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
@@ -488,10 +499,18 @@ Return ONLY the JSON object, no other text.`;
     throw new Error("Failed to extract validation+detection result from Gemini response");
   }
 
+  let jsonString = jsonMatch[0];
+  
+  // Fix common JSON issues
+  // 1. Remove trailing commas before closing brackets/braces
+  jsonString = jsonString.replace(/,(\s*[\]}])/g, '$1');
+  
+  console.log('After JSON fixes (first 300 chars):', jsonString.substring(0, 300));
+
   // Parse JSON with error handling
   let result;
   try {
-    result = JSON.parse(jsonMatch[0]);
+    result = JSON.parse(jsonString);
     console.log('Successfully parsed wardrobe detection:', {
       isValid: result.isValid,
       itemCount: result.items?.length || 0,
@@ -500,8 +519,9 @@ Return ONLY the JSON object, no other text.`;
     });
   } catch (parseError: any) {
     console.error('JSON parse error:', parseError.message);
-    console.error('Failed JSON string (first 1000 chars):', jsonMatch[0].substring(0, 1000));
-    console.error('Parse error position:', parseError.message);
+    console.error('Failed JSON string (first 2000 chars):', jsonString.substring(0, 2000));
+    console.error('Failed JSON string (around error position 5487):', jsonString.substring(5400, 5600));
+    console.error('Full failed JSON length:', jsonString.length);
     throw new Error(`Invalid JSON in Gemini response: ${parseError.message}`);
   }
 
