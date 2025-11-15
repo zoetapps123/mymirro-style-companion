@@ -11,103 +11,101 @@
  * Formats a wardrobe item with comprehensive metadata for AI consumption
  */
 export const formatItemForAI = (item: any): string => {
-  const parts = [
-    `ID:${item.id}`,
-    `"${item.name}"`,
-    `[${item.category}]`,
-  ];
-  
+  const parts = [`ID:${item.id}`, `"${item.name}"`, `[${item.category}]`];
+
   // Color details
   if (item.primary_color_name && item.color_family) {
     parts.push(`Color: ${item.primary_color_name} (${item.color_family} family)`);
     if (item.secondary_colors?.length) {
-      parts.push(`+ accents: ${item.secondary_colors.join(', ')}`);
+      parts.push(`+ accents: ${item.secondary_colors.join(", ")}`);
     }
   } else if (item.color) {
     parts.push(`Color: ${item.color}`);
   }
-  
+
   // Fabric & material
   if (item.fabric_primary) {
     const fabricDesc = [item.fabric_primary];
     if (item.fabric_weight) fabricDesc.push(item.fabric_weight);
     if (item.material_finish) fabricDesc.push(item.material_finish);
-    parts.push(`Fabric: ${fabricDesc.join(' ')}`);
+    parts.push(`Fabric: ${fabricDesc.join(" ")}`);
   } else if (item.fabric) {
     parts.push(`Fabric: ${item.fabric}`);
   }
-  
+
   // Texture (Critical for accurate styling)
   if (item.texture) {
     parts.push(`Texture: ${item.texture}`);
   }
-  
+
   // Pattern
-  if (item.pattern_type && item.pattern_type !== 'solid') {
-    const patternDesc = [item.pattern_scale, item.pattern_type].filter(Boolean).join(' ');
+  if (item.pattern_type && item.pattern_type !== "solid") {
+    const patternDesc = [item.pattern_scale, item.pattern_type].filter(Boolean).join(" ");
     parts.push(`Pattern: ${patternDesc}`);
     if (item.pattern_colors?.length) {
-      parts.push(`Pattern colors: ${item.pattern_colors.join(', ')}`);
+      parts.push(`Pattern colors: ${item.pattern_colors.join(", ")}`);
     }
-  } else if (item.pattern && item.pattern !== 'solid') {
+  } else if (item.pattern && item.pattern !== "solid") {
     parts.push(`Pattern: ${item.pattern}`);
   }
-  
+
   // Fit & style
   if (item.fit_type) parts.push(`Fit: ${item.fit_type}`);
   if (item.silhouette) parts.push(`Silhouette: ${item.silhouette}`);
   if (item.length) parts.push(`Length: ${item.length}`);
-  
+
   // Style aesthetic
   if (item.style_aesthetic?.length) {
-    parts.push(`Style: ${item.style_aesthetic.join(', ')}`);
+    parts.push(`Style: ${item.style_aesthetic.join(", ")}`);
   }
-  
+
   // Formality
   if (item.formality_level) {
     parts.push(`Formality: ${item.formality_level}`);
   }
-  
+
   // Occasions
   if (item.suitable_occasions?.length) {
-    parts.push(`Best for: ${item.suitable_occasions.join(', ')}`);
+    parts.push(`Best for: ${item.suitable_occasions.join(", ")}`);
   }
-  
+
   // Season/weather
   if (item.season?.length) {
-    parts.push(`Season: ${item.season.join('/')}`);
+    parts.push(`Season: ${item.season.join("/")}`);
   }
-  
+
   // Design details (for unique identification)
   const designDetails = [];
   if (item.neckline) designDetails.push(`neckline: ${item.neckline}`);
   if (item.sleeve_type) designDetails.push(`sleeves: ${item.sleeve_type}`);
   if (item.collar_type) designDetails.push(`collar: ${item.collar_type}`);
   if (item.closure_type) designDetails.push(`closure: ${item.closure_type}`);
-  if (item.pocket_details && item.pocket_details !== 'none') designDetails.push(`pockets: ${item.pocket_details}`);
-  if (item.hardware_details && item.hardware_details !== 'none') designDetails.push(`hardware: ${item.hardware_details}`);
-  if (item.embellishments && item.embellishments !== 'none') designDetails.push(`embellishments: ${item.embellishments}`);
-  if (item.special_features?.length) designDetails.push(`features: ${item.special_features.join(', ')}`);
+  if (item.pocket_details && item.pocket_details !== "none") designDetails.push(`pockets: ${item.pocket_details}`);
+  if (item.hardware_details && item.hardware_details !== "none")
+    designDetails.push(`hardware: ${item.hardware_details}`);
+  if (item.embellishments && item.embellishments !== "none")
+    designDetails.push(`embellishments: ${item.embellishments}`);
+  if (item.special_features?.length) designDetails.push(`features: ${item.special_features.join(", ")}`);
   if (designDetails.length) {
-    parts.push(`Details: ${designDetails.join(', ')}`);
+    parts.push(`Details: ${designDetails.join(", ")}`);
   }
-  
+
   // Category-specific fields
   if (item.rise) parts.push(`Rise: ${item.rise}`);
   if (item.waist_style) parts.push(`Waist: ${item.waist_style}`);
   if (item.heel_type) parts.push(`Heel: ${item.heel_type}`);
   if (item.toe_style) parts.push(`Toe: ${item.toe_style}`);
-  
+
   // Brand and condition
   if (item.brand) parts.push(`Brand: ${item.brand}`);
-  if (item.condition && item.condition !== 'good') parts.push(`Condition: ${item.condition}`);
-  
+  if (item.condition && item.condition !== "good") parts.push(`Condition: ${item.condition}`);
+
   // Detailed style notes (highly valuable for AI context)
   if (item.style_notes_detailed) {
     parts.push(`Notes: "${item.style_notes_detailed}"`);
   }
-  
-  return parts.join(' | ');
+
+  return parts.join(" | ");
 };
 
 // ============================================
@@ -169,9 +167,7 @@ export const SYSTEM_PROMPTS = {
 
       const itemsList = Object.entries(categorizedItems)
         .map(([category, items]) => {
-          const categoryItems = items
-            .map((i: any) => `    • ${formatItemForAI(i)}`)
-            .join("\n");
+          const categoryItems = items.map((i: any) => `    • ${formatItemForAI(i)}`).join("\n");
           return `  ${category} (${items.length} items):\n${categoryItems}`;
         })
         .join("\n\n");
@@ -221,7 +217,7 @@ ${itemsList}
 • Location: ${userCity} — consider weather, local fashion culture, and brand availability.
 • Body Shape: ${bodyShape} — recommend fits that flatter this silhouette.
 • Skin Tone: ${skinTone} — suggest colors that enhance this tone.
-• Wardrobe Context: Full inventory with metadata (color, fabric, fit, style, occasion, etc.)${historyContext ? '\n• Fashion History: ' + historyContext : ''}${wardrobeContext}
+• Wardrobe Context: Full inventory with metadata (color, fabric, fit, style, occasion, etc.)${historyContext ? "\n• Fashion History: " + historyContext : ""}${wardrobeContext}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -471,8 +467,6 @@ Extract COMPLETE, DETAILED metadata for each visible clothing item with MAXIMUM 
 - Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories
 
 🚨 EXCLUSIONS (DO NOT EXTRACT):
-- Earrings, necklaces, bracelets, anklets, rings (too small/not visible enough)
-- Eyewear worn on face (sunglasses ok if standalone)
 - Underwear or intimate apparel
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -771,29 +765,29 @@ export const OUTFIT_GENERATION_PROMPTS = {
     // Format wardrobe data for the prompt
     const wardrobeData = wardrobeItems.map((item: any) => ({
       id: item.id,
-      category: item.category || 'Other',
-      primary_color: item.primary_color || '#000000',
-      color_family: item.color_family || 'neutrals',
+      category: item.category || "Other",
+      primary_color: item.primary_color || "#000000",
+      color_family: item.color_family || "neutrals",
       secondary_colors: item.secondary_colors || [],
-      fabric_primary: item.fabric_primary || 'unknown',
-      fabric_weight: item.fabric_weight || 'medium',
-      pattern_type: item.pattern_type || 'solid',
-      fit_type: item.fit_type || 'regular_fit',
-      silhouette: item.silhouette || 'straight',
+      fabric_primary: item.fabric_primary || "unknown",
+      fabric_weight: item.fabric_weight || "medium",
+      pattern_type: item.pattern_type || "solid",
+      fit_type: item.fit_type || "regular_fit",
+      silhouette: item.silhouette || "straight",
       suitable_occasions: item.suitable_occasions || [],
       style_aesthetic: item.style_aesthetic || [],
-      formality_level: item.formality_level || 'casual',
+      formality_level: item.formality_level || "casual",
       season: item.season || [],
-      length: item.length || 'regular',
+      length: item.length || "regular",
       design_details: {
         neckline: item.neckline,
         sleeve_type: item.sleeve_type,
         closure_type: item.closure_type,
         pocket_details: item.pocket_details,
         hardware_details: item.hardware_details,
-        embellishments: item.embellishments
+        embellishments: item.embellishments,
       },
-      availability_flag: true
+      availability_flag: true,
     }));
 
     const requestContext = {
@@ -802,7 +796,7 @@ export const OUTFIT_GENERATION_PROMPTS = {
       genderTone: null,
       location: null,
       temperatureC: userLocation?.temp || null,
-      count: maxOutfits || 3
+      count: maxOutfits || 3,
     };
 
     return `You are a professional fashion stylist engine. You must only return valid JSON in the exact schema specified below. Do not produce any plain text. Function-calling only. Follow every rule precisely.
@@ -974,19 +968,19 @@ export const AUTO_OUTFIT_PROMPTS = {
     `You are a professional fashion stylist with deep knowledge of fashion trends, color theory, and style principles. Create curated outfit combinations using the following wardrobe items with complete metadata:
 
 TOPS (${items.tops.length}):
-${items.tops.map((t: any) => formatItemForAI(t)).join('\n')}
+${items.tops.map((t: any) => formatItemForAI(t)).join("\n")}
 
 BOTTOMS (${items.bottoms.length}):
-${items.bottoms.map((b: any) => formatItemForAI(b)).join('\n')}
+${items.bottoms.map((b: any) => formatItemForAI(b)).join("\n")}
 
 SHOES (${items.shoes.length}):
-${items.shoes.map((s: any) => formatItemForAI(s)).join('\n')}
+${items.shoes.map((s: any) => formatItemForAI(s)).join("\n")}
 
 ACCESSORIES (${items.accessories.length}):
-${items.accessories.length ? items.accessories.map((a: any) => formatItemForAI(a)).join('\n') : "None"}
+${items.accessories.length ? items.accessories.map((a: any) => formatItemForAI(a)).join("\n") : "None"}
 
 LAYERS (${items.layers.length}):
-${items.layers.length ? items.layers.map((l: any) => formatItemForAI(l)).join('\n') : "None"}
+${items.layers.length ? items.layers.map((l: any) => formatItemForAI(l)).join("\n") : "None"}
 
 CREATE TWO OUTFIT COLLECTIONS:
 
@@ -1027,13 +1021,13 @@ export const STYLING_PROMPTS = {
     `You are a professional fashion stylist. Given this outfit, recommend items from the wardrobe that would pair well.
 
 **CURRENT OUTFIT (with full context):**
-${currentOutfit.map((item: any) => formatItemForAI(item)).join('\n')}
+${currentOutfit.map((item: any) => formatItemForAI(item)).join("\n")}
 
 **OCCASION:** ${occasion || "General"}
 **STYLE TAG:** ${styleTag || "N/A"}
 
 **AVAILABLE WARDROBE ITEMS (with enhanced metadata):**
-${availableItems.map((item: any) => formatItemForAI(item)).join('\n')}
+${availableItems.map((item: any) => formatItemForAI(item)).join("\n")}
 
 **RECOMMENDATION PRIORITIES (updated with metadata):**
 1. **Occasion match**: Filter by suitable_occasions and formality_level first - items MUST be appropriate for "${occasion || "general"}"
@@ -1113,14 +1107,15 @@ export const SCORING_PROMPTS = {
     if (occasion) contextParts.push(`💎 Occasion: ${occasion}`);
     if (style) contextParts.push(`🎨 Style: ${style}`);
     if (vibe) contextParts.push(`🌈 Vibe: ${vibe}`);
-    
-    const contextString = contextParts.length > 0 
-      ? `\n\n**OUTFIT CONTEXT:**\n${contextParts.join('\n')}\n\nUse this context to evaluate suitability and appropriateness of the outfit.\n` 
-      : '';
-    
-    const metadataSection = metadataContext 
+
+    const contextString =
+      contextParts.length > 0
+        ? `\n\n**OUTFIT CONTEXT:**\n${contextParts.join("\n")}\n\nUse this context to evaluate suitability and appropriateness of the outfit.\n`
+        : "";
+
+    const metadataSection = metadataContext
       ? `\n${metadataContext}\n**CRITICAL:** Use the extracted metadata above to make your analysis specific and data-driven. Reference actual parameters (e.g., "oversized silhouette with heavy pant stacking," "monochrome harmony," "kfashion aesthetic") rather than generic observations.\n`
-      : '';
+      : "";
 
     return `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.${contextString}${metadataSection}
 
@@ -1131,53 +1126,53 @@ export const SCORING_PROMPTS = {
 4. Assess fabric/texture compatibility between upper and lower wear
 5. Evaluate styling features: accessories, layering, proportions, styling techniques (tucking, rolling, cuffing)
 6. Evaluate overall styling quality — attention to detail, intentionality, polish
-7. **CONTEXT ALIGNMENT**: ${contextParts.length > 0 ? 'Judge how well the outfit aligns with the specified occasion, style aesthetic, and emotional vibe' : 'Evaluate general appropriateness'}
+7. **CONTEXT ALIGNMENT**: ${contextParts.length > 0 ? "Judge how well the outfit aligns with the specified occasion, style aesthetic, and emotional vibe" : "Evaluate general appropriateness"}
 8. Use Gemini's reasoning to identify strengths and weaknesses
 9. Give individual scores (if multiple outfits, highest score wins)
 
 **JUDGING PARAMETERS (Use Context):**
-${occasion ? `- **Occasion Suitability**: Does this work for ${occasion}? (formality, polish, contrast level, comfort, cultural sensitivity)` : ''}
-${style ? `- **Style Consistency**: Does it match ${style} aesthetic? (silhouette harmony, fit proportion, theme consistency, pattern/texture alignment)` : ''}
-${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layering choices, accessories, contrast, effort level)` : ''}
+${occasion ? `- **Occasion Suitability**: Does this work for ${occasion}? (formality, polish, contrast level, comfort, cultural sensitivity)` : ""}
+${style ? `- **Style Consistency**: Does it match ${style} aesthetic? (silhouette harmony, fit proportion, theme consistency, pattern/texture alignment)` : ""}
+${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layering choices, accessories, contrast, effort level)` : ""}
 
 **PROVIDE THE FOLLOWING:**
 
-1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality${style ? ` with ${style} influence` : ''}
+1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality${style ? ` with ${style} influence` : ""}
 
 2. **SCORES** (scale 1.0-5.0) — Use Gemini reasoning:
    - **Upper/Lower Complement**: How well they fit and complement each other (CRITICAL DIMENSION)
-   - **Color Harmony**: How well colors work together between pieces${vibe ? ` (considering ${vibe} energy)` : ''}
-   - **Fit**: How pieces fit individually and balance proportionally${style ? ` (for ${style} aesthetic)` : ''}
+   - **Color Harmony**: How well colors work together between pieces${vibe ? ` (considering ${vibe} energy)` : ""}
+   - **Fit**: How pieces fit individually and balance proportionally${style ? ` (for ${style} aesthetic)` : ""}
    - **Texture/Fabric Mix**: How fabrics/textures complement between upper and lower wear
    - **Styling Quality**: Overall styling (accessories, layering, proportions, attention to detail, polish) (CRITICAL DIMENSION)
-   - **Overall Score**: Calculated from above dimensions${contextParts.length > 0 ? ` + context alignment (occasion/style/vibe)` : ''} (if multiple outfits, highest wins)
+   - **Overall Score**: Calculated from above dimensions${contextParts.length > 0 ? ` + context alignment (occasion/style/vibe)` : ""} (if multiple outfits, highest wins)
 
 3. **WHAT WORKS** (2-3 short observations, max 12-15 words each):
-   ${metadataContext ? '- **CITE EXTRACTED DATA**: Reference specific parameters like "oversized silhouette," "monochrome harmony," "smooth jersey fabric," "kfashion aesthetic," "polish level 4/5"' : ''}
+   ${metadataContext ? '- **CITE EXTRACTED DATA**: Reference specific parameters like "oversized silhouette," "monochrome harmony," "smooth jersey fabric," "kfashion aesthetic," "polish level 4/5"' : ""}
    - How well upper and lower wear complement each other (use fit parameters)
-   - Color combinations that are harmonious${vibe ? ` with ${vibe} vibe` : ''} (reference color harmony data)
-   - Style elements that are well-executed${style ? ` for ${style} aesthetic` : ''} (use styling/aesthetic data)
+   - Color combinations that are harmonious${vibe ? ` with ${vibe} vibe` : ""} (reference color harmony data)
+   - Style elements that are well-executed${style ? ` for ${style} aesthetic` : ""} (use styling/aesthetic data)
    - Fabric/material choices that elevate the look (reference fabric metadata)
-   ${contextParts.length > 0 ? '- Context alignment strengths (occasion/style/vibe appropriateness)' : ''}
+   ${contextParts.length > 0 ? "- Context alignment strengths (occasion/style/vibe appropriateness)" : ""}
 
 4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
-   ${metadataContext ? '- **IGNORE N/A VALUES**: Only mention issues where you have concrete data. Skip fields marked as "unknown", "N/A", or low confidence (<0.3)' : ''}
-   ${metadataContext ? '- **ACTIONABLE ONLY**: Focus on real problems like "heavy pant stacking creates bulk", "clashing color harmony", "extended shoulders disrupt proportions"' : ''}
+   ${metadataContext ? '- **IGNORE N/A VALUES**: Only mention issues where you have concrete data. Skip fields marked as "unknown", "N/A", or low confidence (<0.3)' : ""}
+   ${metadataContext ? '- **ACTIONABLE ONLY**: Focus on real problems like "heavy pant stacking creates bulk", "clashing color harmony", "extended shoulders disrupt proportions"' : ""}
    - Issues with upper/lower wear complement (cite specific fit problems from metadata with known values)
    - Styling issues (missing accessories, poor layering, proportion problems — use extracted styling data with concrete values only)
    - Color/fabric mismatches (reference color harmony and fabric compatibility data where available)
-   ${contextParts.length > 0 ? '- Misalignment with context (occasion/style/vibe mismatch based on aesthetic data)' : ''}
+   ${contextParts.length > 0 ? "- Misalignment with context (occasion/style/vibe mismatch based on aesthetic data)" : ""}
    - No soft language — be specific, analytical, and cite extracted parameters WITH KNOWN VALUES ONLY
    - **CRITICAL**: If metadata lacks concrete data, use ONLY visual analysis. Never mention N/A, unknown values, or metadata gaps
 
 5. **QUICK FIXES** (4-6 specific, actionable fixes):
-   ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use terminology from metadata (e.g., "Try a partial tuck to define waist," "Replace heavy pant stacking with pin roll," "Add layered jewelry to boost polish from 3/5 to 4/5")' : ''}
+   ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use terminology from metadata (e.g., "Try a partial tuck to define waist," "Replace heavy pant stacking with pin roll," "Add layered jewelry to boost polish from 3/5 to 4/5")' : ""}
    Each must:
    - Start with strong action verb (Try, Swap, Add, Remove, Replace, Match)
    - Reference SPECIFIC items, styling techniques, or parameters from extracted metadata
-   - Include WHY it helps using data ("better contrast with [color harmony]", "balances [silhouette type]", "improves proportions", "boosts polish level", "suits [cultural aesthetic]"${contextParts.length > 0 ? ', "aligns with ' + (occasion || style || vibe) + '"' : ''})
+   - Include WHY it helps using data ("better contrast with [color harmony]", "balances [silhouette type]", "improves proportions", "boosts polish level", "suits [cultural aesthetic]"${contextParts.length > 0 ? ', "aligns with ' + (occasion || style || vibe) + '"' : ""})
    - Be achievable in under 1 minute
-   - Address fit issues (silhouette, hemline, stacking), styling gaps (tuck, accessories, layering), color/fabric problems, and aesthetic alignment${contextParts.length > 0 ? ' AND context alignment' : ''}
+   - Address fit issues (silhouette, hemline, stacking), styling gaps (tuck, accessories, layering), color/fabric problems, and aesthetic alignment${contextParts.length > 0 ? " AND context alignment" : ""}
    
    **🛍️ Optional Smart Shopping Add-on:**
    - If a fix could be improved by shopping, add an optional tip:
@@ -1186,15 +1181,15 @@ ${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layeri
    - Prioritize wardrobe items first, then offer shopping suggestions as optional enhancements
 
 **EXAMPLES OF GOOD QUICK FIXES:**
-${metadataContext ? '✓ "Try a partial tuck to define the waist — aligns with kfashion aesthetic and adds intentionality"' : ''}
-${metadataContext ? '✓ "Replace heavy pant stacking with a pin roll or tapered hem — cleans up silhouette and reduces bulk"' : ''}
-${metadataContext ? '✓ "Add layered silver jewelry (necklace + rings) — boosts polish level from 3/5 to 4/5 and complements quiet luxury vibe"' : ''}
-${metadataContext ? '✓ "Swap extended shoulder structure for natural fit — improves proportions for your frame"' : ''}
+${metadataContext ? '✓ "Try a partial tuck to define the waist — aligns with kfashion aesthetic and adds intentionality"' : ""}
+${metadataContext ? '✓ "Replace heavy pant stacking with a pin roll or tapered hem — cleans up silhouette and reduces bulk"' : ""}
+${metadataContext ? '✓ "Add layered silver jewelry (necklace + rings) — boosts polish level from 3/5 to 4/5 and complements quiet luxury vibe"' : ""}
+${metadataContext ? '✓ "Swap extended shoulder structure for natural fit — improves proportions for your frame"' : ""}
 ✓ "Swap the black pants for your beige chinos — better contrast with the upper wear and improves overall complement"
 ✓ "Add your brown leather belt to define the waist and tie the upper and lower pieces together — elevates the styling"
 ✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished, and better complements the upper/lower wear balance"
 ✓ "Try rolling sleeves to mid-forearm — shows intentionality, balances proportions, and adds styling detail"
-${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns with ${style || vibe || occasion} aesthetic and elevates formality"` : ''}
+${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns with ${style || vibe || occasion} aesthetic and elevates formality"` : ""}
 
 **AVOID VAGUE FIXES LIKE:**
 ✗ "Improve color balance"
@@ -1206,11 +1201,12 @@ ${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns 
 - The outfit with MAXIMUM overall score is the winner
 - Clearly identify winner based on highest score
 
-Keep language under 15 words per point. Be specific, direct, professional, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string"],\n  "editorial": "string"\n}\n`
+Keep language under 15 words per point. Be specific, direct, professional, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string"],\n  "editorial": "string"\n}\n`;
   },
 
   SCORE_BATTLE: (participantCount: number, hasMetadata: boolean = false) => {
-    const metadataSection = hasMetadata ? `
+    const metadataSection = hasMetadata
+      ? `
 **EXTRACTED METADATA PROVIDED:**
 For each participant, you have access to detailed fashion analysis including:
 - **Fit parameters**: silhouette, hemline, sleeves, shoulders, pant stacking
@@ -1220,85 +1216,86 @@ For each participant, you have access to detailed fashion analysis including:
 - **Aesthetics**: cultural aesthetic, price tier, polish level (1-5)
 - **Initial quality scores** from extraction (fit_score, color_score, styling_score, material_score)
 
-**USE THIS METADATA** to make highly specific, accurate scoring decisions.` : '';
+**USE THIS METADATA** to make highly specific, accurate scoring decisions.`
+      : "";
 
     return `Score ${participantCount} outfits competitively in a battle format.
 ${metadataSection}
 
 **CRITICAL REASONING PROCESS:**
-1. ${hasMetadata ? 'USE EXTRACTED METADATA as primary evidence for all scoring decisions' : 'Analyze each outfit\'s visual appearance'}
-2. Evaluate fit quality ${hasMetadata ? '(use extracted silhouette, hemline, shoulder structure)' : ''}
-3. Assess fabric & texture ${hasMetadata ? '(use extracted material, weight, finish)' : ''}
-4. Evaluate color harmony ${hasMetadata ? '(use extracted color contrast and schemes)' : ''}
-5. Assess styling execution ${hasMetadata ? '(use extracted tuck status, layering, sleeves)' : ''}
-6. Judge overall aesthetic ${hasMetadata ? '(use extracted cultural aesthetic, polish level)' : ''}
+1. ${hasMetadata ? "USE EXTRACTED METADATA as primary evidence for all scoring decisions" : "Analyze each outfit's visual appearance"}
+2. Evaluate fit quality ${hasMetadata ? "(use extracted silhouette, hemline, shoulder structure)" : ""}
+3. Assess fabric & texture ${hasMetadata ? "(use extracted material, weight, finish)" : ""}
+4. Evaluate color harmony ${hasMetadata ? "(use extracted color contrast and schemes)" : ""}
+5. Assess styling execution ${hasMetadata ? "(use extracted tuck status, layering, sleeves)" : ""}
+6. Judge overall aesthetic ${hasMetadata ? "(use extracted cultural aesthetic, polish level)" : ""}
 7. Prioritize image quality and complete outfit presentation (upper + lower wear)
-8. Compare each outfit using ${hasMetadata ? 'objective metadata metrics' : 'visual analysis'}
+8. Compare each outfit using ${hasMetadata ? "objective metadata metrics" : "visual analysis"}
 9. Base ALL responses on analysis, with winner demonstrating clear superiority
 
-**SCORING CRITERIA ${hasMetadata ? '(METADATA-DRIVEN)' : ''}:**
+**SCORING CRITERIA ${hasMetadata ? "(METADATA-DRIVEN)" : ""}:**
 
-1. **Fit Quality** ${hasMetadata ? '(use extracted attributes)' : ''}:
+1. **Fit Quality** ${hasMetadata ? "(use extracted attributes)" : ""}:
    - Does the silhouette flatter the body type?
    - Is the hemline appropriate and well-proportioned?
    - Are shoulders structured correctly for the look?
-   ${hasMetadata ? '- Reference specific fit values from metadata' : ''}
+   ${hasMetadata ? "- Reference specific fit values from metadata" : ""}
 
-2. **Fabric & Texture** ${hasMetadata ? '(use extracted attributes)' : ''}:
+2. **Fabric & Texture** ${hasMetadata ? "(use extracted attributes)" : ""}:
    - Is fabric choice appropriate for occasion?
    - Does texture add visual interest?
    - Is fabric weight/finish suitable?
-   ${hasMetadata ? '- Cite specific material and texture data' : ''}
+   ${hasMetadata ? "- Cite specific material and texture data" : ""}
 
-3. **Color Harmony** ${hasMetadata ? '(use extracted attributes)' : ''}:
+3. **Color Harmony** ${hasMetadata ? "(use extracted attributes)" : ""}:
    - Does color harmony support the overall look?
    - Is contrast level appropriate?
    - Do colors complement skin tone?
-   ${hasMetadata ? '- Reference color harmony and contrast values' : ''}
+   ${hasMetadata ? "- Reference color harmony and contrast values" : ""}
 
-4. **Styling Execution** ${hasMetadata ? '(use extracted attributes)' : ''}:
+4. **Styling Execution** ${hasMetadata ? "(use extracted attributes)" : ""}:
    - Are styling details intentional and polished?
    - Is layering balanced and purposeful?
    - Do sleeve/tuck treatments enhance the look?
-   ${hasMetadata ? '- Cite specific styling techniques from metadata' : ''}
+   ${hasMetadata ? "- Cite specific styling techniques from metadata" : ""}
 
-5. **Overall Aesthetic** ${hasMetadata ? '(use extracted attributes)' : ''}:
+5. **Overall Aesthetic** ${hasMetadata ? "(use extracted attributes)" : ""}:
    - Is the aesthetic cohesive?
    - What's the polish level?
    - Does it match the intended vibe?
-   ${hasMetadata ? '- Reference cultural aesthetic and polish level data' : ''}
+   ${hasMetadata ? "- Reference cultural aesthetic and polish level data" : ""}
 
 **FOR EACH PARTICIPANT, PROVIDE:**
 
-1. **PERSONA NAME** (2-3 words, ${hasMetadata ? 'reference specific attributes' : 'competitive'}):
+1. **PERSONA NAME** (2-3 words, ${hasMetadata ? "reference specific attributes" : "competitive"}):
    ${hasMetadata ? 'Examples: "Oversized Silhouette King", "Monochrome Minimalist", "Textured Layer Master"' : 'Examples: "Style Maverick", "Denim Destroyer", "Monochrome Master"'}
 
-2. **SCORE** (1.0-5.0, ${hasMetadata ? 'based on metadata analysis' : 'based on visual analysis'}):
+2. **SCORE** (1.0-5.0, ${hasMetadata ? "based on metadata analysis" : "based on visual analysis"}):
    - Use Gemini's reasoning
-   ${hasMetadata ? '- Factor in ALL extracted attributes (fit, fabric, color, styling, aesthetics)' : ''}
-   ${hasMetadata ? '- Weight fit, fabric, color, and styling equally' : ''}
+   ${hasMetadata ? "- Factor in ALL extracted attributes (fit, fabric, color, styling, aesthetics)" : ""}
+   ${hasMetadata ? "- Weight fit, fabric, color, and styling equally" : ""}
    - Differentiate scores meaningfully (winner 4.2+, others below 4.0)
    - Be honest but make winner stand out
 
 3. **RANK** (1 = best/winner, 2 = second, etc.):
-   - Base on ${hasMetadata ? 'comprehensive metadata comparison' : 'visual comparison'}
+   - Base on ${hasMetadata ? "comprehensive metadata comparison" : "visual comparison"}
    - Winner should rank #1 with clear reasoning
 
-4. **ROAST/BANTER** ${hasMetadata ? '(REFERENCE SPECIFIC EXTRACTED ATTRIBUTES)' : ''}:
-   ${hasMetadata ? '- Call out specific fit issues (e.g., "slouchy shoulders vs. structured")' : '- Playful, competitive roasts'}
-   ${hasMetadata ? '- Reference fabric choices (e.g., "cotton tee vs. silk blend")' : '- Compare each outfit to winner\'s outfit'}
-   ${hasMetadata ? '- Mention color harmony specifics (e.g., "jarring contrast vs. tonal balance")' : '- Highlight why winner is superior'}
-   ${hasMetadata ? '- Compare styling details (e.g., "untucked chaos vs. clean half-tuck")' : '- Mention specific style elements'}
-   ${hasMetadata ? '- Compare polish levels and aesthetics (e.g., "2/5 polish vs. 4/5 polish", "streetwear vs. kfashion")' : '- Be cheeky but not mean-spirited'}
-   - **MAKE ROASTS HIGHLY SPECIFIC** using ${hasMetadata ? 'metadata' : 'visual details'}
+4. **ROAST/BANTER** ${hasMetadata ? "(REFERENCE SPECIFIC EXTRACTED ATTRIBUTES)" : ""}:
+   ${hasMetadata ? '- Call out specific fit issues (e.g., "slouchy shoulders vs. structured")' : "- Playful, competitive roasts"}
+   ${hasMetadata ? '- Reference fabric choices (e.g., "cotton tee vs. silk blend")' : "- Compare each outfit to winner's outfit"}
+   ${hasMetadata ? '- Mention color harmony specifics (e.g., "jarring contrast vs. tonal balance")' : "- Highlight why winner is superior"}
+   ${hasMetadata ? '- Compare styling details (e.g., "untucked chaos vs. clean half-tuck")' : "- Mention specific style elements"}
+   ${hasMetadata ? '- Compare polish levels and aesthetics (e.g., "2/5 polish vs. 4/5 polish", "streetwear vs. kfashion")' : "- Be cheeky but not mean-spirited"}
+   - **MAKE ROASTS HIGHLY SPECIFIC** using ${hasMetadata ? "metadata" : "visual details"}
    - All roasts should acknowledge winner's dominance
 
 5. **WINNER VERDICT**:
    - Celebratory sentence explaining why #1 dominated
-   ${hasMetadata ? '- **CITE SPECIFIC EXTRACTED ATTRIBUTES** that made winner superior' : '- Specific style elements that made it unbeatable'}
-   ${hasMetadata ? '- Example: "The clean silhouette, balanced color harmony, and intentional half-tuck styling created a polished 4.5/5 aesthetic"' : '- How it best suited according to the user\'s skintone and body type'}
+   ${hasMetadata ? "- **CITE SPECIFIC EXTRACTED ATTRIBUTES** that made winner superior" : "- Specific style elements that made it unbeatable"}
+   ${hasMetadata ? '- Example: "The clean silhouette, balanced color harmony, and intentional half-tuck styling created a polished 4.5/5 aesthetic"' : "- How it best suited according to the user's skintone and body type"}
 
-**CRITICAL**: ${hasMetadata ? 'Use metadata to make scoring objective, specific, and defensible. Every score should be traceable to extracted attributes.' : 'Use visual analysis to make scoring clear and specific.'}
+**CRITICAL**: ${hasMetadata ? "Use metadata to make scoring objective, specific, and defensible. Every score should be traceable to extracted attributes." : "Use visual analysis to make scoring clear and specific."}
 
 **Important**: All answers must lean towards and celebrate winner's outfit. Winner should be clearly best choice. Use Gemini's analytical reasoning to justify why winning outfit is superior.
 
@@ -1339,7 +1336,7 @@ Respond ONLY with valid JSON in this exact format:
   "comment": "Effortlessly polished — perfect for a relaxed weekend vibe!"
 }
 
-Be confident, dynamic, and nuanced. Don't stick to examples if the outfit suggests something else.`
+Be confident, dynamic, and nuanced. Don't stick to examples if the outfit suggests something else.`,
 };
 
 // ============================================
