@@ -5,7 +5,6 @@ import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { EXTRACTION_PROMPT } from '../_shared/fashion/prompt/extractionPrompt.ts';
-import { EDITORIAL_PROMPT } from '../_shared/fashion/prompt/editorialPrompt.ts';
 import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
