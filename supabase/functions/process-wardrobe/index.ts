@@ -507,23 +507,45 @@ Return ONLY the JSON object, no other text.`;
   
   console.log('After JSON fixes (first 300 chars):', jsonString.substring(0, 300));
 
-  // Parse JSON with error handling
+  // Parse JSON with error handling (with repair attempts)
   let result;
   try {
     result = JSON.parse(jsonString);
-    console.log('Successfully parsed wardrobe detection:', {
-      isValid: result.isValid,
-      itemCount: result.items?.length || 0,
-      firstItemName: result.items?.[0]?.name || 'N/A',
-      hasReason: !!result.reason
-    });
-  } catch (parseError: any) {
-    console.error('JSON parse error:', parseError.message);
+  } catch (firstErr: any) {
+    console.error('First JSON parse failed:', firstErr.message);
     console.error('Failed JSON string (first 2000 chars):', jsonString.substring(0, 2000));
-    console.error('Failed JSON string (around error position 5487):', jsonString.substring(5400, 5600));
-    console.error('Full failed JSON length:', jsonString.length);
-    throw new Error(`Invalid JSON in Gemini response: ${parseError.message}`);
+
+    // Attempt repairs
+    let repaired = jsonString;
+    // 1) Remove trailing commas before ] or }
+    repaired = repaired.replace(/,(\s*[\]}])/g, '$1');
+    // 2) Insert missing commas between objects: `}{` -> `},{`
+    repaired = repaired.replace(/}\s*{/g, '},{');
+    // 3) Collapse accidental double commas
+    repaired = repaired.replace(/,\s*,/g, ',');
+    // 4) Remove stray trailing commas at line ends
+    repaired = repaired.replace(/,\s*\n\s*([\]}])/g, '\n$1');
+
+    console.log('Applied JSON repair heuristics. Retrying parse...');
+
+    try {
+      result = JSON.parse(repaired);
+      console.log('Second parse attempt succeeded.');
+      jsonString = repaired; // keep repaired version for further logs if needed
+    } catch (secondErr: any) {
+      console.error('Second JSON parse failed:', secondErr.message);
+      console.error('Repaired JSON (first 2000 chars):', repaired.substring(0, 2000));
+      console.error('Repaired JSON length:', repaired.length);
+      throw new Error(`Invalid JSON in Gemini response after repair: ${secondErr.message}`);
+    }
   }
+
+  console.log('Successfully parsed wardrobe detection:', {
+    isValid: result.isValid,
+    itemCount: result.items?.length || 0,
+    firstItemName: result.items?.[0]?.name || 'N/A',
+    hasReason: !!result.reason
+  });
 
   // Validate response structure
   if (typeof result.isValid !== 'boolean') {
