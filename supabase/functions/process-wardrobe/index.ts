@@ -242,7 +242,46 @@ serve(async (req) => {
           } = supabase.storage.from("outfits").getPublicUrl(fileName);
 
           console.log(`Generated image for ${item.name}`);
-          itemsWithImages.push({ ...item, imageUrl: publicUrl });
+
+          // PHASE 2: Enrich with detailed metadata from ORIGINAL image
+          console.log(`Starting Phase 2 enrichment for: ${item.name}`);
+          let enrichedItem = { ...item };
+          
+          try {
+            const { data: enrichmentData, error: enrichmentError } = await supabase.functions.invoke(
+              'enrich-wardrobe-item',
+              {
+                body: {
+                  originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
+                  category: item.category,
+                  coreMetadata: {
+                    name: item.name,
+                    primary_color: item.primary_color,
+                    primary_color_name: item.primary_color_name,
+                    color_family: item.color_family,
+                    fabric_primary: item.fabric_primary,
+                    pattern_type: item.pattern_type,
+                    style_aesthetic: item.style_aesthetic,
+                    formality_level: item.formality_level,
+                    suitable_occasions: item.suitable_occasions
+                  }
+                }
+              }
+            );
+
+            if (enrichmentError) {
+              console.error('Enrichment error (non-fatal):', enrichmentError);
+              // Continue with core metadata only
+            } else if (enrichmentData?.detailedMetadata) {
+              console.log(`Phase 2 SUCCESS: Merged ${Object.keys(enrichmentData.detailedMetadata).length} detailed fields`);
+              enrichedItem = { ...item, ...enrichmentData.detailedMetadata };
+            }
+          } catch (enrichErr) {
+            console.error('Enrichment exception (non-fatal):', enrichErr);
+            // Continue with core metadata only
+          }
+
+          itemsWithImages.push({ ...enrichedItem, imageUrl: publicUrl });
           break; // success
         } catch (err) {
           const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
@@ -392,94 +431,93 @@ async function validateAndDetectItems(
   reason?: string;
   items: DetectedItem[];
 }> {
-  const combinedPrompt = `You are analyzing a clothing image. Your task is TWO-FOLD:
+  console.log('PHASE 1: Starting quick detection with model:', model);
 
-STEP 1 - VALIDATION: First determine if this image is suitable for wardrobe extraction.
-✅ VALID: Images showing humans wearing clothes OR standalone clothing items on clean backgrounds
-❌ INVALID: Empty images, non-clothing objects, unclear/blurry images, inappropriate content
+  const QUICK_DETECTION_PROMPT = `Analyze this clothing image for wardrobe extraction.
 
-STEP 2 - DETECTION: If valid, extract ALL visible clothing items with comprehensive metadata.
+VALIDATION: Is this image suitable?
+✅ VALID: Humans wearing clothes OR standalone clothing items
+❌ INVALID: Empty images, non-clothing, blurry, inappropriate
 
-${WARDROBE_PROMPTS.DETECT_ITEMS}
+DETECTION: Extract visible items with CORE FIELDS ONLY (detailed metadata comes in Phase 2):
 
-RESPONSE FORMAT - Return a JSON object with this EXACT structure:
-{
-  "isValid": true/false,
-  "reason": "rejection reason if invalid, otherwise omit",
-  "items": [
-    {
-      "name": "Blue Denim Jacket",
-      "category": "Outerwear",
-      "primary_color": "#4A90E2",
-      "primary_color_name": "Blue",
-      "color_family": "blue",
-      "secondary_colors": ["#2C3E50", "#ECF0F1"],
-      "color_distribution": [70, 20, 10],
-      "pattern_colors": [],
-      "fabric_primary": "denim",
-      "fabric_weight": "medium",
-      "material_finish": "washed",
-      "texture": "textured",
-      "pattern_type": "solid",
-      "pattern_scale": "none",
-      "fit_type": "regular",
-      "silhouette": "classic",
-      "length": "hip",
-      "neckline": null,
-      "sleeve_type": "long",
-      "collar_type": "shirt collar",
-      "closure_type": "button",
-      "pocket_details": "front chest pockets and side pockets",
-      "hardware_details": "metal buttons and rivets",
-      "embellishments": "none",
-      "special_features": ["distressed details"],
-      "style_aesthetic": ["casual", "americana"],
-      "formality_level": "casual",
-      "style_notes_detailed": "Classic fit denim jacket with button closure and distressed accents. Features traditional western-style yoke and shirt collar.",
-      "suitable_occasions": ["casual", "everyday"],
-      "season": ["spring", "fall"],
-      "weather_suitability": "cool",
-      "rise": null,
-      "waist_style": null,
-      "heel_type": null,
-      "toe_style": null,
-      "brand": null,
-      "condition": "good"
-    }
-  ]
-}
+REQUIRED CORE FIELDS (10 only):
+1. name: Descriptive 4-6 word name (e.g., "Navy Blue Slim Fit Chinos")
+2. category: Must be one of: Tops | Bottoms | Outerwear | Dresses | Shoes | Accessories
+3. primary_color: Hex code (e.g., "#4A90E2")
+4. primary_color_name: Color name (e.g., "Navy Blue")
+5. color_family: blue | red | green | yellow | orange | purple | pink | brown | earth_tones | neutrals | black | white | grey
+6. fabric_primary: cotton | denim | wool | polyester | silk | leather | linen | synthetic | knit | etc.
+7. pattern_type: solid | striped | plaid | checkered | floral | geometric | abstract | animal_print | polka_dot | etc.
+8. style_aesthetic: Array of styles ["casual", "streetwear", "minimalist", "bohemian", "preppy", "edgy", etc.]
+9. formality_level: casual | business_casual | semi_formal | formal | athletic
+10. suitable_occasions: Array of occasions ["everyday", "work", "date_night", "outdoor", "gym", etc.]
 
-IMPORTANT: Include ALL fields shown above for every item. Use null for fields that don't apply to the category (e.g., neckline for jackets, heel_type for non-shoes). Always provide:
-- secondary_colors and color_distribution arrays (even if empty)
-- pattern_colors array
-- All category-specific fields (neckline, sleeve_type, collar_type for tops/outerwear; rise, waist_style for bottoms; heel_type, toe_style for shoes)
-- brand and condition (use null if unknown)
+LIMITS:
+- Maximum 5 items per image
+- Focus on clear, visible items only
+- Use the return_detection function for structured output`;
 
-Return ONLY the JSON object, no other text.`;
+  console.log('Calling Gemini API for Phase 1 detection...');
 
-  console.log('Calling Gemini for wardrobe validation and detection...');
-
-  // Prefer structured output via function-calling to avoid JSON parsing issues
+  // Strict schema for Phase 1
   const tools = [
     {
       type: 'function',
       function: {
         name: 'return_detection',
-        description: 'Return validation result and detected wardrobe items.',
+        description: 'Return validation result and detected items with CORE fields only',
         parameters: {
           type: 'object',
           properties: {
-            isValid: { type: 'boolean' },
-            reason: { type: 'string' },
+            isValid: {
+              type: 'boolean',
+              description: 'Whether the image is suitable for wardrobe extraction'
+            },
+            reason: {
+              type: 'string',
+              description: 'Reason if image is rejected (only if isValid is false)'
+            },
             items: {
               type: 'array',
-              items: { type: 'object' },
-            },
+              description: 'Array of detected clothing items with core fields',
+              maxItems: 5,
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Descriptive 4-6 word name' },
+                  category: { 
+                    type: 'string',
+                    enum: ['Tops', 'Bottoms', 'Outerwear', 'Dresses', 'Shoes', 'Accessories'],
+                    description: 'Item category'
+                  },
+                  primary_color: { type: 'string', description: 'Hex color code' },
+                  primary_color_name: { type: 'string', description: 'Human-readable color name' },
+                  color_family: { type: 'string', description: 'Color family group' },
+                  fabric_primary: { type: 'string', description: 'Primary fabric type' },
+                  pattern_type: { type: 'string', description: 'Pattern or print type' },
+                  style_aesthetic: { 
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Array of style aesthetics'
+                  },
+                  formality_level: { type: 'string', description: 'Formality level' },
+                  suitable_occasions: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Array of suitable occasions'
+                  }
+                },
+                required: ['name', 'category', 'primary_color', 'primary_color_name', 'color_family', 'fabric_primary', 'pattern_type', 'style_aesthetic', 'formality_level', 'suitable_occasions'],
+                additionalProperties: false
+              }
+            }
           },
           required: ['isValid', 'items'],
-        },
-      },
-    },
+          additionalProperties: false
+        }
+      }
+    }
   ];
 
   const data = await callGeminiAPI({
@@ -488,12 +526,13 @@ Return ONLY the JSON object, no other text.`;
       {
         role: "user",
         content: [
-          { type: "text", text: combinedPrompt },
+          { type: "text", text: QUICK_DETECTION_PROMPT },
           { type: "image_url", image_url: { url: imageUrl } },
         ],
       },
     ],
     tools,
+    tool_choice: { type: 'function', function: { name: 'return_detection' } }
   });
 
   // If function call is returned, use it
