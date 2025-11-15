@@ -468,13 +468,12 @@ Return ONLY the JSON object, no other text.`;
         description: 'Return validation result and detected wardrobe items.',
         parameters: {
           type: 'object',
-          additionalProperties: false,
           properties: {
             isValid: { type: 'boolean' },
             reason: { type: 'string' },
             items: {
               type: 'array',
-              items: { type: 'object', additionalProperties: true },
+              items: { type: 'object' },
             },
           },
           required: ['isValid', 'items'],
