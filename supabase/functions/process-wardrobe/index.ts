@@ -457,6 +457,7 @@ IMPORTANT: Include ALL fields shown above for every item. Use null for fields th
 
 Return ONLY the JSON object, no other text.`;
 
+  console.log('Calling Gemini for wardrobe validation and detection...');
   const data = await callGeminiAPI({
     model,
     messages: [
@@ -471,17 +472,52 @@ Return ONLY the JSON object, no other text.`;
   });
 
   const content = data.choices?.[0]?.message?.content || "";
+  console.log('Gemini response length:', content.length);
+  console.log('Gemini response preview (first 300 chars):', content.substring(0, 300));
+
+  // Clean the response - remove markdown code blocks if present
+  let cleanedContent = content.trim();
+  cleanedContent = cleanedContent.replace(/^```json\n?/gm, '').replace(/```$/gm, '');
+  
+  console.log('Cleaned content preview (first 300 chars):', cleanedContent.substring(0, 300));
 
   // Extract JSON from response
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
+    console.error('Failed to extract JSON from response. Full content:', content);
     throw new Error("Failed to extract validation+detection result from Gemini response");
   }
 
-  const result = JSON.parse(jsonMatch[0]);
+  // Parse JSON with error handling
+  let result;
+  try {
+    result = JSON.parse(jsonMatch[0]);
+    console.log('Successfully parsed wardrobe detection:', {
+      isValid: result.isValid,
+      itemCount: result.items?.length || 0,
+      firstItemName: result.items?.[0]?.name || 'N/A',
+      hasReason: !!result.reason
+    });
+  } catch (parseError: any) {
+    console.error('JSON parse error:', parseError.message);
+    console.error('Failed JSON string (first 1000 chars):', jsonMatch[0].substring(0, 1000));
+    console.error('Parse error position:', parseError.message);
+    throw new Error(`Invalid JSON in Gemini response: ${parseError.message}`);
+  }
+
+  // Validate response structure
+  if (typeof result.isValid !== 'boolean') {
+    console.error('Invalid response structure - missing or invalid isValid field:', result);
+    throw new Error('Response missing required "isValid" field');
+  }
+
+  if (result.isValid && !Array.isArray(result.items)) {
+    console.error('Invalid response structure - items is not an array:', result);
+    throw new Error('Response missing required "items" array for valid detection');
+  }
 
   return {
-    isValid: result.isValid || false,
+    isValid: result.isValid,
     reason: result.reason,
     items: result.items || [],
   };
