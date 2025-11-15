@@ -508,13 +508,11 @@ LIMITS:
                     description: 'Array of suitable occasions'
                   }
                 },
-                required: ['name', 'category', 'primary_color', 'primary_color_name', 'color_family', 'fabric_primary', 'pattern_type', 'style_aesthetic', 'formality_level', 'suitable_occasions'],
-                additionalProperties: false
+                required: ['name', 'category', 'primary_color', 'primary_color_name', 'color_family', 'fabric_primary', 'pattern_type', 'style_aesthetic', 'formality_level', 'suitable_occasions']
               }
             }
           },
-          required: ['isValid', 'items'],
-          additionalProperties: false
+          required: ['isValid', 'items']
         }
       }
     }
