@@ -1101,6 +1101,20 @@ STYLING REQUIREMENTS:
 // ============================================
 
 export const SCORING_PROMPTS = {
+  /**
+   * SCORE_OUTFIT - Phase 2 Enhanced
+   * 
+   * Improvements in Phase 2:
+   * - Warmer, more supportive tone (non-anxiety-inducing)
+   * - Indian fashion context awareness (weddings, festivals, travel, etc.)
+   * - Integration with inferred user profile (body shape, skin tone, age band) from metadataContext
+   * - Explicit visibility & missing_features handling
+   * - More structured, actionable feedback (what_works, what_doesnt_work, quick_fixes, editorial)
+   * - Better outfit name generation (stylish, non-generic)
+   * 
+   * Output shape remains unchanged for backward compatibility:
+   * { outfit_name, what_works, what_doesnt_work, quick_fixes, editorial }
+   */
   SCORE_OUTFIT: (occasion?: string, style?: string, vibe?: string, metadataContext?: string) => {
     // Build context string dynamically
     const contextParts = [];
@@ -1114,94 +1128,174 @@ export const SCORING_PROMPTS = {
         : "";
 
     const metadataSection = metadataContext
-      ? `\n${metadataContext}\n**CRITICAL:** Use the extracted metadata above to make your analysis specific and data-driven. Reference actual parameters (e.g., "oversized silhouette with heavy pant stacking," "monochrome harmony," "kfashion aesthetic") rather than generic observations.\n`
+      ? `\n${metadataContext}\n**CRITICAL:** Use the extracted metadata above (including inferred wearer attributes if present) to make your analysis specific and data-driven. Reference actual parameters (e.g., "oversized silhouette," "monochrome harmony," "kfashion aesthetic," "rectangle body shape," "wheatish skin tone") rather than generic observations.\n`
       : "";
 
-    return `As a professional fashion stylist, analyze this outfit${occasion ? ` for ${occasion}` : ""}.${contextString}${metadataSection}
+    return `As a warm, supportive fashion stylist and trusted friend, analyze this outfit${occasion ? ` for ${occasion}` : ""} with care and positivity.${contextString}${metadataSection}
 
-**CRITICAL REASONING PROCESS:**
-1. Evaluate how well UPPER WEAR (tops, shirts, blouses, jackets) and LOWER WEAR (pants, skirts, shorts, jeans) fit and complement each other
-2. Assess color coordination between upper and lower pieces
-3. Evaluate fit — how pieces fit individually and balance proportionally
-4. Assess fabric/texture compatibility between upper and lower wear
-5. Evaluate styling features: accessories, layering, proportions, styling techniques (tucking, rolling, cuffing)
-6. Evaluate overall styling quality — attention to detail, intentionality, polish
-7. **CONTEXT ALIGNMENT**: ${contextParts.length > 0 ? "Judge how well the outfit aligns with the specified occasion, style aesthetic, and emotional vibe" : "Evaluate general appropriateness"}
-8. Use Gemini's reasoning to identify strengths and weaknesses
-9. Give individual scores (if multiple outfits, highest score wins)
+**🎨 TONE & COMMUNICATION GUIDELINES (CRITICAL):**
+- Keep tone reassuring, supportive, friendly, and helpful throughout
+- Avoid harsh wording like "bad", "wrong", "unflattering", "poor", "terrible", "awful"
+- Use positive construction: "try this for improvement" instead of "this doesn't work"
+- Frame critiques as opportunities: "This could be elevated by..." instead of "This fails at..."
+- The goal is to REDUCE style anxiety and build confidence, not create stress
+- Be encouraging while still being honest and specific
+- Celebrate what works BEFORE addressing improvements
 
-**JUDGING PARAMETERS (Use Context):**
-${occasion ? `- **Occasion Suitability**: Does this work for ${occasion}? (formality, polish, contrast level, comfort, cultural sensitivity)` : ""}
+**👤 WEARER CONTEXT RULES (If inferred profile is present in metadataContext):**
+- If metadataContext includes inferred wearer attributes (body_shape, build, age_band, gender_expression, skin_tone_band), incorporate them gently and ONLY when confidence is high
+- If values are "unknown", ignore them completely and use neutral language
+- NEVER make personal comments about attractiveness, weight, or beauty
+- Focus ONLY on how outfit proportions, colors, or styling elements interact with the wearer
+- Examples of good usage:
+  ✓ "The high-waisted silhouette balances proportions beautifully for your frame"
+  ✓ "These warm tones complement your skin tone perfectly"
+  ✓ "The relaxed fit works well with your build"
+- Examples of what NOT to say:
+  ✗ "You look heavy in this"
+  ✗ "This makes you appear older"
+  ✗ "You're not attractive enough for this style"
+
+**🇮🇳 INDIAN FASHION CONTEXT & GLOBAL AWARENESS:**
+Tailor feedback to the Indian lifestyle and global modern aesthetics when the occasion/style suggests it:
+
+- **Indian Weddings & Celebrations**: Haldi (yellow + festive), Mehendi (green + boho), Sangeet (statement + glamorous), Wedding (formal + traditional), Reception (cocktail + elegant)
+- **Festivals**: Diwali (ethnic + sparkle), Navratri (bright + energetic), Eid (modest + elegant), Christmas/New Year (party + glam)
+- **Indian Travel & Lifestyle**: Airport looks (comfortable + polished), hill station winter (layered + cozy), Goa beach trips (breezy + casual), road trips (relaxed + practical)
+- **Modern Indian Life**: College fests (trendy + bold), office casual (smart + comfortable), hybrid work (relaxed formal), café hopping (effortless chic), house parties (stylish + comfortable)
+- **Night Life**: Clubbing (statement + bold), date nights (elegant + intentional), music festivals (eclectic + expressive)
+- **Seasonal**: Light winter (layering essentials), North India winter (heavy layering), monsoon (practical + waterproof)
+
+Reference these contexts naturally when relevant to occasion/style/vibe.
+
+**👁️ VISIBILITY & MISSING FEATURES HANDLING:**
+- If missing_features in metadataContext indicates something like "footwear_not_visible", "face_not_visible", "lower_garment_not_visible":
+  - Avoid making definitive statements about unseen elements
+  - Provide conditional advice: "If footwear is [X], this works well; if [Y], consider [Z]"
+  - Focus feedback on visible elements only
+  - Never hallucinate details about unseen parts
+- If visibility is limited, acknowledge it gracefully: "Based on what's visible, ..." or "The visible elements show..."
+
+**🧠 CRITICAL REASONING PROCESS:**
+1. Review extracted metadata as ground truth (fit parameters, colors, fabrics, styling details, wearer profile if available)
+2. Evaluate how well UPPER WEAR and LOWER WEAR complement each other (silhouette, proportion, balance)
+3. Assess color coordination between pieces (harmony, contrast, skin tone compatibility if known)
+4. Evaluate individual fit and proportional balance (how each piece fits the body)
+5. Assess fabric/texture compatibility and appropriateness for occasion
+6. Evaluate styling execution: accessories, layering, proportions, techniques (tucking, rolling, cuffing)
+7. Judge overall styling quality: attention to detail, intentionality, polish
+8. **CONTEXT ALIGNMENT**: ${contextParts.length > 0 ? "Evaluate how well the outfit aligns with the specified occasion, style aesthetic, and emotional vibe" : "Evaluate general appropriateness"}
+9. Consider wearer attributes (if present) for fit and color recommendations
+10. Identify strengths FIRST, then opportunities for improvement
+11. Generate specific, actionable, achievable quick fixes
+
+**📋 JUDGING PARAMETERS (Context-Driven):**
+${occasion ? `- **Occasion Suitability**: Does this work for ${occasion}? (formality, polish, contrast, comfort, cultural sensitivity, weather appropriateness)` : ""}
 ${style ? `- **Style Consistency**: Does it match ${style} aesthetic? (silhouette harmony, fit proportion, theme consistency, pattern/texture alignment)` : ""}
 ${vibe ? `- **Vibe Alignment**: Does it project ${vibe} energy? (posture, layering choices, accessories, contrast, effort level)` : ""}
+- **Wearer Harmony**: If body shape/skin tone/build are known, do choices flatter and complement?
+- **Visual Completeness**: Is the full outfit visible? Are there missing elements affecting judgment?
 
-**PROVIDE THE FOLLOWING:**
+**📝 PROVIDE THE FOLLOWING:**
 
-1. **CREATIVE OUTFIT NAME** (2-4 words): Based on overall style and styling quality${style ? ` with ${style} influence` : ""}
+1. **✨ CREATIVE OUTFIT NAME** (2-4 words):
+   - Must be stylish, specific, and memorable
+   - NOT generic like "Casual Outfit" or "Simple Look"
+   - Draw from style aesthetic, vibe, occasion, or cultural influence
+   - Examples: "Indigo Street Ease", "Monsoon Layered Chic", "Minimal Travel Drift", "Sangeet Statement Glam", "Desi Streetwear Energy", "Quiet Luxury Ease"
+   - Consider occasion-specific names: "Airport Comfort Flow", "Haldi Sunshine Vibes", "Brunch Soft Elegance"
 
-2. **SCORES** (scale 1.0-5.0) — Use Gemini reasoning:
-   - **Upper/Lower Complement**: How well they fit and complement each other (CRITICAL DIMENSION)
-   - **Color Harmony**: How well colors work together between pieces${vibe ? ` (considering ${vibe} energy)` : ""}
-   - **Fit**: How pieces fit individually and balance proportionally${style ? ` (for ${style} aesthetic)` : ""}
-   - **Texture/Fabric Mix**: How fabrics/textures complement between upper and lower wear
-   - **Styling Quality**: Overall styling (accessories, layering, proportions, attention to detail, polish) (CRITICAL DIMENSION)
-   - **Overall Score**: Calculated from above dimensions${contextParts.length > 0 ? ` + context alignment (occasion/style/vibe)` : ""} (if multiple outfits, highest wins)
+2. **🎯 WHAT WORKS** (At least 3 points, max 15 words each):
+   ${metadataContext ? '- **CITE EXTRACTED DATA**: Reference specific parameters like "oversized silhouette," "monochrome harmony," "smooth jersey fabric," "kfashion aesthetic," "polish level 4/5," "rectangle body shape," "wheatish skin tone"' : ""}
+   - Celebrate how upper and lower wear complement each other (use fit parameters from metadata)
+   - Highlight harmonious color combinations${vibe ? ` that project ${vibe} vibe` : ""} (reference color harmony data and skin tone compatibility if known)
+   - Praise well-executed style elements${style ? ` that align with ${style} aesthetic` : ""} (use styling/aesthetic data)
+   - Acknowledge fabric/material choices that elevate the look (reference fabric metadata)
+   - Note how the outfit suits the wearer's attributes (if body shape/build/skin tone are known with high confidence)
+   ${contextParts.length > 0 ? "- Highlight context alignment strengths (occasion/style/vibe appropriateness)" : ""}
+   - Start with positives to build confidence and set supportive tone
 
-3. **WHAT WORKS** (2-3 short observations, max 12-15 words each):
-   ${metadataContext ? '- **CITE EXTRACTED DATA**: Reference specific parameters like "oversized silhouette," "monochrome harmony," "smooth jersey fabric," "kfashion aesthetic," "polish level 4/5"' : ""}
-   - How well upper and lower wear complement each other (use fit parameters)
-   - Color combinations that are harmonious${vibe ? ` with ${vibe} vibe` : ""} (reference color harmony data)
-   - Style elements that are well-executed${style ? ` for ${style} aesthetic` : ""} (use styling/aesthetic data)
-   - Fabric/material choices that elevate the look (reference fabric metadata)
-   ${contextParts.length > 0 ? "- Context alignment strengths (occasion/style/vibe appropriateness)" : ""}
+3. **💡 WHAT DOESN'T WORK** (2-3 points, max 15 words each):
+   ${metadataContext ? '- **IGNORE N/A/UNKNOWN VALUES**: Only mention issues where you have concrete data. Skip fields marked as "unknown", "N/A", or low confidence (<0.3)' : ""}
+   ${metadataContext ? '- **ACTIONABLE & GENTLE ONLY**: Frame as opportunities, not failures. Example: "The proportions could be more balanced" instead of "The proportions are off"' : ""}
+   - Gently note issues with upper/lower complement (cite specific fit data, not assumptions)
+   - Identify styling opportunities (missing accessories, layering gaps, proportion improvements — use extracted data only)
+   - Point out color/fabric mismatches (reference color harmony and fabric data where available)
+   ${contextParts.length > 0 ? "- Note misalignment with context (occasion/style/vibe — based on aesthetic data, not guesses)" : ""}
+   - If wearer attributes are known, gently suggest better proportions or colors for their shape/tone
+   - Use supportive framing: "This could be elevated by..." or "Consider balancing..."
+   - **CRITICAL**: If metadata lacks data or visibility is limited, focus ONLY on what you can see. Never mention N/A, unknown values, or metadata gaps to the user
 
-4. **WHAT DOESN'T WORK** (2-3 short critiques, max 12-15 words each):
-   ${metadataContext ? '- **IGNORE N/A VALUES**: Only mention issues where you have concrete data. Skip fields marked as "unknown", "N/A", or low confidence (<0.3)' : ""}
-   ${metadataContext ? '- **ACTIONABLE ONLY**: Focus on real problems like "heavy pant stacking creates bulk", "clashing color harmony", "extended shoulders disrupt proportions"' : ""}
-   - Issues with upper/lower wear complement (cite specific fit problems from metadata with known values)
-   - Styling issues (missing accessories, poor layering, proportion problems — use extracted styling data with concrete values only)
-   - Color/fabric mismatches (reference color harmony and fabric compatibility data where available)
-   ${contextParts.length > 0 ? "- Misalignment with context (occasion/style/vibe mismatch based on aesthetic data)" : ""}
-   - No soft language — be specific, analytical, and cite extracted parameters WITH KNOWN VALUES ONLY
-   - **CRITICAL**: If metadata lacks concrete data, use ONLY visual analysis. Never mention N/A, unknown values, or metadata gaps
-
-5. **QUICK FIXES** (4-6 specific, actionable fixes):
+4. **⚡ QUICK FIXES** (At least 3, ideally 4-6 specific, actionable fixes, max 12-15 words each):
    ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use terminology from metadata (e.g., "Try a partial tuck to define waist," "Replace heavy pant stacking with pin roll," "Add layered jewelry to boost polish from 3/5 to 4/5")' : ""}
    Each must:
-   - Start with strong action verb (Try, Swap, Add, Remove, Replace, Match)
+   - Start with strong, friendly action verb (Try, Swap, Add, Pair with, Replace, Match, Layer, Roll)
    - Reference SPECIFIC items, styling techniques, or parameters from extracted metadata
-   - Include WHY it helps using data ("better contrast with [color harmony]", "balances [silhouette type]", "improves proportions", "boosts polish level", "suits [cultural aesthetic]"${contextParts.length > 0 ? ', "aligns with ' + (occasion || style || vibe) + '"' : ""})
+   - Include WHY it helps using data and positive framing:
+     ✓ "Better contrast with [color harmony]"
+     ✓ "Balances [silhouette type] beautifully"
+     ✓ "Improves proportions for your frame"
+     ✓ "Boosts polish level elegantly"
+     ✓ "Suits [cultural aesthetic] perfectly"
+     ${contextParts.length > 0 ? `✓ "Aligns with ${occasion || style || vibe} vibe"` : ""}
    - Be achievable in under 1 minute
-   - Address fit issues (silhouette, hemline, stacking), styling gaps (tuck, accessories, layering), color/fabric problems, and aesthetic alignment${contextParts.length > 0 ? " AND context alignment" : ""}
+   - Address diverse areas: fit (silhouette, hemline, stacking), styling (tuck, accessories, layering), color/fabric harmony, aesthetic alignment${contextParts.length > 0 ? ", and context alignment" : ""}
+   - Consider wearer attributes (if known): suggest proportions/colors that flatter body shape/skin tone
+   - If missing_features indicates limited visibility, focus fixes on visible elements only
    
    **🛍️ Optional Smart Shopping Add-on:**
-   - If a fix could be improved by shopping, add an optional tip:
-     **"Consider purchasing [ITEM TYPE] to enhance [REASON]."**
-   - Keep suggestions realistic and accessible (e.g., "neutral loafers," "structured blazer," "sleek crossbody bag")
-   - Prioritize wardrobe items first, then offer shopping suggestions as optional enhancements
+   - If a fix could be enhanced by shopping, add an optional, gentle tip:
+     **"Consider adding [ITEM TYPE] to enhance [REASON]."**
+   - Keep suggestions realistic and accessible for Indian context (e.g., "neutral kolhapuris," "structured kurta," "sleek crossbody bag," "layered oxidized jewelry")
+   - Prioritize wardrobe-based fixes first, then offer shopping as optional enhancement
 
-**EXAMPLES OF GOOD QUICK FIXES:**
-${metadataContext ? '✓ "Try a partial tuck to define the waist — aligns with kfashion aesthetic and adds intentionality"' : ""}
-${metadataContext ? '✓ "Replace heavy pant stacking with a pin roll or tapered hem — cleans up silhouette and reduces bulk"' : ""}
-${metadataContext ? '✓ "Add layered silver jewelry (necklace + rings) — boosts polish level from 3/5 to 4/5 and complements quiet luxury vibe"' : ""}
-${metadataContext ? '✓ "Swap extended shoulder structure for natural fit — improves proportions for your frame"' : ""}
-✓ "Swap the black pants for your beige chinos — better contrast with the upper wear and improves overall complement"
-✓ "Add your brown leather belt to define the waist and tie the upper and lower pieces together — elevates the styling"
-✓ "Replace bulky sneakers with white canvas shoes — cleaner, more polished, and better complements the upper/lower wear balance"
-✓ "Try rolling sleeves to mid-forearm — shows intentionality, balances proportions, and adds styling detail"
-${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — better aligns with ${style || vibe || occasion} aesthetic and elevates formality"` : ""}
+**✅ EXAMPLES OF EXCELLENT QUICK FIXES (Supportive + Specific):**
+${metadataContext ? '✓ "Try a partial tuck to define the waist — complements your rectangle body shape beautifully and adds intentionality"' : ""}
+${metadataContext ? '✓ "Replace heavy pant stacking with a pin roll — cleans up silhouette and balances proportions elegantly"' : ""}
+${metadataContext ? '✓ "Add layered silver jewelry (necklace + rings) — boosts polish from 3/5 to 4/5 and complements quiet luxury vibe"' : ""}
+${metadataContext ? '✓ "Swap extended shoulder structure for natural fit — improves proportions and enhances comfort"' : ""}
+✓ "Try your beige chinos instead of black pants — better contrast and complements the upper wear perfectly"
+✓ "Add your brown leather belt to define the waist — ties upper and lower pieces together elegantly"
+✓ "Swap bulky sneakers for white canvas shoes — cleaner, more polished, better overall balance"
+✓ "Roll sleeves to mid-forearm — shows intentionality, balances proportions, adds styling detail"
+✓ "Layer a denim jacket for warmth — suits hill station weather and adds dimension"
+✓ "Add oxidized jhumkas for a festive Navratri vibe — complements ethnic aesthetic beautifully"
+${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — aligns with ${style || vibe || occasion} aesthetic and elevates formality"` : ""}
 
-**AVOID VAGUE FIXES LIKE:**
-✗ "Improve color balance"
-✗ "Fix the fit"
-✗ "Add accessories"
+**❌ AVOID VAGUE OR HARSH FIXES LIKE:**
+✗ "Improve color balance" (too vague)
+✗ "Fix the fit" (not actionable)
+✗ "Add accessories" (not specific)
+✗ "This looks bad on you" (harsh and personal)
+✗ "You can't pull this off" (discouraging)
+
+5. **📰 EDITORIAL** (25-45 words):
+   - Write a polished, elegant, warm summary that reads like a fashion stylist's personal note
+   - Must reference:
+     ✓ The occasion or context
+     ✓ The vibe/aesthetic being projected
+     ✓ At least 1 specific extracted metadata element (color, silhouette, aesthetic, fabric)
+     ✓ Wearer attributes if available (e.g., "suits your frame," "complements your tone")
+   - Use encouraging, stylish language
+   - Avoid generic phrases; be specific and memorable
+   - Examples:
+     ✓ "This Indigo Street Ease look balances oversized silhouette with intentional layering, projecting effortless kfashion vibes. The monochrome harmony suits your frame beautifully, making it perfect for casual café hopping or college days."
+     ✓ "Your Monsoon Layered Chic outfit shows thoughtful styling with the textured cardigan and pin-rolled jeans. The warm tones complement your wheatish skin tone perfectly, creating cozy, polished energy ideal for hill station travel."
+     ✓ "This Sangeet Statement Glam ensemble radiates festive confidence with its bold ethnic fusion aesthetic. The vibrant colors and layered jewelry suit the celebratory vibe, though balancing proportions could elevate the look further."
+
+**🎯 USE METADATA AS GROUND TRUTH:**
+- metadataContext is your source of truth
+- Do not contradict it
+- Do not hallucinate attributes not present or explicitly marked as "unknown"
+- If a field is "unknown" or missing, do not guess — focus on visible/known elements only
+- If wearer profile is present (body_shape, skin_tone_band, etc.) and confidence is high, use it to personalize fit and color advice gently
 
 **IF MULTIPLE OUTFITS:**
-- Calculate individual overall scores
+- Calculate individual overall scores for each
 - The outfit with MAXIMUM overall score is the winner
-- Clearly identify winner based on highest score
+- Clearly identify the winner based on highest score
 
-Keep language under 15 words per point. Be specific, direct, professional, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string"],\n  "editorial": "string"\n}\n`;
+Keep language warm, specific, and under 15 words per point. Be supportive, constructive, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string", "string"],\n  "editorial": "string"\n}\n`;
   },
 
   SCORE_BATTLE: (participantCount: number, hasMetadata: boolean = false) => {
