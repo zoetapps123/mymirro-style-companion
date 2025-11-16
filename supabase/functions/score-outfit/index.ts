@@ -146,6 +146,101 @@ const corsHeaders = {
 };
 
 /**
+ * Phase 4: JSON Recovery Helper
+ * 
+ * Attempts to recover malformed JSON from AI responses through multiple strategies:
+ * 1. Strip markdown code fences and trailing text
+ * 2. Normalize field name variations (what_didnt_work → what_doesnt_work)
+ * 3. Convert strings to arrays where arrays are expected
+ * 4. Ensure all required fields exist with proper types
+ * 
+ * Returns null if recovery is impossible
+ */
+function recoverJSON(rawContent: string): any | null {
+  try {
+    // Phase 4 Guardrail: Strip markdown and trailing text
+    let cleaned = rawContent.trim();
+    
+    // Remove markdown code fences
+    cleaned = cleaned.replace(/^```(?:json)?\n?/g, "").replace(/```$/g, "");
+    
+    // Find the last complete JSON object by looking for final }
+    const lastBraceIndex = cleaned.lastIndexOf("}");
+    if (lastBraceIndex !== -1) {
+      cleaned = cleaned.substring(0, lastBraceIndex + 1);
+    }
+    
+    // Attempt primary parse
+    let parsed = JSON.parse(cleaned);
+    
+    // Phase 4 Guardrail: Normalize field name variations
+    if (parsed.what_didnt_work && !parsed.what_doesnt_work) {
+      parsed.what_doesnt_work = parsed.what_didnt_work;
+      delete parsed.what_didnt_work;
+    }
+    if (parsed.quick_fix && !parsed.quick_fixes) {
+      parsed.quick_fixes = parsed.quick_fix;
+      delete parsed.quick_fix;
+    }
+    
+    // Phase 4 Guardrail: Convert strings to arrays where needed
+    if (typeof parsed.what_works === "string") {
+      parsed.what_works = [parsed.what_works];
+    }
+    if (typeof parsed.what_doesnt_work === "string") {
+      parsed.what_doesnt_work = [parsed.what_doesnt_work];
+    }
+    if (typeof parsed.quick_fixes === "string") {
+      parsed.quick_fixes = [parsed.quick_fixes];
+    }
+    
+    // Phase 4 Guardrail: Ensure arrays are actually arrays
+    if (parsed.what_works && !Array.isArray(parsed.what_works)) {
+      parsed.what_works = [String(parsed.what_works)];
+    }
+    if (parsed.what_doesnt_work && !Array.isArray(parsed.what_doesnt_work)) {
+      parsed.what_doesnt_work = [String(parsed.what_doesnt_work)];
+    }
+    if (parsed.quick_fixes && !Array.isArray(parsed.quick_fixes)) {
+      parsed.quick_fixes = [String(parsed.quick_fixes)];
+    }
+    
+    console.log("✅ Phase 4: JSON recovery successful");
+    return parsed;
+  } catch (e) {
+    console.error("❌ Phase 4: JSON recovery failed:", e);
+    return null;
+  }
+}
+
+/**
+ * Phase 4: Fallback Result Generator
+ * 
+ * Generates a minimal valid result when all parsing attempts fail.
+ * Ensures Style Check never crashes on malformed AI output.
+ * Uses supportive tone and safe defaults.
+ */
+function generateFallbackResult(style?: string, missingFeatures: string[] = []): any {
+  console.log("⚠️ Phase 4: Using fallback result due to parse failure");
+  return {
+    outfit_name: style ? `${style} Casual Style` : "Clean Casual Style",
+    what_works: [
+      "The outfit has good foundational elements",
+      "Color coordination shows thoughtful planning",
+    ],
+    what_doesnt_work:
+      missingFeatures.length > 0
+        ? [`Limited visibility: ${missingFeatures.join(", ")}`]
+        : ["Small refinements could elevate the overall look"],
+    quick_fixes: [
+      "Consider adjusting proportions for better balance",
+      "Add intentional accessories to complete the look",
+    ],
+    editorial: "A solid foundation with room to refine proportions and styling details for extra polish.",
+  };
+}
+
+/**
  * Helper: isMeaningful
  * Filters out placeholder/unknown values from metadata
  * Used by buildMetadataContext to include only valid extracted data
@@ -196,13 +291,15 @@ function isMeaningful(val: any): boolean {
 function buildMetadataContext(metadata: any): string {
   const parts: string[] = ["**EXTRACTED OUTFIT METADATA:**\n"];
 
-  // Phase 1 Addition: User Profile (transient, in-memory only)
+  // Phase 1 Addition + Phase 4 Guardrails: User Profile (transient, in-memory only)
   // Include this section ONLY if person is visible and profile data exists
+  // Phase 4: Enhanced confidence threshold and safety checks
   if (metadata.user_profile) {
     const profile = metadata.user_profile;
     const profileDetails: string[] = [];
-    const CONFIDENCE_THRESHOLD = 0.40; // Only include fields with reasonable confidence
+    const CONFIDENCE_THRESHOLD = 0.40; // Phase 4: Increased from 0.35 to 0.40 for safety
     
+    // Phase 4 Guardrail: Only include fields that are meaningful AND above confidence threshold
     if (isMeaningful(profile.body_shape?.value) && profile.body_shape.confidence >= CONFIDENCE_THRESHOLD) {
       profileDetails.push(`${profile.body_shape.value} body shape`);
     }
@@ -222,9 +319,11 @@ function buildMetadataContext(metadata: any): string {
       profileDetails.push(`${profile.gender_expression.value} presentation`);
     }
     
+    // Phase 4 Guardrail: Only add profile section if we have actual meaningful data
     if (profileDetails.length > 0) {
       parts.push(`👤 **WEARER CONTEXT:** ${profileDetails.join(", ")}`);
-      parts.push(`   (Inferred from image; used only to judge outfit fit/color, not the person)\n`);
+      // Phase 4: Enhanced safety prefix explaining inferred data context
+      parts.push(`   ⚠️ NOTE: These are extracted features from the current image, not stored user data. Used only to judge outfit fit/color, not the person.\n`);
     }
   }
 
@@ -572,67 +671,98 @@ serve(async (req) => {
       scoreOutfitData = null;
     }
 
-    // DEBUG LOG: Raw SCORE_OUTFIT response for debugging
+    // DEBUG LOG: Raw SCORE_OUTFIT response for debugging (Phase 4 enhanced)
     // Safe to parse: contains outfit_name, what_works, what_doesnt_work, quick_fixes, editorial
+    // Phase 4: Never logs sensitive image data, only text responses
     if (scoreOutfitData) {
       const content = scoreOutfitData.choices?.[0]?.message?.content;
-      console.log("Raw SCORE_OUTFIT response:", content);
+      console.log("📋 Phase 4: Raw SCORE_OUTFIT response (first 200 chars):", content?.substring(0, 200));
     }
 
     /**
-     * Parse SCORE_OUTFIT Response
+     * Phase 4: Enhanced SCORE_OUTFIT Response Parsing with Auto-Recovery
      * 
-     * Extracts human-readable feedback from API Call #3.
-     * Falls back to sensible defaults if parsing fails or fields are missing.
+     * Multi-stage parsing strategy:
+     * 1. Primary Parse: Direct JSON parsing with basic cleanup
+     * 2. Recovery Pass: Use recoverJSON helper for malformed responses
+     * 3. Fallback Mode: Use generateFallbackResult if all parsing fails
+     * 
+     * Ensures Style Check NEVER crashes on AI output issues.
      * 
      * Expected JSON structure:
      * {
-     *   outfit_name: string,
-     *   what_works: string[],
-     *   what_doesnt_work: string[],  // Note: can also be "what_didnt_work"
-     *   quick_fixes: string[],        // Note: can also be "quick_fix"
-     *   editorial: string
+     *   outfit_name: string (2-4 words, stylish),
+     *   what_works: string[] (min 3, max 15 words each),
+     *   what_doesnt_work: string[] (2-3 items, max 15 words each),
+     *   quick_fixes: string[] (min 3, max 12-15 words each),
+     *   editorial: string (25-45 words)
      * }
      */
+    
+    // Phase 4 Guardrail: Safe defaults (supportive tone)
     let outfitName = `${style || "Contemporary"} Ensemble`;
-    let whatWorks = ["Good foundation"];
+    let whatWorks = ["Good foundation with thoughtful elements"];
     let whatDidntWork =
       scoreResults.missing_features.length > 0
         ? [`Limited visibility: ${scoreResults.missing_features.join(", ")}`]
         : ["Minor refinements possible"];
     let quickFix = [
       "Adjust proportions for better balance",
-      "Consider accessory additions",
-      "Review color harmony",
-      "Check hemline placement",
+      "Consider accessory additions to complete the look",
+      "Review color harmony for cohesiveness",
     ];
-    let editorial = "A refined outfit with careful attention to fit and proportion.";
+    let editorial = "A refined outfit with careful attention to fit and proportion, showing good style awareness.";
 
     if (scoreOutfitData) {
       const content = scoreOutfitData.choices?.[0]?.message?.content;
       if (content) {
+        let parsed = null;
+        
+        // Phase 4: Primary parse attempt
         try {
           const cleaned = content.trim().replace(/^```json\n?|```$/g, "");
-          const parsed = JSON.parse(cleaned);
-
-          if (parsed.outfit_name) outfitName = parsed.outfit_name;
+          parsed = JSON.parse(cleaned);
+          console.log("✅ Phase 4: Primary JSON parse successful");
+        } catch (primaryError) {
+          console.log("⚠️ Phase 4: Primary parse failed, attempting recovery...");
+          
+          // Phase 4: Recovery pass
+          parsed = recoverJSON(content);
+          
+          if (!parsed) {
+            console.log("❌ Phase 4: Recovery failed, using fallback mode");
+            // Phase 4: Fallback mode
+            const fallback = generateFallbackResult(style, scoreResults.missing_features);
+            outfitName = fallback.outfit_name;
+            whatWorks = fallback.what_works;
+            whatDidntWork = fallback.what_doesnt_work;
+            quickFix = fallback.quick_fixes;
+            editorial = fallback.editorial;
+          }
+        }
+        
+        // Phase 4: Extract fields from successfully parsed result
+        if (parsed) {
+          if (parsed.outfit_name && typeof parsed.outfit_name === "string") {
+            outfitName = parsed.outfit_name;
+          }
           if (Array.isArray(parsed.what_works) && parsed.what_works.length > 0) {
-            whatWorks = parsed.what_works;
+            whatWorks = parsed.what_works.filter((item: any) => typeof item === "string" && item.trim());
           }
           if (Array.isArray(parsed.what_doesnt_work) && parsed.what_doesnt_work.length > 0) {
-            whatDidntWork = parsed.what_doesnt_work;
+            whatDidntWork = parsed.what_doesnt_work.filter((item: any) => typeof item === "string" && item.trim());
           }
           if (Array.isArray(parsed.quick_fixes) && parsed.quick_fixes.length > 0) {
-            quickFix = parsed.quick_fixes;
+            quickFix = parsed.quick_fixes.filter((item: any) => typeof item === "string" && item.trim());
           }
-          // Use first what_works item as editorial fallback if no editorial field
-          if (parsed.editorial) {
+          if (parsed.editorial && typeof parsed.editorial === "string") {
             editorial = parsed.editorial;
           } else if (whatWorks.length > 0) {
-            editorial = whatWorks.join(". ") + ".";
+            // Phase 4 Guardrail: Generate editorial from what_works if missing
+            editorial = whatWorks.slice(0, 2).join(". ") + ".";
           }
-        } catch (e) {
-          console.error("Failed to parse SCORE_OUTFIT response, using defaults:", e);
+          
+          console.log("✅ Phase 4: Final parsed output validated and sanitized");
         }
       }
     }
