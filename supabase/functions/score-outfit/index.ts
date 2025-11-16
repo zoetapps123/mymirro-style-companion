@@ -882,21 +882,21 @@ serve(async (req) => {
       components: {
         fit: Number(aiScores.fit.value.toFixed(1)),
         color: Number(aiScores.color.value.toFixed(1)),
-        styling: Number(aiScores.styling.value.toFixed(1)),
-        material: Number(aiScores.material.value.toFixed(1)),
+        styling: aiScores.styling ? Number(aiScores.styling.value.toFixed(1)) : 3.5,
+        material: aiScores.material ? Number(aiScores.material.value.toFixed(1)) : 3.5,
       },
       confidence: Math.min(
         aiScores.fit.confidence,
         aiScores.color.confidence,
-        aiScores.styling.confidence,
-        aiScores.material.confidence,
+        aiScores.styling?.confidence ?? 0.8,
+        aiScores.material?.confidence ?? 0.8,
       ),
       missing_features: validatedMetadata.missing_features,
       reasoning: {
         fit: aiScores.fit.reason || "",
         color: aiScores.color.reason || "",
-        styling: aiScores.styling.reason || "",
-        material: aiScores.material.reason || "",
+        styling: aiScores.styling?.reason || "",
+        material: aiScores.material?.reason || "",
         overall: aiScores.overall.reason || "",
       },
     };
