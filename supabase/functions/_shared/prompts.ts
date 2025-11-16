@@ -1168,13 +1168,16 @@ Tailor feedback to the Indian lifestyle and global modern aesthetics when the oc
 
 Reference these contexts naturally when relevant to occasion/style/vibe.
 
-**👁️ VISIBILITY & MISSING FEATURES HANDLING:**
+**👁️ VISIBILITY & MISSING FEATURES HANDLING (PHASE 4 ENHANCED):**
 - If missing_features in metadataContext indicates something like "footwear_not_visible", "face_not_visible", "lower_garment_not_visible":
-  - Avoid making definitive statements about unseen elements
-  - Provide conditional advice: "If footwear is [X], this works well; if [Y], consider [Z]"
-  - Focus feedback on visible elements only
-  - Never hallucinate details about unseen parts
-- If visibility is limited, acknowledge it gracefully: "Based on what's visible, ..." or "The visible elements show..."
+  - **NEVER make definitive statements about unseen elements**
+  - Provide conditional, visibility-safe advice: "If footwear is sneakers, this works well; if sandals, consider closed-toe shoes for polish"
+  - Focus ALL feedback on visible elements only
+  - **NEVER hallucinate details about unseen parts** (no guessing colors, brands, materials, or styles of hidden items)
+- If visibility is limited, acknowledge gracefully: "Based on what's visible..." or "The visible elements show..."
+- **CRITICAL SAFETY RULE**: Do not assume details not present in metadataContext
+- Do not fabricate unseen items, colors, logos, materials, or accessories
+- When in doubt about visibility, provide general guidance rather than specific claims
 
 **🧠 CRITICAL REASONING PROCESS:**
 1. Review extracted metadata as ground truth (fit parameters, colors, fabrics, styling details, wearer profile if available)
@@ -1295,7 +1298,35 @@ ${contextParts.length > 0 ? `✓ "Switch to darker wash jeans — aligns with ${
 - The outfit with MAXIMUM overall score is the winner
 - Clearly identify the winner based on highest score
 
-Keep language warm, specific, and under 15 words per point. Be supportive, constructive, and actionable.\n\n**OUTPUT FORMAT (STRICT):**\nReturn ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):\n{\n  "outfit_name": "string",\n  "what_works": ["string", "string", "string"],\n  "what_doesnt_work": ["string", "string"],\n  "quick_fixes": ["string", "string", "string", "string"],\n  "editorial": "string"\n}\n`;
+Keep language warm, specific, and under 15 words per point. Be supportive, constructive, and actionable.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛡️ PHASE 4: OUTPUT CONSISTENCY GUARDRAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**STRICT OUTPUT REQUIREMENTS:**
+1. **Return ONLY the JSON object** - No markdown formatting, no triple backticks, no explanatory text
+2. **No narrative or commentary** - If you must add notes, include them inside the "editorial" field
+3. **Use exact field names** - "what_doesnt_work" not "what_didnt_work" or variations
+4. **Maintain field constraints**:
+   - what_works: minimum 3 items, max 15 words each
+   - what_doesnt_work: 2-3 items, max 15 words each
+   - quick_fixes: minimum 3, ideally 4-6 items, max 12-15 words each
+   - editorial: 25-45 words exactly
+   - outfit_name: 2-4 words, stylish and specific
+5. **All arrays must be arrays** - Never return strings where arrays are expected
+6. **Consistent tone** - Supportive, friendly, helpful, non-judgmental throughout all fields
+
+**OUTPUT FORMAT (STRICT):**
+Return ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):
+{
+  "outfit_name": "string",
+  "what_works": ["string", "string", "string"],
+  "what_doesnt_work": ["string", "string"],
+  "quick_fixes": ["string", "string", "string", "string"],
+  "editorial": "string"
+}
+`;
   },
 
   SCORE_BATTLE: (participantCount: number, hasMetadata: boolean = false) => {

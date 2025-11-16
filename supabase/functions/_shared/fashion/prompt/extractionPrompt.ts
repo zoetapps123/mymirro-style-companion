@@ -41,6 +41,28 @@ ${contextSection}
 CRITICAL: First understand the OCCASION, STYLE, and AESTHETIC context before analyzing the outfit. These determine your scoring approach.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛡️ PHASE 4: HALLUCINATION PREVENTION GUARDRAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**CRITICAL SAFETY RULES:**
+1. **Only describe what is CLEARLY VISIBLE** - Do not guess brands, fabrics, layers, accessories, or items not visible in the image
+2. **When visibility is poor** - Output "unknown" for unclear attributes rather than guessing
+3. **Never hallucinate details** - If you cannot see something clearly (logo, texture, exact color, etc.), do NOT invent it
+4. **Be conservative with confidence** - If uncertain, use lower confidence scores (<0.5) and mark as "unknown"
+5. **Focus on observable facts** - Describe only what you can verify from the image itself
+
+Examples of CORRECT behavior:
+✓ "Cannot determine fabric type from image" → fabric: "unknown" with low confidence
+✓ "Logo partially visible but unclear" → brand: "unknown"
+✓ "Footwear cropped out" → Add "footwear_not_visible" to missing_features
+
+Examples of INCORRECT behavior (DO NOT DO THIS):
+✗ Guessing "probably cotton" when fabric texture is unclear
+✗ Assuming "Nike" from partial logo
+✗ Describing accessories that are out of frame
+✗ Inventing layers/garments that aren't clearly visible
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 PHASE 1 ENHANCEMENT: CONTEXT-AWARE ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
