@@ -849,8 +849,10 @@ serve(async (req) => {
     console.log("Step 2: Validating metadata...");
     const validationResult = VisualSchema.safeParse(metadata);
     if (!validationResult.success) {
-      console.error("Schema validation failed:", validationResult.error);
-      throw new Error("Extracted metadata does not match expected schema");
+      console.error("Schema validation failed:");
+      console.error("Validation errors:", JSON.stringify(validationResult.error.format(), null, 2));
+      console.error("Received metadata keys:", Object.keys(metadata));
+      throw new Error(`Extracted metadata does not match expected schema: ${validationResult.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
     }
 
     const validatedMetadata = validationResult.data;
