@@ -33,11 +33,54 @@
  *    - Better context for SCORE_OUTFIT to generate personalized feedback
  *    - Maintains same final JSON response shape for DB/frontend compatibility
  * 
- * ⚠️ BACKWARD COMPATIBILITY:
- * - DB schema unchanged (style_checks table)
- * - API response shape unchanged (frontend expects same fields)
- * - user_profile is optional in VisualSchema (tolerates old cache entries)
- * - No new API calls added (still 3 calls total)
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 🌟 PHASE 2 ENHANCEMENTS (Feedback Quality & Indian Context)
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * 1. **Warmer, Supportive Tone**:
+ *    - SCORE_OUTFIT prompt rewritten for non-anxiety-inducing feedback
+ *    - Positive framing: "try this for improvement" vs "this doesn't work"
+ *    - Celebrates strengths before addressing opportunities
+ *    - Avoids harsh words (bad, wrong, unflattering, poor)
+ * 
+ * 2. **Indian Fashion Context Awareness**:
+ *    - Explicit support for Indian occasions (weddings: haldi/mehendi/sangeet/reception)
+ *    - Festivals (Diwali, Navratri, Eid, Christmas/New Year)
+ *    - Indian lifestyle scenarios (airport looks, hill stations, Goa travel, college fests)
+ *    - Modern contexts (office casual, hybrid work, café hopping, clubbing, date nights)
+ *    - Seasonal awareness (light winter, North India winter, monsoon)
+ * 
+ * 3. **Wearer Context Integration**:
+ *    - Uses inferred user_profile (from Phase 1) when confidence is high
+ *    - Provides personalized fit advice based on body_shape
+ *    - Suggests colors that complement skin_tone_band (Indian-tuned values)
+ *    - Ignores "unknown" values gracefully, never mentions them to user
+ *    - NEVER makes personal/appearance-based comments
+ * 
+ * 4. **Visibility & Missing Features Handling**:
+ *    - Conditional advice when elements not visible ("If footwear is X, then Y")
+ *    - Focuses on visible elements only
+ *    - Never hallucinates unseen details
+ *    - Acknowledges limited visibility gracefully
+ * 
+ * 5. **Structured, Actionable Output**:
+ *    - **outfit_name**: Stylish, non-generic (e.g., "Indigo Street Ease", "Monsoon Layered Chic")
+ *    - **what_works**: At least 3 points, max 15 words, celebrates strengths with data
+ *    - **what_doesnt_work**: 2-3 gentle points, opportunities not failures
+ *    - **quick_fixes**: At least 3-6 specific fixes, 12-15 words, action-verb-led, includes WHY
+ *    - **editorial**: 25-45 words, polished stylist note, references occasion/vibe/metadata/wearer
+ * 
+ * 6. **metadataContext as Ground Truth**:
+ *    - All feedback must cite extracted data (no hallucination)
+ *    - References user_profile fields when available and confident
+ *    - Does not contradict or guess beyond provided metadata
+ * 
+ * ⚠️ BACKWARD COMPATIBILITY (PHASE 2):
+ * - Output shape unchanged: { outfit_name, what_works, what_doesnt_work, quick_fixes, editorial }
+ * - Field names preserved (not what_didnt_work → what_doesnt_work, not quick_fix → quick_fixes)
+ * - DB insert unchanged (style_checks table)
+ * - API response unchanged (frontend compatibility maintained)
+ * - No new API calls (still 3 calls total)
  * 
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 
