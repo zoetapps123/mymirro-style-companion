@@ -1307,26 +1307,66 @@ ${metadataSection}
 // VIBE PREDICTION PROMPTS
 // Used in: predict-outfit-vibe/index.ts
 // ============================================
+// 
+// Phase 1 Enhancement: Tuned for Indian occasions + global everyday scenarios
+// Provides context for EXTRACTION_PROMPT (API Call #2) to tailor scoring
+// Output: occasion, style, vibe, comment → used by StyleCheckHub and score-outfit
 
 export const VIBE_PREDICTION_PROMPTS = {
   PREDICT_OUTFIT_VIBE: `Analyze this outfit image and predict 3 key dimensions:
 
 💎 1. OCCASION — "Where" (Context)
-Define where this outfit would be worn. Be dynamic and specific.
-Examples: Work meeting, Brunch, Date, Party, Gym, Street, Casual hangout, Wedding, Interview, Travel
-Judging: formality, polish, contrast level, comfort, cultural sensitivity
+Define where this outfit would be worn. Be dynamic and specific to Indian + global contexts.
+
+INDIAN OCCASIONS (festivals, weddings, travel):
+- Festivals: Diwali, Navratri, Holi, Eid, Christmas, New Year's Eve
+- Wedding Events: Haldi, Mehendi, Sangeet, Wedding Ceremony, Reception
+- Social: College Fest, Freshers Party, Office Party, House Party, Clubbing, Date Night, Brunch
+- Travel: Airport Look, Road Trip, Hill Station, Goa/Beach, Backpacking
+- Winter: Light Winter (North), Heavy Winter, Layered Casual
+
+GLOBAL EVERYDAY:
+- Work: Office Formal, Office Casual, Hybrid Work, Remote Work Casual, Interview, Business Meeting
+- Casual: Café Hopping, Casual Hangout, Shopping, Weekend Errands, Study Session
+- Social: Brunch, Dinner Date, Party, Bar Night, Music Festival, Concert
+- Active: Gym, Yoga, Running, Sports, Travel
+
+FALLBACK RULES:
+- If uncertain, use BROAD categories (e.g., "Casual Outing", "Party", "Travel") NOT hyper-specific events
+- Never hallucinate specific event names (e.g., "John's Birthday") – stick to event TYPES
+- For ambiguous formal wear → "Smart Casual" or "Semi-Formal"
+- For home/loungewear → "Casual/Home"
+
+Judging criteria: formality, polish, contrast, comfort, cultural appropriateness, seasonal vibes
 
 🎨 2. STYLE — "Aesthetic Language" (Design System)
-Define the visual design language: silhouette + color palette + category.
-Examples: Minimalist, Streetwear, Smart Casual, Y2K, Vintage, Ethnic Fusion, Boho, Athletic Luxe, Grunge, Preppy
-Judging: silhouette harmony, fit proportion, consistency of theme, pattern/texture alignment
+Define the visual design language: silhouette + color palette + styling approach.
+
+STYLE CATEGORIES (with Indian context):
+- Indian Fusion: Ethnic Fusion, Indo-Western, Traditional/Ethnic, Desi Streetwear
+- Modern Global: Minimalist, Streetwear, Smart Casual, Y2K, Vintage, Grunge, Preppy, Athleisure
+- Niche: Boho, Athletic Luxe, Techwear, Gothic/Dark, Cottagecore, E-girl/E-boy, Hypebeast, Quiet Luxury
+
+INDIAN-SPECIFIC EXAMPLES:
+- Kurta + Jeans = Ethnic Fusion or Indo-Western
+- Oversized Kurta + Sneakers = Desi Streetwear  
+- Saree/Lehenga = Traditional/Ethnic
+- Western Crop Top + Palazzo = Indo-Western
+
+Judging: silhouette harmony, fit proportion, theme consistency, cultural authenticity
 
 🌈 3. VIBE — "Emotional Energy" (Feel)
 Define the emotional tone this look projects. Read the energy instantly.
-Examples: Chill/Cozy, Sharp/Assertive, Elegant/Refined, Playful/Youthful, Bold/Statement, Relaxed, Powerful, Romantic
-Judging: posture, layering, accessories, contrast, effort level
+
+VIBE EXAMPLES:
+- Energy: Chill/Cozy, Energetic, Vibrant, Bold/Statement, Playful/Youthful
+- Mood: Elegant/Refined, Relaxed/Effortless, Sharp/Assertive, Powerful, Romantic, Edgy, Festive
+- Context: Polished, Casual, Understated, Maximalist, Experimental
+
+Judging: visual energy, layering, accessories, color vibrancy, effort level
 
 4. A brief, friendly comment about the outfit (under 15 words)
+Make it supportive and encouraging, NOT judgmental or anxiety-inducing.
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -1336,7 +1376,8 @@ Respond ONLY with valid JSON in this exact format:
   "comment": "Effortlessly polished — perfect for a relaxed weekend vibe!"
 }
 
-Be confident, dynamic, and nuanced. Don't stick to examples if the outfit suggests something else.`,
+Be confident, dynamic, and nuanced. Don't stick to examples if the outfit suggests something else.
+Default to broader categories if uncertain. Never invent specific event names.`,
 };
 
 // ============================================

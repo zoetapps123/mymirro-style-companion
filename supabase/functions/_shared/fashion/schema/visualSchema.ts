@@ -122,19 +122,60 @@ export const VisualSchema = z.object({
     overall: field(z.number().min(1).max(5))
   }),
   /**
-   * MISSING_FEATURES: Detection gaps
+   * USER_PROFILE: Transient wearer context (in-memory only, NOT stored in DB)
    * 
-   * Array of strings listing features AI couldn't detect from the image.
-   * Common reasons:
-   * - Poor image quality/lighting
-   * - Partial body crop (can't see shoes, full outfit)
-   * - Obstructed view (arms crossed, sitting down)
+   * Phase 1 Addition: Inferred from image when person is clearly visible.
+   * Used to provide context-aware scoring (fit on body shape, color on skin tone).
+   * 
+   * IMPORTANT:
+   * - This is NEVER persisted to style_checks table or user_profiles
+   * - Only used in-memory for scoring and metadataContext generation
+   * - All fields default to "unknown" if person not visible or unclear
+   * 
+   * Purpose: Judge how outfit works on THIS wearer, not stereotype the person
+   */
+  user_profile: z.object({
+    body_shape: field(z.enum([
+      "rectangle", "pear", "apple", "hourglass", "inverted_triangle", "straight", "unknown"
+    ])),
+    height_band: field(z.enum(["short", "average", "tall", "unknown"])),
+    build: field(z.enum(["slim", "average", "athletic", "plus", "curvy", "unknown"])),
+    skin_tone_band: field(z.enum([
+      "very_fair", "fair", "medium", "wheatish", "tan", "deep", "unknown"
+    ])),
+    perceived_age_band: field(z.enum(["teen", "20s", "30s", "40s_plus", "unknown"])),
+    gender_expression: field(z.enum(["masculine", "feminine", "androgynous", "unknown"])),
+    face_visible: field(z.union([z.boolean(), z.literal("unknown")]))
+  }).optional(),
+  
+  /**
+   * MISSING_FEATURES: Detection gaps (Phase 1: explicit rules)
+   * 
+   * Array of lowercase snake_case strings indicating visually missing or non-visible parts.
+   * 
+   * Phase 1 Enhancement: Explicit rules for what qualifies as "missing":
+   * - Only include features that are PHYSICALLY NOT VISIBLE in the image
+   * - Do NOT include things that simply aren't part of the outfit
+   * 
+   * Valid values:
+   * - "footwear_not_visible" - feet cropped out or hidden
+   * - "lower_garment_not_visible" - bottom half cropped
+   * - "upper_garment_not_visible" - top half cropped
+   * - "accessories_not_visible" - hands/neck hidden, can't see jewelry
+   * - "face_not_visible" - face cropped or turned away
+   * - "full_body_not_visible" - only partial body shown
+   * - "details_obscured_by_lighting" - poor lighting obscures details
+   * - "details_obscured_by_angle" - image angle hides key features
+   * 
+   * INVALID (do not include):
+   * - "no_accessories_worn" - this is styling choice, not missing
+   * - Duplicates of "unknown" values already in structured fields
    * 
    * Used by:
-   * - buildMetadataContext: Adds low-confidence warnings
-   * - StyleCheckHub: Shows "Limited visibility" in what_didnt_work
+   * - buildMetadataContext: Generates visibility warnings
+   * - StyleCheckHub: Shows "Limited visibility: ..." in what_didnt_work
    * 
-   * Example: ["footwear", "full hemline", "lower body"]
+   * Example: ["footwear_not_visible", "face_not_visible"]
    */
   missing_features: z.array(z.string())
 });
