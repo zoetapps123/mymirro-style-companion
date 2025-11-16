@@ -33,18 +33,20 @@ serve(async (req) => {
   }
 
   try {
-    // Phase 8: Accept enriched payload with backward compatibility
+    // Phase 6: Accept enriched payload (unified schema Phase 2)
     const { 
       imageData, 
-      improvements, 
-      wardrobeItems, 
+      wardrobeItems = [], 
       orientation, 
       width, 
       height,
-      // Phase 8: New unified schema fields (with fallbacks)
-      microRecommendations = [],
-      missingFeatures = [],
+      // Phase 2 unified schema fields
+      microFixes = [],
       whatDoesntWork = [],
+      proportionBalance,
+      silhouetteBreakdown,
+      wardrobeOpportunities = [],
+      missingFeatures = [],
     } = await req.json();
 
     // Validate input
@@ -66,19 +68,20 @@ serve(async (req) => {
 
     console.log('Phase 8: Elevating style with AI using unified schema...');
 
-    // Phase 8: Detect body visibility from missing features
+    // Phase 6: Detect body visibility from missing features
     const bodyNotVisible = missingFeatures.some((f: string) => 
-      f.includes('person_not_detected') || 
-      f.includes('body_not_visible') ||
-      f.includes('full_outfit_not_visible')
+      f.toLowerCase().includes('person_not_detected') || 
+      f.toLowerCase().includes('body_not_visible')
     );
 
-    // Phase 8: Build enriched metadata context for prompt
+    // Phase 6: Build enriched metadata context using Phase 2 structure
     const metadataContext = buildMetadataContext({
-      improvements,
-      microRecommendations,
-      missingFeatures,
+      microFixes,
       whatDoesntWork,
+      proportionBalance,
+      silhouetteBreakdown,
+      wardrobeOpportunities,
+      missingFeatures,
       wardrobeItems,
       bodyNotVisible,
     });

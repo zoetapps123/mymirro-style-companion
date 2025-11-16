@@ -7,10 +7,14 @@
 /**
  * Builds enriched metadata context for AI image enhancement
  * 
+ * Phase 6: Updated to use Phase 2 unified feedback structure
+ * 
  * Combines multiple sources of styling feedback:
- * - improvements: Legacy quick fixes string
- * - microRecommendations: Phase 6 wardrobe-first suggestions
+ * - microFixes: Phase 2 evidence-based quick fixes
  * - whatDoesntWork: Issues identified in scoring
+ * - proportionBalance: Proportion analysis
+ * - silhouetteBreakdown: Silhouette description
+ * - wardrobeOpportunities: Wardrobe-first suggestions
  * - missingFeatures: Visibility limitations
  * - wardrobeItems: User's available items
  * - bodyNotVisible: Flag for flatlay/non-person images
@@ -18,18 +22,22 @@
  * Returns deduplicated, prioritized list of actionable improvements
  */
 export function buildMetadataContext(params: {
-  improvements: string;
-  microRecommendations: string[];
-  missingFeatures: string[];
+  microFixes: string[];
   whatDoesntWork: string[];
+  proportionBalance?: string;
+  silhouetteBreakdown?: string;
+  wardrobeOpportunities: string[];
+  missingFeatures: string[];
   wardrobeItems: any[];
   bodyNotVisible: boolean;
 }): string {
   const {
-    improvements,
-    microRecommendations,
-    missingFeatures,
+    microFixes,
     whatDoesntWork,
+    proportionBalance,
+    silhouetteBreakdown,
+    wardrobeOpportunities,
+    missingFeatures,
     wardrobeItems,
     bodyNotVisible,
   } = params;
@@ -41,26 +49,37 @@ export function buildMetadataContext(params: {
     sections.push(`⚠️ BODY VISIBILITY: Person not clearly detected in image. Focus on clothing aesthetics, color harmony, and styling details only. DO NOT attempt body-shape, proportion, or fit adjustments.`);
   }
 
-  // Section 2: Primary improvements (from unified schema)
-  if (improvements && improvements.trim()) {
-    sections.push(`🎯 PRIMARY IMPROVEMENTS:\n${improvements}`);
-  }
-
-  // Section 3: Micro-recommendations (Phase 6)
-  if (Array.isArray(microRecommendations) && microRecommendations.length > 0) {
-    const deduplicated = microRecommendations
+  // Section 2: Micro-fixes (Phase 2 evidence-based)
+  if (Array.isArray(microFixes) && microFixes.length > 0) {
+    const deduplicated = microFixes
       .filter((item, index, arr) => arr.indexOf(item) === index)
-      .slice(0, 6);
-    sections.push(`✨ MICRO-RECOMMENDATIONS (wardrobe-first):\n${deduplicated.map((item, i) => `${i + 1}. ${item}`).join('\n')}`);
+      .slice(0, 8);
+    sections.push(`✨ MICRO-FIXES (apply these improvements):\n${deduplicated.map((item, i) => `${i + 1}. ${item}`).join('\n')}`);
   }
 
-  // Section 4: Specific issues to address
+  // Section 3: Specific issues to address
   if (Array.isArray(whatDoesntWork) && whatDoesntWork.length > 0) {
-    const issues = whatDoesntWork.slice(0, 3);
+    const issues = whatDoesntWork.slice(0, 4);
     sections.push(`🔧 ISSUES TO ADDRESS:\n${issues.map((item, i) => `${i + 1}. ${item}`).join('\n')}`);
   }
 
-  // Section 5: Visibility limitations (conditional guidance)
+  // Section 4: Proportion balance (Phase 2)
+  if (proportionBalance && typeof proportionBalance === 'string' && proportionBalance.trim()) {
+    sections.push(`⚖️ PROPORTION BALANCE:\n${proportionBalance}`);
+  }
+
+  // Section 5: Silhouette breakdown (Phase 2)
+  if (silhouetteBreakdown && typeof silhouetteBreakdown === 'string' && silhouetteBreakdown.trim()) {
+    sections.push(`👔 SILHOUETTE BREAKDOWN:\n${silhouetteBreakdown}`);
+  }
+
+  // Section 6: Wardrobe opportunities (Phase 2)
+  if (Array.isArray(wardrobeOpportunities) && wardrobeOpportunities.length > 0) {
+    const opportunities = wardrobeOpportunities.slice(0, 3);
+    sections.push(`🎨 WARDROBE OPPORTUNITIES:\n${opportunities.map((item, i) => `${i + 1}. ${item}`).join('\n')}`);
+  }
+
+  // Section 7: Visibility limitations (conditional guidance)
   if (Array.isArray(missingFeatures) && missingFeatures.length > 0) {
     const visibilityNotes = missingFeatures
       .filter(f => !f.includes('person_not_detected')) // Already handled above
@@ -70,7 +89,7 @@ export function buildMetadataContext(params: {
     }
   }
 
-  // Section 6: Wardrobe context summary
+  // Section 8: Wardrobe context summary
   if (Array.isArray(wardrobeItems) && wardrobeItems.length > 0) {
     const wardrobeSummary = wardrobeItems
       .map(item => `${item.name || 'Item'} (${item.category || 'Unknown'}) - ${item.color || 'color not specified'}`)
@@ -78,7 +97,7 @@ export function buildMetadataContext(params: {
       .join('\n');
     sections.push(`👗 AVAILABLE WARDROBE ITEMS (ONLY suggest from this list):\n${wardrobeSummary}`);
   } else {
-    sections.push(`👗 WARDROBE: Empty - Use universal styling tweaks (tucks, rolls, cuffs, layering with visible garments)`);
+    sections.push(`👗 WARDROBE: Empty - Use universal styling tweaks ONLY if mechanically possible based on garment metadata`);
   }
 
   return sections.join('\n\n');
