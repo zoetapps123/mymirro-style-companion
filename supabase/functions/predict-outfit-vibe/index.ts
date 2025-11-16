@@ -1,3 +1,38 @@
+/**
+ * Edge Function: predict-outfit-vibe
+ * 
+ * Role: Initial vibe prediction from outfit image (API Call #1 in Style Check flow)
+ * 
+ * Dependencies:
+ * - Called by: StyleCheckHub.tsx (handleImageUpload)
+ * - Uses: VIBE_PREDICTION_PROMPTS.PREDICT_OUTFIT_VIBE from _shared/prompts.ts
+ * - Model: google/gemini-2.5-flash via Lovable AI Gateway
+ * 
+ * Input:
+ * {
+ *   imageData: string  // Base64 data URL (data:image/jpeg;base64,...)
+ * }
+ * 
+ * Output:
+ * {
+ *   occasion: string,  // e.g., "Casual Outing", "Date Night"
+ *   style: string,     // e.g., "Streetwear", "Minimalist"
+ *   vibe: string,      // e.g., "Relaxed", "Edgy"
+ *   comment: string    // Brief AI observation about the outfit
+ * }
+ * 
+ * Flow:
+ * 1. Validates imageData is provided
+ * 2. Calls Gemini API with PREDICT_OUTFIT_VIBE prompt + image
+ * 3. Parses JSON response from AI
+ * 4. Returns prediction to client
+ * 
+ * Error Handling:
+ * - 400: Missing imageData
+ * - 429: Rate limit exceeded (RATE_LIMIT)
+ * - 402: Payment required (PAYMENT_REQUIRED)
+ * - 500: AI response parsing errors
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { VIBE_PREDICTION_PROMPTS } from '../_shared/prompts.ts';
@@ -23,6 +58,8 @@ serve(async (req) => {
       });
     }
 
+    // AI Call: Predict outfit vibe using Gemini Flash
+    // Retry logic handles transient failures
     const data = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
@@ -57,6 +94,7 @@ serve(async (req) => {
     }
 
     // Parse JSON from response
+    // AI returns JSON within text, extract it using regex
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error('No JSON found in response:', content);
