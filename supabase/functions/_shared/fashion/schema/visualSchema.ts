@@ -68,7 +68,9 @@ export const VisualSchema = z.object({
     silhouette: field(z.enum(["boxy", "tapered", "wide", "straight", "oversized", "unknown"])),
     hemline: field(z.enum(["above_hip", "mid_hip", "below_hip", "unknown"])),
     waist_visibility: field(z.enum(["tucked", "partial_tuck", "untucked", "unknown"])),
-    pant_stacking: field(z.enum(["none", "light", "medium", "heavy", "unknown"]))
+    pant_stacking: field(z.enum(["none", "light", "medium", "heavy", "unknown"])),
+    top_type: field(z.enum(["tshirt", "shirt", "sweatshirt", "sweater", "jacket", "unknown"])).optional(),
+    pant_hem_style: field(z.enum(["none", "single_cuff", "double_cuff", "raw_hem", "cropped", "stacked", "unknown"])).optional()
   }),
   /**
    * FABRIC: Material properties
@@ -100,7 +102,15 @@ export const VisualSchema = z.object({
     layering_present: field(z.union([z.boolean(), z.literal("unknown")])),
     polish_level: field(z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal("unknown")])),
     wrist_left: field(z.enum(["none", "watch", "bracelet", "unknown"])).optional(),
-    wrist_right: field(z.enum(["none", "watch", "bracelet", "unknown"])).optional()
+    wrist_right: field(z.enum(["none", "watch", "bracelet", "unknown"])).optional(),
+    accessories: z.object({
+      sunglasses: field(z.enum(["present", "absent", "unknown"])).optional(),
+      belt: field(z.enum(["present", "absent", "unknown"])).optional(),
+      necklace: field(z.enum(["present", "absent", "unknown"])).optional(),
+      rings: field(z.enum(["present", "absent", "unknown"])).optional(),
+      hat: field(z.enum(["present", "absent", "unknown"])).optional(),
+      bag: field(z.enum(["present", "absent", "unknown"])).optional()
+    }).optional()
   }),
   /**
    * AESTHETICS: High-level style classification

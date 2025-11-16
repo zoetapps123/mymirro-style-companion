@@ -309,16 +309,49 @@ function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
   for (const fix of quickFixes) {
     const lower = fix.toLowerCase();
     
-    // Block "roll sleeves" if sleeve_length is mid-bicep (T-shirt)
-    if (lower.includes('roll') && lower.includes('sleeve')) {
-      const sleeveLen = metadata?.fit?.sleeve_length?.value;
-      if (sleeveLen === 'mid-bicep' || sleeveLen === 'unknown') {
-        console.log(`[Filter] Blocked "roll sleeves" - sleeve_length: ${sleeveLen}`);
-        continue; // Skip this fix
+    // BLOCK: "cuff jeans" if already cuffed or cropped
+    if ((lower.includes('cuff') || lower.includes('pinroll') || lower.includes('turn up') || lower.includes('turn-up') || lower.includes('roll') && lower.includes('hem')) && (lower.includes('jean') || lower.includes('pant') || lower.includes('trouser'))) {
+      const pantHemStyle = metadata?.fit?.pant_hem_style?.value;
+      const pantStacking = metadata?.fit?.pant_stacking?.value;
+      if (pantHemStyle === 'single_cuff' || pantHemStyle === 'double_cuff' || pantHemStyle === 'cropped' || pantStacking === 'none') {
+        console.log(`[Filter] Blocked "cuff jeans" - pant_hem_style: ${pantHemStyle}, stacking: ${pantStacking}`);
+        continue;
       }
     }
     
-    // Block "add watch" if wrist already has watch
+    // BLOCK: "roll sleeves" if inappropriate sleeve type or already rolled
+    if ((lower.includes('roll') || lower.includes('push') || lower.includes('scrunch')) && lower.includes('sleeve')) {
+      const sleeveLen = metadata?.fit?.sleeve_length?.value;
+      const topType = metadata?.fit?.top_type?.value;
+      if (sleeveLen === 'mid-bicep' || sleeveLen === 'forearm' || sleeveLen === 'unknown' || topType === 'tshirt') {
+        console.log(`[Filter] Blocked "roll sleeves" - sleeve_length: ${sleeveLen}, top_type: ${topType}`);
+        continue;
+      }
+    }
+    
+    // BLOCK: "add accessories" if ANY accessory is present
+    if (lower.includes('add') && (lower.includes('accessory') || lower.includes('accessories'))) {
+      const wristLeft = metadata?.styling?.wrist_left?.value;
+      const wristRight = metadata?.styling?.wrist_right?.value;
+      const accessories = metadata?.styling?.accessories;
+      
+      const hasAnyAccessory = 
+        wristLeft === 'watch' || wristLeft === 'bracelet' ||
+        wristRight === 'watch' || wristRight === 'bracelet' ||
+        accessories?.sunglasses?.value === 'present' ||
+        accessories?.belt?.value === 'present' ||
+        accessories?.necklace?.value === 'present' ||
+        accessories?.rings?.value === 'present' ||
+        accessories?.hat?.value === 'present' ||
+        accessories?.bag?.value === 'present';
+      
+      if (hasAnyAccessory) {
+        console.log(`[Filter] Blocked "add accessories" - accessories already present`);
+        continue;
+      }
+    }
+    
+    // BLOCK: "add watch" if wrist already has watch
     if (lower.includes('add') && lower.includes('watch')) {
       const wristLeft = metadata?.styling?.wrist_left?.value;
       const wristRight = metadata?.styling?.wrist_right?.value;
@@ -328,19 +361,47 @@ function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
       }
     }
     
-    // Block "tuck" if hemline is too short
+    // BLOCK: "add [specific accessory]" if already present
+    const specificAccessories = ['sunglasses', 'belt', 'necklace', 'ring', 'hat', 'bag'];
+    let skipDueToSpecificAccessory = false;
+    for (const acc of specificAccessories) {
+      if (lower.includes('add') && lower.includes(acc)) {
+        const accValue = metadata?.styling?.accessories?.[acc === 'ring' ? 'rings' : acc]?.value;
+        if (accValue === 'present') {
+          console.log(`[Filter] Blocked "add ${acc}" - already present`);
+          skipDueToSpecificAccessory = true;
+          break;
+        }
+      }
+    }
+    if (skipDueToSpecificAccessory) continue;
+    
+    // BLOCK: "half-tuck" or "tuck" if already tucked or inappropriate
     if (lower.includes('tuck')) {
+      const waistVis = metadata?.fit?.waist_visibility?.value;
       const hemline = metadata?.fit?.hemline?.value;
-      if (hemline === 'above_hip') {
-        console.log(`[Filter] Blocked "tuck" - hemline too short: ${hemline}`);
+      const topType = metadata?.fit?.top_type?.value;
+      
+      if (waistVis === 'tucked' || waistVis === 'partial_tuck' || hemline === 'above_hip' || topType === 'sweatshirt' || topType === 'sweater' || topType === 'jacket') {
+        console.log(`[Filter] Blocked "tuck" - waist_visibility: ${waistVis}, hemline: ${hemline}, top_type: ${topType}`);
         continue;
       }
+    }
+    
+    // BLOCK: Fixes that don't reference any visible element (too vague)
+    const hasVisibleReference = 
+      /sleeve|hem|neckline|collar|cuff|waist|footwear|shoe|belt|watch|bracelet|sunglass|necklace|ring|hat|bag|jacket|layer|pocket|tuck|roll|adjust|straighten|color|tone|shade|contrast|balance|proportion/i.test(lower);
+    
+    if (!hasVisibleReference) {
+      console.log(`[Filter] Blocked vague fix without visible reference: "${fix}"`);
+      continue;
     }
     
     // Keep this fix
     filtered.push(fix);
   }
   
+  console.log(`[Filter] Kept ${filtered.length} of ${quickFixes.length} fixes`);
   return filtered;
 }
 
@@ -669,10 +730,18 @@ serve(async (req) => {
 
     console.log("Scoring outfit with enhanced fashion analysis...");
 
-    // Caching Layer
+    // Caching Layer with versioning (Phase 7)
     // Check if identical request was made within last hour
-    // Cache key is SHA-256 hash of input parameters
-    const cacheKey = await generateCacheKey({ type: "outfit_score_v4", imageData, occasion, style, vibe });
+    // Cache key includes schema_version and prompt_version for immediate invalidation
+    const SCHEMA_VERSION = "S2"; // Increment when visualSchema.ts changes
+    const PROMPT_VERSION = "P2"; // Increment when extraction/scoring prompts change
+    const cacheKey = await generateCacheKey({ 
+      type: `outfit_score_${SCHEMA_VERSION}_${PROMPT_VERSION}`, 
+      imageData, 
+      occasion, 
+      style, 
+      vibe 
+    });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
       console.log("Returning cached outfit score");

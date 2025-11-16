@@ -1365,6 +1365,80 @@ Follow these EXACT templates for uniform, predictable feedback:
 
 4. **⚡ QUICK FIXES** (At least 3, ideally 4-6 specific, actionable fixes, max 14 words each, FOLLOW TEMPLATE):
    
+   **🛡️ PHASE 7: EVIDENCE-BASED QUICK FIXES (CRITICAL ENFORCEMENT):**
+   
+   Every quick fix MUST be justified by at least one extracted metadata field. NO generic suggestions allowed.
+   
+   Before generating ANY quick fix, VERIFY from extracted metadata:
+   - **top_type** (tshirt|shirt|sweatshirt|sweater|jacket) - determines if rolling sleeves is appropriate
+   - **pant_hem_style** (none|single_cuff|double_cuff|cropped|stacked) - determines if cuffing is appropriate
+   - **sleeve_length** (mid-bicep|elbow|forearm) - determines sleeve manipulation options
+   - **waist_visibility** (tucked|partial_tuck|untucked) - determines tucking suggestions
+   - **accessories** object (sunglasses, belt, necklace, rings, hat, bag) - determines accessory additions
+   - **wrist_left/wrist_right** (none|watch|bracelet) - determines wrist accessory suggestions
+   - **pant_stacking** (none|light|medium|heavy) - determines hem treatment suggestions
+   - **hemline** (above_hip|mid_hip|below_hip) - determines tucking feasibility
+   - **silhouette**, **colors**, **fabric**, **footwear_type** - for all other suggestions
+   
+   **🚫 ABSOLUTE PROHIBITIONS (STRICTLY ENFORCED):**
+   
+   1. **NO "cuff jeans"** if:
+      - pant_hem_style = "single_cuff" OR "double_cuff" OR "cropped"
+      - pant_stacking = "none" (ankle already visible)
+      - Already visibly cuffed in image
+      
+   2. **NO "roll sleeves"** if:
+      - top_type = "tshirt" (T-shirts don't have rollable sleeves)
+      - sleeve_length = "mid-bicep" OR "forearm" (already short/rolled)
+      - sleeve_length = "unknown" (can't verify)
+      
+   3. **NO "add accessories"** (generic) if:
+      - ANY accessory is present: accessories.sunglasses="present" OR accessories.belt="present" OR accessories.necklace="present" OR accessories.rings="present" OR accessories.hat="present" OR accessories.bag="present"
+      - wrist_left = "watch" OR "bracelet" OR wrist_right = "watch" OR "bracelet"
+      
+   4. **NO "add [specific accessory]"** if:
+      - That specific accessory is already present (accessories.[item]="present")
+      - Example: NO "add watch" if wrist_left="watch" OR wrist_right="watch"
+      
+   5. **NO "half-tuck" or "tuck"** if:
+      - waist_visibility = "tucked" OR "partial_tuck" (already tucked)
+      - hemline = "above_hip" (too short to tuck)
+      - top_type = "sweatshirt" OR "sweater" OR "jacket" (inappropriate for tucking)
+      
+   6. **NO suggestions without visible justification**:
+      - Every fix must reference a specific visible element (sleeve, hem, color, accessory, proportion, etc.)
+      - Fixes must cite metadata values that prove the suggestion is valid
+      
+   **✅ REQUIRED EVIDENCE FORMAT:**
+   
+   For EVERY quick fix, you must be able to answer: "Which metadata field(s) justify this suggestion?"
+   
+   Examples of CORRECT evidence-based fixes:
+   ✅ "Roll sleeves to mid-forearm for sharper detail" (ONLY if top_type="shirt" AND sleeve_length="elbow")
+   ✅ "Try a half-tuck to define the waist" (ONLY if waist_visibility="untucked" AND hemline="mid_hip" AND top_type IN ["tshirt","shirt"])
+   ✅ "Cuff jeans once to reveal the shoe" (ONLY if pant_hem_style="none" AND pant_stacking IN ["light","medium","heavy"])
+   ✅ "Add a simple watch to complete the look" (ONLY if wrist_left="none" AND wrist_right="none")
+   ✅ "Try your light wash denim — better contrast with the navy top" (references top_color AND bottom_color metadata)
+   
+   Examples of INCORRECT (will be filtered):
+   ❌ "Roll sleeves" (no verification of top_type or sleeve_length)
+   ❌ "Add accessories" (too generic, no verification of what's present)
+   ❌ "Cuff the jeans" (no verification of pant_hem_style)
+   ❌ "Try a half-tuck" (no verification of waist_visibility or top_type)
+   
+   **ENUMERATED ALLOWED ACTIONS WITH TRIGGERS:**
+   
+   | Action | Required Metadata Conditions | Example |
+   |--------|------------------------------|---------|
+   | "cuff jeans" | pant_hem_style="none" AND (pant_stacking≠"none" OR bottom visible) | "Cuff jeans once to reveal the shoe and create balance" |
+   | "roll sleeves" | top_type IN ["shirt","sweatshirt","sweater"] AND sleeve_length IN ["elbow","wrist"] | "Roll sleeves to mid-forearm for intentional detail" |
+   | "add watch" | wrist_left="none" AND wrist_right="none" | "Add a simple watch to complete the styling" |
+   | "add belt" | accessories.belt="absent" OR undefined | "Add a belt to define waist and elevate polish" |
+   | "half-tuck" | waist_visibility="untucked" AND top_type IN ["tshirt","shirt"] AND hemline≠"above_hip" | "Try a half-tuck to define proportions" |
+   | "swap footwear" | footwear_type specified AND wardrobe has alternative | "Your white sneakers contrast better with dark tones" |
+   | "adjust neckline" | Visible neckline issue in image | "Adjust neckline for cleaner collar presentation" |
+   | "straighten hem" | Visible hem asymmetry | "Straighten hem for balanced silhouette" |
+   
    **🛡️ CRITICAL GARMENT-AWARE GUARDRAILS (MUST ENFORCE):**
    
    Before generating ANY quick fix, READ the extracted metadata:
@@ -1374,27 +1448,18 @@ Follow these EXACT templates for uniform, predictable feedback:
    - wrist visibility (wrist_left, wrist_right in accessory_presence)
    - layering present, polish level
    
-   **NEVER SUGGEST:**
-   ❌ Rolling sleeves if sleeve_length is "short", "cap", "sleeveless", or "unknown"
-   ❌ Tucking if hemline is "above_hip" or garment is too short to tuck
-   ❌ Adding accessories already present (e.g., if watch detected on wrist, DO NOT suggest adding watch)
-   ❌ Adding footwear already detected in the image
-   ❌ Adding layers/jackets not relevant to the context or season
-   ❌ Vague color suggestions like "lighter wash" without specifying exact shade
-   ❌ Color changes without specifying exact color name and reasoning
-   ❌ Generic advice that could apply to any outfit
-   
    **CORE RULES:**
    1. **Mechanical Possibility Check**: Every fix must be PHYSICALLY POSSIBLE given the garments shown
    2. **No Duplication**: If item already present (watch, bracelet, necklace), DO NOT suggest adding it
-   3. **Sleeve-Aware**: Only suggest rolling sleeves if sleeve_length is "elbow", "forearm", "full", or "three-quarter"
-   4. **Hemline-Aware**: Only suggest tucking if hemline is "mid_hip" or "below_hip"
-   5. **Wrist-Aware**: Check wrist_left/wrist_right before suggesting wrist accessories
-   6. **Footwear-Aware**: If footwear visible and detected, DO NOT suggest adding shoes
-   7. **Color-Specific**: Always specify exact shade (e.g., "light blue", "charcoal grey", "clean white")
-   8. **Wardrobe-First**: If wardrobe items available, prioritize suggesting specific items from wardrobe
-   9. **No Generic Fixes**: Each fix must be UNIQUE to this specific outfit's attributes
-   10. **Optimal Check**: If an area is already optimal, DO NOT invent a fix for it
+   3. **Sleeve-Aware**: Only suggest rolling sleeves if top_type allows AND sleeve_length permits
+   4. **Hemline-Aware**: Only suggest tucking if hemline is "mid_hip" or "below_hip" AND top_type allows
+   5. **Hem-Style-Aware**: Only suggest cuffing if pant_hem_style="none"
+   6. **Wrist-Aware**: Check wrist_left/wrist_right before suggesting wrist accessories
+   7. **Accessory-Aware**: Check accessories object before suggesting adding any accessory
+   8. **Color-Specific**: Always specify exact shade (e.g., "light blue", "charcoal grey", "clean white")
+   9. **Wardrobe-First**: If wardrobe items available, prioritize suggesting specific items from wardrobe
+   10. **No Generic Fixes**: Each fix must be UNIQUE to this specific outfit's attributes
+   11. **Optimal Check**: If an area is already optimal, DO NOT invent a fix for it
    
    **TEMPLATE for each fix:**
    - [Imperative action verb] + [Concrete specific action] + [Specific target/reason] (max 14 words)
@@ -1421,13 +1486,11 @@ Follow these EXACT templates for uniform, predictable feedback:
    ✅ "Try your white canvas sneakers instead — they'll balance the proportions better"
    
    **EXAMPLES OF EXCELLENT GARMENT-AWARE FIXES:**
-   ✓ "A half-tuck can define the waist without changing the casual vibe"
-   ✓ "Your light blue jeans contrast better with the navy tee than medium wash"
-   ✓ "Slightly adjust the neckline to reduce flatness around the collar"
-   ✓ "Straighten the hem for a cleaner proportion and balanced silhouette"
-   ✓ "Cuff the jeans once to reveal the shoe and create visual balance"
-   ✓ "Roll sleeves to mid-forearm for intentional styling detail" (ONLY if sleeves are long enough)
-   ✓ "Try your white sneakers from wardrobe for better overall balance"
+   ✓ "A half-tuck can define the waist without changing the casual vibe" (verified: waist_visibility="untucked", top_type="tshirt")
+   ✓ "Your light blue jeans contrast better with the navy tee than medium wash" (verified: wardrobe item exists)
+   ✓ "Slightly adjust the neckline to reduce flatness around the collar" (verified: visible neckline issue)
+   ✓ "Straighten the hem for a cleaner proportion and balanced silhouette" (verified: visible hem asymmetry)
+   ✓ "Try your white sneakers from wardrobe for better overall balance" (verified: wardrobe item + footwear visible)
    
    ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use specific terminology from metadata (sleeve length, hemline, silhouette, color names, wash type, accessory presence)' : ""}
    Each must:
