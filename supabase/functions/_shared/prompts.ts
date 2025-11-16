@@ -1413,6 +1413,54 @@ ${contextParts.length > 0 ? `✓ "Switch to darker jeans — aligns with ${style
 Keep language warm, specific, and under 15 words per point. Be supportive, constructive, and actionable.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎁 PHASE 6: MICRO-RECOMMENDATIONS (WARDROBE-FIRST BUT NOT LIMITED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generate a **micro_recommendations** array (3-6 items, 7-14 words each):
+
+**PURPOSE:** Immediately actionable improvements the user can apply RIGHT NOW without buying anything.
+
+**LOGIC (Priority Order):**
+1. **If WARDROBE_CONTEXT has relevant items** → Suggest using them when they meaningfully improve the outfit
+   - ✓ "Swap sandals for your white sneakers to add structure"
+   - ✓ "Use your denim overshirt for light layering"
+   - ✓ "Try your beige chinos for better contrast"
+   
+2. **If WARDROBE_CONTEXT is weak/empty** → Use universal styling actions:
+   - ✓ "Half-tuck the tee for cleaner proportions"
+   - ✓ "Roll sleeves slightly to sharpen the silhouette"
+   - ✓ "Cuff the hem once to reduce visual weight"
+   - ✓ "Add a partial tuck to define waist"
+   - ✓ "Adjust collar for sharper framing"
+
+3. **If visibility is limited** (footwear_not_visible, lower_garment_not_visible):
+   - Use conditional phrasing: "If wearing sandals, switch to sneakers for balance"
+   - Focus on visible elements only
+
+**CRITICAL RULES:**
+❌ **NO shopping suggestions** ("buy X", "get Y", "consider purchasing")
+❌ **NO festival/wedding references** (Diwali, haldi, sangeet, Christmas, New Year)
+❌ **NO "you should own"** phrasing
+❌ **NO personal appearance commentary** (attractiveness, body criticism, grooming beyond styling)
+❌ **NO hallucinating wardrobe items** not present in WARDROBE_CONTEXT
+❌ **NO suggesting items not visible in the image** unless conditional
+
+✅ **ALLOWED:**
+- Wardrobe swaps (if items exist in WARDROBE_CONTEXT)
+- Universal styling tweaks (tucking, rolling, cuffing, proportions)
+- Layering with visible garments
+- Simple adjustments anyone can do now
+- Conditional suggestions when visibility is low
+
+**EXAMPLES (7-14 words each):**
+✓ "Use your black shirt for sharper contrast"
+✓ "Half-tuck front for defined waist and proportions"
+✓ "Roll sleeves to mid-forearm for intentional detail"
+✓ "Cuff jeans once to clean up silhouette"
+✓ "Add your brown belt to tie pieces together"
+✓ "If footwear is casual, try structured shoes"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🛡️ PHASE 4: OUTPUT CONSISTENCY GUARDRAILS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1424,6 +1472,7 @@ Keep language warm, specific, and under 15 words per point. Be supportive, const
    - what_works: minimum 3 items, max 15 words each
    - what_doesnt_work: 2-3 items, max 15 words each
    - quick_fixes: minimum 3, ideally 4-6 items, max 12-15 words each
+   - micro_recommendations: 3-6 items, 7-14 words each (Phase 6)
    - editorial: 25-45 words exactly
    - outfit_name: 2-4 words, stylish and specific
 5. **All arrays must be arrays** - Never return strings where arrays are expected
@@ -1436,8 +1485,12 @@ Return ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Us
   "what_works": ["string", "string", "string"],
   "what_doesnt_work": ["string", "string"],
   "quick_fixes": ["string", "string", "string", "string"],
+  "micro_recommendations": ["string", "string", "string"],
   "editorial": "string"
 }
+
+// Phase 6: Wardrobe-first but not wardrobe-limited micro-recommendations added
+// No shopping, no festivals, no DB changes
 `;
   },
 
