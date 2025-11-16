@@ -328,11 +328,15 @@ Return EXACT JSON matching this schema:
     "face_visible": { "value": true|false|"unknown", "confidence": 0.0-1.0 }
   },
   "fit": {
+    "top_sleeve_length": { "value": "sleeveless"|"cap_sleeve"|"short"|"elbow"|"three_quarter"|"full"|"unknown", "confidence": 0.0-1.0 },
+    "bottom_length": { "value": "shorts"|"knee"|"midi"|"ankle"|"maxi"|"floor"|"unknown", "confidence": 0.0-1.0 },
+    "top_fit": { "value": "oversized"|"relaxed"|"regular"|"slim"|"fitted"|"bodycon"|"unknown", "confidence": 0.0-1.0 },
+    "bottom_fit": { "value": "wide"|"straight"|"tapered"|"slim"|"skinny"|"unknown", "confidence": 0.0-1.0 },
     "sleeve_length": { "value": "mid-bicep"|"elbow"|"forearm"|"unknown", "confidence": 0.0-1.0 },
     "shoulder_structure": { "value": "natural"|"dropped"|"extended"|"unknown", "confidence": 0.0-1.0 },
     "silhouette": { "value": "boxy"|"tapered"|"wide"|"straight"|"oversized"|"unknown", "confidence": 0.0-1.0 },
-    "hemline": { "value": "above_hip"|"mid_hip"|"below_hip"|"unknown", "confidence": 0.0-1.0 },
-    "waist_visibility": { "value": "tucked"|"partial_tuck"|"untucked"|"unknown", "confidence": 0.0-1.0 },
+    "hemline": { "value": "above_hip"|"at_hip"|"mid_hip"|"low_hip"|"below_hip"|"unknown", "confidence": 0.0-1.0 },
+    "waist_visibility": { "value": "hidden"|"partial_tuck"|"tucked"|"untucked"|"layered"|"unknown", "confidence": 0.0-1.0 },
     "pant_stacking": { "value": "none"|"light"|"medium"|"heavy"|"unknown", "confidence": 0.0-1.0 },
     "top_type": { "value": "tshirt"|"shirt"|"sweatshirt"|"sweater"|"jacket"|"unknown", "confidence": 0.0-1.0 },
     "pant_hem_style": { "value": "none"|"single_cuff"|"double_cuff"|"raw_hem"|"cropped"|"stacked"|"unknown", "confidence": 0.0-1.0 }
@@ -371,11 +375,13 @@ Return EXACT JSON matching this schema:
     "price_tier": { "value": "fast_fashion"|"mid_range"|"premium"|"luxury"|"unknown", "confidence": 0.0-1.0 }
   },
   "scores": {
+    "overall": { "value": 0-5, "confidence": 0.0-1.0, "reason": "brief synthesis" },
     "fit": { "value": 0-5, "confidence": 0.0-1.0, "reason": "brief explanation" },
     "color": { "value": 0-5, "confidence": 0.0-1.0, "reason": "brief explanation" },
+    "texture": { "value": 0-5, "confidence": 0.0-1.0, "reason": "fabric texture and quality assessment" },
+    "occasion_alignment": { "value": 0-5, "confidence": 0.0-1.0, "reason": "how well outfit matches the occasion" },
     "styling": { "value": 0-5, "confidence": 0.0-1.0, "reason": "brief explanation" },
-    "material": { "value": 0-5, "confidence": 0.0-1.0, "reason": "brief explanation" },
-    "overall": { "value": 1-5, "confidence": 0.0-1.0, "reason": "brief synthesis" }
+    "material": { "value": 0-5, "confidence": 0.0-1.0, "reason": "brief explanation" }
   },
   "missing_features": ["footwear_not_visible", "face_not_visible", etc. - only visibility issues, NOT styling choices]
 }
