@@ -58,7 +58,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
   const slides = [
     {
-      title: "Get personalized style advice",
+      title: "Ask your stylist anything",
       image: slide1
     },
     {
@@ -186,16 +186,17 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-200 via-purple-300 to-pink-200 p-6">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#FFE3C3] via-[#D9A7FF] to-[#FBD6FF] p-6 pb-safe">
       {/* Logo */}
-      <div className="text-center pt-4 pb-4">
-        <img src={logo} alt="MyMirro" className="h-16 mx-auto" />
+      <div className="text-center pt-8 pb-6">
+        <img src={logo} alt="MyMirro" className="h-12 mx-auto" />
       </div>
 
-      {/* Carousel */}
-      <div className="flex-1 flex flex-col items-center justify-center space-y-4 max-w-md mx-auto w-full">
+      {/* Hero Image Card & Content */}
+      <div className="flex-1 flex flex-col items-center justify-start max-w-md mx-auto w-full overflow-y-auto">
+        {/* Hero Image Carousel Card */}
         <div 
-          className="relative w-full flex-1 min-h-[300px] max-h-[500px] flex items-center justify-center"
+          className="relative w-[80%] aspect-[4/5] mb-3 rounded-[24px] overflow-hidden"
           onTouchStart={(e) => {
             const touchStartX = e.touches[0].clientX;
             e.currentTarget.setAttribute('data-touch-start', touchStartX.toString());
@@ -223,53 +224,57 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full h-full flex items-center justify-center"
+              className="w-full h-full"
             >
               <img 
                 src={slides[currentSlide].image} 
                 alt={slides[currentSlide].title} 
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
             </motion.div>
           </AnimatePresence>
         </div>
 
-        {/* Slide Indicators */}
-        <div className="flex gap-2">
+        {/* Pagination Dots */}
+        <div className="flex gap-2 mb-3">
           {slides.map((_, index) => (
             <motion.button
               key={index}
               onClick={() => setCurrentSlide(index)}
               whileHover={{ scale: 1.2 }}
               whileTap={{ scale: 0.9 }}
-              className={`h-2 rounded-full transition-all duration-300 ${
+              className={`rounded-full transition-all duration-300 ${
                 index === currentSlide 
-                  ? 'w-12 bg-gradient-to-r from-purple-600 to-pink-600' 
-                  : 'w-2 bg-white/50'
+                  ? 'w-[24px] h-[6px] bg-[#F45AC8]' 
+                  : 'w-[6px] h-[6px] bg-[#E4D5FF]'
               }`}
             />
           ))}
         </div>
 
-        {/* Title - Dynamic based on slide */}
-        <motion.p 
+        {/* Main Headline - Changes with slide */}
+        <motion.h2 
           key={`title-${currentSlide}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-white text-xl font-semibold text-center px-4"
+          className="text-white text-[20px] font-bold text-center px-4 mb-9"
         >
           {slides[currentSlide].title}
-        </motion.p>
+        </motion.h2>
+
+        {/* Subheading */}
+        <p className="text-[#41374E] text-[14px] font-semibold text-center mb-4">
+          Start your fashion journey with MyMirro
+        </p>
       </div>
 
       {/* Form Section */}
-      <div className="space-y-4 pb-safe max-w-md mx-auto w-full">
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Phone Number */}
-          <div className="flex gap-2">
+      <div className="space-y-4 max-w-md mx-auto w-full px-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Phone Number Row */}
+          <div className="flex gap-0 max-w-[348px] mx-auto">
             <Select value={countryCode} onValueChange={setCountryCode}>
-              <SelectTrigger className="w-20 h-14 bg-white/90 backdrop-blur border-0 rounded-2xl text-[#6B4D82]">
+              <SelectTrigger className="w-[72px] h-[50px] bg-[#F5F8FF] border-0 rounded-l-[10px] rounded-r-none text-[#262626] text-[14px] font-semibold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -286,13 +291,13 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                 setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
                 setError("");
               }}
-              className="h-14 bg-white/90 backdrop-blur border-0 rounded-2xl text-[#6B4D82] placeholder:text-[#A7A7A7] text-base"
+              className="flex-1 h-[50px] bg-[#F5F8FF] border-0 rounded-l-none rounded-r-[10px] text-[#262626] placeholder:text-[#8D8D93] text-[14px] px-4"
               disabled={loading}
             />
           </div>
 
           {/* Password */}
-          <div className="relative">
+          <div className="relative max-w-[348px] mx-auto">
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
@@ -301,24 +306,24 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                 setPassword(e.target.value);
                 setError("");
               }}
-              className="h-14 bg-white/90 backdrop-blur border-0 rounded-2xl text-[#6B4D82] placeholder:text-[#A7A7A7] pr-12 text-base"
+              className="w-full h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] placeholder:text-[#8D8D93] pr-12 text-[14px] px-4"
               disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#A7A7A7]"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8D8D93]"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
 
           {!isSignUp && (
-            <div className="text-right">
+            <div className="text-right max-w-[348px] mx-auto">
               <button
                 type="button"
                 onClick={onBack}
-                className="text-[#6B4D82] text-sm font-medium hover:underline"
+                className="text-[#4A3E55] text-[14px] font-medium hover:underline"
               >
                 Forgot your password?
               </button>
@@ -326,24 +331,28 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           )}
 
           {error && (
-            <p className="text-sm text-red-600 text-center">{error}</p>
+            <p className="text-sm text-red-600 text-center max-w-[348px] mx-auto">{error}</p>
           )}
 
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button
-              type="submit"
-              className="w-full h-14 bg-black hover:bg-black/90 text-white text-lg font-semibold rounded-2xl shadow-xl"
-              disabled={loading}
-            >
-              {loading ? "Processing..." : isSignUp ? "Sign up" : "Log in"}
-            </Button>
-          </motion.div>
+          {/* Sign Up Button */}
+          <div className="flex justify-center pt-2">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                type="submit"
+                className="w-[152px] h-[40px] bg-black hover:bg-black/90 text-white text-[14px] font-semibold rounded-[10px]"
+                disabled={loading}
+              >
+                {loading ? "Processing..." : isSignUp ? "Sign up" : "Log in"}
+              </Button>
+            </motion.div>
+          </div>
         </form>
 
+        {/* Already have an account */}
         <motion.button
           onClick={onBack}
-          whileHover={{ scale: 1.05 }}
-          className="w-full text-[#6B4D82] text-base font-semibold hover:underline underline-offset-4 transition-all"
+          whileHover={{ scale: 1.02 }}
+          className="w-full text-[#4A3E55] text-[14px] font-medium text-center pt-2"
         >
           {isSignUp ? "Already have an account" : "Create new account"}
         </motion.button>
