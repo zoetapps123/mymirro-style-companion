@@ -98,7 +98,9 @@ export const VisualSchema = z.object({
     footwear_type: field(z.enum(["sneakers", "loafers", "boots", "heels", "sandals", "unknown"])),
     accessory_presence: field(z.enum(["none", "minimal", "moderate", "heavy", "unknown"])),
     layering_present: field(z.union([z.boolean(), z.literal("unknown")])),
-    polish_level: field(z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal("unknown")]))
+    polish_level: field(z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal("unknown")])),
+    wrist_left: field(z.enum(["none", "watch", "bracelet", "unknown"])).optional(),
+    wrist_right: field(z.enum(["none", "watch", "bracelet", "unknown"])).optional()
   }),
   /**
    * AESTHETICS: High-level style classification

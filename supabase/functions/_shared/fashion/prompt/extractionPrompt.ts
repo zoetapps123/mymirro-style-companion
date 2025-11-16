@@ -77,6 +77,13 @@ Examples of INCORRECT behavior (DO NOT DO THIS):
    - Similar inputs → similar scores (reduce jitter and randomness)
    - Base all scores on visible features ONLY, using the same evaluation criteria every time
 
+**WRIST ACCESSORIES:**
+- Check BOTH wrists independently
+- If a watch or bracelet is clearly visible, mark it as "watch" or "bracelet"
+- If wrist is visible but empty, mark as "none"
+- If wrist is not visible (cropped, covered, unclear), mark as "unknown"
+- DO NOT guess or hallucinate accessories
+
 2. **Visible-Feature-Only Scoring**:
    - Never adjust scores based on assumptions or invisible elements
    - Use the same scoring logic consistently: fit quality → color harmony → styling execution → material appropriateness
