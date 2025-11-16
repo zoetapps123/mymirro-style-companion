@@ -257,13 +257,13 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           key={`title-${currentSlide}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-white text-[20px] font-bold text-center px-4 mb-[12px]"
+          className="text-white text-[20px] font-bold text-center px-4 mb-[36px]"
         >
           {slides[currentSlide].title}
         </motion.h2>
 
         {/* Subheading */}
-        <p className="text-[#41374E] text-[14px] font-semibold text-left max-w-[348px] mx-auto w-full mb-4">
+        <p className="text-[#41374E] text-[14px] font-semibold text-left max-w-[348px] mx-auto w-full mb-[16px]">
           Start your fashion journey with MyMirro
         </p>
       </div>
