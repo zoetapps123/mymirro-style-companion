@@ -1363,40 +1363,87 @@ Follow these EXACT templates for uniform, predictable feedback:
    - Use supportive framing: "This could be elevated by..." or "Consider balancing..."
    - **CRITICAL**: If metadata lacks data or visibility is limited, focus ONLY on what you can see. Never mention N/A, unknown values, or metadata gaps to the user
 
-4. **⚡ QUICK FIXES** (At least 3, ideally 4-6 specific, actionable fixes, max 10-12 words each, FOLLOW TEMPLATE):
+4. **⚡ QUICK FIXES** (At least 3, ideally 4-6 specific, actionable fixes, max 14 words each, FOLLOW TEMPLATE):
+   
+   **🛡️ CRITICAL GARMENT-AWARE GUARDRAILS (MUST ENFORCE):**
+   
+   Before generating ANY quick fix, READ the extracted metadata:
+   - garment type, sleeve length, hemline, silhouette, fit
+   - colors (specific shades, wash type), texture, fabric
+   - accessories present (watch, bracelet, jewelry, footwear)
+   - wrist visibility (wrist_left, wrist_right in accessory_presence)
+   - layering present, polish level
+   
+   **NEVER SUGGEST:**
+   ❌ Rolling sleeves if sleeve_length is "short", "cap", "sleeveless", or "unknown"
+   ❌ Tucking if hemline is "above_hip" or garment is too short to tuck
+   ❌ Adding accessories already present (e.g., if watch detected on wrist, DO NOT suggest adding watch)
+   ❌ Adding footwear already detected in the image
+   ❌ Adding layers/jackets not relevant to the context or season
+   ❌ Vague color suggestions like "lighter wash" without specifying exact shade
+   ❌ Color changes without specifying exact color name and reasoning
+   ❌ Generic advice that could apply to any outfit
+   
+   **CORE RULES:**
+   1. **Mechanical Possibility Check**: Every fix must be PHYSICALLY POSSIBLE given the garments shown
+   2. **No Duplication**: If item already present (watch, bracelet, necklace), DO NOT suggest adding it
+   3. **Sleeve-Aware**: Only suggest rolling sleeves if sleeve_length is "elbow", "forearm", "full", or "three-quarter"
+   4. **Hemline-Aware**: Only suggest tucking if hemline is "mid_hip" or "below_hip"
+   5. **Wrist-Aware**: Check wrist_left/wrist_right before suggesting wrist accessories
+   6. **Footwear-Aware**: If footwear visible and detected, DO NOT suggest adding shoes
+   7. **Color-Specific**: Always specify exact shade (e.g., "light blue", "charcoal grey", "clean white")
+   8. **Wardrobe-First**: If wardrobe items available, prioritize suggesting specific items from wardrobe
+   9. **No Generic Fixes**: Each fix must be UNIQUE to this specific outfit's attributes
+   10. **Optimal Check**: If an area is already optimal, DO NOT invent a fix for it
+   
    **TEMPLATE for each fix:**
-   - [Imperative action verb] + [Concrete specific action] + [Specific target/reason] (10-12 words max)
-   - Start with: Try, Swap, Add, Pair, Replace, Match, Layer, Roll, Tuck, Adjust
-   - Include WHY using positive framing
+   - [Imperative action verb] + [Concrete specific action] + [Specific target/reason] (max 14 words)
+   - Start with: Try, Swap, Add, Pair, Replace, Match, Layer, Roll, Tuck, Cuff, Adjust, Straighten
+   - Include WHY using positive framing and specific data
    
-   **EXAMPLES following template (10-12 words):**
-   ✓ "Try partial tuck to define waist and add intentional structure."
-   ✓ "Swap heavy stacking for pin roll to clean up silhouette."
-   ✓ "Add layered jewelry to boost polish from current 3/5."
-   ✓ "Replace chunky sneakers with sleek white canvas for better balance."
-   ✓ "Roll sleeves to mid-forearm for intentional styling detail proportions."
+   **COLOR SPECIFICITY REQUIREMENT:**
+   If suggesting color improvements:
+   - ALWAYS specify exact shade (e.g., "light blue washed", "charcoal grey", "clean white")
+   - ALWAYS include reasoning (better contrast with X, complements Y)
+   - ALWAYS reference what it's lighter/darker than
    
-   ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use terminology from metadata (e.g., "Try a partial tuck to define waist," "Replace heavy pant stacking with pin roll," "Add layered jewelry to boost polish from 3/5 to 4/5")' : ""}
+   Example:
+   ❌ "Consider lighter wash jeans"
+   ✅ "Try light blue washed jeans — they'll contrast better with the navy tee"
+   
+   **WARDROBE-FIRST LOGIC:**
+   - If recommending alternative color/garment, FIRST check if wardrobe contains matching item
+   - If wardrobe has it, mention the specific wardrobe item by name or description
+   - If wardrobe lacks it, fall back to universal micro-fixes (tucking, cuffing, subtle adjustments)
+   
+   Example:
+   ✅ "Your light wash denim from wardrobe would contrast better with this navy top"
+   ✅ "Try your white canvas sneakers instead — they'll balance the proportions better"
+   
+   **EXAMPLES OF EXCELLENT GARMENT-AWARE FIXES:**
+   ✓ "A half-tuck can define the waist without changing the casual vibe"
+   ✓ "Your light blue jeans contrast better with the navy tee than medium wash"
+   ✓ "Slightly adjust the neckline to reduce flatness around the collar"
+   ✓ "Straighten the hem for a cleaner proportion and balanced silhouette"
+   ✓ "Cuff the jeans once to reveal the shoe and create visual balance"
+   ✓ "Roll sleeves to mid-forearm for intentional styling detail" (ONLY if sleeves are long enough)
+   ✓ "Try your white sneakers from wardrobe for better overall balance"
+   
+   ${metadataContext ? '**LEVERAGE EXTRACTED DATA**: Use specific terminology from metadata (sleeve length, hemline, silhouette, color names, wash type, accessory presence)' : ""}
    Each must:
-   - Start with strong, friendly action verb (Try, Swap, Add, Pair with, Replace, Match, Layer, Roll)
-   - Reference SPECIFIC items, styling techniques, or parameters from extracted metadata
-   - Include WHY it helps using data and positive framing:
-     ✓ "Better contrast with [color harmony]"
-     ✓ "Balances [silhouette type] beautifully"
-     ✓ "Improves proportions for your frame"
-     ✓ "Boosts polish level elegantly"
-     ✓ "Suits [cultural aesthetic] perfectly"
+   - Start with strong, friendly action verb
+   - Reference SPECIFIC garment attributes from extracted metadata
+   - Be mechanically possible given the garments shown
+   - Include WHY it helps using specific data:
+     ✓ "Better contrast with [specific color]"
+     ✓ "Balances [specific silhouette type] beautifully"
+     ✓ "Improves proportions for [specific body shape]"
+     ✓ "Complements [specific skin tone]"
      ${contextParts.length > 0 ? `✓ "Aligns with ${occasion || style || vibe} vibe"` : ""}
    - Be achievable in under 1 minute
-   - Address diverse areas: fit (silhouette, hemline, stacking), styling (tuck, accessories, layering), color/fabric harmony, aesthetic alignment${contextParts.length > 0 ? ", and context alignment" : ""}
-   - Consider wearer attributes (if known): suggest proportions/colors that flatter body shape/skin tone
+   - Address diverse areas ONLY where improvement is needed
    - If missing_features indicates limited visibility, focus fixes on visible elements only
-   
-   **🛍️ Optional Smart Shopping Add-on:**
-   - If a fix could be enhanced by shopping, add an optional, gentle tip:
-     **"Consider adding [ITEM TYPE] to enhance [REASON]."**
-   - Keep suggestions realistic and accessible for Indian context (e.g., "neutral kolhapuris," "structured kurta," "sleek crossbody bag," "layered oxidized jewelry")
-   - Prioritize wardrobe-based fixes first, then offer shopping as optional enhancement
+   - DO NOT generate fixes for areas that are already optimal
 
 **✅ EXAMPLES OF EXCELLENT QUICK FIXES (Supportive + Specific):**
 ${metadataContext ? '✓ "Try partial tuck to define waist — complements rectangle shape beautifully"' : ""}
@@ -1481,22 +1528,60 @@ Generate a **micro_recommendations** array (3-6 items, 7-14 words each):
 
 **PURPOSE:** Immediately actionable improvements the user can apply RIGHT NOW without buying anything.
 
+**🛡️ GARMENT-AWARE GUARDRAILS (ENFORCE BEFORE GENERATING):**
+
+Before generating ANY micro-recommendation, READ the extracted metadata:
+- garment type, sleeve length, hemline, silhouette, fit
+- colors (specific shades, wash type), texture, fabric
+- accessories present (watch, bracelet, jewelry, footwear)
+- wrist visibility (wrist_left, wrist_right in accessory_presence)
+- layering present, footwear type
+- missing_features (what's not visible)
+
+**NEVER SUGGEST:**
+❌ Rolling sleeves if sleeve_length is "short", "cap", "sleeveless", or "unknown"
+❌ Tucking if hemline is "above_hip" or garment too short
+❌ Adding accessories already present (watch, bracelet, jewelry)
+❌ Adding footwear already detected
+❌ Vague suggestions like "lighter wash" without exact shade
+❌ Shopping suggestions ("buy", "get", "consider purchasing")
+❌ Festival/wedding references (Diwali, haldi, sangeet, Christmas)
+❌ Hallucinating wardrobe items not in WARDROBE_CONTEXT
+❌ Generic advice that applies to any outfit
+
 **LOGIC (Priority Order):**
-1. **If WARDROBE_CONTEXT has relevant items** → Suggest using them when they meaningfully improve the outfit
+1. **Check Mechanical Possibility First:**
+   - Can sleeves be rolled? (Check sleeve_length)
+   - Can garment be tucked? (Check hemline)
+   - Are accessories already present? (Check accessory_presence)
+   - Is footwear visible? (Check missing_features)
+
+2. **If WARDROBE_CONTEXT has relevant items** → Suggest using them when they meaningfully improve the outfit
+   - Specify exact wardrobe item name or description
    - ✓ "Swap sandals for your white sneakers to add structure"
    - ✓ "Use your denim overshirt for light layering"
-   - ✓ "Try your beige chinos for better contrast"
+   - ✓ "Try your light blue jeans for better contrast with navy"
    
-2. **If WARDROBE_CONTEXT is weak/empty** → Use universal styling actions:
-   - ✓ "Half-tuck the tee for cleaner proportions"
-   - ✓ "Roll sleeves slightly to sharpen the silhouette"
+3. **If WARDROBE_CONTEXT is weak/empty** → Use universal styling actions (ONLY if mechanically possible):
+   - ✓ "Half-tuck the tee for cleaner proportions" (ONLY if hemline allows)
+   - ✓ "Roll sleeves to mid-forearm to sharpen silhouette" (ONLY if sleeves long enough)
    - ✓ "Cuff the hem once to reduce visual weight"
-   - ✓ "Add a partial tuck to define waist"
-   - ✓ "Adjust collar for sharper framing"
+   - ✓ "Straighten collar for sharper framing"
+   - ✓ "Adjust neckline to reduce flatness"
 
-3. **If visibility is limited** (footwear_not_visible, lower_garment_not_visible):
+4. **If visibility is limited** (footwear_not_visible, lower_garment_not_visible):
    - Use conditional phrasing: "If wearing sandals, switch to sneakers for balance"
    - Focus on visible elements only
+   - Never hallucinate what's not visible
+
+**COLOR-SPECIFIC REQUIREMENT:**
+- ALWAYS specify exact shade (e.g., "light blue washed", "clean white", "charcoal grey")
+- ALWAYS include why (better contrast, complements X)
+- Reference specific colors from metadata
+
+**WRIST-AWARE CHECK:**
+- Check wrist_left and wrist_right before suggesting wrist accessories
+- If watch or bracelet already present, DO NOT suggest adding one
 
 **CRITICAL RULES:**
 ❌ **NO shopping suggestions** ("buy X", "get Y", "consider purchasing")
@@ -1505,21 +1590,25 @@ Generate a **micro_recommendations** array (3-6 items, 7-14 words each):
 ❌ **NO personal appearance commentary** (attractiveness, body criticism, grooming beyond styling)
 ❌ **NO hallucinating wardrobe items** not present in WARDROBE_CONTEXT
 ❌ **NO suggesting items not visible in the image** unless conditional
+❌ **NO impossible fixes** (rolling short sleeves, tucking short hems)
 
 ✅ **ALLOWED:**
-- Wardrobe swaps (if items exist in WARDROBE_CONTEXT)
-- Universal styling tweaks (tucking, rolling, cuffing, proportions)
-- Layering with visible garments
+- Wardrobe swaps (if items exist in WARDROBE_CONTEXT with exact names)
+- Universal styling tweaks (tucking, rolling, cuffing - ONLY if mechanically possible)
+- Layering with visible garments from wardrobe
 - Simple adjustments anyone can do now
 - Conditional suggestions when visibility is low
+- Specific color recommendations with exact shades
 
-**EXAMPLES (7-14 words each):**
-✓ "Use your black shirt for sharper contrast"
-✓ "Half-tuck front for defined waist and proportions"
-✓ "Roll sleeves to mid-forearm for intentional detail"
-✓ "Cuff jeans once to clean up silhouette"
-✓ "Add your brown belt to tie pieces together"
-✓ "If footwear is casual, try structured shoes"
+**EXAMPLES (7-14 words each, garment-aware):**
+✓ "Use your black shirt for sharper contrast with bottoms"
+✓ "Half-tuck front for defined waist and proportions" (ONLY if hemline allows)
+✓ "Roll sleeves to mid-forearm for intentional detail" (ONLY if sleeves long enough)
+✓ "Cuff jeans once to clean up silhouette and reveal shoes"
+✓ "Try your light blue jeans from wardrobe for better contrast"
+✓ "Your white canvas sneakers would balance proportions better"
+✓ "Straighten hem for cleaner proportion and visual balance"
+✓ "If footwear is casual, try structured shoes from wardrobe"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🛡️ PHASE 4: OUTPUT CONSISTENCY GUARDRAILS
@@ -1532,12 +1621,13 @@ Generate a **micro_recommendations** array (3-6 items, 7-14 words each):
 4. **Maintain field constraints**:
    - what_works: minimum 3 items, max 15 words each
    - what_doesnt_work: 2-3 items, max 15 words each
-   - quick_fixes: minimum 3, ideally 4-6 items, max 12-15 words each
-   - micro_recommendations: 3-6 items, 7-14 words each (Phase 6)
+   - quick_fixes: minimum 3, ideally 4-6 items, max 14 words each (garment-aware, specific, mechanically possible)
+   - micro_recommendations: 3-6 items, 7-14 words each (wardrobe-first, garment-aware)
    - editorial: 25-45 words exactly
    - outfit_name: 2-4 words, stylish and specific
 5. **All arrays must be arrays** - Never return strings where arrays are expected
 6. **Consistent tone** - Supportive, friendly, helpful, non-judgmental throughout all fields
+7. **Garment-aware fixes** - All quick_fixes and micro_recommendations must be mechanically possible given detected garment attributes
 
 **OUTPUT FORMAT (STRICT):**
 Return ONLY valid JSON. No markdown, no code fences, no lists, no commentary. Use EXACT keys below and keep it minified (single line):
