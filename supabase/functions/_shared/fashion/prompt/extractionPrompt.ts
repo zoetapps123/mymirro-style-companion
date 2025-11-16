@@ -66,6 +66,52 @@ Examples of INCORRECT behavior (DO NOT DO THIS):
 🎯 PHASE 1 ENHANCEMENT: CONTEXT-AWARE ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+**CRITICAL NEW DETECTION FIELDS (Phase 7):**
+
+1. **top_type Classification:**
+   - "tshirt": Round neck, short/mid-bicep sleeves, jersey/cotton, no collar
+   - "shirt": Collar present (button-up, oxford, flannel, denim shirt)
+   - "sweatshirt": Fleece/terry, crew/hoodie neck, mid-thick fabric
+   - "sweater": Knit texture, crew/v-neck, typically wool/cotton knit
+   - "jacket": Outermost layer, structured, zipper/buttons
+   - "unknown": Cannot determine type from visible details
+   
+   **Detection cues:**
+   - Collar + buttons → "shirt"
+   - Jersey fabric + round neck + short sleeves → "tshirt"
+   - Thick fleece + casual neck → "sweatshirt"
+   - Knit texture + layering weight → "sweater"
+
+2. **pant_hem_style Detection:**
+   - "none": Clean, straight hem with no visible fold or turn-up
+   - "single_cuff": One visible turn-up/fold at ankle (1-2 inches)
+   - "double_cuff": Two visible turn-ups at ankle (stacked rolls)
+   - "raw_hem": Frayed, unfinished edge (distressed look)
+   - "cropped": Intentionally shortened above ankle, clean hem
+   - "stacked": Fabric pooling at ankle due to excess length
+   - "unknown": Hem not visible or unclear
+   
+   **Detection rules:**
+   - Visible fold/turn-up at hem → "single_cuff" or "double_cuff" (count folds)
+   - Clean hem ending 1-2" above ankle → "cropped"
+   - Excess fabric bunching at shoe → "stacked"
+   - Straight hem with no modifications → "none"
+   - Frayed/raw edge → "raw_hem"
+
+3. **accessories Object Detection (NEW):**
+   All fields in accessories are OPTIONAL. Only include if you can see the area clearly.
+   
+   - **sunglasses**: "present" if worn on face/head, "absent" if face visible without them, "unknown" if face not visible
+   - **belt**: "present" if visible at waist, "absent" if waist visible without belt, "unknown" if waist obscured
+   - **necklace**: "present" if visible on neck/chest, "absent" if neck visible without it, "unknown" if neck not visible
+   - **rings**: "present" if visible on fingers, "absent" if hands visible without rings, "unknown" if hands not visible
+   - **hat**: "present" if worn on head, "absent" if head visible without hat, "unknown" if head not visible
+   - **bag**: "present" if carried/worn, "absent" if full body visible without bag, "unknown" if not determinable
+   
+   **CRITICAL**: Mark as "unknown" if the relevant body area is not visible, cropped, or obscured. Do NOT guess.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎚️ PHASE 5: DETERMINISTIC SCORING FRAMEWORK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -287,7 +333,9 @@ Return EXACT JSON matching this schema:
     "silhouette": { "value": "boxy"|"tapered"|"wide"|"straight"|"oversized"|"unknown", "confidence": 0.0-1.0 },
     "hemline": { "value": "above_hip"|"mid_hip"|"below_hip"|"unknown", "confidence": 0.0-1.0 },
     "waist_visibility": { "value": "tucked"|"partial_tuck"|"untucked"|"unknown", "confidence": 0.0-1.0 },
-    "pant_stacking": { "value": "none"|"light"|"medium"|"heavy"|"unknown", "confidence": 0.0-1.0 }
+    "pant_stacking": { "value": "none"|"light"|"medium"|"heavy"|"unknown", "confidence": 0.0-1.0 },
+    "top_type": { "value": "tshirt"|"shirt"|"sweatshirt"|"sweater"|"jacket"|"unknown", "confidence": 0.0-1.0 },
+    "pant_hem_style": { "value": "none"|"single_cuff"|"double_cuff"|"raw_hem"|"cropped"|"stacked"|"unknown", "confidence": 0.0-1.0 }
   },
   "fabric": {
     "tshirt_material": { "value": "cotton"|"jersey"|"knit"|"tech"|"silk_blend"|"unknown", "confidence": 0.0-1.0 },
@@ -305,7 +353,17 @@ Return EXACT JSON matching this schema:
     "footwear_type": { "value": "sneakers"|"loafers"|"boots"|"heels"|"sandals"|"unknown", "confidence": 0.0-1.0 },
     "accessory_presence": { "value": "none"|"minimal"|"moderate"|"heavy"|"unknown", "confidence": 0.0-1.0 },
     "layering_present": { "value": true|false|"unknown", "confidence": 0.0-1.0 },
-    "polish_level": { "value": 1|2|3|4|5|"unknown", "confidence": 0.0-1.0 }
+    "polish_level": { "value": 1|2|3|4|5|"unknown", "confidence": 0.0-1.0 },
+    "wrist_left": { "value": "none"|"watch"|"bracelet"|"unknown", "confidence": 0.0-1.0 },
+    "wrist_right": { "value": "none"|"watch"|"bracelet"|"unknown", "confidence": 0.0-1.0 },
+    "accessories": {
+      "sunglasses": { "value": "present"|"absent"|"unknown", "confidence": 0.0-1.0 },
+      "belt": { "value": "present"|"absent"|"unknown", "confidence": 0.0-1.0 },
+      "necklace": { "value": "present"|"absent"|"unknown", "confidence": 0.0-1.0 },
+      "rings": { "value": "present"|"absent"|"unknown", "confidence": 0.0-1.0 },
+      "hat": { "value": "present"|"absent"|"unknown", "confidence": 0.0-1.0 },
+      "bag": { "value": "present"|"absent"|"unknown", "confidence": 0.0-1.0 }
+    }
   },
   "aesthetics": {
     "cultural_aesthetic": { "value": "kfashion"|"jfashion"|"western_streetwear"|"classic"|"quiet_luxury"|"techwear"|"unknown", "confidence": 0.0-1.0 },
