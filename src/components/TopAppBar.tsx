@@ -78,7 +78,7 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
               }`}
             >
               <Icon className={`w-6 h-6 ${isActive ? "scale-110" : ""} transition-transform`} />
-              <span className="text-xs font-medium leading-tight whitespace-nowrap">
+              <span className="text-xs font-medium leading-tight whitespace-nowrap mb-[18px]">
                 {item.id === "home" ? "Chat" : item.id === "wardrobe" ? "Wardrobe" : "Style Check"}
               </span>
               {isActive && (
