@@ -8,18 +8,53 @@
  * - Uses: EXTRACTION_PROMPT, VisualSchema, SCORING_PROMPTS.SCORE_OUTFIT
  * - Model: google/gemini-2.5-flash via Lovable AI Gateway
  * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 🎯 PHASE 1 ENHANCEMENTS (Fashion Intelligence Upgrade)
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * 1. **Transient User Profile Inference** (in-memory only):
+ *    - Extracts body_shape, skin_tone_band, perceived_age_band, etc. from image
+ *    - Used for context-aware scoring (fit on body shape, color on skin tone)
+ *    - NEVER stored in DB - purely in-memory for better analysis
+ *    - Falls back to "unknown" when person not visible
+ * 
+ * 2. **Explicit missing_features Rules**:
+ *    - Clear guidelines for what qualifies as "missing" (visibility issues only)
+ *    - Prevents generic/unhelpful missing feature entries
+ *    - Uses lowercase snake_case format (e.g., "footwear_not_visible")
+ * 
+ * 3. **Supportive Scoring Calibration**:
+ *    - Non-anxiety-inducing feedback in score reasons
+ *    - Solution-oriented language ("how to elevate" vs "what's wrong")
+ *    - Context-aware evaluation using user profile data
+ * 
+ * 4. **Enhanced metadataContext**:
+ *    - Now includes user profile section when available
+ *    - Better context for SCORE_OUTFIT to generate personalized feedback
+ *    - Maintains same final JSON response shape for DB/frontend compatibility
+ * 
+ * ⚠️ BACKWARD COMPATIBILITY:
+ * - DB schema unchanged (style_checks table)
+ * - API response shape unchanged (frontend expects same fields)
+ * - user_profile is optional in VisualSchema (tolerates old cache entries)
+ * - No new API calls added (still 3 calls total)
+ * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
  * Two-Stage AI Analysis Process:
  * 
  * API Call #2 - Visual Extraction (EXTRACTION_PROMPT):
  * - Extracts structured outfit metadata using VisualSchema
- * - Returns: fit, fabric, color, styling, aesthetics parameters with confidence scores
- * - Also generates initial AI scores (fit, color, styling, material, overall)
+ * - **NEW**: Infers transient user_profile when person visible
+ * - **NEW**: Uses explicit missing_features rules
+ * - Returns: fit, fabric, color, styling, aesthetics, user_profile, scores
  * - Validates response with Zod schema (VisualSchema.safeParse)
  * 
  * API Call #3 - Dynamic Feedback (SCORE_OUTFIT):
  * - Uses metadataContext string built from validated extraction data
+ * - **NEW**: metadataContext includes user profile context for personalization
  * - Generates human-readable feedback: outfit_name, what_works, what_didnt_work, quick_fixes, editorial
- * - Personalizes feedback based on extracted metadata
+ * - **NEW**: Feedback uses supportive, solution-oriented language
  * 
  * Input:
  * {
@@ -44,7 +79,7 @@
  *   quick_fix: string[],            // Actionable styling tips
  *   editorial: string,              // Editorial quote/summary
  *   confidence: number,             // Lowest component confidence
- *   missing_features: string[]      // Features AI couldn't detect
+ *   missing_features: string[]      // Features AI couldn't detect (Phase 1: clearer format)
  * }
  * 
  * Caching:
@@ -83,17 +118,22 @@ function isMeaningful(val: any): boolean {
  * 
  * Constructs formatted string of extracted metadata for SCORE_OUTFIT prompt.
  * 
+ * Phase 1 Enhancement: Now includes transient user profile (when person is visible)
+ * 
  * Input: Validated VisualSchema data from API Call #2
  * 
  * Process:
  * 1. Filters meaningful values using isMeaningful helper
- * 2. Formats into sections: FIT, FABRIC, COLOR, STYLING, AESTHETIC, SCORES
+ * 2. Formats into sections: USER PROFILE (new), FIT, FABRIC, COLOR, STYLING, AESTHETIC, SCORES
  * 3. Adds low-confidence warnings for unreliable detections
  * 4. Returns formatted markdown string
  * 
  * Output Example:
  * ```
  * **EXTRACTED OUTFIT METADATA:**
+ * 
+ * 👤 **WEARER CONTEXT:** rectangle body shape, medium build, wheatish skin tone, 20s, feminine presentation
+ *    (Inferred from image; used only to judge outfit, not the person)
  * 
  * 📏 **FIT:** boxy silhouette, mid-hip hemline, forearm sleeves
  * 🧵 **FABRIC:** cotton, mid weight, matte texture
@@ -112,6 +152,38 @@ function isMeaningful(val: any): boolean {
  */
 function buildMetadataContext(metadata: any): string {
   const parts: string[] = ["**EXTRACTED OUTFIT METADATA:**\n"];
+
+  // Phase 1 Addition: User Profile (transient, in-memory only)
+  // Include this section ONLY if person is visible and profile data exists
+  if (metadata.user_profile) {
+    const profile = metadata.user_profile;
+    const profileDetails: string[] = [];
+    const CONFIDENCE_THRESHOLD = 0.40; // Only include fields with reasonable confidence
+    
+    if (isMeaningful(profile.body_shape?.value) && profile.body_shape.confidence >= CONFIDENCE_THRESHOLD) {
+      profileDetails.push(`${profile.body_shape.value} body shape`);
+    }
+    if (isMeaningful(profile.build?.value) && profile.build.confidence >= CONFIDENCE_THRESHOLD) {
+      profileDetails.push(`${profile.build.value} build`);
+    }
+    if (isMeaningful(profile.skin_tone_band?.value) && profile.skin_tone_band.confidence >= CONFIDENCE_THRESHOLD) {
+      profileDetails.push(`${profile.skin_tone_band.value} skin tone`);
+    }
+    if (isMeaningful(profile.height_band?.value) && profile.height_band.confidence >= CONFIDENCE_THRESHOLD) {
+      profileDetails.push(`${profile.height_band.value} height`);
+    }
+    if (isMeaningful(profile.perceived_age_band?.value) && profile.perceived_age_band.confidence >= CONFIDENCE_THRESHOLD) {
+      profileDetails.push(`${profile.perceived_age_band.value}`);
+    }
+    if (isMeaningful(profile.gender_expression?.value) && profile.gender_expression.confidence >= CONFIDENCE_THRESHOLD) {
+      profileDetails.push(`${profile.gender_expression.value} presentation`);
+    }
+    
+    if (profileDetails.length > 0) {
+      parts.push(`👤 **WEARER CONTEXT:** ${profileDetails.join(", ")}`);
+      parts.push(`   (Inferred from image; used only to judge outfit fit/color, not the person)\n`);
+    }
+  }
 
   // Fit parameters
   if (metadata.fit) {
