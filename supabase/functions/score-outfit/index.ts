@@ -733,12 +733,12 @@ serve(async (req) => {
     console.log("Step 2: Using AI-generated scores...");
     const aiScores = validatedMetadata.scores;
     const scoreResults = {
-      overall_score: Math.round(aiScores.overall.value * 4) / 4, // Round to nearest 0.25
+      overall_score: Number(aiScores.overall.value.toFixed(1)), // 1-decimal precision
       components: {
-        fit: aiScores.fit.value,
-        color: aiScores.color.value,
-        styling: aiScores.styling.value,
-        material: aiScores.material.value,
+        fit: Number(aiScores.fit.value.toFixed(1)),
+        color: Number(aiScores.color.value.toFixed(1)),
+        styling: Number(aiScores.styling.value.toFixed(1)),
+        material: Number(aiScores.material.value.toFixed(1)),
       },
       confidence: Math.min(
         aiScores.fit.confidence,
@@ -925,10 +925,10 @@ serve(async (req) => {
       missing_features: scoreResults.missing_features,
       // Dynamic fields from SCORE_OUTFIT
       outfit_name: outfitName,
-      color_score: scoreResults.components.color,
-      fit_score: scoreResults.components.fit,
-      texture_score: scoreResults.components.material,
-      occasion_score: scoreResults.overall_score,
+      color_score: Number(scoreResults.components.color.toFixed(1)),
+      fit_score: Number(scoreResults.components.fit.toFixed(1)),
+      texture_score: Number(scoreResults.components.material.toFixed(1)),
+      occasion_score: Number(scoreResults.overall_score.toFixed(1)),
       what_works: whatWorks,
       what_didnt_work: whatDidntWork,
       quick_fix: quickFix,

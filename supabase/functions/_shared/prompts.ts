@@ -1246,6 +1246,11 @@ export const SCORING_PROMPTS = {
   ✗ Never make it prescriptive: "You MUST wear X because of your shape"
 - If user_profile is all "unknown", skip body-specific advice entirely and focus on the outfit itself
 
+**🎯 SCORING PRECISION:**
+- Give all scores on a 0–5 scale as decimals with exactly 1 decimal place (e.g., 3.2, 4.7, 2.9)
+- Do not round to 0.5 or 0.25 increments
+- Use the full granularity of the 1-decimal scale to express nuanced evaluations
+
 **🇮🇳 INDIAN FASHION CONTEXT & GLOBAL AWARENESS:**
 Tailor feedback to the Indian lifestyle and global modern aesthetics when the occasion/style suggests it:
 
