@@ -296,6 +296,82 @@ function isMeaningful(val: any): boolean {
 }
 
 /**
+ * Phase 2: Filter Impossible Quick Fixes
+ * 
+ * Blocks impossible suggestions based on extracted metadata:
+ * - No "roll sleeves" for T-shirts (mid-bicep sleeve_length)
+ * - No "add watch" if already wearing one
+ * - No "tuck" if hemline is too short
+ */
+function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
+  const filtered: string[] = [];
+  
+  for (const fix of quickFixes) {
+    const lower = fix.toLowerCase();
+    
+    // Block "roll sleeves" if sleeve_length is mid-bicep (T-shirt)
+    if (lower.includes('roll') && lower.includes('sleeve')) {
+      const sleeveLen = metadata?.fit?.sleeve_length?.value;
+      if (sleeveLen === 'mid-bicep' || sleeveLen === 'unknown') {
+        console.log(`[Filter] Blocked "roll sleeves" - sleeve_length: ${sleeveLen}`);
+        continue; // Skip this fix
+      }
+    }
+    
+    // Block "add watch" if wrist already has watch
+    if (lower.includes('add') && lower.includes('watch')) {
+      const wristLeft = metadata?.styling?.wrist_left?.value;
+      const wristRight = metadata?.styling?.wrist_right?.value;
+      if (wristLeft === 'watch' || wristRight === 'watch') {
+        console.log(`[Filter] Blocked "add watch" - already wearing: L=${wristLeft}, R=${wristRight}`);
+        continue;
+      }
+    }
+    
+    // Block "tuck" if hemline is too short
+    if (lower.includes('tuck')) {
+      const hemline = metadata?.fit?.hemline?.value;
+      if (hemline === 'above_hip') {
+        console.log(`[Filter] Blocked "tuck" - hemline too short: ${hemline}`);
+        continue;
+      }
+    }
+    
+    // Keep this fix
+    filtered.push(fix);
+  }
+  
+  return filtered;
+}
+
+/**
+ * Phase 4: Enforce Color Specificity
+ * 
+ * Removes vague color suggestions that don't specify exact shades
+ */
+function enforceColorSpecificity(quickFixes: string[]): string[] {
+  return quickFixes.map(fix => {
+    // Detect vague color suggestions
+    if (/lighter|darker|brighter/i.test(fix) && !/light blue|dark grey|bright white|light gray|dark blue|charcoal/i.test(fix)) {
+      // If it mentions lighter/darker but doesn't specify shade, flag it
+      console.warn(`[Color Vagueness] Flagged: "${fix}"`);
+      return null; // Remove vague fix
+    }
+    return fix;
+  }).filter(Boolean) as string[];
+}
+
+/**
+ * Phase 5: De-duplicate and Cap Fixes
+ * 
+ * Removes duplicate fixes and caps at 6 maximum
+ */
+function deduplicateAndCapFixes(fixes: string[]): string[] {
+  const unique = [...new Set(fixes)]; // Remove exact duplicates
+  return unique.slice(0, 6); // Cap at 6 fixes max
+}
+
+/**
  * Helper: buildMetadataContext
  * 
  * Constructs formatted string of extracted metadata for SCORE_OUTFIT prompt.
@@ -892,7 +968,14 @@ serve(async (req) => {
             whatDidntWork = parsed.what_doesnt_work.filter((item: any) => typeof item === "string" && item.trim());
           }
           if (Array.isArray(parsed.quick_fixes) && parsed.quick_fixes.length > 0) {
-            quickFix = parsed.quick_fixes.filter((item: any) => typeof item === "string" && item.trim());
+            let rawQuickFixes = parsed.quick_fixes.filter((item: any) => typeof item === "string" && item.trim());
+            
+            // Apply Phase 2-5 filters
+            rawQuickFixes = filterImpossibleFixes(rawQuickFixes, validatedMetadata);
+            rawQuickFixes = enforceColorSpecificity(rawQuickFixes);
+            rawQuickFixes = deduplicateAndCapFixes(rawQuickFixes);
+            
+            quickFix = rawQuickFixes;
           }
           // Phase 6: Parse micro_recommendations with fallback
           if (Array.isArray(parsed.micro_recommendations) && parsed.micro_recommendations.length > 0) {

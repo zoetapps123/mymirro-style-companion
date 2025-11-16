@@ -190,7 +190,13 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const { data, error } = await supabase.functions.invoke('score-outfit', {
-        body: { imageData: uploadedImage, occasion: occasion, style: selectedStyle, vibe: selectedVibe },
+        body: { 
+          imageData: uploadedImage, 
+          occasion: occasion, 
+          style: selectedStyle, 
+          vibe: selectedVibe,
+          wardrobeItems: wardrobeItems
+        },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
