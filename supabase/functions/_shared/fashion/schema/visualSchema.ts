@@ -58,19 +58,75 @@ const field = (value: z.ZodTypeAny) => z.object({
  * Each section represents different aspects of outfit analysis.
  */
 export const VisualSchema = z.object({
-  /**
-   * FIT: Physical garment parameters
-   * Describes how the outfit fits the body
-   */
+  // ===================================
+  // PART 1 & 3: GARMENT-LEVEL METADATA
+  // ===================================
+  garments: z.array(z.object({
+    garment_type: field(z.enum(["top", "bottom", "outerwear", "dress", "shoes", "accessory", "unknown"])).optional(),
+    garment_subtype: field(z.string()).optional(),
+    sleeve_length: field(z.enum(["none", "sleeveless", "capped", "short", "elbow", "3/4th", "full", "unknown"])).optional(),
+    neckline: field(z.string()).optional(),
+    hemline: field(z.enum(["cropped", "mid-hip", "low-hip", "longline", "unknown"])).optional(),
+    fit_type: field(z.enum(["oversized", "relaxed", "straight", "slim", "skinny", "unknown"])).optional(),
+    wash_type: field(z.enum(["light", "mid", "dark", "raw_denim", "unknown"])).optional(),
+    fabric_texture: field(z.enum(["smooth", "ribbed", "knit", "denim", "fleece", "unknown"])).optional(),
+    color_primary: field(z.string()).optional(),
+    color_secondary: field(z.string()).optional(),
+    layering: field(z.enum(["yes", "no", "unknown"])).optional(),
+    visibility: field(z.enum(["high", "medium", "low", "occluded", "not_visible", "unknown"])).optional(),
+  })).optional(),
+  
+  footwear: z.object({
+    type: field(z.string()).optional(),
+    visibility: field(z.enum(["high", "medium", "low", "occluded", "not_visible", "unknown"])).optional(),
+  }).optional(),
+
+  // ACCESSORIES DETECTION (PART 1)
+  accessories_present: z.object({
+    neck: field(z.enum(["none", "necklace", "chain", "scarf", "unknown"])).optional(),
+    wrist_left: field(z.enum(["none", "watch", "bracelet", "band", "unknown"])).optional(),
+    wrist_right: field(z.enum(["none", "watch", "bracelet", "band", "unknown"])).optional(),
+    ears: field(z.enum(["none", "earrings", "studs", "unknown"])).optional(),
+    sunglasses: field(z.enum(["present", "absent", "unknown"])).optional(),
+    belt: field(z.enum(["present", "absent", "unknown"])).optional(),
+    hat: field(z.enum(["present", "absent", "unknown"])).optional(),
+    bag: field(z.enum(["present", "absent", "unknown"])).optional(),
+    rings: field(z.enum(["present", "absent", "unknown"])).optional(),
+  }).optional(),
+
+  // BODY VISIBILITY (PART 1)
+  body_visibility: z.object({
+    person_detected: field(z.boolean()),
+    upper_body_visible: field(z.enum(["high", "medium", "low", "not_visible"])),
+    lower_body_visible: field(z.enum(["high", "medium", "low", "not_visible"])),
+    arms_visible: field(z.enum(["high", "medium", "low", "not_visible"])),
+    wrists_visible: field(z.enum(["high", "medium", "low", "not_visible"])),
+    legs_visible: field(z.enum(["high", "medium", "low", "not_visible"])),
+  }).optional(),
+
+  // SCENE CONTEXT (PART 1)
+  scene_context: z.object({
+    environment: field(z.enum(["indoor", "outdoor", "unknown"])).optional(),
+    setting: field(z.enum(["travel", "party", "street", "casual", "formal", "unknown"])).optional(),
+    weather_inference: field(z.enum(["hot", "humid", "mild_winter", "cool", "unknown"])).optional(),
+  }).optional(),
+
+  // ===================================
+  // LEGACY FIT ANALYSIS (backward compatibility)
+  // ===================================
   fit: z.object({
-    sleeve_length: field(z.enum(["mid-bicep", "elbow", "forearm", "unknown"])),
-    shoulder_structure: field(z.enum(["natural", "dropped", "extended", "unknown"])),
-    silhouette: field(z.enum(["boxy", "tapered", "wide", "straight", "oversized", "unknown"])),
-    hemline: field(z.enum(["above_hip", "mid_hip", "below_hip", "unknown"])),
-    waist_visibility: field(z.enum(["tucked", "partial_tuck", "untucked", "unknown"])),
-    pant_stacking: field(z.enum(["none", "light", "medium", "heavy", "unknown"])),
+    top_sleeve_length: field(z.enum(["sleeveless", "cap_sleeve", "short", "elbow", "three_quarter", "full", "unknown"])),
+    bottom_length: field(z.enum(["shorts", "knee", "midi", "ankle", "maxi", "floor", "unknown"])),
+    top_fit: field(z.enum(["oversized", "relaxed", "regular", "slim", "fitted", "bodycon", "unknown"])),
+    bottom_fit: field(z.enum(["wide", "straight", "tapered", "slim", "skinny", "unknown"])),
+    pant_stacking: field(z.enum(["none", "light", "medium", "heavy", "unknown"])).optional(),
+    hemline: field(z.enum(["above_hip", "at_hip", "mid_hip", "low_hip", "below_hip", "unknown"])).optional(),
+    waist_visibility: field(z.enum(["hidden", "partial_tuck", "tucked", "untucked", "layered", "unknown"])).optional(),
     top_type: field(z.enum(["tshirt", "shirt", "sweatshirt", "sweater", "jacket", "unknown"])).optional(),
-    pant_hem_style: field(z.enum(["none", "single_cuff", "double_cuff", "raw_hem", "cropped", "stacked", "unknown"])).optional()
+    pant_hem_style: field(z.enum(["none", "single_cuff", "double_cuff", "raw_hem", "cropped", "stacked", "unknown"])).optional(),
+    sleeve_length: field(z.enum(["mid-bicep", "elbow", "forearm", "unknown"])).optional(),
+    shoulder_structure: field(z.enum(["natural", "dropped", "extended", "unknown"])).optional(),
+    silhouette: field(z.enum(["boxy", "tapered", "wide", "straight", "oversized", "unknown"])).optional(),
   }),
   /**
    * FABRIC: Material properties
@@ -122,16 +178,18 @@ export const VisualSchema = z.object({
     price_tier: field(z.enum(["fast_fashion", "mid_range", "premium", "luxury", "unknown"]))
   }),
   /**
-   * SCORES: Numerical ratings (0-5 scale)
-   * AI-generated scores for each component plus overall rating
-   * Each score includes confidence and reasoning
+   * SCORES: PART 2 - Enhanced with new score categories
    */
   scores: z.object({
+    overall: field(z.number().min(0).max(5)),
     fit: field(z.number().min(0).max(5)),
     color: field(z.number().min(0).max(5)),
-    styling: field(z.number().min(0).max(5)),
-    material: field(z.number().min(0).max(5)),
-    overall: field(z.number().min(1).max(5))
+    proportion: field(z.number().min(0).max(5)).optional(),
+    layering: field(z.number().min(0).max(5)).optional(),
+    texture: field(z.number().min(0).max(5)),
+    occasion_alignment: field(z.number().min(0).max(5)),
+    styling: field(z.number().min(0).max(5)).optional(),
+    material: field(z.number().min(0).max(5)).optional(),
   }),
   /**
    * USER_PROFILE: Transient wearer context (in-memory only, NOT stored in DB)
