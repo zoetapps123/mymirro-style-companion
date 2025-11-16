@@ -309,12 +309,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           <img 
             src={emptyWardrobeImg} 
             alt="Empty wardrobe" 
-            className="w-64 h-64 mb-8 object-contain"
+            className="w-[122px] h-[123px] mb-[33px] object-contain"
           />
-          <h3 className="text-2xl font-bold text-primary mb-3 text-center">
+          <h3 className="text-2xl font-bold text-primary mb-[16px] text-center">
             Your closet looks a little lonely
           </h3>
-          <p className="text-sm text-muted-foreground text-center mb-8 max-w-sm">
+          <p className="text-sm text-muted-foreground text-center mb-[22px] max-w-sm">
             Upload your clothes to unlock outfit ideas, styling and personalised suggestions.
           </p>
           <button
