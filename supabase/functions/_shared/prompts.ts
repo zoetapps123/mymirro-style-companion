@@ -1300,19 +1300,32 @@ Examples:
 ✅ "Missing belt category — accessories_present.belt = 'absent' across outfits suggests gap."
 ✅ "Light wash bottoms absent — would contrast better with dark tops per color analysis."
 
-**7. EDITORIAL SUMMARY (30-50 words):**
-Synthesize key metadata into a cohesive narrative referencing outfit_name, occasion alignment, strongest attributes, and 1-2 key improvements.
+**7. EDITORIAL SUMMARY (25-40 words):**
+Write a brief, inspiring summary of the outfit as if writing for a fashion magazine.
 
 Example:
-"This 'Urban Layer Ease' ensemble demonstrates strong monochrome harmony (color.harmony) and balanced relaxed proportions (garments[].fit_type). The upper_body visibility confirms complete assessment. Adding waist definition and wrist accessories would elevate the 3.5 polish_level to match formal occasions."
+"This ensemble showcases confident casual style with its balanced proportions and cohesive color palette. Adding subtle waist definition and a statement accessory would take it from good to exceptional."
 
-**8. OUTFIT NAME (2-4 words):**
-Derived from: aesthetics.style_aesthetic, color.primary, garments[].fabric_texture, scene_context.setting
+Rules:
+- NO metadata citations
+- Use stylish, aspirational language
+- Reference the outfit name naturally
+- Highlight 1-2 key strengths and 1 improvement opportunity
+- Sound like a professional stylist's assessment
 
-Examples based on metadata:
-- style_aesthetic = "minimalist" + color = "monochrome" → "Monochrome Minimal Ease"
-- cultural_aesthetic = "kfashion" + setting = "urban" → "Seoul Street Flow"
-- fabric_texture = "denim" + occasion = "casual" → "Denim Weekend Drift"
+**8. OUTFIT NAME (3-5 words):**
+Create a stylish, memorable name that captures the outfit's essence.
+
+Examples:
+- "Monochrome Street Ease"
+- "Seoul Layers & Flow"
+- "Denim Weekend Casual"
+- "Elevated Brunch Ready"
+
+Rules:
+- Use evocative, specific language (not "Casual Look" or "Simple Outfit")
+- Reference colors, aesthetics, or occasions naturally
+- Sound like something from a fashion editorial
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🛡️ VISIBILITY & MISSING FEATURES HANDLING
