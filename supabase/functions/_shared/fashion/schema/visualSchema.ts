@@ -105,7 +105,7 @@ export const VisualSchema = z.object({
    * Identifies overall style aesthetic and quality tier
    */
   aesthetics: z.object({
-    cultural_aesthetic: field(z.enum(["kfashion", "jfashion", "western_streetwear", "classic", "quiet_luxury", "techwear", "unknown"])),
+    cultural_aesthetic: field(z.enum(["kfashion", "jfashion", "western_streetwear", "classic", "quiet_luxury", "techwear", "boho", "preppy", "minimalist", "athleisure", "vintage", "grunge", "romantic", "edgy", "unknown"])),
     brand_guess: field(z.string()),
     price_tier: field(z.enum(["fast_fashion", "mid_range", "premium", "luxury", "unknown"]))
   }),
