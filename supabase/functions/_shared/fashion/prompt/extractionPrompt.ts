@@ -178,7 +178,11 @@ DO NOT HALLUCINATE. If unsure, return "unknown" and confidence <= 0.35.
 
 TASK — Extract precise visual metadata AND score each component based on the occasion context.
 
-SCORING GUIDELINES (0-5 scale):
+SCORING GUIDELINES (0-5 scale with 1-decimal precision):
+- Use exactly 1 decimal place for all scores (e.g., 3.2, 4.7, 2.9)
+- Do not round to 0.5 or 0.25 increments
+- Use the full granularity to express nuanced evaluations
+
 5.0 = Exceptional - Perfect execution for the occasion
 4.0-4.9 = Strong - Very appropriate with minor tweaks possible
 3.0-3.9 = Solid - Good foundation, some refinement needed
