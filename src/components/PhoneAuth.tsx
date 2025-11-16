@@ -196,7 +196,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       <div className="flex-1 flex flex-col items-center justify-start max-w-md mx-auto w-full overflow-y-auto">
         {/* Hero Image Carousel Card */}
         <div 
-          className="relative w-[80%] aspect-[4/5] mb-3 rounded-[24px] overflow-hidden bg-gray-100 p-4"
+          className="relative w-[85%] aspect-[4/5] mb-3 rounded-[24px] overflow-hidden p-4"
           onTouchStart={(e) => {
             const touchStartX = e.touches[0].clientX;
             e.currentTarget.setAttribute('data-touch-start', touchStartX.toString());
