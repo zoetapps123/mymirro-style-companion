@@ -1,3 +1,57 @@
+/**
+ * Edge Function: score-outfit
+ * 
+ * Role: Main style check analysis (API Calls #2 & #3 in Style Check flow)
+ * 
+ * Dependencies:
+ * - Called by: StyleCheckHub.tsx (startStyleCheck)
+ * - Uses: EXTRACTION_PROMPT, VisualSchema, SCORING_PROMPTS.SCORE_OUTFIT
+ * - Model: google/gemini-2.5-flash via Lovable AI Gateway
+ * 
+ * Two-Stage AI Analysis Process:
+ * 
+ * API Call #2 - Visual Extraction (EXTRACTION_PROMPT):
+ * - Extracts structured outfit metadata using VisualSchema
+ * - Returns: fit, fabric, color, styling, aesthetics parameters with confidence scores
+ * - Also generates initial AI scores (fit, color, styling, material, overall)
+ * - Validates response with Zod schema (VisualSchema.safeParse)
+ * 
+ * API Call #3 - Dynamic Feedback (SCORE_OUTFIT):
+ * - Uses metadataContext string built from validated extraction data
+ * - Generates human-readable feedback: outfit_name, what_works, what_didnt_work, quick_fixes, editorial
+ * - Personalizes feedback based on extracted metadata
+ * 
+ * Input:
+ * {
+ *   imageData: string,    // Base64 data URL or public URL
+ *   occasion?: string,    // e.g., "Date Night"
+ *   style?: string,       // e.g., "Minimalist"
+ *   vibe?: string         // e.g., "Polished"
+ * }
+ * 
+ * Output:
+ * {
+ *   overall_score: number,          // 0-5 rounded to 0.25
+ *   components: {                   // Individual scores from AI
+ *     fit: number,
+ *     color: number,
+ *     styling: number,
+ *     material: number
+ *   },
+ *   outfit_name: string,            // Creative outfit name
+ *   what_works: string[],           // Positive feedback points
+ *   what_didnt_work: string[],      // Areas for improvement
+ *   quick_fix: string[],            // Actionable styling tips
+ *   editorial: string,              // Editorial quote/summary
+ *   confidence: number,             // Lowest component confidence
+ *   missing_features: string[]      // Features AI couldn't detect
+ * }
+ * 
+ * Caching:
+ * - Cache key: SHA-256 hash of { type: "outfit_score_v4", imageData, occasion, style, vibe }
+ * - TTL: 1 hour (via setCachedResult in cache-utils.ts)
+ * - Stored in: ai_cache table
+ */
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from "../_shared/ai-config.ts";
@@ -13,14 +67,49 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to check if a value is meaningful (not N/A or unknown)
+/**
+ * Helper: isMeaningful
+ * Filters out placeholder/unknown values from metadata
+ * Used by buildMetadataContext to include only valid extracted data
+ */
 function isMeaningful(val: any): boolean {
   if (!val || val === null || val === undefined) return false;
   const str = String(val).toLowerCase().trim();
   return !["n/a", "unknown", "none", "not applicable", ""].includes(str);
 }
 
-// Helper function to build metadata context string
+/**
+ * Helper: buildMetadataContext
+ * 
+ * Constructs formatted string of extracted metadata for SCORE_OUTFIT prompt.
+ * 
+ * Input: Validated VisualSchema data from API Call #2
+ * 
+ * Process:
+ * 1. Filters meaningful values using isMeaningful helper
+ * 2. Formats into sections: FIT, FABRIC, COLOR, STYLING, AESTHETIC, SCORES
+ * 3. Adds low-confidence warnings for unreliable detections
+ * 4. Returns formatted markdown string
+ * 
+ * Output Example:
+ * ```
+ * **EXTRACTED OUTFIT METADATA:**
+ * 
+ * 📏 **FIT:** boxy silhouette, mid-hip hemline, forearm sleeves
+ * 🧵 **FABRIC:** cotton, mid weight, matte texture
+ * 🎨 **COLOR:** monochrome harmony, low contrast
+ * ✨ **STYLING:** partial tuck, 1 layer(s)
+ * 
+ * 📊 **INITIAL AI SCORES:**
+ *    - Fit: 4.2/5.0 (85% confidence) — Well-balanced proportions
+ *    - Color: 4.5/5.0 (90% confidence) — Strong monochrome palette
+ * 
+ * **USE THIS DATA:** Reference specific parameters in your analysis...
+ * ```
+ * 
+ * This context is passed to SCORE_OUTFIT (API Call #3) to generate
+ * data-driven feedback that references specific detected parameters.
+ */
 function buildMetadataContext(metadata: any): string {
   const parts: string[] = ["**EXTRACTED OUTFIT METADATA:**\n"];
 
@@ -160,7 +249,9 @@ serve(async (req) => {
 
     console.log("Scoring outfit with enhanced fashion analysis...");
 
-    // Check cache first
+    // Caching Layer
+    // Check if identical request was made within last hour
+    // Cache key is SHA-256 hash of input parameters
     const cacheKey = await generateCacheKey({ type: "outfit_score_v4", imageData, occasion, style, vibe });
     const cachedScore = await getCachedResult(cacheKey);
     if (cachedScore) {
@@ -170,7 +261,19 @@ serve(async (req) => {
       });
     }
 
-    // Step 1: Extract visual metadata and scores from AI
+    /**
+     * API Call #2: Visual Metadata Extraction
+     * 
+     * Uses EXTRACTION_PROMPT to get structured outfit data:
+     * - Fit: silhouette, hemline, sleeve_length, shoulder_structure, etc.
+     * - Fabric: material, texture, finish, weight
+     * - Color: harmony, contrast, top_color, bottom_color
+     * - Styling: footwear_type, accessory_presence, layering, polish_level
+     * - Aesthetics: cultural_aesthetic, brand_guess, price_tier
+     * - Scores: fit, color, styling, material, overall (with confidence & reason)
+     * 
+     * Response validated against VisualSchema (Zod) for type safety
+     */
     let extractionData;
     try {
       console.log("Step 1: Extracting visual metadata and AI scores...");
@@ -216,11 +319,13 @@ serve(async (req) => {
     }
 
     // Parse extraction response
+    // AI returns JSON, possibly wrapped in ```json markdown blocks
     const extractionContent = extractionData.choices?.[0]?.message?.content;
     if (!extractionContent) {
       throw new Error("Failed to extract visual metadata");
     }
 
+    // DEBUG LOG: Raw AI response for troubleshooting
     console.log("Raw AI extraction response:", extractionContent);
 
     let metadata;
@@ -240,7 +345,18 @@ serve(async (req) => {
       throw new Error("Invalid extraction response format");
     }
 
-    // Step 2: Validate with schema
+    /**
+     * Zod Validation
+     * 
+     * Validates extracted metadata against VisualSchema to ensure:
+     * - All required fields are present
+     * - Field values match expected enums/types
+     * - Confidence scores are 0-1
+     * - Each field has {value, confidence, reason?} structure
+     * 
+     * If validation fails, the error is logged and thrown.
+     * This ensures downstream code receives type-safe, structured data.
+     */
     console.log("Step 2: Validating metadata...");
     const validationResult = VisualSchema.safeParse(metadata);
     if (!validationResult.success) {
@@ -250,11 +366,25 @@ serve(async (req) => {
 
     const validatedMetadata = validationResult.data;
 
-    // Build metadata context for enhanced analysis
+    // Build metadata context string for API Call #3
+    // This converts structured data into formatted markdown string
+    // that SCORE_OUTFIT prompt can reference for data-driven feedback
     const metadataContext = buildMetadataContext(validatedMetadata);
     console.log("Built metadata context:", metadataContext.substring(0, 200) + "...");
 
-    // Step 2: Use AI-generated scores (no deterministic computation)
+    /**
+     * Score Combination
+     * 
+     * Uses AI-generated scores directly from EXTRACTION_PROMPT (API Call #2).
+     * No deterministic computation - scores are purely from AI analysis.
+     * 
+     * Components:
+     * - overall_score: Rounded to nearest 0.25 for UI display
+     * - components: Individual scores (fit, color, styling, material)
+     * - confidence: Minimum confidence across all components
+     * - missing_features: Array of features AI couldn't detect
+     * - reasoning: AI's explanation for each score
+     */
     console.log("Step 2: Using AI-generated scores...");
     const aiScores = validatedMetadata.scores;
     const scoreResults = {
@@ -281,7 +411,22 @@ serve(async (req) => {
       },
     };
 
-    // Step 3: Generate dynamic feedback using SCORE_OUTFIT with metadata context
+    /**
+     * API Call #3: Dynamic Feedback Generation
+     * 
+     * Uses SCORE_OUTFIT prompt with metadataContext to generate:
+     * - outfit_name: Creative name for the outfit
+     * - what_works: Array of positive feedback points
+     * - what_doesnt_work: Array of areas for improvement
+     * - quick_fixes: Array of actionable styling tips
+     * - editorial: Quote/summary for sharing
+     * 
+     * The metadataContext ensures feedback references specific detected
+     * parameters (e.g., "oversized silhouette", "monochrome harmony")
+     * rather than generic observations.
+     * 
+     * Error handling: If this call fails, defaults are used (no critical failure)
+     */
     console.log("Step 3: Generating outfit analysis with SCORE_OUTFIT and metadata...");
     let scoreOutfitData;
     try {
@@ -312,13 +457,28 @@ serve(async (req) => {
       scoreOutfitData = null;
     }
 
-    // Log raw response
+    // DEBUG LOG: Raw SCORE_OUTFIT response for debugging
+    // Safe to parse: contains outfit_name, what_works, what_doesnt_work, quick_fixes, editorial
     if (scoreOutfitData) {
       const content = scoreOutfitData.choices?.[0]?.message?.content;
       console.log("Raw SCORE_OUTFIT response:", content);
     }
 
-    // Parse SCORE_OUTFIT response
+    /**
+     * Parse SCORE_OUTFIT Response
+     * 
+     * Extracts human-readable feedback from API Call #3.
+     * Falls back to sensible defaults if parsing fails or fields are missing.
+     * 
+     * Expected JSON structure:
+     * {
+     *   outfit_name: string,
+     *   what_works: string[],
+     *   what_doesnt_work: string[],  // Note: can also be "what_didnt_work"
+     *   quick_fixes: string[],        // Note: can also be "quick_fix"
+     *   editorial: string
+     * }
+     */
     let outfitName = `${style || "Contemporary"} Ensemble`;
     let whatWorks = ["Good foundation"];
     let whatDidntWork =
@@ -362,7 +522,12 @@ serve(async (req) => {
       }
     }
 
-    // Combine results
+    /**
+     * Final Result Combination
+     * 
+     * Merges scores from API Call #2 with feedback from API Call #3
+     * into the final response format expected by StyleCheckHub.tsx
+     */
     const finalResult = {
       overall_score: scoreResults.overall_score,
       components: scoreResults.components,
@@ -380,7 +545,8 @@ serve(async (req) => {
       quick_fix: quickFix,
     };
 
-    // Cache the result
+    // Cache the result for 1 hour
+    // Future identical requests will return cached response instantly
     await setCachedResult(cacheKey, finalResult);
 
     return new Response(JSON.stringify(finalResult), {

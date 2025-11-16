@@ -1,4 +1,31 @@
+/**
+ * extractionPrompt.ts
+ * 
+ * Role: Prompt template for visual metadata extraction (API Call #2)
+ * 
+ * Used by: supabase/functions/score-outfit/index.ts
+ * Model: google/gemini-2.5-flash
+ * Output: Validated by VisualSchema
+ * 
+ * Purpose:
+ * Extracts comprehensive structured outfit metadata from image with context awareness.
+ * 
+ * Key Features:
+ * - Style-aware scoring (doesn't penalize oversized fits in streetwear, etc.)
+ * - Occasion-specific evaluation (casual vs formal requirements)
+ * - Confidence tracking for each extracted parameter
+ * - Returns initial AI scores (0-5 scale) with reasoning
+ * 
+ * Parameters:
+ * @param occasion - User's intended occasion (e.g., "Date Night", "Casual Outing")
+ * @param style - User's style preference (e.g., "Minimalist", "Streetwear")
+ * @param vibe - Desired vibe (e.g., "Polished", "Relaxed")
+ * 
+ * Output: JSON matching VisualSchema structure
+ */
 export const EXTRACTION_PROMPT = (occasion?: string, style?: string, vibe?: string) => {
+  // Context header injected into prompt if occasion/style/vibe provided
+  // Ensures AI tailors extraction and scoring to user's stated context
   const contextSection = occasion ? `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

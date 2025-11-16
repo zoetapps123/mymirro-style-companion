@@ -70,6 +70,9 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   useEffect(() => {
     loadWardrobeItems();
   }, []);
+  // Wardrobe Data Loading
+  // Fetches user's wardrobe items from Supabase for quick fix enhancement
+  // Used to suggest relevant items from user's existing wardrobe
   const loadWardrobeItems = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -280,6 +283,21 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     }
   };
 
+  /**
+   * Wardrobe Extraction
+   * 
+   * Detects clothing items in the analyzed outfit image and adds them to user's wardrobe.
+   * 
+   * API Call: process-wardrobe
+   * - Input: { imageData, userId }
+   * - Output: { items: Array<{ name, category, image_url, ... }> }
+   * - Internally uses WARDROBE_PROMPTS.DETECT_ITEMS for comprehensive metadata extraction
+   * 
+   * Processing:
+   * - Checks for duplicate items (by name) before inserting
+   * - Inserts non-duplicate items into wardrobe_items table
+   * - Updates UI state to disable extraction button after completion
+   */
   const extractToWardrobe = async () => {
     if (!result?.image_url) return;
     
@@ -446,6 +464,22 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     return [...quickFixes.slice(0, 4), wardrobeSuggestion, ...quickFixes.slice(4)];
   };
 
+  /**
+   * AI Style Elevation
+   * 
+   * Generates an AI-enhanced version of the outfit that maintains style while
+   * addressing identified issues from the style check.
+   * 
+   * API Call: elevate-style
+   * - Input: { imageData, occasion, style, vibe, analysisResult }
+   * - Output: { elevatedImageUrl }
+   * - Uses STYLING_PROMPTS.QUICK_STYLE_FIXES
+   * 
+   * Image Processing:
+   * - Detects orientation of original image
+   * - Matches orientation in enhanced version
+   * - Handles both portrait and landscape formats
+   */
   const elevateWithAI = async () => {
     if (!uploadedImage) return;
 
@@ -544,6 +578,10 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     link.click();
   };
 
+  /**
+   * Battle Navigation
+   * Navigates to outfit battle feature with current outfit data
+   */
   const handleBattleNavigation = () => {
     if (onNavigateToBattle && result) {
       onNavigateToBattle({
@@ -555,6 +593,11 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     }
   };
 
+  /**
+   * Share Functionality
+   * Generates shareable image of style check results and uses Web Share API
+   * Falls back to direct download if sharing is not supported
+   */
   const handleShare = async () => {
     if (!result) return;
 
