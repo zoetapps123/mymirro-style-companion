@@ -1018,7 +1018,7 @@ const AICompanion = () => {
 
       {/* Interactive Query Cards */}
       {showPrompts && messages.length <= 2 && (
-        <div className="px-4 py-3 border-t border-border/50">
+        <div className="px-4 pb-3 pt-[4px] border-t border-border/50">
           <div className="grid grid-cols-2 gap-3 max-w-2xl mx-auto">
             {QUERY_CARDS.map((card, index) => (
               <motion.button
@@ -1113,7 +1113,7 @@ const AICompanion = () => {
       )}
 
       {/* Input Area */}
-      <div className="px-4 py-3 border-t border-border bg-background safe-area-bottom">
+      <div className="px-4 pt-3 pb-[6px] border-t border-border bg-background safe-area-bottom">
         <div className="space-y-2 max-w-2xl mx-auto">
           {/* Image Preview */}
           {selectedImages.length > 0 && (
