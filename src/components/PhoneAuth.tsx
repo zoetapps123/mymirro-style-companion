@@ -188,7 +188,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#FFE3C3] via-[#D9A7FF] to-[#FBD6FF] p-6 pb-safe">
       {/* Logo */}
-      <div className="text-center pt-12 pb-[30px]">
+      <div className="text-center pt-[80px] pb-[30px]">
         <img src={logo} alt="MyMirro" className="h-12 mx-auto" />
       </div>
 
@@ -196,7 +196,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       <div className="flex-1 flex flex-col items-center justify-start max-w-md mx-auto w-full overflow-y-auto">
         {/* Hero Image Carousel Card */}
         <div 
-          className="relative w-[85%] aspect-[3/4] mb-3 rounded-[24px] overflow-hidden p-4"
+          className="relative w-[337px] h-[242px] mb-[12px] rounded-[24px] overflow-hidden p-4"
           onTouchStart={(e) => {
             const touchStartX = e.touches[0].clientX;
             e.currentTarget.setAttribute('data-touch-start', touchStartX.toString());
@@ -257,13 +257,13 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           key={`title-${currentSlide}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-white text-[20px] font-bold text-center px-4 mb-9"
+          className="text-white text-[20px] font-bold text-center px-4 mb-[12px]"
         >
           {slides[currentSlide].title}
         </motion.h2>
 
         {/* Subheading */}
-        <p className="text-[#41374E] text-[14px] font-semibold text-center mb-4">
+        <p className="text-[#41374E] text-[14px] font-semibold text-left max-w-[348px] mx-auto w-full mb-4">
           Start your fashion journey with MyMirro
         </p>
       </div>
