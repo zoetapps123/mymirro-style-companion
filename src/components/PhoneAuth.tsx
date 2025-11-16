@@ -263,8 +263,8 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
         </motion.h2>
 
         {/* Subheading */}
-        <p className="text-[#41374E] text-[14px] font-semibold text-left max-w-[348px] mx-auto w-full mb-[16px]">
-          Start your fashion journey with MyMirro
+        <p className="text-[#41374E] text-[14px] font-semibold text-left max-w-[348px] mx-auto w-full mb-[16px] px-4">
+          Start your fashion journey with MyMirro✨
         </p>
       </div>
 
