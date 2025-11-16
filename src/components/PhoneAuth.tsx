@@ -196,7 +196,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       <div className="flex-1 flex flex-col items-center justify-start max-w-md mx-auto w-full overflow-y-auto">
         {/* Hero Image Carousel Card */}
         <div 
-          className="relative w-[80%] aspect-[4/5] mb-3 rounded-[24px] overflow-hidden"
+          className="relative w-[80%] aspect-[4/5] mb-3 rounded-[24px] overflow-hidden bg-gray-100 p-4"
           onTouchStart={(e) => {
             const touchStartX = e.touches[0].clientX;
             e.currentTarget.setAttribute('data-touch-start', touchStartX.toString());
@@ -229,7 +229,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               <img 
                 src={slides[currentSlide].image} 
                 alt={slides[currentSlide].title} 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             </motion.div>
           </AnimatePresence>
@@ -272,9 +272,9 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       <div className="space-y-4 max-w-md mx-auto w-full px-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Phone Number Row */}
-          <div className="flex gap-0 max-w-[348px] mx-auto">
+          <div className="flex gap-2 max-w-[348px] mx-auto">
             <Select value={countryCode} onValueChange={setCountryCode}>
-              <SelectTrigger className="w-[72px] h-[50px] bg-[#F5F8FF] border-0 rounded-l-[10px] rounded-r-none text-[#262626] text-[14px] font-semibold">
+              <SelectTrigger className="w-[72px] h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] text-[14px] font-semibold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -291,7 +291,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                 setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
                 setError("");
               }}
-              className="flex-1 h-[50px] bg-[#F5F8FF] border-0 rounded-l-none rounded-r-[10px] text-[#262626] placeholder:text-[#8D8D93] text-[14px] px-4"
+              className="flex-1 h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] placeholder:text-[#8D8D93] text-[14px] px-4"
               disabled={loading}
             />
           </div>
