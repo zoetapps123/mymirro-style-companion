@@ -1055,43 +1055,99 @@ If the user's wardrobe does not have appropriate items for the occasion:
 
 Return item IDs with reasoning for each recommendation.`,
 
-  QUICK_STYLE_FIXES: (improvements: string, wardrobeItems?: any[]) => {
+  /**
+   * Phase 8: Enhanced QUICK_STYLE_FIXES prompt
+   * Now accepts enriched metadata context with body visibility awareness
+   * Maintains backward compatibility with legacy string-based improvements
+   */
+  QUICK_STYLE_FIXES: (metadataOrImprovements: string, wardrobeItems?: any[], bodyNotVisible?: boolean) => {
+    // Phase 8: Support both legacy (string) and new (rich context) formats
+    const isLegacyFormat = typeof metadataOrImprovements === 'string' && !metadataOrImprovements.includes('🎯 PRIMARY IMPROVEMENTS');
+    
+    let improvementsSection = '';
+    if (isLegacyFormat) {
+      // Legacy format: just a string of improvements
+      improvementsSection = `Apply ONLY these QUICK STYLING FIXES to the outfit:\n\n${metadataOrImprovements}`;
+    } else {
+      // Phase 8: Rich metadata context already formatted
+      improvementsSection = `🎯 PHASE 8: UNIFIED SCHEMA METADATA\n\nBefore applying any fixes, read the comprehensive style check metadata below. This contains extracted data, micro-recommendations, issues to address, and wardrobe context.\n\n${metadataOrImprovements}`;
+    }
+
+    // Phase 8: Wardrobe context (only if not already in metadata)
     let wardrobeContext = "";
-    if (wardrobeItems && wardrobeItems.length > 0) {
-      wardrobeContext = `\n\nAVAILABLE WARDROBE ITEMS (ONLY use these items for suggestions):
+    if (isLegacyFormat && wardrobeItems && wardrobeItems.length > 0) {
+      wardrobeContext = `\n\n👗 AVAILABLE WARDROBE ITEMS (ONLY use these items for suggestions):
 ${wardrobeItems.map((item: any, idx: number) => `${idx + 1}. ${item.name} (${item.category}) - ${item.color || "color not specified"}`).join("\n")}
 
 IMPORTANT: When suggesting accessories or additional items, ONLY suggest items from the available wardrobe list above. DO NOT suggest random items that don't exist in the wardrobe.`;
     }
 
-    return `Apply ONLY these QUICK STYLING FIXES to the outfit - DO NOT change the clothes completely:
+    // Phase 8: Body visibility constraints
+    const bodyVisibilityConstraints = bodyNotVisible ? `
 
-${improvements}
-${wardrobeContext}
+⚠️ BODY VISIBILITY ALERT:
+Person not clearly detected in this image. This may be a flatlay, partial outfit, or low-visibility photo.
+
+RESTRICTED ACTIONS (DO NOT APPLY):
+- Body proportion adjustments
+- Silhouette modifications
+- Fit corrections based on body shape
+- Posture or stance suggestions
+- Shoulder/waist/hip balance tweaks
+
+ALLOWED ACTIONS:
+- Color harmony improvements
+- Accessory additions (from wardrobe)
+- Fabric texture enhancements
+- Pattern coordination
+- Styling details (tucks, rolls, cuffs)
+- Footwear swaps (if footwear visible)
+- General aesthetic refinements
+
+Focus on visible garment details and styling elements only.` : '';
+
+    return `${improvementsSection}${wardrobeContext}${bodyVisibilityConstraints}
 
 🚨 ABSOLUTELY CRITICAL - IMAGE ORIENTATION REQUIREMENTS 🚨
 YOU MUST FOLLOW THESE ORIENTATION RULES EXACTLY:
 
-1. The original image shows a person in PORTRAIT orientation (VERTICAL/UPRIGHT/STANDING)
-2. The person's HEAD is at the TOP of the image
-3. The person's FEET are at the BOTTOM of the image
-4. You MUST generate the enhanced image in the EXACT SAME PORTRAIT orientation
-5. DO NOT rotate the output image by ANY angle (not 90°, not 180°, not any degrees)
-6. The enhanced image MUST have the person STANDING VERTICALLY just like the input
-7. If you see the person sideways or horizontal, you are doing it WRONG
-8. The person must be UPRIGHT with head at top and feet at bottom
-9. Keep the aspect ratio and orientation IDENTICAL to the input image
-10. PORTRAIT MODE ONLY - The image should be TALLER than it is wide
+1. The original image shows content in PORTRAIT orientation (VERTICAL/UPRIGHT)
+2. If a person is visible: HEAD at TOP, FEET at BOTTOM
+3. You MUST generate the enhanced image in the EXACT SAME PORTRAIT orientation
+4. DO NOT rotate the output image by ANY angle (not 90°, not 180°, not any degrees)
+5. The enhanced image MUST maintain VERTICAL orientation just like the input
+6. If you see the content sideways or horizontal, you are doing it WRONG
+7. Keep the aspect ratio and orientation IDENTICAL to the input image
+8. PORTRAIT MODE ONLY - The image should be TALLER than it is wide
 
-STYLING REQUIREMENTS:
-- ONLY apply the specific quick fixes mentioned (adding accessories, layering, minor adjustments)
-- If suggesting accessories (bags, sunglasses, jewelry, etc.), ONLY use items from the "AVAILABLE WARDROBE ITEMS" list above
-- DO NOT add random items that are not in the wardrobe
-- DO NOT change the main clothing items completely
-- Apply SUBTLE, under-1-minute fixes that would increase the style score to at least 4/5
-- Make changes look natural and realistic
-- Maintain original lighting, photo quality, and composition
-- Goal: Show how quick styling fixes from their existing wardrobe can elevate the outfit, not replace it`;
+🎨 STYLING REQUIREMENTS (Phase 8 Enhanced):
+
+**Core Principles:**
+- ONLY apply the specific improvements mentioned in the metadata above
+- DO NOT change main clothing items completely
+- Apply SUBTLE, realistic, 1-minute-achievable fixes
+- Target: Increase style score to at least 4.0/5.0
+
+**Wardrobe-First Logic:**
+- If accessories/items are suggested, ONLY use items from "AVAILABLE WARDROBE ITEMS"
+- DO NOT hallucinate random items not in the wardrobe
+- If wardrobe is empty, use universal tweaks: tucks, rolls, cuffs, minimal visible layering
+
+**Visual Fidelity:**
+- Maintain original lighting, skin tone, background, and photo quality
+- Make changes look natural and realistic (not AI-generated or fake)
+- Preserve the person's face, hair, body proportions exactly as-is
+- NO hairstyle changes, NO makeup changes, NO body modifications
+
+**Banned Actions:**
+- NO shopping suggestions or items to buy
+- NO Indian festive/wedding content (unless explicitly requested)
+- NO body-shaming or appearance judgments
+- NO hallucination of unseen garments or body parts
+- NO complete outfit replacements
+
+**Goal:**
+Show how QUICK STYLING FIXES using existing wardrobe items and simple tweaks can elevate the outfit from its current state to a higher style score, WITHOUT replacing the fundamental outfit.`;
   },
 };
 

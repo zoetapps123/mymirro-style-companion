@@ -480,12 +480,33 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
    * - Matches orientation in enhanced version
    * - Handles both portrait and landscape formats
    */
+  /**
+   * Phase 8: "Elevate Through AI" - Upgraded to Unified Schema
+   * 
+   * Now uses comprehensive metadata from style check including:
+   * - micro_recommendations (Phase 6 wardrobe-first suggestions)
+   * - quick_fix (traditional improvements)
+   * - what_doesnt_work / what_didnt_work (issues to address)
+   * - missing_features (visibility limitations)
+   * 
+   * Backend (elevate-style) handles body visibility awareness and builds
+   * rich context for AI image generation while maintaining full backward
+   * compatibility with legacy payload structure.
+   * 
+   * Flow:
+   * 1. buildImprovementsFromSchema: Combines all feedback sources
+   * 2. Deduplicate and prioritize improvements
+   * 3. Pass enriched metadata to elevate-style edge function
+   * 4. AI generates enhanced image using unified schema context
+   * 5. Orientation correction ensures portrait/landscape match
+   */
   const elevateWithAI = async () => {
     if (!uploadedImage) return;
 
     setElevating(true);
     try {
-      const quickFixText = result?.quick_fix?.join('. ') || '';
+      // Phase 8: Build improvements from unified schema fields
+      const improvements = buildImprovementsFromSchema(result);
 
       // Helpers scoped here to keep changes minimal
       const getImageDimensions = (src: string) => new Promise<{ width: number; height: number }>((resolve, reject) => {
@@ -542,14 +563,19 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
         throw new Error('Authentication required');
       }
 
+      // Phase 8: Pass enriched payload to elevate-style
       const { data, error } = await supabase.functions.invoke('elevate-style', {
         body: {
           imageData: uploadedImage,
-          improvements: quickFixText,
+          improvements, // Phase 8: Rich improvements from unified schema
           wardrobeItems: wardrobeItemsList,
           orientation,
           width,
           height,
+          // Phase 8: Pass additional metadata (with fallbacks for backward compatibility)
+          microRecommendations: result?.micro_recommendations || [],
+          missingFeatures: result?.missing_features || [],
+          whatDoesntWork: result?.what_didnt_work || result?.what_doesnt_work || [],
         },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
@@ -569,6 +595,54 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     } finally {
       setElevating(false);
     }
+  };
+
+  /**
+   * Phase 8: Helper to build comprehensive improvements from unified schema
+   * Combines all available feedback sources with deduplication
+   */
+  const buildImprovementsFromSchema = (result: any): string => {
+    if (!result) return '';
+
+    const improvementSet = new Set<string>();
+    
+    // Priority 1: Micro-recommendations (Phase 6 - most actionable)
+    if (Array.isArray(result.micro_recommendations)) {
+      result.micro_recommendations.forEach((item: string) => {
+        if (item && typeof item === 'string') improvementSet.add(item.trim());
+      });
+    }
+    
+    // Priority 2: Quick fixes (traditional)
+    if (Array.isArray(result.quick_fix)) {
+      result.quick_fix.forEach((item: string) => {
+        if (item && typeof item === 'string') improvementSet.add(item.trim());
+      });
+    }
+    
+    // Priority 3: What doesn't work (convert to actionable)
+    const whatDoesntWork = result.what_didnt_work || result.what_doesnt_work;
+    if (Array.isArray(whatDoesntWork)) {
+      whatDoesntWork.forEach((item: string) => {
+        if (item && typeof item === 'string') {
+          // Convert issue to action if not already actionable
+          const trimmed = item.trim();
+          if (!trimmed.toLowerCase().startsWith('try') && 
+              !trimmed.toLowerCase().startsWith('add') &&
+              !trimmed.toLowerCase().startsWith('swap')) {
+            improvementSet.add(`Address: ${trimmed}`);
+          } else {
+            improvementSet.add(trimmed);
+          }
+        }
+      });
+    }
+    
+    // Convert set to array, limit to most important items
+    const improvements = Array.from(improvementSet).slice(0, 8);
+    
+    // Join with period separator for clear instruction format
+    return improvements.join('. ') + (improvements.length > 0 ? '.' : '');
   };
 
   const downloadImage = (imageData: string, filename: string) => {
