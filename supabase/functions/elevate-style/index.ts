@@ -1,9 +1,19 @@
+/**
+ * Phase 8: Elevate Through AI - Enhanced with Unified Schema Support
+ * 
+ * Upgrades:
+ * - Now accepts enriched metadata from unified style check schema
+ * - Supports micro_recommendations, missing_features, whatDoesntWork
+ * - Full backward compatibility with legacy payload structure
+ * - Enhanced prompt building with body visibility awareness
+ */
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
 import { STYLING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
+import { buildMetadataContext } from './helpers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,7 +33,19 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, improvements, wardrobeItems, orientation, width, height } = await req.json();
+    // Phase 8: Accept enriched payload with backward compatibility
+    const { 
+      imageData, 
+      improvements, 
+      wardrobeItems, 
+      orientation, 
+      width, 
+      height,
+      // Phase 8: New unified schema fields (with fallbacks)
+      microRecommendations = [],
+      missingFeatures = [],
+      whatDoesntWork = [],
+    } = await req.json();
 
     // Validate input
     if (!imageData || typeof imageData !== 'string') {
@@ -42,9 +64,26 @@ serve(async (req) => {
       );
     }
 
-    console.log('Elevating style with AI...');
+    console.log('Phase 8: Elevating style with AI using unified schema...');
 
-    const editPrompt = STYLING_PROMPTS.QUICK_STYLE_FIXES(improvements, wardrobeItems);
+    // Phase 8: Detect body visibility from missing features
+    const bodyNotVisible = missingFeatures.some((f: string) => 
+      f.includes('person_not_detected') || 
+      f.includes('body_not_visible') ||
+      f.includes('full_outfit_not_visible')
+    );
+
+    // Phase 8: Build enriched metadata context for prompt
+    const metadataContext = buildMetadataContext({
+      improvements,
+      microRecommendations,
+      missingFeatures,
+      whatDoesntWork,
+      wardrobeItems,
+      bodyNotVisible,
+    });
+
+    const editPrompt = STYLING_PROMPTS.QUICK_STYLE_FIXES(metadataContext, wardrobeItems, bodyNotVisible);
 
     // Call Gemini API for image generation
     const data = await retryWithBackoff(() => callGeminiAPI({
