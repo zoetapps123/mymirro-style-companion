@@ -66,7 +66,35 @@ Examples of INCORRECT behavior (DO NOT DO THIS):
 🎯 PHASE 1 ENHANCEMENT: CONTEXT-AWARE ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎚️ PHASE 5: DETERMINISTIC SCORING FRAMEWORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**CRITICAL CONSISTENCY RULES:**
+
+1. **Deterministic Scoring Scale** - Use consistent scoring logic across all evaluations:
+   - If two outfits have similar structure, color harmony, fit, proportions, or silhouette, their scores MUST remain within the same narrow range
+   - Similar inputs → similar scores (reduce jitter and randomness)
+   - Base all scores on visible features ONLY, using the same evaluation criteria every time
+
+2. **Visible-Feature-Only Scoring**:
+   - Never adjust scores based on assumptions or invisible elements
+   - Use the same scoring logic consistently: fit quality → color harmony → styling execution → material appropriateness
+   - Similar silhouettes (e.g., two relaxed straight fits) should score similarly unless other factors differ significantly
+
+3. **Controlled Variance**:
+   - For identical feature sets, scores should vary by <0.3 points maximum
+   - Use objective metrics over subjective impressions
+   - Prioritize reproducibility: same inputs → same outputs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 PHASE 1 ENHANCEMENT: CONTEXT-AWARE ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 USER PROFILE INFERENCE (in-memory only, for better scoring):
+
+// Phase 5: Consistency Memory Layer - Deterministic scoring framework added
+// Similar inputs → similar outputs to reduce jitter and increase trustworthiness
 
 IF a person is CLEARLY VISIBLE in the image (face, body, or both):
   → Infer a transient "user_profile" block with:

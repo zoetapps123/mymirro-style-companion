@@ -319,13 +319,44 @@ function buildMetadataContext(metadata: any): string {
       profileDetails.push(`${profile.gender_expression.value} presentation`);
     }
     
-    // Phase 4 Guardrail: Only add profile section if we have actual meaningful data
-    if (profileDetails.length > 0) {
-      parts.push(`👤 **WEARER CONTEXT:** ${profileDetails.join(", ")}`);
-      // Phase 4: Enhanced safety prefix explaining inferred data context
-      parts.push(`   ⚠️ NOTE: These are extracted features from the current image, not stored user data. Used only to judge outfit fit/color, not the person.\n`);
-    }
+  // Phase 4 Guardrail: Only add profile section if we have actual meaningful data
+  if (profileDetails.length > 0) {
+    parts.push(`👤 **WEARER CONTEXT:** ${profileDetails.join(", ")}`);
+    // Phase 4: Enhanced safety prefix explaining inferred data context
+    parts.push(`   ⚠️ NOTE: These are extracted features from the current image, not stored user data. Used only to judge outfit fit/color, not the person.\n`);
   }
+}
+
+// Phase 5: Stateless Outfit Fingerprinting (Consistency Memory Layer)
+// Compute a style fingerprint from extracted metadata for consistent evaluation
+// This fingerprint is NOT stored - purely for single-request consistency
+const fingerprintParts: string[] = [];
+if (isMeaningful(metadata.fit?.silhouette?.value)) {
+  fingerprintParts.push(`silhouette=${metadata.fit.silhouette.value}`);
+}
+if (isMeaningful(metadata.fit?.fit_type?.value)) {
+  fingerprintParts.push(`fit=${metadata.fit.fit_type.value}`);
+}
+if (isMeaningful(metadata.color?.primary_top_color?.value)) {
+  fingerprintParts.push(`top_color=${metadata.color.primary_top_color.value}`);
+}
+if (isMeaningful(metadata.color?.primary_bottom_color?.value)) {
+  fingerprintParts.push(`bottom_color=${metadata.color.primary_bottom_color.value}`);
+}
+if (isMeaningful(metadata.styling?.footwear_type?.value)) {
+  fingerprintParts.push(`footwear=${metadata.styling.footwear_type.value}`);
+}
+if (isMeaningful(metadata.styling?.layering_pieces?.value)) {
+  fingerprintParts.push(`layers=${metadata.styling.layering_pieces.value}`);
+}
+if (isMeaningful(metadata.fabric?.pattern_type?.value) && metadata.fabric.pattern_type.value !== "solid") {
+  fingerprintParts.push(`pattern=${metadata.fabric.pattern_type.value}`);
+}
+
+if (fingerprintParts.length > 0) {
+  parts.push(`\n🔖 **STYLE FINGERPRINT:** ${fingerprintParts.join("; ")}`);
+  parts.push(`   (Use this fingerprint to ensure consistent evaluations. Similar fingerprints should receive similar scoring characteristics.)\n`);
+}
 
   // Fit parameters
   if (metadata.fit) {
@@ -421,6 +452,8 @@ function buildMetadataContext(metadata: any): string {
     `\n**USE THIS DATA:** Reference specific parameters (e.g., "oversized silhouette," "monochrome harmony," "partial tuck") in your analysis to make feedback data-driven and precise.\n`,
   );
 
+  // Phase 5: Consistency Memory Layer Added
+  // Stateless fingerprinting + enhanced metadataContext for consistent evaluations
   return parts.join("\n");
 }
 
