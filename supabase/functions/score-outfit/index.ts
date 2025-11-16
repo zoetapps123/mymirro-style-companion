@@ -104,7 +104,8 @@
  *   imageData: string,    // Base64 data URL or public URL
  *   occasion?: string,    // e.g., "Date Night"
  *   style?: string,       // e.g., "Minimalist"
- *   vibe?: string         // e.g., "Polished"
+ *   vibe?: string,        // e.g., "Polished"
+ *   wardrobeItems?: any[] // Phase 6: Optional wardrobe for micro-recommendations
  * }
  * 
  * Output:
@@ -120,10 +121,39 @@
  *   what_works: string[],           // Positive feedback points
  *   what_didnt_work: string[],      // Areas for improvement
  *   quick_fix: string[],            // Actionable styling tips
+ *   micro_recommendations: string[], // Phase 6: Immediately actionable tweaks (3-6 items, 7-14 words)
  *   editorial: string,              // Editorial quote/summary
  *   confidence: number,             // Lowest component confidence
  *   missing_features: string[]      // Features AI couldn't detect (Phase 1: clearer format)
  * }
+ * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 🎁 PHASE 6 ENHANCEMENTS (Smart Micro-Recommendations)
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * 1. **Wardrobe-First But Not Limited Logic**:
+ *    - Accepts optional wardrobeItems array in request
+ *    - Builds concise wardrobe summary by category for SCORE_OUTFIT
+ *    - If wardrobe has relevant items → suggests using them
+ *    - If wardrobe is empty/weak → falls back to universal styling tweaks
+ * 
+ * 2. **Micro-Recommendations Output** (new field):
+ *    - 3-6 immediately actionable improvements (7-14 words each)
+ *    - Can execute right now without shopping
+ *    - Examples: "Half-tuck the tee for cleaner proportions", "Roll sleeves for sharper detail"
+ *    - NO shopping suggestions, NO festival/wedding refs, NO body criticism
+ * 
+ * 3. **Enhanced metadataContext Builder**:
+ *    - Now includes WARDROBE_CONTEXT section with tops/bottoms/footwear/outerwear/accessories
+ *    - Format: "tops: [white tee, black shirt]; bottoms: [blue denim]"
+ *    - If no wardrobe: "WARDROBE_CONTEXT: none_available" triggers universal suggestions
+ * 
+ * 4. **Guardrails & Safety**:
+ *    - ❌ No shopping ("buy X", "get Y")
+ *    - ❌ No festivals (Diwali, haldi, Christmas)
+ *    - ❌ No hallucinating wardrobe items not provided
+ *    - ✅ Universal actions: tucking, rolling, cuffing, proportions
+ *    - ✅ Conditional phrasing when visibility limited
  * 
  * Caching:
  * - Cache key: SHA-256 hash of { type: "outfit_score_v4", imageData, occasion, style, vibe }
@@ -147,6 +177,7 @@ const corsHeaders = {
 
 /**
  * Phase 4: JSON Recovery Helper
+ * Phase 6: Enhanced to handle micro_recommendations
  * 
  * Attempts to recover malformed JSON from AI responses through multiple strategies:
  * 1. Strip markdown code fences and trailing text
@@ -193,6 +224,10 @@ function recoverJSON(rawContent: string): any | null {
     if (typeof parsed.quick_fixes === "string") {
       parsed.quick_fixes = [parsed.quick_fixes];
     }
+    // Phase 6: Handle micro_recommendations
+    if (typeof parsed.micro_recommendations === "string") {
+      parsed.micro_recommendations = [parsed.micro_recommendations];
+    }
     
     // Phase 4 Guardrail: Ensure arrays are actually arrays
     if (parsed.what_works && !Array.isArray(parsed.what_works)) {
@@ -204,8 +239,12 @@ function recoverJSON(rawContent: string): any | null {
     if (parsed.quick_fixes && !Array.isArray(parsed.quick_fixes)) {
       parsed.quick_fixes = [String(parsed.quick_fixes)];
     }
+    // Phase 6: Ensure micro_recommendations is array
+    if (parsed.micro_recommendations && !Array.isArray(parsed.micro_recommendations)) {
+      parsed.micro_recommendations = [String(parsed.micro_recommendations)];
+    }
     
-    console.log("✅ Phase 4: JSON recovery successful");
+    console.log("✅ Phase 4+6: JSON recovery successful");
     return parsed;
   } catch (e) {
     console.error("❌ Phase 4: JSON recovery failed:", e);
@@ -215,13 +254,14 @@ function recoverJSON(rawContent: string): any | null {
 
 /**
  * Phase 4: Fallback Result Generator
+ * Phase 6: Enhanced with micro_recommendations
  * 
  * Generates a minimal valid result when all parsing attempts fail.
  * Ensures Style Check never crashes on malformed AI output.
  * Uses supportive tone and safe defaults.
  */
 function generateFallbackResult(style?: string, missingFeatures: string[] = []): any {
-  console.log("⚠️ Phase 4: Using fallback result due to parse failure");
+  console.log("⚠️ Phase 4+6: Using fallback result due to parse failure");
   return {
     outfit_name: style ? `${style} Casual Style` : "Clean Casual Style",
     what_works: [
@@ -235,6 +275,10 @@ function generateFallbackResult(style?: string, missingFeatures: string[] = []):
     quick_fixes: [
       "Consider adjusting proportions for better balance",
       "Add intentional accessories to complete the look",
+    ],
+    micro_recommendations: [
+      "Try a half-tuck for defined proportions",
+      "Roll sleeves for sharper silhouette detail",
     ],
     editorial: "A solid foundation with room to refine proportions and styling details for extra polish.",
   };
@@ -257,14 +301,16 @@ function isMeaningful(val: any): boolean {
  * Constructs formatted string of extracted metadata for SCORE_OUTFIT prompt.
  * 
  * Phase 1 Enhancement: Now includes transient user profile (when person is visible)
+ * Phase 6 Enhancement: Now includes wardrobe summary for micro-recommendations
  * 
- * Input: Validated VisualSchema data from API Call #2
+ * Input: Validated VisualSchema data from API Call #2, optional wardrobe items
  * 
  * Process:
  * 1. Filters meaningful values using isMeaningful helper
  * 2. Formats into sections: USER PROFILE (new), FIT, FABRIC, COLOR, STYLING, AESTHETIC, SCORES
  * 3. Adds low-confidence warnings for unreliable detections
- * 4. Returns formatted markdown string
+ * 4. Phase 6: Adds wardrobe summary by category for micro-recommendations
+ * 5. Returns formatted markdown string
  * 
  * Output Example:
  * ```
@@ -278,6 +324,8 @@ function isMeaningful(val: any): boolean {
  * 🎨 **COLOR:** monochrome harmony, low contrast
  * ✨ **STYLING:** partial tuck, 1 layer(s)
  * 
+ * 👕 **WARDROBE_CONTEXT:** tops: [white tee, black shirt]; bottoms: [blue denim]; footwear: [white sneakers]
+ * 
  * 📊 **INITIAL AI SCORES:**
  *    - Fit: 4.2/5.0 (85% confidence) — Well-balanced proportions
  *    - Color: 4.5/5.0 (90% confidence) — Strong monochrome palette
@@ -288,7 +336,7 @@ function isMeaningful(val: any): boolean {
  * This context is passed to SCORE_OUTFIT (API Call #3) to generate
  * data-driven feedback that references specific detected parameters.
  */
-function buildMetadataContext(metadata: any): string {
+function buildMetadataContext(metadata: any, wardrobeItems?: any[]): string {
   const parts: string[] = ["**EXTRACTED OUTFIT METADATA:**\n"];
 
   // Phase 1 Addition + Phase 4 Guardrails: User Profile (transient, in-memory only)
@@ -452,8 +500,54 @@ if (fingerprintParts.length > 0) {
     `\n**USE THIS DATA:** Reference specific parameters (e.g., "oversized silhouette," "monochrome harmony," "partial tuck") in your analysis to make feedback data-driven and precise.\n`,
   );
 
+  // Phase 6: Wardrobe-first but not wardrobe-limited micro-recommendations
+  // Add wardrobe summary for intelligent suggestions without forcing wardrobe-only logic
+  if (wardrobeItems && Array.isArray(wardrobeItems) && wardrobeItems.length > 0) {
+    const wardrobeByCategory: Record<string, string[]> = {};
+    
+    // Group items by category
+    for (const item of wardrobeItems) {
+      if (item.category && item.name) {
+        const category = item.category.toLowerCase();
+        if (!wardrobeByCategory[category]) {
+          wardrobeByCategory[category] = [];
+        }
+        wardrobeByCategory[category].push(item.name);
+      }
+    }
+    
+    // Build concise wardrobe summary
+    const wardrobeSummary: string[] = [];
+    if (wardrobeByCategory.tops) {
+      wardrobeSummary.push(`tops: [${wardrobeByCategory.tops.slice(0, 5).join(", ")}]`);
+    }
+    if (wardrobeByCategory.bottoms) {
+      wardrobeSummary.push(`bottoms: [${wardrobeByCategory.bottoms.slice(0, 5).join(", ")}]`);
+    }
+    if (wardrobeByCategory.shoes) {
+      wardrobeSummary.push(`footwear: [${wardrobeByCategory.shoes.slice(0, 5).join(", ")}]`);
+    }
+    if (wardrobeByCategory.outerwear) {
+      wardrobeSummary.push(`outerwear: [${wardrobeByCategory.outerwear.slice(0, 3).join(", ")}]`);
+    }
+    if (wardrobeByCategory.accessories) {
+      wardrobeSummary.push(`accessories: [${wardrobeByCategory.accessories.slice(0, 3).join(", ")}]`);
+    }
+    
+    if (wardrobeSummary.length > 0) {
+      parts.push(`\n👕 **WARDROBE_CONTEXT:** ${wardrobeSummary.join("; ")}`);
+      parts.push(`   (Use wardrobe items when meaningful, but also suggest universal styling tweaks)`);
+    }
+  } else {
+    // No wardrobe available
+    parts.push(`\n👕 **WARDROBE_CONTEXT:** none_available`);
+    parts.push(`   (Focus on universal styling actions: tucking, rolling, cuffing, proportion adjustments)`);
+  }
+
   // Phase 5: Consistency Memory Layer Added
   // Stateless fingerprinting + enhanced metadataContext for consistent evaluations
+  // Phase 6: Wardrobe-first but not wardrobe-limited micro-recommendations added
+  // No shopping, no festivals, no DB changes
   return parts.join("\n");
 }
 
@@ -470,7 +564,10 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, occasion, style, vibe } = await req.json();
+    const { imageData, occasion, style, vibe, wardrobeItems } = await req.json();
+
+    // Phase 6: Accept optional wardrobe items for micro-recommendations
+    // wardrobeItems format: array of {id, name, category, ...} or undefined
 
     // Validate input
     if (!imageData || typeof imageData !== "string") {
@@ -616,7 +713,8 @@ serve(async (req) => {
     // Build metadata context string for API Call #3
     // This converts structured data into formatted markdown string
     // that SCORE_OUTFIT prompt can reference for data-driven feedback
-    const metadataContext = buildMetadataContext(validatedMetadata);
+    // Phase 6: Enhanced with wardrobe summary for micro-recommendations
+    const metadataContext = buildMetadataContext(validatedMetadata, wardrobeItems);
     console.log("Built metadata context:", metadataContext.substring(0, 200) + "...");
 
     /**
@@ -714,6 +812,7 @@ serve(async (req) => {
 
     /**
      * Phase 4: Enhanced SCORE_OUTFIT Response Parsing with Auto-Recovery
+     * Phase 6: Now includes micro_recommendations parsing
      * 
      * Multi-stage parsing strategy:
      * 1. Primary Parse: Direct JSON parsing with basic cleanup
@@ -728,11 +827,13 @@ serve(async (req) => {
      *   what_works: string[] (min 3, max 15 words each),
      *   what_doesnt_work: string[] (2-3 items, max 15 words each),
      *   quick_fixes: string[] (min 3, max 12-15 words each),
+     *   micro_recommendations: string[] (3-6 items, 7-14 words each) [Phase 6],
      *   editorial: string (25-45 words)
      * }
      */
     
     // Phase 4 Guardrail: Safe defaults (supportive tone)
+    // Phase 6: Added micro_recommendations default
     let outfitName = `${style || "Contemporary"} Ensemble`;
     let whatWorks = ["Good foundation with thoughtful elements"];
     let whatDidntWork =
@@ -743,6 +844,10 @@ serve(async (req) => {
       "Adjust proportions for better balance",
       "Consider accessory additions to complete the look",
       "Review color harmony for cohesiveness",
+    ];
+    let microRecommendations = [
+      "Try a half-tuck for cleaner proportions",
+      "Roll sleeves slightly for intentional detail",
     ];
     let editorial = "A refined outfit with careful attention to fit and proportion, showing good style awareness.";
 
@@ -775,6 +880,7 @@ serve(async (req) => {
         }
         
         // Phase 4: Extract fields from successfully parsed result
+        // Phase 6: Added micro_recommendations extraction
         if (parsed) {
           if (parsed.outfit_name && typeof parsed.outfit_name === "string") {
             outfitName = parsed.outfit_name;
@@ -788,6 +894,10 @@ serve(async (req) => {
           if (Array.isArray(parsed.quick_fixes) && parsed.quick_fixes.length > 0) {
             quickFix = parsed.quick_fixes.filter((item: any) => typeof item === "string" && item.trim());
           }
+          // Phase 6: Parse micro_recommendations with fallback
+          if (Array.isArray(parsed.micro_recommendations) && parsed.micro_recommendations.length > 0) {
+            microRecommendations = parsed.micro_recommendations.filter((item: any) => typeof item === "string" && item.trim());
+          }
           if (parsed.editorial && typeof parsed.editorial === "string") {
             editorial = parsed.editorial;
           } else if (whatWorks.length > 0) {
@@ -795,7 +905,7 @@ serve(async (req) => {
             editorial = whatWorks.slice(0, 2).join(". ") + ".";
           }
           
-          console.log("✅ Phase 4: Final parsed output validated and sanitized");
+          console.log("✅ Phase 4+6: Final parsed output validated and sanitized");
         }
       }
     }
@@ -805,6 +915,7 @@ serve(async (req) => {
      * 
      * Merges scores from API Call #2 with feedback from API Call #3
      * into the final response format expected by StyleCheckHub.tsx
+     * Phase 6: Now includes micro_recommendations
      */
     const finalResult = {
       overall_score: scoreResults.overall_score,
@@ -821,6 +932,8 @@ serve(async (req) => {
       what_works: whatWorks,
       what_didnt_work: whatDidntWork,
       quick_fix: quickFix,
+      // Phase 6: Micro-recommendations (wardrobe-first but not limited)
+      micro_recommendations: microRecommendations,
     };
 
     // Cache the result for 1 hour
