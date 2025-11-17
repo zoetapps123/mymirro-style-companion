@@ -1120,7 +1120,7 @@ YOU MUST FOLLOW THESE ORIENTATION RULES EXACTLY:
 7. Keep the aspect ratio and orientation IDENTICAL to the input image
 8. PORTRAIT MODE ONLY - The image should be TALLER than it is wide
 
-🎨 STYLING REQUIREMENTS (Phase 8 Enhanced):
+🎨 STYLING REQUIREMENTS (Phase 8 Enhanced + PART 5 Constraint-Aware):
 
 **Core Principles:**
 - ONLY apply the specific improvements mentioned in the metadata above
@@ -1128,10 +1128,47 @@ YOU MUST FOLLOW THESE ORIENTATION RULES EXACTLY:
 - Apply SUBTLE, realistic, 1-minute-achievable fixes
 - Target: Increase style score to at least 4.0/5.0
 
+**PART 5: GARMENT CONSTRAINT VALIDATION (CRITICAL):**
+Before applying ANY fix, verify it is physically possible:
+
+1. **Sleeve Rolling:**
+   - ONLY apply if:
+     * rollable = true in extraction metadata
+     * sleeve_length is NOT "short", "capped", "sleeveless", or "none"
+     * Fabric is woven (not tight knit/stretch)
+   - If NOT rollable → DO NOT roll sleeves under any circumstances
+
+2. **Shirt Tucking:**
+   - ONLY apply if:
+     * tuckable = true in extraction metadata
+     * hemline is NOT "cropped"
+     * Garment is NOT structured jacket, thick hoodie, or sweatshirt
+   - If NOT tuckable → DO NOT tuck under any circumstances
+
+3. **Accessory Addition:**
+   - Check accessories_present section first
+   - If watch_present_with_confidence > 0.6 → DO NOT add watch
+   - If bracelet_present = true → DO NOT add bracelet
+   - If necklace_present = true → DO NOT add necklace
+   - ONLY add accessories from AVAILABLE WARDROBE ITEMS list
+
+4. **Color Changes:**
+   - Use exact color specs from extraction:
+     * top_primary_color_hex and bottom_primary_color_hex for precise matching
+     * bottom_wash for denim (e.g., "light_blue", "dark_indigo", "pure_black")
+   - If suggesting color change, specify EXACT shade (not "lighter" or "darker")
+   - Reference contrast_level when adjusting color harmony
+
+5. **Footwear Modifications:**
+   - Check footwear_visible and footwear_visibility_confidence first
+   - If footwear_visible = false OR footwear_visibility_confidence < 0.5:
+     * DO NOT apply definitive footwear changes
+     * Use conditional language: "If wearing [X], consider [Y]"
+
 **Wardrobe-First Logic:**
 - If accessories/items are suggested, ONLY use items from "AVAILABLE WARDROBE ITEMS"
 - DO NOT hallucinate random items not in the wardrobe
-- If wardrobe is empty, use universal tweaks: tucks, rolls, cuffs, minimal visible layering
+- If wardrobe is empty, use universal tweaks: tucks (IF tuckable), rolls (IF rollable), cuffs, minimal visible layering
 
 **Visual Fidelity:**
 - Maintain original lighting, skin tone, background, and photo quality

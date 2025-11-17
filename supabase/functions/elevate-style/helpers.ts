@@ -8,6 +8,7 @@
  * Builds enriched metadata context for AI image enhancement
  * 
  * Phase 6: Updated to use Phase 2 unified feedback structure
+ * PART 5: Enhanced with garment constraint data for validation
  * 
  * Combines multiple sources of styling feedback:
  * - microFixes: Phase 2 evidence-based quick fixes
@@ -18,6 +19,7 @@
  * - missingFeatures: Visibility limitations
  * - wardrobeItems: User's available items
  * - bodyNotVisible: Flag for flatlay/non-person images
+ * - extractionData: PART 5 - Garment-level constraints (rollable, tuckable, accessories_present, etc.)
  * 
  * Returns deduplicated, prioritized list of actionable improvements
  */
@@ -30,6 +32,7 @@ export function buildMetadataContext(params: {
   missingFeatures: string[];
   wardrobeItems: any[];
   bodyNotVisible: boolean;
+  extractionData?: any; // PART 5: Add extraction metadata
 }): string {
   const {
     microFixes,
@@ -40,9 +43,60 @@ export function buildMetadataContext(params: {
     missingFeatures,
     wardrobeItems,
     bodyNotVisible,
+    extractionData,
   } = params;
 
   const sections: string[] = [];
+
+  // PART 5: Section 0 - Garment Constraints (Critical for validation)
+  if (extractionData) {
+    const constraints: string[] = [];
+    
+    // Sleeve constraints
+    const garments = extractionData.garments || [];
+    const topGarment = garments.find((g: any) => g?.garment_type?.value === 'top');
+    if (topGarment) {
+      const rollable = topGarment.rollable?.value ?? false;
+      const sleeveLength = topGarment.sleeve_length?.value ?? 'unknown';
+      constraints.push(`Sleeves: ${sleeveLength} (rollable: ${rollable ? 'YES' : 'NO'})`);
+    }
+    
+    // Hemline constraints
+    if (topGarment) {
+      const tuckable = topGarment.tuckable?.value ?? false;
+      const hemline = topGarment.hemline?.value ?? 'unknown';
+      constraints.push(`Hemline: ${hemline} (tuckable: ${tuckable ? 'YES' : 'NO'})`);
+    }
+    
+    // Accessory presence
+    const accessories = extractionData.accessories_present || {};
+    const watchConfidence = accessories.watch_present_with_confidence?.value ?? 0;
+    const braceletPresent = accessories.bracelet_present?.value ?? false;
+    const necklacePresent = accessories.necklace_present?.value ?? false;
+    constraints.push(`Accessories: Watch (confidence: ${watchConfidence}), Bracelet (${braceletPresent ? 'present' : 'absent'}), Necklace (${necklacePresent ? 'present' : 'absent'})`);
+    
+    // Bottom wash (for denim)
+    const bottomGarment = garments.find((g: any) => g?.garment_type?.value === 'bottom');
+    if (bottomGarment?.bottom_wash?.value) {
+      constraints.push(`Denim wash: ${bottomGarment.bottom_wash.value}`);
+    }
+    
+    // Color harmony
+    const color = extractionData.color || {};
+    if (color.top_primary_color_hex?.value && color.bottom_primary_color_hex?.value) {
+      constraints.push(`Colors: Top ${color.top_primary_color_hex.value}, Bottom ${color.bottom_primary_color_hex.value}, Contrast ${color.contrast_level?.value || 'unknown'}`);
+    }
+    
+    // Footwear visibility
+    const footwear = extractionData.footwear || {};
+    const footwearVisible = footwear.footwear_visible?.value ?? false;
+    const footwearConfidence = footwear.footwear_visibility_confidence?.value ?? 0;
+    constraints.push(`Footwear: ${footwearVisible ? 'visible' : 'not visible'} (confidence: ${footwearConfidence})`);
+    
+    if (constraints.length > 0) {
+      sections.push(`🔒 GARMENT CONSTRAINTS (MUST VALIDATE BEFORE APPLYING FIXES):\n${constraints.join('\n')}\n\nCRITICAL: Only apply fixes that respect these physical constraints.`);
+    }
+  }
 
   // Section 1: Body visibility status
   if (bodyNotVisible) {

@@ -66,20 +66,76 @@ Examples of INCORRECT behavior (DO NOT DO THIS):
 🎯 PHASE 1 ENHANCEMENT: CONTEXT-AWARE ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**CRITICAL NEW DETECTION FIELDS (Phase 7):**
+**CRITICAL NEW DETECTION FIELDS (PART 1 - Garment Constraints):**
 
-1. **top_type Classification:**
-   - "tshirt": Round neck, short/mid-bicep sleeves, jersey/cotton, no collar
-   - "shirt": Collar present (button-up, oxford, flannel, denim shirt)
-   - "sweatshirt": Fleece/terry, crew/hoodie neck, mid-thick fabric
-   - "sweater": Knit texture, crew/v-neck, typically wool/cotton knit
-   - "jacket": Outermost layer, structured, zipper/buttons
-   - "unknown": Cannot determine type from visible details
+1. **Sleeve Constraints (PART 1A):**
+   - sleeve_length: none/sleeveless/capped/short/elbow/3/4th/full
+   - **rollable: boolean** - Can sleeves be physically rolled?
+     * true: "short" (mid-bicep to elbow), "elbow", "3/4th", "full" length sleeves with sufficient fabric
+     * false: "none", "sleeveless", "capped", tight/stretch fabric, structured jackets
+   
+   **Detection cues for rollable:**
+   - ✓ Loose woven fabric (cotton, linen, flannel) with length >= short
+   - ✓ Button-up shirts, casual shirts with relaxed fit
+   - ✗ T-shirts (too short), tank tops, sleeveless
+   - ✗ Tight knit, stretch fabric, athletic wear
+   - ✗ Formal blazers, structured outerwear
+
+2. **Hemline Constraints (PART 1B):**
+   - hemline: cropped/mid-hip/low-hip/longline
+   - hemline_length: specific measurement (e.g., "hits at belt line", "covers waistband")
+   - **tuckable: boolean** - Can the garment be tucked in?
+     * true: length >= mid-hip AND soft/flowing fabric (woven shirts, soft tees, blouses)
+     * false: cropped tops, structured jackets, thick sweatshirts, athletic tops
+   
+   **Detection cues for tuckable:**
+   - ✓ Button-up shirts (any length >= mid-hip)
+   - ✓ Soft cotton/linen tees (mid-hip or longer)
+   - ✓ Blouses, tunics with drape
+   - ✗ Cropped tops (above hip bone)
+   - ✗ Thick hoodies, sweatshirts (too bulky)
+   - ✗ Structured blazers, leather jackets
+
+3. **Accessory Presence (PART 1C - High-Confidence Detection):**
+   - **watch_present_with_confidence: number (0-1)** 
+     * Detect watches on either wrist with confidence score
+     * 0.8+: Clearly visible watch face and band
+     * 0.5-0.7: Partial visibility (wrist visible, watch shape detected)
+     * <0.5: Wrist occluded or no watch visible
+   - **bracelet_present: boolean** - Any bracelet/band on either wrist?
+   - **necklace_present: boolean** - Any necklace/chain visible?
+   
+   **CRITICAL RULE:** Only mark as present if you can see the accessory clearly.
+   If wrist is out of frame, mark watch_present_with_confidence as 0.
+
+4. **Jeans Wash Detection (PART 1D - Specific Levels):**
+   - **bottom_wash** (for denim only): 
+     * "light_blue": Faded, light indigo, almost white-washed
+     * "mid_blue": Classic blue denim, medium indigo
+     * "dark_indigo": Deep blue, minimal fade, rich indigo
+     * "washed_black": Black with grey undertones, faded black
+     * "pure_black": Solid black, no fade
+     * "unknown": Non-denim or unclear
    
    **Detection cues:**
-   - Collar + buttons → "shirt"
-   - Jersey fabric + round neck + short sleeves → "tshirt"
-   - Thick fleece + casual neck → "sweatshirt"
+   - Light reflects off surface → "light_blue" or "washed_black"
+   - Deep, saturated blue → "dark_indigo"
+   - No blue tones, solid dark → "pure_black"
+
+5. **Color Harmony (PART 1E - Precise):**
+   - **top_primary_color_hex: string** - Hex code of top's dominant color (e.g., "#2C3E50")
+   - **bottom_primary_color_hex: string** - Hex code of bottom's dominant color
+   - **contrast_level: "low"/"medium"/"high"**
+     * low: Same color family, similar tones (navy top + dark indigo jeans)
+     * medium: Different families but compatible (blue + khaki, grey + black)
+     * high: Strong contrast (black + white, red + blue)
+
+6. **Footwear Visibility (PART 1F):**
+   - **footwear_visible: boolean** - Are shoes in frame?
+   - **footwear_visibility_confidence: number (0-1)**
+     * 1.0: Full shoe visible, can identify type
+     * 0.5-0.9: Partial visibility (toe box, heel visible)
+     * <0.5: Cropped out or occluded
    - Knit texture + layering weight → "sweater"
 
 2. **pant_hem_style Detection:**
