@@ -1025,7 +1025,7 @@ serve(async (req) => {
     let outfitName = `${style || "Contemporary"} Ensemble`;
     let whatWorks = ["Good foundation with thoughtful elements"];
     let whatDidntWork =
-      scoreResults.missing_features.length > 0
+      scoreResults.missing_features && scoreResults.missing_features.length > 0
         ? [`Limited visibility: ${scoreResults.missing_features.join(", ")}`]
         : ["Minor refinements possible"];
     let quickFix = [
@@ -1058,7 +1058,7 @@ serve(async (req) => {
           if (!parsed) {
             console.log("❌ Phase 4: Recovery failed, using fallback mode");
             // Phase 4: Fallback mode
-            const fallback = generateFallbackResult(style, scoreResults.missing_features);
+            const fallback = generateFallbackResult(style, scoreResults.missing_features || []);
             outfitName = fallback.outfit_name;
             whatWorks = fallback.what_works;
             whatDidntWork = fallback.what_doesnt_work;
