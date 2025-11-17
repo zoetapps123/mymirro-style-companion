@@ -374,16 +374,25 @@ Return valid JSON matching this structure (all fields optional except those mark
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Token Limit**: Keep total response under 4000 tokens
-**Priority Order**:
-  1. MUST INCLUDE: overall_score, components, confidence, outfit_name
-  2. MUST INCLUDE: what_works, what_doesnt_work, quick_fixes, editorial
-  3. LOWER PRIORITY: Detailed extraction fields (use "N/A" if running low on space)
+
+**REQUIRED FIELDS (Cannot be omitted)**:
+  1. overall_score, components (fit, color, styling, material), confidence, outfit_name
+  2. what_works, what_doesnt_work, quick_fixes, editorial
+  3. fit object (top_sleeve_length, bottom_length, top_fit, bottom_fit, etc.)
+  4. fabric object (tshirt_material, tshirt_weight, tshirt_texture, denim_type)
+  5. color object (top_color, bottom_color, harmony, color_confidence)
+  6. styling object (footwear_type, accessory_presence, layering_present, polish_level)
+
+**CRITICAL TYPE REQUIREMENTS**:
+  - body_visibility fields (arms_visible, wrists_visible, legs_visible) MUST be strings: "high", "medium", "low", or "not_visible" (NOT booleans!)
+  - All enum fields use "unknown" (NOT "N/A") when uncertain
+  - All {value, confidence, reason?} fields must have this exact structure
 
 **JSON Integrity**:
-  - Complete all critical fields listed above
+  - Complete ALL required objects listed above (even with "unknown" values if needed)
   - Ensure proper JSON closure (all brackets/braces closed)
-  - If approaching token limit, abbreviate extraction details but keep feedback complete
-  - Use concise language without sacrificing specificity
+  - Use concise language to stay under 4000 tokens
+  - Optional extraction fields can be abbreviated, but required fields MUST be complete
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ FINAL CHECKLIST (Before returning JSON)
