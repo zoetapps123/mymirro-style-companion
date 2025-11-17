@@ -1,30 +1,17 @@
 /**
  * visualSchema.ts
  * 
- * Role: Zod validation schema for outfit metadata extraction (API Call #2)
+ * Role: Unified Zod validation schema for complete style check (extraction + scoring)
  * 
  * Used by: supabase/functions/score-outfit/index.ts
- * Purpose: Validates AI response from EXTRACTION_PROMPT to ensure type safety
+ * Purpose: Validates AI response from UNIFIED_MASTER_PROMPT to ensure type safety
  * 
- * Schema Structure:
- * - Every extracted field follows {value, confidence, reason?} pattern
- * - value: The actual detected value (enum or string)
- * - confidence: 0-1 score indicating AI's certainty
- * - reason: Optional explanation for the value
+ * PHASE 1 UPGRADE: Merged extraction and scoring into single schema
+ * - Extraction fields: garment metadata, body visibility, accessories, scene context
+ * - Scoring fields: component scores, feedback, quick fixes, editorial
+ * - Constraint fields: rollable, tuckable, wash levels, visibility confidence
  * 
- * This structured format allows downstream code to:
- * 1. Filter low-confidence detections
- * 2. Provide transparency about AI uncertainty
- * 3. Debug extraction issues by reviewing reasons
- * 
- * Sections:
- * - fit: Physical garment parameters (silhouette, hemline, sleeves, etc.)
- * - fabric: Material properties (texture, weight, type)
- * - color: Color harmony and palette analysis
- * - styling: Overall styling choices (footwear, accessories, polish)
- * - aesthetics: High-level classification (style aesthetic, price tier)
- * - scores: Numerical ratings (0-5) for fit, color, styling, material, overall
- * - missing_features: Array of parameters AI couldn't detect from image
+ * Schema follows {value, confidence, reason?} pattern for all detected fields
  */
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
@@ -264,7 +251,61 @@ export const VisualSchema = z.object({
    * 
    * Example: ["footwear_not_visible", "face_not_visible"]
    */
-  missing_features: z.array(z.string())
+  missing_features: z.array(z.string()).optional(),
+  
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // PHASE 1 UPGRADE: SCORING OUTPUT (final user-facing feedback)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  // Overall score (0-5, one decimal precision)
+  overall_score: z.number().min(0).max(5).optional(),
+  
+  // Component scores
+  components: z.object({
+    fit: z.object({
+      score: z.number().min(0).max(5),
+      confidence: z.number().min(0).max(1).optional(),
+      reason: z.string().optional(),
+    }).optional(),
+    color: z.object({
+      score: z.number().min(0).max(5),
+      confidence: z.number().min(0).max(1).optional(),
+      reason: z.string().optional(),
+    }).optional(),
+    styling: z.object({
+      score: z.number().min(0).max(5),
+      confidence: z.number().min(0).max(1).optional(),
+      reason: z.string().optional(),
+    }).optional(),
+    material: z.object({
+      score: z.number().min(0).max(5),
+      confidence: z.number().min(0).max(1).optional(),
+      reason: z.string().optional(),
+    }).optional(),
+  }).optional(),
+  
+  // Confidence in overall analysis
+  confidence: z.number().min(0).max(1).optional(),
+  
+  // Feedback sections
+  outfit_name: z.string().optional(),
+  what_works: z.array(z.string()).optional(), // 3-5 points, max 15 words each
+  what_doesnt_work: z.array(z.string()).optional(), // 2-4 points, max 15 words each
+  quick_fixes: z.array(z.string()).optional(), // 5-8 fixes, 12-15 words each, constraint-safe
+  micro_recommendations: z.array(z.string()).optional(), // 3-6 tips, 7-14 words each
+  proportion_balance: z.string().optional(),
+  silhouette_breakdown: z.string().optional(),
+  wardrobe_opportunities: z.array(z.string()).optional(),
+  editorial: z.string().optional(), // 25-45 words
+  
+  // Reasoning (transparency)
+  reasoning: z.object({
+    fit: z.string().optional(),
+    color: z.string().optional(),
+    styling: z.string().optional(),
+    material: z.string().optional(),
+    overall: z.string().optional(),
+  }).optional(),
 });
 
 /**
