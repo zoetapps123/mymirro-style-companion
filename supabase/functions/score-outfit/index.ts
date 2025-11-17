@@ -341,6 +341,7 @@ serve(async (req) => {
               { type: "image_url", image_url: { url: imageData } },
             ],
           }],
+          max_tokens: 4096,  // Prevent truncation
           temperature: 0.3,
         })
       );
@@ -377,26 +378,45 @@ serve(async (req) => {
 
     let unifiedResult;
     try {
+      // Strategy 1: Direct parse with markdown cleanup
       const cleaned = content.trim().replace(/^```json\n?|```$/g, "");
       unifiedResult = JSON.parse(cleaned);
-      if (DEBUG_MODE) console.log("✅ JSON parse successful");
+      console.log("✅ JSON parse successful (direct)");
     } catch (parseError) {
       console.error("❌ JSON parse failed:", parseError);
-      if (DEBUG_MODE) console.error("Raw content:", content);
+      console.error("Response length:", content.length, "chars");
       
-      // Use fallback result
-      const fallback = generateFallbackResult(style);
-      unifiedResult = {
-        ...fallback,
-        overall_score: 3.5,
-        components: {
-          fit: { score: 3.5, confidence: 0.5 },
-          color: { score: 3.5, confidence: 0.5 },
-          styling: { score: 3.5, confidence: 0.5 },
-          material: { score: 3.5, confidence: 0.5 },
-        },
-        confidence: 0.5,
-      };
+      // Strategy 2: Regex extraction for robust JSON recovery
+      try {
+        const jsonMatch = content.match(/{[\s\S]*}/);
+        if (jsonMatch) {
+          unifiedResult = JSON.parse(jsonMatch[0]);
+          console.log("✅ JSON recovered via regex extraction");
+        } else {
+          throw new Error("No JSON structure found in response");
+        }
+      } catch (regexError) {
+        console.error("❌ Regex extraction failed:", regexError);
+        
+        // Log diagnostic info
+        console.error("First 1000 chars:", content.substring(0, 1000));
+        console.error("Last 500 chars:", content.substring(Math.max(0, content.length - 500)));
+        
+        // Last resort: Use fallback with low confidence
+        console.warn("⚠️ Using fallback result due to parse failure");
+        const fallback = generateFallbackResult(style);
+        unifiedResult = {
+          ...fallback,
+          overall_score: 3.5,
+          components: {
+            fit: { score: 3.5, confidence: 0.5 },
+            color: { score: 3.5, confidence: 0.5 },
+            styling: { score: 3.5, confidence: 0.5 },
+            material: { score: 3.5, confidence: 0.5 },
+          },
+          confidence: 0.3,  // Low confidence for fallback
+        };
+      }
     }
 
     // Validate with schema
