@@ -1,103 +1,33 @@
 /**
  * Edge Function: score-outfit
  * 
- * Role: Main style check analysis (API Calls #2 & #3 in Style Check flow)
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 🎯 PHASE 1 ARCHITECTURAL UPGRADE
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * UNIFIED SINGLE-CALL STYLE CHECK ENGINE
+ * 
+ * Previously: Two separate Gemini calls
+ *   - API Call #2: EXTRACTION_PROMPT (visual metadata)
+ *   - API Call #3: SCORING_PROMPTS.SCORE_OUTFIT (feedback generation)
+ * 
+ * Now: ONE intelligent Gemini call
+ *   - MASTER_UNIFIED_STYLECHECK_PROMPT (extraction + scoring in single response)
+ *   - Faster, cheaper, more coherent
+ *   - Constraint-aware from the start
+ * 
+ * Key Features:
+ * - Comprehensive garment extraction with physical constraints (rollable, tuckable)
+ * - Body visibility awareness for smart feedback filtering
+ * - Wardrobe-grounded recommendations
+ * - Constraint-aware quick fixes (no impossible suggestions)
+ * - Indian fashion context integration
+ * - Supportive, non-judgmental tone
  * 
  * Dependencies:
  * - Called by: StyleCheckHub.tsx (startStyleCheck)
- * - Uses: EXTRACTION_PROMPT, VisualSchema, SCORING_PROMPTS.SCORE_OUTFIT
+ * - Uses: MASTER_UNIFIED_STYLECHECK_PROMPT, VisualSchema
  * - Model: google/gemini-2.5-flash via Lovable AI Gateway
- * 
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 🎯 PHASE 1 ENHANCEMENTS (Fashion Intelligence Upgrade)
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 
- * 1. **Transient User Profile Inference** (in-memory only):
- *    - Extracts body_shape, skin_tone_band, perceived_age_band, etc. from image
- *    - Used for context-aware scoring (fit on body shape, color on skin tone)
- *    - NEVER stored in DB - purely in-memory for better analysis
- *    - Falls back to "unknown" when person not visible
- * 
- * 2. **Explicit missing_features Rules**:
- *    - Clear guidelines for what qualifies as "missing" (visibility issues only)
- *    - Prevents generic/unhelpful missing feature entries
- *    - Uses lowercase snake_case format (e.g., "footwear_not_visible")
- * 
- * 3. **Supportive Scoring Calibration**:
- *    - Non-anxiety-inducing feedback in score reasons
- *    - Solution-oriented language ("how to elevate" vs "what's wrong")
- *    - Context-aware evaluation using user profile data
- * 
- * 4. **Enhanced metadataContext**:
- *    - Now includes user profile section when available
- *    - Better context for SCORE_OUTFIT to generate personalized feedback
- *    - Maintains same final JSON response shape for DB/frontend compatibility
- * 
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 🌟 PHASE 2 ENHANCEMENTS (Feedback Quality & Indian Context)
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 
- * 1. **Warmer, Supportive Tone**:
- *    - SCORE_OUTFIT prompt rewritten for non-anxiety-inducing feedback
- *    - Positive framing: "try this for improvement" vs "this doesn't work"
- *    - Celebrates strengths before addressing opportunities
- *    - Avoids harsh words (bad, wrong, unflattering, poor)
- * 
- * 2. **Indian Fashion Context Awareness**:
- *    - Explicit support for Indian occasions (weddings: haldi/mehendi/sangeet/reception)
- *    - Festivals (Diwali, Navratri, Eid, Christmas/New Year)
- *    - Indian lifestyle scenarios (airport looks, hill stations, Goa travel, college fests)
- *    - Modern contexts (office casual, hybrid work, café hopping, clubbing, date nights)
- *    - Seasonal awareness (light winter, North India winter, monsoon)
- * 
- * 3. **Wearer Context Integration**:
- *    - Uses inferred user_profile (from Phase 1) when confidence is high
- *    - Provides personalized fit advice based on body_shape
- *    - Suggests colors that complement skin_tone_band (Indian-tuned values)
- *    - Ignores "unknown" values gracefully, never mentions them to user
- *    - NEVER makes personal/appearance-based comments
- * 
- * 4. **Visibility & Missing Features Handling**:
- *    - Conditional advice when elements not visible ("If footwear is X, then Y")
- *    - Focuses on visible elements only
- *    - Never hallucinates unseen details
- *    - Acknowledges limited visibility gracefully
- * 
- * 5. **Structured, Actionable Output**:
- *    - **outfit_name**: Stylish, non-generic (e.g., "Indigo Street Ease", "Monsoon Layered Chic")
- *    - **what_works**: At least 3 points, max 15 words, celebrates strengths with data
- *    - **what_doesnt_work**: 2-3 gentle points, opportunities not failures
- *    - **quick_fixes**: At least 3-6 specific fixes, 12-15 words, action-verb-led, includes WHY
- *    - **editorial**: 25-45 words, polished stylist note, references occasion/vibe/metadata/wearer
- * 
- * 6. **metadataContext as Ground Truth**:
- *    - All feedback must cite extracted data (no hallucination)
- *    - References user_profile fields when available and confident
- *    - Does not contradict or guess beyond provided metadata
- * 
- * ⚠️ BACKWARD COMPATIBILITY (PHASE 2):
- * - Output shape unchanged: { outfit_name, what_works, what_doesnt_work, quick_fixes, editorial }
- * - Field names preserved (not what_didnt_work → what_doesnt_work, not quick_fix → quick_fixes)
- * - DB insert unchanged (style_checks table)
- * - API response unchanged (frontend compatibility maintained)
- * - No new API calls (still 3 calls total)
- * 
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 
- * Two-Stage AI Analysis Process:
- * 
- * API Call #2 - Visual Extraction (EXTRACTION_PROMPT):
- * - Extracts structured outfit metadata using VisualSchema
- * - **NEW**: Infers transient user_profile when person visible
- * - **NEW**: Uses explicit missing_features rules
- * - Returns: fit, fabric, color, styling, aesthetics, user_profile, scores
- * - Validates response with Zod schema (VisualSchema.safeParse)
- * 
- * API Call #3 - Dynamic Feedback (SCORE_OUTFIT):
- * - Uses metadataContext string built from validated extraction data
- * - **NEW**: metadataContext includes user profile context for personalization
- * - Generates human-readable feedback: outfit_name, what_works, what_didnt_work, quick_fixes, editorial
- * - **NEW**: Feedback uses supportive, solution-oriented language
  * 
  * Input:
  * {
@@ -105,68 +35,33 @@
  *   occasion?: string,    // e.g., "Date Night"
  *   style?: string,       // e.g., "Minimalist"
  *   vibe?: string,        // e.g., "Polished"
- *   wardrobeItems?: any[] // Phase 6: Optional wardrobe for micro-recommendations
+ *   wardrobeItems?: any[] // Optional wardrobe for grounded recommendations
  * }
  * 
- * Output:
+ * Output (DB-compatible format):
  * {
- *   overall_score: number,          // 0-5 rounded to 0.25
- *   components: {                   // Individual scores from AI
- *     fit: number,
- *     color: number,
- *     styling: number,
- *     material: number
- *   },
- *   outfit_name: string,            // Creative outfit name
- *   what_works: string[],           // Positive feedback points
- *   what_didnt_work: string[],      // Areas for improvement
- *   quick_fix: string[],            // Actionable styling tips
- *   micro_recommendations: string[], // Phase 6: Immediately actionable tweaks (3-6 items, 7-14 words)
- *   editorial: string,              // Editorial quote/summary
- *   confidence: number,             // Lowest component confidence
- *   missing_features: string[]      // Features AI couldn't detect (Phase 1: clearer format)
+ *   overall_score: number,          // 0-5, one decimal
+ *   fit_score: number,              // Component scores
+ *   color_score: number,
+ *   texture_score: number,
+ *   occasion_score: number,
+ *   outfit_name: string,            // Creative name
+ *   verdict_positive: string,       // What works (joined)
+ *   verdict_improvements: string,   // What doesn't work (joined)
+ *   quick_fix: string,              // Quick fixes (joined, constraint-filtered)
+ *   editorial: string,              // 25-45 word summary
+ *   confidence: number,             // 0-1
+ *   metadata: object                // Full extraction + scoring data
  * }
- * 
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 🎁 PHASE 6 ENHANCEMENTS (Smart Micro-Recommendations)
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 
- * 1. **Wardrobe-First But Not Limited Logic**:
- *    - Accepts optional wardrobeItems array in request
- *    - Builds concise wardrobe summary by category for SCORE_OUTFIT
- *    - If wardrobe has relevant items → suggests using them
- *    - If wardrobe is empty/weak → falls back to universal styling tweaks
- * 
- * 2. **Micro-Recommendations Output** (new field):
- *    - 3-6 immediately actionable improvements (7-14 words each)
- *    - Can execute right now without shopping
- *    - Examples: "Half-tuck the tee for cleaner proportions", "Roll sleeves for sharper detail"
- *    - NO shopping suggestions, NO festival/wedding refs, NO body criticism
- * 
- * 3. **Enhanced metadataContext Builder**:
- *    - Now includes WARDROBE_CONTEXT section with tops/bottoms/footwear/outerwear/accessories
- *    - Format: "tops: [white tee, black shirt]; bottoms: [blue denim]"
- *    - If no wardrobe: "WARDROBE_CONTEXT: none_available" triggers universal suggestions
- * 
- * 4. **Guardrails & Safety**:
- *    - ❌ No shopping ("buy X", "get Y")
- *    - ❌ No festivals (Diwali, haldi, Christmas)
- *    - ❌ No hallucinating wardrobe items not provided
- *    - ✅ Universal actions: tucking, rolling, cuffing, proportions
- *    - ✅ Conditional phrasing when visibility limited
- * 
- * Caching:
- * - Cache key: SHA-256 hash of { type: "outfit_score_v4", imageData, occasion, style, vibe }
- * - TTL: 1 hour (via setCachedResult in cache-utils.ts)
- * - Stored in: ai_cache table
  */
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callGeminiAPI } from "../_shared/ai-config.ts";
-import { SCORING_PROMPTS } from "../_shared/prompts.ts";
 import { verifyAuth, unauthorizedResponse } from "../_shared/auth-utils.ts";
 import { generateCacheKey, getCachedResult, setCachedResult } from "../_shared/cache-utils.ts";
-import { EXTRACTION_PROMPT } from "../_shared/fashion/prompt/extractionPrompt.ts";
+import { MASTER_UNIFIED_STYLECHECK_PROMPT } from "../_shared/fashion/prompt/masterUnifiedStyleCheckPrompt.ts";
 import { VisualSchema } from "../_shared/fashion/schema/visualSchema.ts";
 import { retryWithBackoff } from "../_shared/retry-utils.ts";
 
@@ -175,981 +70,429 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const DEBUG_MODE = Deno.env.get("DEBUG_STYLECHECK") === "true";
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HELPER FUNCTIONS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 /**
- * Phase 4: JSON Recovery Helper
- * Phase 6: Enhanced to handle micro_recommendations
- * 
- * Attempts to recover malformed JSON from AI responses through multiple strategies:
- * 1. Strip markdown code fences and trailing text
- * 2. Normalize field name variations (what_didnt_work → what_doesnt_work)
- * 3. Convert strings to arrays where arrays are expected
- * 4. Ensure all required fields exist with proper types
- * 
- * Returns null if recovery is impossible
+ * Safe field getter with nested path support
+ * Prevents crashes when accessing undefined nested properties
  */
-function recoverJSON(rawContent: string): any | null {
-  try {
-    // Phase 4 Guardrail: Strip markdown and trailing text
-    let cleaned = rawContent.trim();
-    
-    // Remove markdown code fences
-    cleaned = cleaned.replace(/^```(?:json)?\n?/g, "").replace(/```$/g, "");
-    
-    // Find the last complete JSON object by looking for final }
-    const lastBraceIndex = cleaned.lastIndexOf("}");
-    if (lastBraceIndex !== -1) {
-      cleaned = cleaned.substring(0, lastBraceIndex + 1);
+const safeGet = (obj: any, path: string, defaultValue: any = null): any => {
+  const keys = path.split('.');
+  let result = obj;
+  for (const key of keys) {
+    if (result?.[key] !== undefined) {
+      result = result[key];
+    } else {
+      return defaultValue;
     }
-    
-    // Attempt primary parse
-    let parsed = JSON.parse(cleaned);
-    
-    // Phase 4 Guardrail: Normalize field name variations
-    if (parsed.what_didnt_work && !parsed.what_doesnt_work) {
-      parsed.what_doesnt_work = parsed.what_didnt_work;
-      delete parsed.what_didnt_work;
-    }
-    if (parsed.quick_fix && !parsed.quick_fixes) {
-      parsed.quick_fixes = parsed.quick_fix;
-      delete parsed.quick_fix;
-    }
-    
-    // Phase 4 Guardrail: Convert strings to arrays where needed
-    if (typeof parsed.what_works === "string") {
-      parsed.what_works = [parsed.what_works];
-    }
-    if (typeof parsed.what_doesnt_work === "string") {
-      parsed.what_doesnt_work = [parsed.what_doesnt_work];
-    }
-    if (typeof parsed.quick_fixes === "string") {
-      parsed.quick_fixes = [parsed.quick_fixes];
-    }
-    // Phase 6: Handle micro_recommendations
-    if (typeof parsed.micro_recommendations === "string") {
-      parsed.micro_recommendations = [parsed.micro_recommendations];
-    }
-    
-    // Phase 4 Guardrail: Ensure arrays are actually arrays
-    if (parsed.what_works && !Array.isArray(parsed.what_works)) {
-      parsed.what_works = [String(parsed.what_works)];
-    }
-    if (parsed.what_doesnt_work && !Array.isArray(parsed.what_doesnt_work)) {
-      parsed.what_doesnt_work = [String(parsed.what_doesnt_work)];
-    }
-    if (parsed.quick_fixes && !Array.isArray(parsed.quick_fixes)) {
-      parsed.quick_fixes = [String(parsed.quick_fixes)];
-    }
-    // Phase 6: Ensure micro_recommendations is array
-    if (parsed.micro_recommendations && !Array.isArray(parsed.micro_recommendations)) {
-      parsed.micro_recommendations = [String(parsed.micro_recommendations)];
-    }
-    
-    console.log("✅ Phase 4+6: JSON recovery successful");
-    return parsed;
-  } catch (e) {
-    console.error("❌ Phase 4: JSON recovery failed:", e);
-    return null;
   }
-}
+  return result;
+};
 
 /**
- * Phase 4: Fallback Result Generator
- * Phase 6: Enhanced with micro_recommendations
+ * Extract value from {value, confidence, reason} field structure
+ */
+const extractFieldValue = (field: any, defaultValue: any = null): any => {
+  if (!field) return defaultValue;
+  if (typeof field === 'object' && 'value' in field) return field.value;
+  return field;
+};
+
+/**
+ * CONSTRAINT-AWARE FILTER: Remove impossible quick fixes
  * 
- * Generates a minimal valid result when all parsing attempts fail.
- * Ensures Style Check never crashes on malformed AI output.
- * Uses supportive tone and safe defaults.
+ * Enforces physical garment constraints:
+ * - rollable: Can sleeves be rolled?
+ * - tuckable: Can garment be tucked?
+ * - watch_present_with_confidence: Is watch already worn?
+ * - footwear_visible: Can we see footwear to comment on it?
+ * - bottom_wash: Use exact wash level, not "lighter"
  */
-function generateFallbackResult(style?: string, missingFeatures: string[] = []): any {
-  console.log("⚠️ Phase 4+6: Using fallback result due to parse failure");
-  return {
-    outfit_name: style ? `${style} Casual Style` : "Clean Casual Style",
-    what_works: [
-      "The outfit has good foundational elements",
-      "Color coordination shows thoughtful planning",
-    ],
-    what_doesnt_work:
-      missingFeatures.length > 0
-        ? [`Limited visibility: ${missingFeatures.join(", ")}`]
-        : ["Small refinements could elevate the overall look"],
-    quick_fixes: [
-      "Consider adjusting proportions for better balance",
-      "Add intentional accessories to complete the look",
-    ],
-    micro_recommendations: [
-      "Consider adjusting garment proportions for better balance",
-      "Refine styling details for a more polished appearance",
-    ],
-    editorial: "A solid foundation with room to refine proportions and styling details for extra polish.",
-  };
-}
-
-/**
- * Helper: isMeaningful
- * Filters out placeholder/unknown values from metadata
- * Used by buildMetadataContext to include only valid extracted data
- */
-function isMeaningful(val: any): boolean {
-  if (!val || val === null || val === undefined) return false;
-  const str = String(val).toLowerCase().trim();
-  return !["n/a", "unknown", "none", "not applicable", ""].includes(str);
-}
-
-/**
- * Phase 2: Filter Impossible Quick Fixes
- * 
- * Blocks impossible suggestions based on extracted metadata:
- * - No "roll sleeves" for T-shirts (mid-bicep sleeve_length)
- * - No "add watch" if already wearing one
- * - No "tuck" if hemline is too short
- */
-function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
-  const filtered: string[] = [];
+const filterImpossibleFixes = (fixes: string[], metadata: any): string[] => {
+  if (DEBUG_MODE) console.log("🔍 Filtering fixes against constraints...");
   
-  // PART 6: Backward compatibility - safe fallback for missing fields
-  const safeGet = (path: string, defaultVal: any = null) => {
-    const keys = path.split('.');
-    let current: any = metadata;
-    for (const key of keys) {
-      if (current?.[key] === undefined || current?.[key] === null) return defaultVal;
-      current = current[key];
-    }
-    return current;
-  };
-  
-  for (const fix of quickFixes) {
+  return fixes.filter(fix => {
     const lower = fix.toLowerCase();
     
-    // BLOCK: "cuff jeans" if already cuffed or cropped
-    if ((lower.includes('cuff') || lower.includes('pinroll') || lower.includes('turn up') || lower.includes('turn-up') || lower.includes('roll') && lower.includes('hem')) && (lower.includes('jean') || lower.includes('pant') || lower.includes('trouser'))) {
-      const pantHemStyle = safeGet('fit.pant_hem_style.value');
-      const pantStacking = safeGet('fit.pant_stacking.value');
-      if (pantHemStyle === 'single_cuff' || pantHemStyle === 'double_cuff' || pantHemStyle === 'cropped' || pantStacking === 'none') {
-        console.log(`[Filter] Blocked "cuff jeans" - pant_hem_style: ${pantHemStyle}, stacking: ${pantStacking}`);
-        continue;
-      }
+    // CONSTRAINT #1: Rollable sleeves
+    const garments = metadata.garments || [];
+    const topGarment = garments.find((g: any) => extractFieldValue(g.garment_type) === 'top');
+    const rollable = extractFieldValue(topGarment?.rollable, true); // Default true for backward compat
+    
+    if (rollable === false && (lower.includes('roll') && lower.includes('sleeve'))) {
+      if (DEBUG_MODE) console.log(`  🚫 Filtered (not rollable): ${fix}`);
+      return false;
     }
     
-    // BLOCK: "roll sleeves" if inappropriate sleeve type, already rolled, or NOT rollable
-    if ((lower.includes('roll') || lower.includes('push') || lower.includes('scrunch')) && lower.includes('sleeve')) {
-      const sleeveLen = safeGet('fit.sleeve_length.value');
-      const topType = safeGet('fit.top_type.value');
-      const rollable = safeGet('garments.0.rollable.value', false); // PART 6: New constraint field with fallback
-      
-      // PART 7: Validation - if rollable field exists and is false, block immediately
-      if (rollable === false) {
-        console.log(`[Filter] Blocked "roll sleeves" - rollable: false (garment-level constraint)`);
-        continue;
-      }
-      
-      if (sleeveLen === 'mid-bicep' || sleeveLen === 'forearm' || sleeveLen === 'short' || sleeveLen === 'capped' || sleeveLen === 'unknown' || topType === 'tshirt') {
-        console.log(`[Filter] Blocked "roll sleeves" - sleeve_length: ${sleeveLen}, top_type: ${topType}`);
-        continue;
-      }
+    // CONSTRAINT #2: Tuckable garment
+    const tuckable = extractFieldValue(topGarment?.tuckable, true);
+    if (tuckable === false && lower.includes('tuck')) {
+      if (DEBUG_MODE) console.log(`  🚫 Filtered (not tuckable): ${fix}`);
+      return false;
     }
     
-    // BLOCK: "add accessories" if ANY accessory is present
-    if (lower.includes('add') && (lower.includes('accessory') || lower.includes('accessories'))) {
-      const wristLeft = metadata?.styling?.wrist_left?.value;
-      const wristRight = metadata?.styling?.wrist_right?.value;
-      const accessories = metadata?.styling?.accessories;
-      
-      const hasAnyAccessory = 
-        wristLeft === 'watch' || wristLeft === 'bracelet' ||
-        wristRight === 'watch' || wristRight === 'bracelet' ||
-        accessories?.sunglasses?.value === 'present' ||
-        accessories?.belt?.value === 'present' ||
-        accessories?.necklace?.value === 'present' ||
-        accessories?.rings?.value === 'present' ||
-        accessories?.hat?.value === 'present' ||
-        accessories?.bag?.value === 'present';
-      
-      if (hasAnyAccessory) {
-        console.log(`[Filter] Blocked "add accessories" - accessories already present`);
-        continue;
-      }
+    // CONSTRAINT #3: Watch already present
+    const watchConf = extractFieldValue(metadata.accessories_present?.watch_present_with_confidence, 0);
+    if (watchConf > 0.6 && lower.includes('add') && lower.includes('watch')) {
+      if (DEBUG_MODE) console.log(`  🚫 Filtered (watch already present, conf=${watchConf}): ${fix}`);
+      return false;
     }
     
-    // BLOCK: "add watch" if wrist already has watch (with high confidence)
-    if (lower.includes('add') && lower.includes('watch')) {
-      const wristLeft = safeGet('styling.wrist_left.value');
-      const wristRight = safeGet('styling.wrist_right.value');
-      const watchConfidence = safeGet('accessories_present.watch_present_with_confidence.value', 0); // PART 6: New field with fallback
-      
-      // PART 7: Validation - check both old and new detection methods
-      if (wristLeft === 'watch' || wristRight === 'watch' || watchConfidence > 0.6) {
-        console.log(`[Filter] Blocked "add watch" - already wearing: L=${wristLeft}, R=${wristRight}, confidence=${watchConfidence}`);
-        continue;
-      }
+    // CONSTRAINT #4: Footwear visibility
+    const footwearVisible = extractFieldValue(metadata.footwear?.footwear_visible, true);
+    if (!footwearVisible && lower.includes('shoe') && !lower.includes('if')) {
+      if (DEBUG_MODE) console.log(`  🚫 Filtered (footwear not visible): ${fix}`);
+      return false;
     }
     
-    // BLOCK: "add [specific accessory]" if already present
-    const specificAccessories = ['sunglasses', 'belt', 'necklace', 'ring', 'hat', 'bag'];
-    let skipDueToSpecificAccessory = false;
-    for (const acc of specificAccessories) {
-      if (lower.includes('add') && lower.includes(acc)) {
-        const accValue = metadata?.styling?.accessories?.[acc === 'ring' ? 'rings' : acc]?.value;
-        if (accValue === 'present') {
-          console.log(`[Filter] Blocked "add ${acc}" - already present`);
-          skipDueToSpecificAccessory = true;
-          break;
-        }
-      }
-    }
-    if (skipDueToSpecificAccessory) continue;
-    
-    // BLOCK: "half-tuck" or "tuck" if already tucked or NOT tuckable
-    if (lower.includes('tuck')) {
-      const waistVis = safeGet('fit.waist_visibility.value');
-      const hemline = safeGet('fit.hemline.value');
-      const topType = safeGet('fit.top_type.value');
-      const tuckable = safeGet('garments.0.tuckable.value', false); // PART 6: New constraint field with fallback
-      
-      // PART 7: Validation - if tuckable field exists and is false, block immediately
-      if (tuckable === false) {
-        console.log(`[Filter] Blocked "tuck" - tuckable: false (garment-level constraint)`);
-        continue;
-      }
-      
-      if (waistVis === 'tucked' || waistVis === 'partial_tuck' || hemline === 'above_hip' || hemline === 'cropped' || topType === 'sweatshirt' || topType === 'sweater' || topType === 'jacket') {
-        console.log(`[Filter] Blocked "tuck" - waist_visibility: ${waistVis}, hemline: ${hemline}, top_type: ${topType}`);
-        continue;
-      }
+    // CONSTRAINT #5: Vague color suggestions
+    if ((lower.includes('lighter') || lower.includes('darker')) && 
+        (lower.includes('jean') || lower.includes('denim') || lower.includes('pant'))) {
+      if (DEBUG_MODE) console.log(`  🚫 Filtered (vague color term): ${fix}`);
+      return false;
     }
     
-    // BLOCK: Fixes that don't reference any visible element (too vague)
-    const hasVisibleReference = 
-      /sleeve|hem|neckline|collar|cuff|waist|footwear|shoe|belt|watch|bracelet|sunglass|necklace|ring|hat|bag|jacket|layer|pocket|tuck|roll|adjust|straighten|color|tone|shade|contrast|balance|proportion/i.test(lower);
-    
-    if (!hasVisibleReference) {
-      console.log(`[Filter] Blocked vague fix without visible reference: "${fix}"`);
-      continue;
+    if (DEBUG_MODE) console.log(`  ✅ Passed: ${fix}`);
+    return true;
+  });
+};
+
+/**
+ * Enforce color specificity: Replace vague terms with exact wash levels
+ */
+const enforceColorSpecificity = (fixes: string[], metadata: any): string[] => {
+  const bottomWash = extractFieldValue(metadata.garments?.find((g: any) => 
+    extractFieldValue(g.garment_type) === 'bottom'
+  )?.bottom_wash);
+  
+  if (!bottomWash) return fixes;
+  
+  return fixes.map(fix => {
+    let updated = fix;
+    if (fix.toLowerCase().includes('lighter')) {
+      updated = updated.replace(/lighter/gi, bottomWash);
     }
-    
-    // Keep this fix
-    filtered.push(fix);
+    if (fix.toLowerCase().includes('darker')) {
+      updated = updated.replace(/darker/gi, bottomWash);
+    }
+    return updated;
+  });
+};
+
+/**
+ * Deduplicate and cap quick fixes to reasonable count
+ */
+const deduplicateAndCapFixes = (fixes: string[], maxCount: number = 8): string[] => {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  
+  for (const fix of fixes) {
+    const normalized = fix.toLowerCase().trim();
+    if (!seen.has(normalized) && unique.length < maxCount) {
+      seen.add(normalized);
+      unique.push(fix);
+    }
   }
   
-  console.log(`[Filter] Kept ${filtered.length} of ${quickFixes.length} fixes`);
-  return filtered;
-}
+  return unique;
+};
 
 /**
- * Phase 4: Enforce Color Specificity
- * 
- * Removes vague color suggestions that don't specify exact shades
+ * Generate fallback result when AI response fails
  */
-function enforceColorSpecificity(quickFixes: string[]): string[] {
-  return quickFixes.map(fix => {
-    // Detect vague color suggestions
-    if (/lighter|darker|brighter/i.test(fix) && !/light blue|dark grey|bright white|light gray|dark blue|charcoal/i.test(fix)) {
-      // If it mentions lighter/darker but doesn't specify shade, flag it
-      console.warn(`[Color Vagueness] Flagged: "${fix}"`);
-      return null; // Remove vague fix
-    }
-    return fix;
-  }).filter(Boolean) as string[];
-}
-
-/**
- * Phase 5: De-duplicate and Cap Fixes
- * 
- * Removes duplicate fixes and caps at 6 maximum
- */
-function deduplicateAndCapFixes(fixes: string[]): string[] {
-  const unique = [...new Set(fixes)]; // Remove exact duplicates
-  return unique.slice(0, 6); // Cap at 6 fixes max
-}
-
-/**
- * Helper: buildMetadataContext
- * 
- * Constructs formatted string of extracted metadata for SCORE_OUTFIT prompt.
- * 
- * Phase 1 Enhancement: Now includes transient user profile (when person is visible)
- * Phase 6 Enhancement: Now includes wardrobe summary for micro-recommendations
- * 
- * Input: Validated VisualSchema data from API Call #2, optional wardrobe items
- * 
- * Process:
- * 1. Filters meaningful values using isMeaningful helper
- * 2. Formats into sections: USER PROFILE (new), FIT, FABRIC, COLOR, STYLING, AESTHETIC, SCORES
- * 3. Adds low-confidence warnings for unreliable detections
- * 4. Phase 6: Adds wardrobe summary by category for micro-recommendations
- * 5. Returns formatted markdown string
- * 
- * Output Example:
- * ```
- * **EXTRACTED OUTFIT METADATA:**
- * 
- * 👤 **WEARER CONTEXT:** rectangle body shape, medium build, wheatish skin tone, 20s, feminine presentation
- *    (Inferred from image; used only to judge outfit, not the person)
- * 
- * 📏 **FIT:** boxy silhouette, mid-hip hemline, forearm sleeves
- * 🧵 **FABRIC:** cotton, mid weight, matte texture
- * 🎨 **COLOR:** monochrome harmony, low contrast
- * ✨ **STYLING:** partial tuck, 1 layer(s)
- * 
- * 👕 **WARDROBE_CONTEXT:** tops: [white tee, black shirt]; bottoms: [blue denim]; footwear: [white sneakers]
- * 
- * 📊 **INITIAL AI SCORES:**
- *    - Fit: 4.2/5.0 (85% confidence) — Well-balanced proportions
- *    - Color: 4.5/5.0 (90% confidence) — Strong monochrome palette
- * 
- * **USE THIS DATA:** Reference specific parameters in your analysis...
- * ```
- * 
- * This context is passed to SCORE_OUTFIT (API Call #3) to generate
- * data-driven feedback that references specific detected parameters.
- */
-function buildMetadataContext(metadata: any, wardrobeItems?: any[]): string {
-  const parts: string[] = ["**EXTRACTED OUTFIT METADATA:**\n"];
-  
-  // PART 6: Backward compatibility - safe field access helper
-  const safeGet = (obj: any, path: string, defaultVal: any = null) => {
-    const keys = path.split('.');
-    let current = obj;
-    for (const key of keys) {
-      if (current?.[key] === undefined || current?.[key] === null) return defaultVal;
-      current = current[key];
-    }
-    return current;
+const generateFallbackResult = (style?: string, missingFeatures: string[] = []): any => {
+  return {
+    outfit_name: `${style || "Contemporary"} Look`,
+    what_works: ["Well-composed outfit with thoughtful elements"],
+    what_doesnt_work: missingFeatures.length > 0 
+      ? [`Limited visibility: ${missingFeatures.join(", ")}`]
+      : ["Minor refinements possible"],
+    quick_fixes: [
+      "Consider adjusting proportions for better balance",
+      "Refine color harmony for cohesiveness",
+      "Add subtle accessories to complete the look",
+    ],
+    editorial: "A refined outfit showing good style awareness. Focus on visible elements for best feedback.",
   };
+};
 
-  // Phase 1 Addition + Phase 4 Guardrails: User Profile (transient, in-memory only)
-  // Include this section ONLY if person is visible and profile data exists
-  // Phase 4: Enhanced confidence threshold and safety checks
-  // PART 6: Backward compatibility with safe field access
-  if (metadata.user_profile) {
-    const profile = metadata.user_profile;
-    const profileDetails: string[] = [];
-    const CONFIDENCE_THRESHOLD = 0.40; // Phase 4: Increased from 0.35 to 0.40 for safety
-    
-    // Phase 4 Guardrail + PART 6: Safe access with fallback for missing fields
-    if (isMeaningful(safeGet(profile, 'body_shape.value')) && (safeGet(profile, 'body_shape.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
-      profileDetails.push(`${safeGet(profile, 'body_shape.value')} body shape`);
-    }
-    if (isMeaningful(safeGet(profile, 'build.value')) && (safeGet(profile, 'build.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
-      profileDetails.push(`${safeGet(profile, 'build.value')} build`);
-    }
-    if (isMeaningful(safeGet(profile, 'skin_tone_band.value')) && (safeGet(profile, 'skin_tone_band.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
-      profileDetails.push(`${safeGet(profile, 'skin_tone_band.value')} skin tone`);
-    }
-    if (isMeaningful(safeGet(profile, 'height_band.value')) && (safeGet(profile, 'height_band.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
-      profileDetails.push(`${safeGet(profile, 'height_band.value')} height`);
-    }
-    if (isMeaningful(safeGet(profile, 'perceived_age_band.value')) && (safeGet(profile, 'perceived_age_band.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
-      profileDetails.push(`${safeGet(profile, 'perceived_age_band.value')}`);
-    }
-    if (isMeaningful(safeGet(profile, 'gender_expression.value')) && (safeGet(profile, 'gender_expression.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
-      profileDetails.push(`${safeGet(profile, 'gender_expression.value')} presentation`);
-    }
-    
-  // Phase 4 Guardrail: Only add profile section if we have actual meaningful data
-  if (profileDetails.length > 0) {
-    parts.push(`👤 **WEARER CONTEXT:** ${profileDetails.join(", ")}`);
-    // Phase 4: Enhanced safety prefix explaining inferred data context
-    parts.push(`   ⚠️ NOTE: These are extracted features from the current image, not stored user data. Used only to judge outfit fit/color, not the person.\n`);
-  }
-}
+/**
+ * Format wardrobe items for AI consumption
+ */
+const formatWardrobeForAI = (items: any[]): string => {
+  if (!items || items.length === 0) return '';
+  
+  return items.map(item => 
+    `${item.name} [${item.category}] - ${item.primary_color_name || item.color || 'unknown color'}`
+  ).join('\n');
+};
 
-// Phase 5: Stateless Outfit Fingerprinting (Consistency Memory Layer)
-// Compute a style fingerprint from extracted metadata for consistent evaluation
-// This fingerprint is NOT stored - purely for single-request consistency
-const fingerprintParts: string[] = [];
-if (isMeaningful(metadata.fit?.silhouette?.value)) {
-  fingerprintParts.push(`silhouette=${metadata.fit.silhouette.value}`);
-}
-if (isMeaningful(metadata.fit?.fit_type?.value)) {
-  fingerprintParts.push(`fit=${metadata.fit.fit_type.value}`);
-}
-if (isMeaningful(metadata.color?.primary_top_color?.value)) {
-  fingerprintParts.push(`top_color=${metadata.color.primary_top_color.value}`);
-}
-if (isMeaningful(metadata.color?.primary_bottom_color?.value)) {
-  fingerprintParts.push(`bottom_color=${metadata.color.primary_bottom_color.value}`);
-}
-if (isMeaningful(metadata.styling?.footwear_type?.value)) {
-  fingerprintParts.push(`footwear=${metadata.styling.footwear_type.value}`);
-}
-if (isMeaningful(metadata.styling?.layering_pieces?.value)) {
-  fingerprintParts.push(`layers=${metadata.styling.layering_pieces.value}`);
-}
-if (isMeaningful(metadata.fabric?.pattern_type?.value) && metadata.fabric.pattern_type.value !== "solid") {
-  fingerprintParts.push(`pattern=${metadata.fabric.pattern_type.value}`);
-}
+/**
+ * Extract unique wardrobe attributes
+ */
+const extractWardrobeAttributes = (items: any[]): { colors: string[], categories: string[] } => {
+  if (!items || items.length === 0) return { colors: [], categories: [] };
+  
+  const colors = [...new Set(
+    items.map(i => i.primary_color_name || i.color).filter(Boolean)
+  )];
+  
+  const categories = [...new Set(
+    items.map(i => i.category).filter(Boolean)
+  )];
+  
+  return { colors, categories };
+};
 
-if (fingerprintParts.length > 0) {
-  parts.push(`\n🔖 **STYLE FINGERPRINT:** ${fingerprintParts.join("; ")}`);
-  parts.push(`   (Use this fingerprint to ensure consistent evaluations. Similar fingerprints should receive similar scoring characteristics.)\n`);
-}
-
-  // Fit parameters
-  if (metadata.fit) {
-    const fit = metadata.fit;
-    const fitDetails: string[] = [];
-    if (isMeaningful(fit.silhouette?.value)) fitDetails.push(`${fit.silhouette.value} silhouette`);
-    if (isMeaningful(fit.hemline?.value)) fitDetails.push(`${fit.hemline.value} hemline`);
-    if (isMeaningful(fit.sleeve_length?.value)) fitDetails.push(`${fit.sleeve_length.value} sleeves`);
-    if (isMeaningful(fit.shoulder_structure?.value)) fitDetails.push(`${fit.shoulder_structure.value} shoulders`);
-    if (isMeaningful(fit.pant_stacking?.value)) fitDetails.push(`${fit.pant_stacking.value} pant stacking`);
-    if (fitDetails.length > 0) parts.push(`📏 **FIT:** ${fitDetails.join(", ")}`);
-  }
-
-  // Fabric details
-  if (metadata.fabric) {
-    const fabric = metadata.fabric;
-    const fabricDetails: string[] = [];
-    if (isMeaningful(fabric.material?.value)) fabricDetails.push(fabric.material.value);
-    if (isMeaningful(fabric.texture?.value)) fabricDetails.push(`${fabric.texture.value} texture`);
-    if (isMeaningful(fabric.finish?.value)) fabricDetails.push(`${fabric.finish.value} finish`);
-    if (isMeaningful(fabric.weight?.value)) fabricDetails.push(`${fabric.weight.value} weight`);
-    if (fabricDetails.length > 0) parts.push(`🧵 **FABRIC:** ${fabricDetails.join(", ")}`);
-  }
-
-  // Color harmony
-  if (metadata.color) {
-    const color = metadata.color;
-    const colorDetails: string[] = [];
-    if (isMeaningful(color.harmony?.value)) colorDetails.push(`${color.harmony.value} harmony`);
-    if (isMeaningful(color.contrast?.value)) colorDetails.push(`${color.contrast.value} contrast`);
-    if (colorDetails.length > 0) parts.push(`🎨 **COLOR:** ${colorDetails.join(", ")}`);
-  }
-
-  // Styling details
-  if (metadata.styling) {
-    const styling = metadata.styling;
-    const details: string[] = [];
-    if (isMeaningful(styling.tuck_status?.value)) details.push(`${styling.tuck_status.value} tuck`);
-    if (isMeaningful(styling.sleeve_treatment?.value)) details.push(`${styling.sleeve_treatment.value} sleeves`);
-    if (isMeaningful(styling.layering_pieces?.value)) details.push(`${styling.layering_pieces.value} layer(s)`);
-    if (details.length > 0) parts.push(`✨ **STYLING:** ${details.join(", ")}`);
-  }
-
-  // Aesthetics
-  if (metadata.aesthetics) {
-    const aes = metadata.aesthetics;
-    const aesDetails: string[] = [];
-    if (isMeaningful(aes.cultural_aesthetic?.value)) aesDetails.push(aes.cultural_aesthetic.value);
-    if (isMeaningful(aes.price_tier?.value)) aesDetails.push(`${aes.price_tier.value} tier`);
-    if (isMeaningful(aes.polish_level?.value)) aesDetails.push(`polish level ${aes.polish_level.value}/5`);
-    if (aesDetails.length > 0) parts.push(`🌟 **AESTHETIC:** ${aesDetails.join(", ")}`);
-  }
-
-  // AI Scores from extraction (only show if values exist)
-  if (metadata.scores) {
-    const scores = metadata.scores;
-    const scoreLines: string[] = [];
-    if (scores.fit?.value != null)
-      scoreLines.push(
-        `   - Fit: ${scores.fit.value.toFixed(1)}/5.0 (${scores.fit.confidence?.toFixed(0) || 0}% confidence)${scores.fit.reason ? " — " + scores.fit.reason : ""}`,
-      );
-    if (scores.color?.value != null)
-      scoreLines.push(
-        `   - Color: ${scores.color.value.toFixed(1)}/5.0 (${scores.color.confidence?.toFixed(0) || 0}% confidence)${scores.color.reason ? " — " + scores.color.reason : ""}`,
-      );
-    if (scores.styling?.value != null)
-      scoreLines.push(
-        `   - Styling: ${scores.styling.value.toFixed(1)}/5.0 (${scores.styling.confidence?.toFixed(0) || 0}% confidence)${scores.styling.reason ? " — " + scores.styling.reason : ""}`,
-      );
-    if (scores.material?.value != null)
-      scoreLines.push(
-        `   - Material: ${scores.material.value.toFixed(1)}/5.0 (${scores.material.confidence?.toFixed(0) || 0}% confidence)${scores.material.reason ? " — " + scores.material.reason : ""}`,
-      );
-    if (scoreLines.length > 0) {
-      parts.push(`\n📊 **INITIAL AI SCORES:**`);
-      parts.push(...scoreLines);
-    }
-  }
-
-  // Low confidence warnings (only for meaningful fields with low confidence)
-  const lowConfidenceFields: string[] = [];
-  if (isMeaningful(metadata.fit?.silhouette?.value) && metadata.fit?.silhouette?.confidence < 0.5)
-    lowConfidenceFields.push("silhouette");
-  if (isMeaningful(metadata.color?.harmony?.value) && metadata.color?.harmony?.confidence < 0.5)
-    lowConfidenceFields.push("color harmony");
-  if (isMeaningful(metadata.aesthetics?.polish_level?.value) && metadata.aesthetics?.polish_level?.confidence < 0.5)
-    lowConfidenceFields.push("polish level");
-  if (lowConfidenceFields.length > 0) {
-    parts.push(`\n⚠️ **LOW CONFIDENCE AREAS:** ${lowConfidenceFields.join(", ")} — may need better image visibility`);
-  }
-
-  parts.push(
-    `\n**USE THIS DATA:** Reference specific parameters (e.g., "oversized silhouette," "monochrome harmony," "partial tuck") in your analysis to make feedback data-driven and precise.\n`,
-  );
-
-  // Phase 6: Wardrobe-first but not wardrobe-limited micro-recommendations
-  // Add wardrobe summary for intelligent suggestions without forcing wardrobe-only logic
-  if (wardrobeItems && Array.isArray(wardrobeItems) && wardrobeItems.length > 0) {
-    const wardrobeByCategory: Record<string, string[]> = {};
-    
-    // Group items by category
-    for (const item of wardrobeItems) {
-      if (item.category && item.name) {
-        const category = item.category.toLowerCase();
-        if (!wardrobeByCategory[category]) {
-          wardrobeByCategory[category] = [];
-        }
-        wardrobeByCategory[category].push(item.name);
-      }
-    }
-    
-    // Build concise wardrobe summary
-    const wardrobeSummary: string[] = [];
-    if (wardrobeByCategory.tops) {
-      wardrobeSummary.push(`tops: [${wardrobeByCategory.tops.slice(0, 5).join(", ")}]`);
-    }
-    if (wardrobeByCategory.bottoms) {
-      wardrobeSummary.push(`bottoms: [${wardrobeByCategory.bottoms.slice(0, 5).join(", ")}]`);
-    }
-    if (wardrobeByCategory.shoes) {
-      wardrobeSummary.push(`footwear: [${wardrobeByCategory.shoes.slice(0, 5).join(", ")}]`);
-    }
-    if (wardrobeByCategory.outerwear) {
-      wardrobeSummary.push(`outerwear: [${wardrobeByCategory.outerwear.slice(0, 3).join(", ")}]`);
-    }
-    if (wardrobeByCategory.accessories) {
-      wardrobeSummary.push(`accessories: [${wardrobeByCategory.accessories.slice(0, 3).join(", ")}]`);
-    }
-    
-    if (wardrobeSummary.length > 0) {
-      parts.push(`\n👕 **WARDROBE_CONTEXT:** ${wardrobeSummary.join("; ")}`);
-      parts.push(`   (Use wardrobe items when meaningful, but also suggest universal styling tweaks)`);
-    }
-  } else {
-    // No wardrobe available
-    parts.push(`\n👕 **WARDROBE_CONTEXT:** none_available`);
-    parts.push(`   (Focus on universal styling actions: tucking, rolling, cuffing, proportion adjustments)`);
-  }
-
-  // Phase 5: Consistency Memory Layer Added
-  // Stateless fingerprinting + enhanced metadataContext for consistent evaluations
-  // Phase 6: Wardrobe-first but not wardrobe-limited micro-recommendations added
-  // No shopping, no festivals, no DB changes
-  return parts.join("\n");
-}
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAIN HANDLER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify authentication
-  const { user, error: authError } = await verifyAuth(req);
-  if (authError || !user) {
-    console.error("Auth failed:", authError);
-    return unauthorizedResponse(corsHeaders);
-  }
-
   try {
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Verify authentication
+    const authResult = await verifyAuth(req);
+    if (!authResult.user) {
+      return unauthorizedResponse(corsHeaders);
+    }
+
+    // Parse request body
     const { imageData, occasion, style, vibe, wardrobeItems } = await req.json();
 
-    // Phase 6: Accept optional wardrobe items for micro-recommendations
-    // wardrobeItems format: array of {id, name, category, ...} or undefined
-
-    // Validate input
-    if (!imageData || typeof imageData !== "string") {
+    if (!imageData) {
       return new Response(
-        JSON.stringify({ error: "imageData is required and must be a base64 data URL or http(s) URL" }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "imageData is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const isDataUrl = imageData.startsWith("data:image/");
-    const isHttpUrl = imageData.startsWith("http://") || imageData.startsWith("https://");
-    if (!isDataUrl && !isHttpUrl) {
-      return new Response(
-        JSON.stringify({ error: "Invalid imageData format. Provide data:image/* base64 or a public URL." }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    if (isDataUrl && imageData.length > 15_000_000) {
-      return new Response(JSON.stringify({ error: "Image too large. Please upload a smaller image (<10MB)." }), {
-        status: 413,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+    if (DEBUG_MODE) {
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🎯 UNIFIED STYLE CHECK REQUEST");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log(`Occasion: ${occasion || 'none'}`);
+      console.log(`Style: ${style || 'none'}`);
+      console.log(`Vibe: ${vibe || 'none'}`);
+      console.log(`Wardrobe items: ${wardrobeItems?.length || 0}`);
     }
 
-    console.log("Scoring outfit with enhanced fashion analysis...");
+    // Extract wardrobe attributes
+    const { colors: wardrobeColors, categories: wardrobeCategories } = extractWardrobeAttributes(wardrobeItems);
+    const wardrobeFormatted = formatWardrobeForAI(wardrobeItems || []);
 
-    // Caching Layer with versioning (Phase 7)
-    // Check if identical request was made within last hour
-    // Cache key includes schema_version and prompt_version for immediate invalidation
-    const SCHEMA_VERSION = "S2"; // Increment when visualSchema.ts changes
-    const PROMPT_VERSION = "P2"; // Increment when extraction/scoring prompts change
-    const cacheKey = await generateCacheKey({ 
-      type: `outfit_score_${SCHEMA_VERSION}_${PROMPT_VERSION}`, 
-      imageData, 
-      occasion, 
-      style, 
-      vibe 
+    // Check cache
+    const cacheKey = await generateCacheKey({
+      type: 'unified_style_check_v1',
+      imageData,
+      occasion: occasion || '',
+      style: style || '',
+      vibe: vibe || '',
+      wardrobeHash: JSON.stringify(wardrobeColors),
     });
-    const cachedScore = await getCachedResult(cacheKey);
-    if (cachedScore) {
-      console.log("Returning cached outfit score");
-      return new Response(JSON.stringify(cachedScore), {
+
+    const cached = await getCachedResult(cacheKey);
+    if (cached) {
+      if (DEBUG_MODE) console.log("✅ Cache hit!");
+      return new Response(JSON.stringify(cached), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    /**
-     * API Call #2: Visual Metadata Extraction
-     * 
-     * Uses EXTRACTION_PROMPT to get structured outfit data:
-     * - Fit: silhouette, hemline, sleeve_length, shoulder_structure, etc.
-     * - Fabric: material, texture, finish, weight
-     * - Color: harmony, contrast, top_color, bottom_color
-     * - Styling: footwear_type, accessory_presence, layering, polish_level
-     * - Aesthetics: cultural_aesthetic, brand_guess, price_tier
-     * - Scores: fit, color, styling, material, overall (with confidence & reason)
-     * 
-     * Response validated against VisualSchema (Zod) for type safety
-     */
-    let extractionData;
-    try {
-      console.log("Step 1: Extracting visual metadata and AI scores...");
-      const contextPrompt = EXTRACTION_PROMPT(occasion, style, vibe);
+    if (DEBUG_MODE) console.log("🔄 Cache miss, calling AI...");
 
-      extractionData = await retryWithBackoff(() =>
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // UNIFIED AI CALL (Phase 1 Upgrade)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    console.log("🎨 Starting unified style check (extraction + scoring in ONE call)...");
+    
+    const unifiedPrompt = MASTER_UNIFIED_STYLECHECK_PROMPT({
+      occasion,
+      style,
+      vibe,
+      wardrobeColors,
+      wardrobeCategories,
+      wardrobeItems: wardrobeFormatted,
+    });
+
+    let aiResponse;
+    try {
+      aiResponse = await retryWithBackoff(() =>
         callGeminiAPI({
           model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: contextPrompt,
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: imageData },
-                },
-              ],
-            },
-          ],
-          temperature: 0,
-        }),
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: unifiedPrompt },
+              { type: "image_url", image_url: { url: imageData } },
+            ],
+          }],
+          temperature: 0.3,
+        })
       );
     } catch (error: any) {
       if (error.message === "RATE_LIMIT") {
         return new Response(
-          JSON.stringify({
-            error: "Rate limits exceeded. Our AI is experiencing high demand. Please try again in a few moments.",
+          JSON.stringify({ 
+            error: "Rate limits exceeded. Our AI is experiencing high demand. Please try again in a few moments." 
           }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (error.message === "PAYMENT_REQUIRED") {
-        return new Response(JSON.stringify({ error: "Payment required. Please add credits to continue." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Payment required. Please add credits to continue." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
       throw error;
     }
 
-    // Parse extraction response
-    // AI returns JSON, possibly wrapped in ```json markdown blocks
-    const extractionContent = extractionData.choices?.[0]?.message?.content;
-    if (!extractionContent) {
-      throw new Error("Failed to extract visual metadata");
+    // Parse AI response
+    const content = aiResponse.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("No content in AI response");
     }
 
-    // DEBUG LOG: Raw AI response for troubleshooting
-    console.log("Raw AI extraction response:", extractionContent);
+    if (DEBUG_MODE) {
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📦 RAW AI RESPONSE");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log(content.substring(0, 500) + "...");
+    }
 
-    let metadata;
+    let unifiedResult;
     try {
-      const cleaned = extractionContent.trim().replace(/^```json\n?|```$/g, "");
-      metadata = JSON.parse(cleaned);
-      console.log(
-        "Parsed metadata sample:",
-        JSON.stringify({
-          fit_sleeve: metadata?.fit?.sleeve_length,
-          color_top: metadata?.color?.top_color,
-        }),
-      );
-    } catch (e) {
-      console.error("Failed to parse extraction JSON:", e);
-      console.error("Raw content:", extractionContent);
-      throw new Error("Invalid extraction response format");
+      const cleaned = content.trim().replace(/^```json\n?|```$/g, "");
+      unifiedResult = JSON.parse(cleaned);
+      if (DEBUG_MODE) console.log("✅ JSON parse successful");
+    } catch (parseError) {
+      console.error("❌ JSON parse failed:", parseError);
+      if (DEBUG_MODE) console.error("Raw content:", content);
+      
+      // Use fallback result
+      const fallback = generateFallbackResult(style);
+      unifiedResult = {
+        ...fallback,
+        overall_score: 3.5,
+        components: {
+          fit: { score: 3.5, confidence: 0.5 },
+          color: { score: 3.5, confidence: 0.5 },
+          styling: { score: 3.5, confidence: 0.5 },
+          material: { score: 3.5, confidence: 0.5 },
+        },
+        confidence: 0.5,
+      };
     }
 
-    /**
-     * Zod Validation
-     * 
-     * Validates extracted metadata against VisualSchema to ensure:
-     * - All required fields are present
-     * - Field values match expected enums/types
-     * - Confidence scores are 0-1
-     * - Each field has {value, confidence, reason?} structure
-     * 
-     * If validation fails, the error is logged and thrown.
-     * This ensures downstream code receives type-safe, structured data.
-     */
-    console.log("Step 2: Validating metadata...");
-    const validationResult = VisualSchema.safeParse(metadata);
-    if (!validationResult.success) {
-      console.error("Schema validation failed:");
-      console.error("Validation errors:", JSON.stringify(validationResult.error.format(), null, 2));
-      console.error("Received metadata keys:", Object.keys(metadata));
-      throw new Error(`Extracted metadata does not match expected schema: ${validationResult.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
-    }
-
-    const validatedMetadata = validationResult.data;
-
-    // Build metadata context string for API Call #3
-    // This converts structured data into formatted markdown string
-    // that SCORE_OUTFIT prompt can reference for data-driven feedback
-    // Phase 6: Enhanced with wardrobe summary for micro-recommendations
-    const metadataContext = buildMetadataContext(validatedMetadata, wardrobeItems);
-    console.log("Built metadata context:", metadataContext.substring(0, 200) + "...");
-
-    /**
-     * Score Combination
-     * 
-     * Uses AI-generated scores directly from EXTRACTION_PROMPT (API Call #2).
-     * No deterministic computation - scores are purely from AI analysis.
-     * 
-     * Components:
-     * - overall_score: Rounded to nearest 0.25 for UI display
-     * - components: Individual scores (fit, color, styling, material)
-     * - confidence: Minimum confidence across all components
-     * - missing_features: Array of features AI couldn't detect
-     * - reasoning: AI's explanation for each score
-     */
-    console.log("Step 2: Using AI-generated scores...");
-    const aiScores = validatedMetadata.scores;
-    const scoreResults = {
-      overall_score: Number(aiScores.overall.value.toFixed(1)), // 1-decimal precision
-      components: {
-        fit: Number(aiScores.fit.value.toFixed(1)),
-        color: Number(aiScores.color.value.toFixed(1)),
-        styling: aiScores.styling ? Number(aiScores.styling.value.toFixed(1)) : 3.5,
-        material: aiScores.material ? Number(aiScores.material.value.toFixed(1)) : 3.5,
-      },
-      confidence: Math.min(
-        aiScores.fit.confidence,
-        aiScores.color.confidence,
-        aiScores.styling?.confidence ?? 0.8,
-        aiScores.material?.confidence ?? 0.8,
-      ),
-      missing_features: validatedMetadata.missing_features,
-      reasoning: {
-        fit: aiScores.fit.reason || "",
-        color: aiScores.color.reason || "",
-        styling: aiScores.styling?.reason || "",
-        material: aiScores.material?.reason || "",
-        overall: aiScores.overall.reason || "",
-      },
-    };
-
-    /**
-     * API Call #3: Dynamic Feedback Generation
-     * 
-     * Uses SCORE_OUTFIT prompt with metadataContext to generate:
-     * - outfit_name: Creative name for the outfit
-     * - what_works: Array of positive feedback points
-     * - what_doesnt_work: Array of areas for improvement
-     * - quick_fixes: Array of actionable styling tips
-     * - editorial: Quote/summary for sharing
-     * 
-     * The metadataContext ensures feedback references specific detected
-     * parameters (e.g., "oversized silhouette", "monochrome harmony")
-     * rather than generic observations.
-     * 
-     * Error handling: If this call fails, defaults are used (no critical failure)
-     */
-    console.log("Step 3: Generating outfit analysis with SCORE_OUTFIT and metadata...");
-    let scoreOutfitData;
-    try {
-      const scorePrompt = SCORING_PROMPTS.SCORE_OUTFIT(occasion, style, vibe, metadataContext);
-      scoreOutfitData = await retryWithBackoff(() =>
-        callGeminiAPI({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: scorePrompt,
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: imageData },
-                },
-              ],
-            },
-          ],
-          temperature: 0,
-        }),
-      );
-    } catch (error: any) {
-      console.error("SCORE_OUTFIT generation failed, will use defaults:", error);
-      scoreOutfitData = null;
-    }
-
-    // DEBUG LOG: Raw SCORE_OUTFIT response for debugging (Phase 4 enhanced)
-    // Safe to parse: contains outfit_name, what_works, what_doesnt_work, quick_fixes, editorial
-    // Phase 4: Never logs sensitive image data, only text responses
-    if (scoreOutfitData) {
-      const content = scoreOutfitData.choices?.[0]?.message?.content;
-      console.log("📋 Phase 4: Raw SCORE_OUTFIT response (first 200 chars):", content?.substring(0, 200));
-    }
-
-    /**
-     * Phase 4: Enhanced SCORE_OUTFIT Response Parsing with Auto-Recovery
-     * Phase 6: Now includes micro_recommendations parsing
-     * 
-     * Multi-stage parsing strategy:
-     * 1. Primary Parse: Direct JSON parsing with basic cleanup
-     * 2. Recovery Pass: Use recoverJSON helper for malformed responses
-     * 3. Fallback Mode: Use generateFallbackResult if all parsing fails
-     * 
-     * Ensures Style Check NEVER crashes on AI output issues.
-     * 
-     * Expected JSON structure:
-     * {
-     *   outfit_name: string (2-4 words, stylish),
-     *   what_works: string[] (min 3, max 15 words each),
-     *   what_doesnt_work: string[] (2-3 items, max 15 words each),
-     *   quick_fixes: string[] (min 3, max 12-15 words each),
-     *   micro_recommendations: string[] (3-6 items, 7-14 words each) [Phase 6],
-     *   editorial: string (25-45 words)
-     * }
-     */
+    // Validate with schema
+    if (DEBUG_MODE) console.log("🔍 Validating against VisualSchema...");
+    const validation = VisualSchema.safeParse(unifiedResult);
     
-    // Phase 4 Guardrail: Safe defaults (supportive tone)
-    // Phase 6: Added micro_recommendations default
-    let outfitName = `${style || "Contemporary"} Ensemble`;
-    let whatWorks = ["Good foundation with thoughtful elements"];
-    let whatDidntWork =
-      scoreResults.missing_features && scoreResults.missing_features.length > 0
-        ? [`Limited visibility: ${scoreResults.missing_features.join(", ")}`]
-        : ["Minor refinements possible"];
-    let quickFix = [
-      "Adjust proportions for better balance",
-      "Consider accessory additions to complete the look",
-      "Review color harmony for cohesiveness",
-    ];
-    let microRecommendations = [
-      "Consider adjusting garment proportions for better balance",
-      "Refine styling details for a more polished appearance",
-    ];
-    let editorial = "A refined outfit with careful attention to fit and proportion, showing good style awareness.";
-
-    if (scoreOutfitData) {
-      const content = scoreOutfitData.choices?.[0]?.message?.content;
-      if (content) {
-        let parsed = null;
-        
-        // Phase 4: Primary parse attempt
-        try {
-          const cleaned = content.trim().replace(/^```json\n?|```$/g, "");
-          parsed = JSON.parse(cleaned);
-          console.log("✅ Phase 4: Primary JSON parse successful");
-        } catch (primaryError) {
-          console.log("⚠️ Phase 4: Primary parse failed, attempting recovery...");
-          
-          // Phase 4: Recovery pass
-          parsed = recoverJSON(content);
-          
-          if (!parsed) {
-            console.log("❌ Phase 4: Recovery failed, using fallback mode");
-            // Phase 4: Fallback mode
-            const fallback = generateFallbackResult(style, scoreResults.missing_features || []);
-            outfitName = fallback.outfit_name;
-            whatWorks = fallback.what_works;
-            whatDidntWork = fallback.what_doesnt_work;
-            quickFix = fallback.quick_fixes;
-            editorial = fallback.editorial;
-          }
-        }
-        
-        // Phase 4: Extract fields from successfully parsed result
-        // Phase 6: Added micro_recommendations extraction
-        if (parsed) {
-          if (parsed.outfit_name && typeof parsed.outfit_name === "string") {
-            outfitName = parsed.outfit_name;
-          }
-          if (Array.isArray(parsed.what_works) && parsed.what_works.length > 0) {
-            whatWorks = parsed.what_works.filter((item: any) => typeof item === "string" && item.trim());
-          }
-          if (Array.isArray(parsed.what_doesnt_work) && parsed.what_doesnt_work.length > 0) {
-            whatDidntWork = parsed.what_doesnt_work.filter((item: any) => typeof item === "string" && item.trim());
-          }
-          if (Array.isArray(parsed.quick_fixes) && parsed.quick_fixes.length > 0) {
-            let rawQuickFixes = parsed.quick_fixes.filter((item: any) => typeof item === "string" && item.trim());
-            
-            // Apply Phase 2-5 filters
-            rawQuickFixes = filterImpossibleFixes(rawQuickFixes, validatedMetadata);
-            rawQuickFixes = enforceColorSpecificity(rawQuickFixes);
-            rawQuickFixes = deduplicateAndCapFixes(rawQuickFixes);
-            
-            quickFix = rawQuickFixes;
-          }
-          // Phase 6: Parse micro_recommendations with fallback
-          if (Array.isArray(parsed.micro_recommendations) && parsed.micro_recommendations.length > 0) {
-            microRecommendations = parsed.micro_recommendations.filter((item: any) => typeof item === "string" && item.trim());
-          }
-          if (parsed.editorial && typeof parsed.editorial === "string") {
-            editorial = parsed.editorial;
-          } else if (whatWorks.length > 0) {
-            // Phase 4 Guardrail: Generate editorial from what_works if missing
-            editorial = whatWorks.slice(0, 2).join(". ") + ".";
-          }
-          
-          console.log("✅ Phase 4+6: Final parsed output validated and sanitized");
-        }
+    if (!validation.success) {
+      console.warn("⚠️ Schema validation issues (continuing with partial data):");
+      console.warn(JSON.stringify(validation.error.issues.slice(0, 5), null, 2));
+      if (DEBUG_MODE) {
+        console.warn("Full validation errors:", validation.error.issues);
       }
+    } else {
+      if (DEBUG_MODE) console.log("✅ Schema validation passed");
+    }
+    
+    const validated = validation.success ? validation.data : unifiedResult;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CONSTRAINT FILTERING (Phase 1 Enhancement)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    if (DEBUG_MODE) {
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🛡️ CONSTRAINT FILTERING");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
-    /**
-     * Final Result Combination
-     * 
-     * Merges scores from API Call #2 with feedback from API Call #3
-     * into the final response format expected by StyleCheckHub.tsx
-     * Phase 6: Now includes micro_recommendations
-     */
+    let quickFixes = validated.quick_fixes || ["Adjust proportions", "Refine styling", "Consider accessories"];
+    const originalFixCount = quickFixes.length;
+    
+    // Apply constraint filters
+    quickFixes = filterImpossibleFixes(quickFixes, validated);
+    quickFixes = enforceColorSpecificity(quickFixes, validated);
+    quickFixes = deduplicateAndCapFixes(quickFixes, 8);
+    
+    if (DEBUG_MODE) {
+      console.log(`Fixes: ${originalFixCount} → ${quickFixes.length} (after filtering)`);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // BUILD FINAL RESPONSE (DB-compatible format)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
     const finalResult = {
-      overall_score: scoreResults.overall_score,
-      components: scoreResults.components,
-      confidence: scoreResults.confidence,
-      editorial,
-      missing_features: scoreResults.missing_features,
-      // Dynamic fields from SCORE_OUTFIT
-      outfit_name: outfitName,
-      color_score: Number(scoreResults.components.color.toFixed(1)),
-      fit_score: Number(scoreResults.components.fit.toFixed(1)),
-      texture_score: Number(scoreResults.components.material.toFixed(1)),
-      occasion_score: Number(scoreResults.overall_score.toFixed(1)),
-      what_works: whatWorks,
-      what_didnt_work: whatDidntWork,
-      quick_fix: quickFix,
-      // Phase 6: Micro-recommendations (wardrobe-first but not limited)
-      micro_recommendations: microRecommendations,
+      // DB fields (for style_checks table)
+      overall_score: validated.overall_score || 3.5,
+      fit_score: validated.components?.fit?.score || 3.5,
+      color_score: validated.components?.color?.score || 3.5,
+      texture_score: validated.components?.material?.score || 3.5,
+      occasion_score: validated.components?.styling?.score || 3.5,
+      outfit_name: validated.outfit_name || `${style || 'Contemporary'} Look`,
+      verdict_positive: (validated.what_works || ["Well-composed outfit"]).join(' • '),
+      verdict_improvements: (validated.what_doesnt_work || ["Minor refinements possible"]).join(' • '),
+      quick_fix: quickFixes.join(' | '),
+      editorial: validated.editorial || "A thoughtful outfit with good style awareness.",
+      confidence: validated.confidence || 0.85,
+      
+      // Extended data (for frontend consumption)
+      metadata: validated, // Full extraction + scoring data
+      what_works: validated.what_works || ["Well-composed outfit"],
+      what_doesnt_work: validated.what_doesnt_work || ["Minor refinements possible"],
+      quick_fixes: quickFixes,
+      micro_recommendations: validated.micro_recommendations || [],
+      proportion_balance: validated.proportion_balance,
+      silhouette_breakdown: validated.silhouette_breakdown,
+      wardrobe_opportunities: validated.wardrobe_opportunities || [],
+      reasoning: validated.reasoning || {},
+      missing_features: validated.missing_features || [],
     };
 
-    // Cache the result for 1 hour
-    // Future identical requests will return cached response instantly
+    if (DEBUG_MODE) {
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📊 FINAL RESULT");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log(`Overall Score: ${finalResult.overall_score}/5.0`);
+      console.log(`Outfit Name: ${finalResult.outfit_name}`);
+      console.log(`Quick Fixes: ${finalResult.quick_fixes.length}`);
+      console.log(`Confidence: ${(finalResult.confidence * 100).toFixed(0)}%`);
+    }
+
+    // Cache result (1 hour TTL)
     await setCachedResult(cacheKey, finalResult);
 
     return new Response(JSON.stringify(finalResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("Error in score-outfit:", error);
-    const isAbort = (error as any)?.name === "AbortError" || (error as any)?.message?.includes("aborted");
-    const status = isAbort ? 504 : 500;
-    const msg = isAbort
-      ? "AI service timeout. Please try again."
-      : error instanceof Error
-        ? error.message
-        : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+
+  } catch (error: any) {
+    console.error("❌ Score outfit error:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || "Internal server error",
+        details: DEBUG_MODE ? error.stack : undefined,
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
