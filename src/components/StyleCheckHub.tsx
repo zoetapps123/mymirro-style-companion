@@ -40,6 +40,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
   const [elevating, setElevating] = useState(false);
   const [elevatedImage, setElevatedImage] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
 
   // Restore Style Check state for this session
   useEffect(() => {
