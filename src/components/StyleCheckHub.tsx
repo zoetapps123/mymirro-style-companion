@@ -48,6 +48,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
       if (saved) {
         const s = JSON.parse(saved);
         if (typeof s.selectedOccasion === 'string') setSelectedOccasion(s.selectedOccasion);
+        if (typeof s.selectedStyle === 'string') setSelectedStyle(s.selectedStyle);
+        if (typeof s.selectedVibe === 'string') setSelectedVibe(s.selectedVibe);
         if (typeof s.uploadedImage === 'string' || s.uploadedImage === null) setUploadedImage(s.uploadedImage);
         if (s.result) setResult(s.result);
         if (Array.isArray(s.extractedItems)) setExtractedItems(s.extractedItems);
@@ -61,11 +63,11 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
 
   // Persist while tab is open (clears on session close)
   useEffect(() => {
-    const state = { selectedOccasion, uploadedImage, result, extractedItems, extracted, elevatedImage };
+    const state = { selectedOccasion, selectedStyle, selectedVibe, uploadedImage, result, extractedItems, extracted, elevatedImage };
     try {
       sessionStorage.setItem('style_check_state', JSON.stringify(state));
     } catch {}
-  }, [selectedOccasion, uploadedImage, result, extractedItems, extracted, elevatedImage]);
+  }, [selectedOccasion, selectedStyle, selectedVibe, uploadedImage, result, extractedItems, extracted, elevatedImage]);
 
   useEffect(() => {
     loadWardrobeItems();
@@ -161,6 +163,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
       vibe,
       comment: `Looks ${vibe.toLowerCase()}, perfect for ${occasion.toLowerCase()}!`
     });
+    setShowOccasionSelector(false);
+    startStyleCheck();
   };
 
   const startStyleCheck = async (occasionOverride?: string) => {
