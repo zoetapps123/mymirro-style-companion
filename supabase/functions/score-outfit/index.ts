@@ -277,8 +277,8 @@ function generateFallbackResult(style?: string, missingFeatures: string[] = []):
       "Add intentional accessories to complete the look",
     ],
     micro_recommendations: [
-      "Try a half-tuck for defined proportions",
-      "Roll sleeves for sharper silhouette detail",
+      "Consider adjusting garment proportions for better balance",
+      "Refine styling details for a more polished appearance",
     ],
     editorial: "A solid foundation with room to refine proportions and styling details for extra polish.",
   };
@@ -306,24 +306,43 @@ function isMeaningful(val: any): boolean {
 function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
   const filtered: string[] = [];
   
+  // PART 6: Backward compatibility - safe fallback for missing fields
+  const safeGet = (path: string, defaultVal: any = null) => {
+    const keys = path.split('.');
+    let current: any = metadata;
+    for (const key of keys) {
+      if (current?.[key] === undefined || current?.[key] === null) return defaultVal;
+      current = current[key];
+    }
+    return current;
+  };
+  
   for (const fix of quickFixes) {
     const lower = fix.toLowerCase();
     
     // BLOCK: "cuff jeans" if already cuffed or cropped
     if ((lower.includes('cuff') || lower.includes('pinroll') || lower.includes('turn up') || lower.includes('turn-up') || lower.includes('roll') && lower.includes('hem')) && (lower.includes('jean') || lower.includes('pant') || lower.includes('trouser'))) {
-      const pantHemStyle = metadata?.fit?.pant_hem_style?.value;
-      const pantStacking = metadata?.fit?.pant_stacking?.value;
+      const pantHemStyle = safeGet('fit.pant_hem_style.value');
+      const pantStacking = safeGet('fit.pant_stacking.value');
       if (pantHemStyle === 'single_cuff' || pantHemStyle === 'double_cuff' || pantHemStyle === 'cropped' || pantStacking === 'none') {
         console.log(`[Filter] Blocked "cuff jeans" - pant_hem_style: ${pantHemStyle}, stacking: ${pantStacking}`);
         continue;
       }
     }
     
-    // BLOCK: "roll sleeves" if inappropriate sleeve type or already rolled
+    // BLOCK: "roll sleeves" if inappropriate sleeve type, already rolled, or NOT rollable
     if ((lower.includes('roll') || lower.includes('push') || lower.includes('scrunch')) && lower.includes('sleeve')) {
-      const sleeveLen = metadata?.fit?.sleeve_length?.value;
-      const topType = metadata?.fit?.top_type?.value;
-      if (sleeveLen === 'mid-bicep' || sleeveLen === 'forearm' || sleeveLen === 'unknown' || topType === 'tshirt') {
+      const sleeveLen = safeGet('fit.sleeve_length.value');
+      const topType = safeGet('fit.top_type.value');
+      const rollable = safeGet('garments.0.rollable.value', false); // PART 6: New constraint field with fallback
+      
+      // PART 7: Validation - if rollable field exists and is false, block immediately
+      if (rollable === false) {
+        console.log(`[Filter] Blocked "roll sleeves" - rollable: false (garment-level constraint)`);
+        continue;
+      }
+      
+      if (sleeveLen === 'mid-bicep' || sleeveLen === 'forearm' || sleeveLen === 'short' || sleeveLen === 'capped' || sleeveLen === 'unknown' || topType === 'tshirt') {
         console.log(`[Filter] Blocked "roll sleeves" - sleeve_length: ${sleeveLen}, top_type: ${topType}`);
         continue;
       }
@@ -351,12 +370,15 @@ function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
       }
     }
     
-    // BLOCK: "add watch" if wrist already has watch
+    // BLOCK: "add watch" if wrist already has watch (with high confidence)
     if (lower.includes('add') && lower.includes('watch')) {
-      const wristLeft = metadata?.styling?.wrist_left?.value;
-      const wristRight = metadata?.styling?.wrist_right?.value;
-      if (wristLeft === 'watch' || wristRight === 'watch') {
-        console.log(`[Filter] Blocked "add watch" - already wearing: L=${wristLeft}, R=${wristRight}`);
+      const wristLeft = safeGet('styling.wrist_left.value');
+      const wristRight = safeGet('styling.wrist_right.value');
+      const watchConfidence = safeGet('accessories_present.watch_present_with_confidence.value', 0); // PART 6: New field with fallback
+      
+      // PART 7: Validation - check both old and new detection methods
+      if (wristLeft === 'watch' || wristRight === 'watch' || watchConfidence > 0.6) {
+        console.log(`[Filter] Blocked "add watch" - already wearing: L=${wristLeft}, R=${wristRight}, confidence=${watchConfidence}`);
         continue;
       }
     }
@@ -376,13 +398,20 @@ function filterImpossibleFixes(quickFixes: string[], metadata: any): string[] {
     }
     if (skipDueToSpecificAccessory) continue;
     
-    // BLOCK: "half-tuck" or "tuck" if already tucked or inappropriate
+    // BLOCK: "half-tuck" or "tuck" if already tucked or NOT tuckable
     if (lower.includes('tuck')) {
-      const waistVis = metadata?.fit?.waist_visibility?.value;
-      const hemline = metadata?.fit?.hemline?.value;
-      const topType = metadata?.fit?.top_type?.value;
+      const waistVis = safeGet('fit.waist_visibility.value');
+      const hemline = safeGet('fit.hemline.value');
+      const topType = safeGet('fit.top_type.value');
+      const tuckable = safeGet('garments.0.tuckable.value', false); // PART 6: New constraint field with fallback
       
-      if (waistVis === 'tucked' || waistVis === 'partial_tuck' || hemline === 'above_hip' || topType === 'sweatshirt' || topType === 'sweater' || topType === 'jacket') {
+      // PART 7: Validation - if tuckable field exists and is false, block immediately
+      if (tuckable === false) {
+        console.log(`[Filter] Blocked "tuck" - tuckable: false (garment-level constraint)`);
+        continue;
+      }
+      
+      if (waistVis === 'tucked' || waistVis === 'partial_tuck' || hemline === 'above_hip' || hemline === 'cropped' || topType === 'sweatshirt' || topType === 'sweater' || topType === 'jacket') {
         console.log(`[Filter] Blocked "tuck" - waist_visibility: ${waistVis}, hemline: ${hemline}, top_type: ${topType}`);
         continue;
       }
@@ -475,33 +504,45 @@ function deduplicateAndCapFixes(fixes: string[]): string[] {
  */
 function buildMetadataContext(metadata: any, wardrobeItems?: any[]): string {
   const parts: string[] = ["**EXTRACTED OUTFIT METADATA:**\n"];
+  
+  // PART 6: Backward compatibility - safe field access helper
+  const safeGet = (obj: any, path: string, defaultVal: any = null) => {
+    const keys = path.split('.');
+    let current = obj;
+    for (const key of keys) {
+      if (current?.[key] === undefined || current?.[key] === null) return defaultVal;
+      current = current[key];
+    }
+    return current;
+  };
 
   // Phase 1 Addition + Phase 4 Guardrails: User Profile (transient, in-memory only)
   // Include this section ONLY if person is visible and profile data exists
   // Phase 4: Enhanced confidence threshold and safety checks
+  // PART 6: Backward compatibility with safe field access
   if (metadata.user_profile) {
     const profile = metadata.user_profile;
     const profileDetails: string[] = [];
     const CONFIDENCE_THRESHOLD = 0.40; // Phase 4: Increased from 0.35 to 0.40 for safety
     
-    // Phase 4 Guardrail: Only include fields that are meaningful AND above confidence threshold
-    if (isMeaningful(profile.body_shape?.value) && profile.body_shape.confidence >= CONFIDENCE_THRESHOLD) {
-      profileDetails.push(`${profile.body_shape.value} body shape`);
+    // Phase 4 Guardrail + PART 6: Safe access with fallback for missing fields
+    if (isMeaningful(safeGet(profile, 'body_shape.value')) && (safeGet(profile, 'body_shape.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
+      profileDetails.push(`${safeGet(profile, 'body_shape.value')} body shape`);
     }
-    if (isMeaningful(profile.build?.value) && profile.build.confidence >= CONFIDENCE_THRESHOLD) {
-      profileDetails.push(`${profile.build.value} build`);
+    if (isMeaningful(safeGet(profile, 'build.value')) && (safeGet(profile, 'build.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
+      profileDetails.push(`${safeGet(profile, 'build.value')} build`);
     }
-    if (isMeaningful(profile.skin_tone_band?.value) && profile.skin_tone_band.confidence >= CONFIDENCE_THRESHOLD) {
-      profileDetails.push(`${profile.skin_tone_band.value} skin tone`);
+    if (isMeaningful(safeGet(profile, 'skin_tone_band.value')) && (safeGet(profile, 'skin_tone_band.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
+      profileDetails.push(`${safeGet(profile, 'skin_tone_band.value')} skin tone`);
     }
-    if (isMeaningful(profile.height_band?.value) && profile.height_band.confidence >= CONFIDENCE_THRESHOLD) {
-      profileDetails.push(`${profile.height_band.value} height`);
+    if (isMeaningful(safeGet(profile, 'height_band.value')) && (safeGet(profile, 'height_band.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
+      profileDetails.push(`${safeGet(profile, 'height_band.value')} height`);
     }
-    if (isMeaningful(profile.perceived_age_band?.value) && profile.perceived_age_band.confidence >= CONFIDENCE_THRESHOLD) {
-      profileDetails.push(`${profile.perceived_age_band.value}`);
+    if (isMeaningful(safeGet(profile, 'perceived_age_band.value')) && (safeGet(profile, 'perceived_age_band.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
+      profileDetails.push(`${safeGet(profile, 'perceived_age_band.value')}`);
     }
-    if (isMeaningful(profile.gender_expression?.value) && profile.gender_expression.confidence >= CONFIDENCE_THRESHOLD) {
-      profileDetails.push(`${profile.gender_expression.value} presentation`);
+    if (isMeaningful(safeGet(profile, 'gender_expression.value')) && (safeGet(profile, 'gender_expression.confidence', 0) >= CONFIDENCE_THRESHOLD)) {
+      profileDetails.push(`${safeGet(profile, 'gender_expression.value')} presentation`);
     }
     
   // Phase 4 Guardrail: Only add profile section if we have actual meaningful data
@@ -993,8 +1034,8 @@ serve(async (req) => {
       "Review color harmony for cohesiveness",
     ];
     let microRecommendations = [
-      "Try a half-tuck for cleaner proportions",
-      "Roll sleeves slightly for intentional detail",
+      "Consider adjusting garment proportions for better balance",
+      "Refine styling details for a more polished appearance",
     ];
     let editorial = "A refined outfit with careful attention to fit and proportion, showing good style awareness.";
 

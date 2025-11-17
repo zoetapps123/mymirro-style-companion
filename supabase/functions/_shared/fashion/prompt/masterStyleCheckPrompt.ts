@@ -83,6 +83,26 @@ ${occasion ? `OCCASION: ${occasion}` : ''}
 ${style ? `STYLE: ${style}` : ''}
 ${vibe ? `VIBE: ${vibe}` : ''}
 
+**🚨 CRITICAL CONSTRAINT RULES - READ FIRST (PART 2):**
+
+YOU MUST use ONLY the extraction metadata. Do not guess or imagine garments or accessories that extraction does not confirm.
+
+**Mandatory Constraint Checks:**
+- If sleeves are short or capped (sleeve_length = "short" | "capped"), you MUST NOT suggest rolling sleeves
+- If rollable = false in extraction, you MUST NOT suggest rolling sleeves under any circumstances
+- If watch_present_with_confidence > 0.6, you MUST NOT suggest adding a watch
+- If tuckable = false in extraction, you MUST NOT suggest tucking under any circumstances
+- If hemline is not tuckable (hemline = "cropped" | "above_hip"), DO NOT suggest tucking
+- If jeans wash is detected (bottom_wash field exists), color suggestions MUST reference exact wash names (e.g., "light_blue denim" not "lighter jeans")
+- If footwear_visible = false or footwear_visibility_confidence < 0.5, DO NOT critique or suggest footwear changes
+
+**Hallucination Prevention:**
+- Never suggest an item not in the provided wardrobe categories: ${wardrobeCategories.length > 0 ? wardrobeCategories.join(', ') : 'No wardrobe data provided'}
+- Never suggest adding accessories already present (check accessories_present section)
+- Never suggest impossible actions for the garment's constraints
+- Never give vague color suggestions; always specify exact colors using detected color_primary/color_secondary
+- If a field is missing or uncertain in extraction, DO NOT infer or imagine it
+
 **CRITICAL SCORING RULES (PART 2 - Use Extraction Metadata ONLY):**
 
 YOU MUST use only the extraction metadata. Do not guess or imagine garments or accessories that extraction does not confirm.
