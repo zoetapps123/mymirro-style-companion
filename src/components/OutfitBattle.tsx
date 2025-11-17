@@ -61,6 +61,24 @@ interface BattleResult {
   rank: number;
   roast: string;
   imageData?: string;
+  styleCheck?: {
+    outfit_name: string;
+    overall_score: number;
+    fit_score: number;
+    color_score: number;
+    styling_score: number;
+    material_score: number;
+    what_works: string[];
+    what_doesnt_work: string[];
+    quick_fixes: string[];
+    editorial: string;
+  };
+  individualScores?: {
+    fit: number;
+    color: number;
+    styling: number;
+    material: number;
+  };
 }
 
 interface OutfitBattleProps {
@@ -77,6 +95,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   const [currentName, setCurrentName] = useState("");
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanningProgress, setScanningProgress] = useState<{current: number, total: number, name: string}>({ current: 0, total: 0, name: '' });
   const [results, setResults] = useState<{ results: BattleResult[], winner_verdict: string } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [awaitingName, setAwaitingName] = useState(false);
@@ -158,20 +177,19 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   };
 
   const simulateComparison = async () => {
-    const comparisons = [
-      `Analyzing Outfit A's color harmony...`,
-      `Outfit B has stronger fit proportions!`,
-      `Checking texture balance across all looks...`,
-      `Outfit C nails the occasion vibe!`,
-      `Comparing overall style coherence...`,
-      `Final verdict incoming... 🔥`
-    ];
+    const totalParticipants = participants.length;
     
-    for (const text of comparisons) {
-      setComparisonText(text);
-      await new Promise(resolve => setTimeout(resolve, 800));
+    // Simulate individual analysis for each participant
+    for (let i = 0; i < totalParticipants; i++) {
+      setScanningProgress({ current: i + 1, total: totalParticipants, name: participants[i].name });
+      setComparisonText(`Analyzing ${participants[i].name}'s fit, color harmony, and styling...`);
+      await new Promise(resolve => setTimeout(resolve, 1200));
     }
+    
+    setComparisonText(`Determining the winner... 🔥`);
+    await new Promise(resolve => setTimeout(resolve, 800));
     setComparisonText("");
+    setScanningProgress({ current: 0, total: 0, name: '' });
   };
 
   const startBattle = async () => {
@@ -499,6 +517,22 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
                 <h3 className="text-lg sm:text-xl font-bold text-gradient-accent">Let's settle this fashion face-off</h3>
                 <Sparkles className="w-5 h-5 text-primary animate-pulse" />
               </div>
+              {scanningProgress.total > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <span className="font-semibold text-primary">{scanningProgress.current}/{scanningProgress.total}</span>
+                    <span>participants analyzed</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-primary to-accent"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(scanningProgress.current / scanningProgress.total) * 100}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+              )}
               {comparisonText && (
                 <motion.p 
                   key={comparisonText}
@@ -817,6 +851,22 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
                     <div className="flex-1">
                       <p className="font-medium">{result.name}</p>
                       <p className="text-xs text-accent">{result.persona_name}</p>
+                      {result.individualScores && (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">
+                            Fit {result.individualScores.fit.toFixed(1)}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">
+                            Color {result.individualScores.color.toFixed(1)}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">
+                            Style {result.individualScores.styling.toFixed(1)}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">
+                            Material {result.individualScores.material.toFixed(1)}
+                          </Badge>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-1">{result.roast}</p>
                     </div>
                   </div>

@@ -5,7 +5,7 @@ import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
-import { EXTRACTION_PROMPT } from '../_shared/fashion/prompt/extractionPrompt.ts';
+import { MASTER_UNIFIED_STYLECHECK_PROMPT } from '../_shared/fashion/prompt/masterUnifiedStyleCheckPrompt.ts';
 import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
 
 const corsHeaders = {
@@ -90,24 +90,24 @@ function buildParticipantMetadataContext(name: string, metadata: any): string {
   return parts.join('\n');
 }
 
-// Extract metadata for a single participant
-async function extractParticipantMetadata(participant: any): Promise<any> {
-  // Check cache first
-  const extractionCacheKey = await generateCacheKey({ 
-    type: 'participant_extraction',
+// Analyze a single participant using unified style check (extraction + scoring in one call)
+async function analyzeParticipant(participant: any): Promise<any> {
+  // Check cache first (1-hour TTL for individual analyses)
+  const analysisCacheKey = await generateCacheKey({ 
+    type: 'unified_battle_participant',
     imageData: participant.imageData 
   });
   
-  const cachedExtraction = await getCachedResult<any>(extractionCacheKey);
-  if (cachedExtraction) {
-    console.log(`Using cached extraction for ${participant.name}`);
-    return cachedExtraction;
+  const cachedAnalysis = await getCachedResult<any>(analysisCacheKey);
+  if (cachedAnalysis) {
+    console.log(`Using cached unified analysis for ${participant.name}`);
+    return cachedAnalysis;
   }
 
-  console.log(`Extracting metadata for ${participant.name}...`);
+  console.log(`Performing unified style check for ${participant.name}...`);
   
-  // Call Gemini with VisualSchema to extract detailed outfit attributes
-  const extractionData = await retryWithBackoff(() => callGeminiAPI({
+  // Call Gemini with MASTER_UNIFIED_STYLECHECK_PROMPT for complete analysis
+  const analysisData = await retryWithBackoff(() => callGeminiAPI({
     model: 'google/gemini-2.5-flash',
     messages: [
       {
@@ -115,7 +115,7 @@ async function extractParticipantMetadata(participant: any): Promise<any> {
         content: [
           {
             type: 'text',
-            text: EXTRACTION_PROMPT()
+            text: MASTER_UNIFIED_STYLECHECK_PROMPT({ occasion: participant.occasion })
           },
           {
             type: 'image_url',
@@ -126,29 +126,163 @@ async function extractParticipantMetadata(participant: any): Promise<any> {
     ]
   }));
 
-  const rawContent = extractionData.choices?.[0]?.message?.content;
+  const rawContent = analysisData.choices?.[0]?.message?.content;
   if (!rawContent) {
-    console.warn(`No extraction data for ${participant.name}, using empty metadata`);
-    return {};
+    console.warn(`No analysis data for ${participant.name}, using fallback`);
+    return {
+      name: participant.name,
+      scores: { overall_score: 2.5, fit: 2.5, color: 2.5, styling: 2.5, material: 2.5 },
+      outfit_name: 'Unanalyzed Look',
+      what_works: ['Style could not be analyzed'],
+      what_doesnt_work: [],
+      quick_fixes: []
+    };
   }
 
-  // Parse and validate against VisualSchema
-  let extractedMetadata: any = {};
+  // Parse and validate the unified response
+  let styleCheck: any = {};
   try {
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      const validated = VisualSchema.parse(parsed);
-      extractedMetadata = validated;
+      // Extract relevant fields for battle
+      styleCheck = {
+        name: participant.name,
+        outfit_name: parsed.outfit_name || 'Stylish Look',
+        overall_score: parsed.scores?.overall_score || 2.5,
+        fit_score: parsed.scores?.fit?.score || 2.5,
+        color_score: parsed.scores?.color?.score || 2.5,
+        styling_score: parsed.scores?.styling?.score || 2.5,
+        material_score: parsed.scores?.material?.score || 2.5,
+        what_works: parsed.feedback?.what_works || [],
+        what_doesnt_work: parsed.feedback?.what_doesnt_work || [],
+        quick_fixes: parsed.feedback?.quick_fixes || [],
+        editorial: parsed.feedback?.editorial || '',
+        extraction: parsed.extraction || {}
+      };
     }
   } catch (error) {
-    console.warn(`Failed to parse/validate extraction for ${participant.name}:`, error);
+    console.warn(`Failed to parse unified analysis for ${participant.name}:`, error);
+    styleCheck = {
+      name: participant.name,
+      overall_score: 2.5,
+      fit_score: 2.5,
+      color_score: 2.5,
+      styling_score: 2.5,
+      material_score: 2.5,
+      outfit_name: 'Classic Look',
+      what_works: [],
+      what_doesnt_work: [],
+      quick_fixes: []
+    };
   }
 
-  // Cache the extraction for 24 hours
-  await setCachedResult(extractionCacheKey, extractedMetadata);
+  // Cache for 1 hour
+  await setCachedResult(analysisCacheKey, styleCheck);
   
-  return extractedMetadata;
+  return styleCheck;
+}
+
+// Determine winner from analyzed participants
+async function determineWinner(participantAnalyses: any[]): Promise<any> {
+  console.log('Determining winner from analyzed participants...');
+  
+  // Build summary of all participants with their scores
+  const participantSummaries = participantAnalyses.map((analysis, idx) => `
+**Participant ${idx + 1}: ${analysis.name}**
+- Outfit Name: ${analysis.outfit_name}
+- Overall Score: ${analysis.overall_score}/5
+- Fit: ${analysis.fit_score}/5
+- Color: ${analysis.color_score}/5
+- Styling: ${analysis.styling_score}/5
+- Material: ${analysis.material_score}/5
+- Key Strengths: ${analysis.what_works.slice(0, 2).join('; ')}
+`).join('\n');
+
+  const prompt = `You are judging a fashion battle with ${participantAnalyses.length} contestants. Each has already been individually scored by expert stylists.
+
+${participantSummaries}
+
+Your task: Compare these pre-scored outfits and create a competitive leaderboard with fun roasts and a winner's verdict.
+
+Guidelines:
+- Respect the individual scores (they are accurate)
+- Create engaging competitive banter in the roasts
+- Assign creative persona names (2-3 words each)
+- The person with the highest overall_score wins
+- Make it entertaining but supportive
+
+Return ONLY a valid JSON object with this structure:
+{
+  "results": [
+    {
+      "name": "original_participant_name",
+      "persona_name": "Street Style Maven",
+      "score": 4.2,
+      "rank": 1,
+      "roast": "Fun competitive banter comparing their style to others"
+    }
+  ],
+  "winner_verdict": "2-3 sentences celebrating the winner's victory and style strengths"
+}`;
+
+  const winnerData = await retryWithBackoff(() => callGeminiAPI({
+    model: 'google/gemini-2.5-flash',
+    messages: [{ role: 'user', content: prompt }],
+    tools: [
+      {
+        type: 'function',
+        function: {
+          name: 'determine_winner',
+          description: 'Rank participants and determine fashion battle winner',
+          parameters: {
+            type: 'object',
+            properties: {
+              results: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    persona_name: { type: 'string' },
+                    score: { type: 'number', minimum: 1.0, maximum: 5.0 },
+                    rank: { type: 'integer', minimum: 1 },
+                    roast: { type: 'string' }
+                  },
+                  required: ['name', 'persona_name', 'score', 'rank', 'roast']
+                }
+              },
+              winner_verdict: { type: 'string' }
+            },
+            required: ['results', 'winner_verdict']
+          }
+        }
+      }
+    ],
+    tool_choice: { type: 'function', function: { name: 'determine_winner' } }
+  }));
+
+  const toolCall = winnerData.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.function?.arguments) {
+    try {
+      return JSON.parse(toolCall.function.arguments);
+    } catch (e) {
+      console.error('Failed to parse winner determination:', e);
+    }
+  }
+  
+  // Fallback: simple ranking by score
+  const sorted = [...participantAnalyses].sort((a, b) => b.overall_score - a.overall_score);
+  return {
+    results: sorted.map((p, idx) => ({
+      name: p.name,
+      persona_name: p.outfit_name,
+      score: p.overall_score,
+      rank: idx + 1,
+      roast: `Scored ${p.overall_score}/5 in this battle`
+    })),
+    winner_verdict: `${sorted[0].name} takes the crown with a score of ${sorted[0].overall_score}/5!`
+  };
 }
 
 serve(async (req) => {
@@ -195,8 +329,11 @@ serve(async (req) => {
 
     console.log(`Scoring battle with ${participants.length} participants...`);
 
-    // Generate cache key based on participant images
-    const cacheKey = await generateCacheKey({ participants: participants.map(p => ({ name: p.name, imageData: p.imageData })) });
+    // Generate cache key based on participant images (30-minute TTL for battle results)
+    const cacheKey = await generateCacheKey({ 
+      type: 'battle_result',
+      participants: participants.map(p => ({ name: p.name, imageData: p.imageData })) 
+    });
     
     // Check cache first
     const cachedResult = await getCachedResult<any>(cacheKey);
@@ -208,112 +345,36 @@ serve(async (req) => {
       );
     }
 
-    // PHASE 1: Extract metadata for all participants in parallel
-    console.log('Extracting metadata for all participants...');
-    const metadataPromises = participants.map((p: any) => extractParticipantMetadata(p));
-    const participantMetadata = await Promise.all(metadataPromises);
+    // PHASE 1: Analyze all participants in parallel with unified style check
+    console.log('Performing unified style check for all participants...');
+    const analysisPromises = participants.map((p: any) => analyzeParticipant(p));
+    const participantAnalyses = await Promise.all(analysisPromises);
     
-    // Build metadata context string for all participants
-    const metadataContext = participantMetadata.map((metadata, idx) => 
-      buildParticipantMetadataContext(participants[idx].name, metadata)
-    ).join('\n');
+    console.log('All participants analyzed, determining winner...');
+
+    // PHASE 2: Determine winner from analyzed participants
+    const battleResult = await determineWinner(participantAnalyses);
     
-    console.log('Metadata extraction complete, proceeding with battle scoring...');
-
-    // PHASE 2: Call Gemini API with metadata-enhanced prompt
-    const data = await retryWithBackoff(() => callGeminiAPI({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: SCORING_PROMPTS.SCORE_BATTLE(participants.length, true)
-            },
-            {
-              type: 'text',
-              text: metadataContext
-            },
-            ...participants.map((p: any, idx: number) => [
-              { type: 'text', text: `Participant ${idx + 1}: ${p.name}` },
-              { type: 'image_url', image_url: { url: p.imageData } }
-            ]).flat()
-          ]
-        }
-      ],
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'score_battle',
-            description: 'Score and rank multiple outfits in a fashion battle with fun competitive banter',
-            parameters: {
-              type: 'object',
-              properties: {
-                results: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      name: { type: 'string', description: 'Original participant name' },
-                      persona_name: { type: 'string', description: 'Competitive persona name (2-3 words)' },
-                      score: { type: 'number', minimum: 1.0, maximum: 5.0 },
-                      rank: { type: 'integer', minimum: 1 },
-                      roast: { type: 'string', description: 'Fun competitive banter comparing to others' }
-                    },
-                    required: ['name', 'persona_name', 'score', 'rank', 'roast']
-                  }
-                },
-                winner_verdict: { type: 'string' }
-              },
-              required: ['results', 'winner_verdict']
-            }
-          }
-        }
-      ],
-      tool_choice: { type: 'function', function: { name: 'score_battle' } }
-    }));
-    console.log('Battle scoring response:', data);
-
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    let battleResults = null as any;
-    if (toolCall?.function?.arguments) {
-      try { battleResults = JSON.parse(toolCall.function.arguments); } catch (_) {}
-    }
-    if (!battleResults) {
-      const content = data.choices?.[0]?.message?.content;
-      if (typeof content === 'string') {
-        try { battleResults = JSON.parse(content); } catch (_) {}
-      }
-    }
-
-    if (!battleResults) {
-      throw new Error('Failed to score battle');
-    }
-
-    // Sort by rank to ensure proper ordering
-    battleResults.results.sort((a: any, b: any) => a.rank - b.rank);
-
-    // Enhance results with metadata highlights
+    // PHASE 3: Enhance results with individual style check data
     const enhancedResults = {
-      ...battleResults,
-      results: battleResults.results.map((result: any, idx: number) => {
-        const metadata = participantMetadata[participants.findIndex((p: any) => p.name === result.name)];
+      ...battleResult,
+      results: battleResult.results.map((result: any) => {
+        const analysis = participantAnalyses.find((a: any) => a.name === result.name);
         return {
           ...result,
-          metadata_highlights: {
-            silhouette: metadata?.fit?.silhouette?.value || 'N/A',
-            color_harmony: metadata?.color?.harmony?.value || 'N/A',
-            polish_level: metadata?.aesthetics?.polish_level?.value || 'N/A',
-            fabric_quality: metadata?.fabric?.material?.value || 'N/A',
+          styleCheck: analysis || {},
+          individualScores: {
+            fit: analysis?.fit_score || result.score,
+            color: analysis?.color_score || result.score,
+            styling: analysis?.styling_score || result.score,
+            material: analysis?.material_score || result.score
           }
         };
       }),
-      participant_metadata: participantMetadata // Include full metadata for advanced features
+      participantAnalyses // Include full analyses for frontend display
     };
 
-    // Cache the enhanced result for 24 hours
+    // Cache for 30 minutes
     await setCachedResult(cacheKey, enhancedResults);
 
     return new Response(
