@@ -309,7 +309,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           <img 
             src={emptyWardrobeImg} 
             alt="Empty wardrobe" 
-            className="w-[122px] h-[123px] mb-[33px] object-contain"
+            className="w-[122px] h-[123px] mb-[33px] object-contain mx-auto"
           />
           <h3 className="text-2xl font-bold text-primary mb-[16px] text-center">
             Your closet looks a little lonely
