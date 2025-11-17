@@ -47,6 +47,7 @@ serve(async (req) => {
       silhouetteBreakdown,
       wardrobeOpportunities = [],
       missingFeatures = [],
+      extractionData, // PART 5: Garment constraint data
     } = await req.json();
 
     // Validate input
@@ -74,7 +75,7 @@ serve(async (req) => {
       f.toLowerCase().includes('body_not_visible')
     );
 
-    // Phase 6: Build enriched metadata context using Phase 2 structure
+    // Phase 6 + PART 5: Build enriched metadata context with constraint data
     const metadataContext = buildMetadataContext({
       microFixes,
       whatDoesntWork,
@@ -84,6 +85,7 @@ serve(async (req) => {
       missingFeatures,
       wardrobeItems,
       bodyNotVisible,
+      extractionData, // PART 5: Pass extraction metadata for constraint validation
     });
 
     const editPrompt = STYLING_PROMPTS.QUICK_STYLE_FIXES(metadataContext, wardrobeItems, bodyNotVisible);

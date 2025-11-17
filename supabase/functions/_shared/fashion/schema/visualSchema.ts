@@ -67,25 +67,38 @@ export const VisualSchema = z.object({
     sleeve_length: field(z.enum(["none", "sleeveless", "capped", "short", "elbow", "3/4th", "full", "unknown"])).optional(),
     neckline: field(z.string()).optional(),
     hemline: field(z.enum(["cropped", "mid-hip", "low-hip", "longline", "unknown"])).optional(),
+    hemline_length: field(z.string()).optional(), // PART 1B: Specific length measurement
     fit_type: field(z.enum(["oversized", "relaxed", "straight", "slim", "skinny", "unknown"])).optional(),
     wash_type: field(z.enum(["light", "mid", "dark", "raw_denim", "unknown"])).optional(),
+    bottom_wash: field(z.enum(["light_blue", "mid_blue", "dark_indigo", "washed_black", "pure_black", "unknown"])).optional(), // PART 1D: Specific wash detection
     fabric_texture: field(z.enum(["smooth", "ribbed", "knit", "denim", "fleece", "unknown"])).optional(),
     color_primary: field(z.string()).optional(),
+    color_primary_hex: field(z.string()).optional(), // PART 1E: Precise color
     color_secondary: field(z.string()).optional(),
     layering: field(z.enum(["yes", "no", "unknown"])).optional(),
     visibility: field(z.enum(["high", "medium", "low", "occluded", "not_visible", "unknown"])).optional(),
+    // PART 1A: Sleeve constraints
+    rollable: field(z.boolean()).optional(),
+    // PART 1B: Hemline constraints  
+    tuckable: field(z.boolean()).optional(),
   })).optional(),
   
   footwear: z.object({
     type: field(z.string()).optional(),
     visibility: field(z.enum(["high", "medium", "low", "occluded", "not_visible", "unknown"])).optional(),
+    // PART 1F: Footwear visibility confidence
+    footwear_visible: field(z.boolean()).optional(),
+    footwear_visibility_confidence: field(z.number().min(0).max(1)).optional(),
   }).optional(),
 
-  // ACCESSORIES DETECTION (PART 1)
+  // ACCESSORIES DETECTION (PART 1C: High-confidence detection)
   accessories_present: z.object({
     neck: field(z.enum(["none", "necklace", "chain", "scarf", "unknown"])).optional(),
     wrist_left: field(z.enum(["none", "watch", "bracelet", "band", "unknown"])).optional(),
     wrist_right: field(z.enum(["none", "watch", "bracelet", "band", "unknown"])).optional(),
+    watch_present_with_confidence: field(z.number().min(0).max(1)).optional(), // PART 1C: Watch detection with confidence
+    bracelet_present: field(z.boolean()).optional(), // PART 1C: Boolean detection
+    necklace_present: field(z.boolean()).optional(), // PART 1C: Boolean detection
     ears: field(z.enum(["none", "earrings", "studs", "unknown"])).optional(),
     sunglasses: field(z.enum(["present", "absent", "unknown"])).optional(),
     belt: field(z.enum(["present", "absent", "unknown"])).optional(),
@@ -146,7 +159,11 @@ export const VisualSchema = z.object({
     top_color: field(z.string()),
     bottom_color: field(z.string()),
     harmony: field(z.enum(["monochrome", "analogous", "complementary", "contrasting", "clashing", "unknown"])),
-    color_confidence: z.number()
+    color_confidence: z.number(),
+    // PART 1E: Precise color harmony
+    top_primary_color_hex: field(z.string()).optional(),
+    bottom_primary_color_hex: field(z.string()).optional(),
+    contrast_level: field(z.enum(["low", "medium", "high", "unknown"])).optional(),
   }),
   /**
    * STYLING: Overall styling choices

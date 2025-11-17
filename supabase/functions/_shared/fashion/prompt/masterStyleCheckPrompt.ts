@@ -77,11 +77,34 @@ Assess visibility for:
 
 ---
 
-# SCORING (Phase 2 - Grounded & Evidence-Based)
+# SCORING (Phase 2 - Grounded & Evidence-Based + PART 2 CONSTRAINT-AWARE)
 
 ${occasion ? `OCCASION: ${occasion}` : ''}
 ${style ? `STYLE: ${style}` : ''}
 ${vibe ? `VIBE: ${vibe}` : ''}
+
+**CRITICAL SCORING RULES (PART 2 - Use Extraction Metadata ONLY):**
+
+YOU MUST use only the extraction metadata. Do not guess or imagine garments or accessories that extraction does not confirm.
+
+**Garment Constraint Rules:**
+- If sleeves are short or capped (rollable = false), you MUST NOT suggest rolling sleeves
+- If watch_present_with_confidence > 0.6, you MUST NOT suggest adding a watch
+- If hemline is not tuckable (tuckable = false), DO NOT suggest tucking
+- If jeans wash is detected (bottom_wash), color suggestions MUST reference exact wash names (e.g., "light-blue denim" not "lighter jeans")
+- If footwear_visible = false or footwear_visibility_confidence < 0.5, DO NOT critique or suggest footwear
+
+**Accessory Hallucination Prevention:**
+- Never suggest an item not in the provided wardrobe categories: ${wardrobeCategories.length > 0 ? wardrobeCategories.join(', ') : 'No wardrobe data provided'}
+- Never suggest adding accessories already present (check accessories_present section)
+- Never suggest impossible actions for the garment's constraints
+
+**Color Specificity:**
+- Never give vague color suggestions; always specify exact colors
+- Use top_primary_color_hex and bottom_primary_color_hex when available
+- Reference contrast_level when discussing color harmony
+- If bottom_wash is known, ALWAYS specify exact wash type (e.g., "switch from dark_indigo to light_blue denim")
+${wardrobeColors.length > 0 ? `- Wardrobe colors available: ${wardrobeColors.join(', ')}` : ''}
 
 ## Score Components (0-5, exactly 1 decimal place)
 Provide scores for:
@@ -116,31 +139,74 @@ List specific issues:
 - Only mention issues you can SEE in metadata
 
 ## micro_fixes (5-8 ultra-specific, 1-minute actionable fixes)
-CRITICAL RULES FOR MICRO FIXES:
-1. **Mechanical Possibility**:
-   - NEVER suggest "roll sleeves" if sleeve_length = short, capped, sleeveless, or mid-bicep
-   - NEVER suggest "cuff jeans" if pant_hem_style = single_cuff, double_cuff, cropped, or pant_stacking = none
-   - NEVER suggest "tuck shirt" if hemline = cropped or waist_visibility = tucked/partial_tuck
-   - NEVER suggest "add watch/bracelet" if wrist_left or wrist_right already has accessory
-   - NEVER suggest "add necklace" if neck already has accessory
-   - NEVER suggest "add belt" if belt = present
+**CRITICAL RULES FOR MICRO FIXES (PART 3 - Enhanced):**
 
-2. **Color Specificity**:
-   - ALWAYS specify exact colors: "Try light-blue denim" NOT "try lighter jeans"
+1. **Mechanical Possibility** (PART 3 - Constraint-Aware):
+   - NEVER suggest "roll sleeves" if:
+     * rollable = false (from extraction)
+     * sleeve_length = short, capped, sleeveless, none
+     * Fabric is tight knit, stretch, or athletic
+   - NEVER suggest "cuff jeans" if:
+     * pant_hem_style = single_cuff, double_cuff, cropped
+     * pant_stacking = none
+   - NEVER suggest "tuck shirt" if:
+     * tuckable = false (from extraction)
+     * hemline = cropped
+     * waist_visibility = tucked/partial_tuck
+     * Garment is structured jacket, thick hoodie, or sweatshirt
+   - NEVER suggest "add watch" if:
+     * watch_present_with_confidence > 0.6 (watch already detected)
+   - NEVER suggest "add bracelet" if:
+     * bracelet_present = true OR wrist has accessory already
+   - NEVER suggest "add necklace" if:
+     * necklace_present = true OR neck has accessory already
+   - NEVER suggest "add belt" if:
+     * belt = present
+
+2. **Color Specificity** (PART 3 - Exact Shades):
+   - ALWAYS specify exact colors using detection data
+   - If bottom_wash is detected, reference it:
+     * "Switch from dark_indigo to light_blue denim for contrast"
+     * "Your jeans are mid_blue; try pure_black denim for sharper look"
+   - Use top_primary_color_hex and bottom_primary_color_hex when available
+   - Never say "lighter jeans" - say exact wash/shade
    - Reference wardrobe items if available: "Switch to your navy chinos"
    - Name specific shades: "charcoal grey", "olive green", "burgundy"
 
-3. **Wardrobe Grounding**:
+3. **Wardrobe Grounding** (PART 3 - No Hallucination):
    ${wardrobeCategories.length > 0 
      ? `Available categories: ${wardrobeCategories.join(', ')}
 Available colors: ${wardrobeColors.join(', ')}
-ONLY suggest items from these wardrobe categories and colors.`
+**ONLY suggest items from these wardrobe categories and colors.**
+NEVER suggest items not in the user's wardrobe.`
      : 'No wardrobe provided - suggest universal styling tweaks only (tucks, rolls IF mechanically possible, layering with visible garments).'}
 
-4. **Evidence-Based**:
+4. **Evidence-Based** (PART 3 - No Generic Fixes):
    - Every fix must reference a visible element (sleeve/hem/neckline/footwear/etc.)
    - No vague fixes like "add interest", "more intentional"
    - Fixes must vary per outfit - no generic templates
+   - Each fix must be 12-15 words max and include WHY it works
+
+**Examples to learn from (PART 3):**
+❌ BAD: "Roll sleeves for sharper detail."
+✅ GOOD: "Sleeves are capped (not rollable); instead, add a bracelet for wrist detail."
+
+❌ BAD: "Add a watch."
+✅ GOOD: "Watch detected on left wrist; add a thin bracelet on right for balance."
+
+❌ BAD: "Try lighter jeans."
+✅ GOOD: "Switch from dark_indigo to light_blue denim for stronger contrast with navy top."
+
+❌ BAD: "Tuck in your shirt."
+✅ GOOD: "This sweatshirt isn't tuckable (too bulky); keep untucked and adjust hem to mid-hip."
+
+❌ BAD: "Switch to white sneakers."
+✅ GOOD: "Footwear not visible; if wearing dark shoes, white sneakers would lift the palette."
+
+5. **Footwear Handling** (PART 3):
+   - If footwear_visible = false or footwear_visibility_confidence < 0.5:
+     * Use conditional language: "If wearing [X], try [Y] instead"
+     * Never make definitive statements about footwear you can't see
 
 ## proportion_balance
 Describe the visual weight distribution:
