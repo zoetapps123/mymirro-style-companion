@@ -370,6 +370,22 @@ Return valid JSON matching this structure (all fields optional except those mark
 \`\`\`
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: JSON RESPONSE REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Token Limit**: Keep total response under 4000 tokens
+**Priority Order**:
+  1. MUST INCLUDE: overall_score, components, confidence, outfit_name
+  2. MUST INCLUDE: what_works, what_doesnt_work, quick_fixes, editorial
+  3. LOWER PRIORITY: Detailed extraction fields (use "N/A" if running low on space)
+
+**JSON Integrity**:
+  - Complete all critical fields listed above
+  - Ensure proper JSON closure (all brackets/braces closed)
+  - If approaching token limit, abbreviate extraction details but keep feedback complete
+  - Use concise language without sacrificing specificity
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ FINAL CHECKLIST (Before returning JSON)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -383,6 +399,7 @@ Return valid JSON matching this structure (all fields optional except those mark
 8. ✓ Are all quick_fixes 12-15 words with action verb + WHY?
 9. ✓ Is editorial 25-45 words?
 10. ✓ Is tone supportive, not anxiety-inducing?
+11. ✓ Is my JSON complete and properly closed (under 4000 tokens)?
 
 Now analyze the image and return the complete JSON response.
 `;
