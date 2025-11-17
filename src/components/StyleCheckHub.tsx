@@ -42,33 +42,78 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const [elevatedImage, setElevatedImage] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
 
-  // Restore Style Check state for this session
+  // Restore Style Check state from localStorage or database
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('style_check_state');
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (typeof s.selectedOccasion === 'string') setSelectedOccasion(s.selectedOccasion);
-        if (typeof s.selectedStyle === 'string') setSelectedStyle(s.selectedStyle);
-        if (typeof s.selectedVibe === 'string') setSelectedVibe(s.selectedVibe);
-        if (typeof s.uploadedImage === 'string' || s.uploadedImage === null) setUploadedImage(s.uploadedImage);
-        if (s.result) setResult(s.result);
-        if (Array.isArray(s.extractedItems)) setExtractedItems(s.extractedItems);
-        if (typeof s.extracted === 'boolean') setExtracted(s.extracted);
-        if (typeof s.elevatedImage === 'string' || s.elevatedImage === null) setElevatedImage(s.elevatedImage);
-      }
-    } catch (e) {
-      console.warn('Failed to restore style check state', e);
-    }
-  }, []);
+    const restoreState = async () => {
+      if (restored) return;
+      
+      try {
+        // First try localStorage
+        const saved = localStorage.getItem('style_check_state');
+        if (saved) {
+          const s = JSON.parse(saved);
+          if (typeof s.selectedOccasion === 'string') setSelectedOccasion(s.selectedOccasion);
+          if (typeof s.selectedStyle === 'string') setSelectedStyle(s.selectedStyle);
+          if (typeof s.selectedVibe === 'string') setSelectedVibe(s.selectedVibe);
+          if (typeof s.uploadedImage === 'string' || s.uploadedImage === null) setUploadedImage(s.uploadedImage);
+          if (s.result) setResult(s.result);
+          if (Array.isArray(s.extractedItems)) setExtractedItems(s.extractedItems);
+          if (typeof s.extracted === 'boolean') setExtracted(s.extracted);
+          if (typeof s.elevatedImage === 'string' || s.elevatedImage === null) setElevatedImage(s.elevatedImage);
+          setRestored(true);
+          return;
+        }
 
-  // Persist while tab is open (clears on session close)
+        // Fallback to database - fetch latest style check
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setRestored(true);
+          return;
+        }
+
+        const { data: latestCheck, error } = await supabase
+          .from('style_checks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!error && latestCheck) {
+          setUploadedImage(latestCheck.image_url);
+          setSelectedOccasion(latestCheck.occasion || '');
+          setResult({
+            overall_score: latestCheck.overall_score,
+            color_score: latestCheck.color_score,
+            fit_score: latestCheck.fit_score,
+            texture_score: latestCheck.texture_score,
+            occasion_score: latestCheck.occasion_score,
+            verdict_positive: latestCheck.verdict_positive,
+            verdict_improvements: latestCheck.verdict_improvements,
+            quick_fix: latestCheck.quick_fix,
+            outfit_name: latestCheck.outfit_name
+          });
+          setExtracted(true);
+        }
+      } catch (e) {
+        console.warn('Failed to restore style check state', e);
+      } finally {
+        setRestored(true);
+      }
+    };
+
+    restoreState();
+  }, [restored]);
+
+  // Persist to localStorage (survives page refresh and navigation)
   useEffect(() => {
+    if (!restored) return; // Don't persist until we've restored once
+    
     const state = { selectedOccasion, selectedStyle, selectedVibe, uploadedImage, result, extractedItems, extracted, elevatedImage };
     try {
-      sessionStorage.setItem('style_check_state', JSON.stringify(state));
+      localStorage.setItem('style_check_state', JSON.stringify(state));
     } catch {}
-  }, [selectedOccasion, selectedStyle, selectedVibe, uploadedImage, result, extractedItems, extracted, elevatedImage]);
+  }, [selectedOccasion, selectedStyle, selectedVibe, uploadedImage, result, extractedItems, extracted, elevatedImage, restored]);
 
   useEffect(() => {
     loadWardrobeItems();
