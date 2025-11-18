@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { LoadingTile } from "@/components/ui/loading-tile";
-import { isLikelyDuplicateWardrobeItem } from "@/lib/wardrobeDeduplication";
 
 interface OnboardingPhotosProps {
   onComplete: () => void;
@@ -228,6 +227,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
           if (processData?.items && processData.items.length > 0) {
             // Items come with generated images from Gemini
+            const { isLikelyDuplicateWardrobeItem } = await import("@/lib/wardrobeDeduplication");
             
             for (const item of processData.items) {
               // Check for duplicates using centralized logic

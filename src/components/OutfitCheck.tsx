@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { isLikelyDuplicateWardrobeItem } from "@/lib/wardrobeDeduplication";
 
 interface OutfitCheckProps {
   onBack: () => void;
@@ -122,6 +121,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
         let addedCount = 0;
         let skippedCount = 0;
         const addedItemsPreview: any[] = [];
+        const { isLikelyDuplicateWardrobeItem } = await import('@/lib/wardrobeDeduplication');
 
         for (const item of itemsDetected) {
           // Check for duplicates using centralized logic
