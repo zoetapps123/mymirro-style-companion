@@ -375,18 +375,36 @@ Return valid JSON matching this structure (all fields optional except those mark
 
 **Token Limit**: Keep total response under 4000 tokens
 
-**REQUIRED FIELDS (Cannot be omitted)**:
-  1. overall_score, components (fit, color, styling, material), confidence, outfit_name
-  2. what_works, what_doesnt_work, quick_fixes, editorial
-  3. fit object (top_sleeve_length, bottom_length, top_fit, bottom_fit, etc.)
-  4. fabric object (tshirt_material, tshirt_weight, tshirt_texture, denim_type)
-  5. color object (top_color, bottom_color, harmony, color_confidence)
-  6. styling object (footwear_type, accessory_presence, layering_present, polish_level)
+🚨 **ABSOLUTE REQUIREMENTS** (Cannot be omitted or null):
+  1. **overall_score**: number (0-5) - REQUIRED
+  2. **components**: object with fit, color, styling, material scores - REQUIRED
+  3. **confidence**: number (0-1) - REQUIRED
+  4. **outfit_name**: string - REQUIRED
+  5. **what_works**: array of strings (min 2 items) - REQUIRED
+  6. **what_doesnt_work**: array of strings (min 1 item) - REQUIRED (note the underscore!)
+  7. **quick_fixes**: array of strings (min 1 item) - REQUIRED
+  8. **editorial**: string (25-45 words) - REQUIRED
+  9. **fit**: object with top_sleeve_length, bottom_length, top_fit, bottom_fit, silhouette - REQUIRED
+  10. **fabric**: object with tshirt_material, tshirt_weight, tshirt_texture, denim_type - REQUIRED
+  11. **color**: object with top_color, bottom_color, harmony, color_confidence (number) - REQUIRED
+  12. **styling**: object with footwear_type, accessory_presence, layering_present, polish_level - REQUIRED
+  13. **body_visibility**: object with arms_visible, wrists_visible, legs_visible as STRINGS - REQUIRED
 
-**CRITICAL TYPE REQUIREMENTS**:
-  - body_visibility fields (arms_visible, wrists_visible, legs_visible) MUST be strings: "high", "medium", "low", or "not_visible" (NOT booleans!)
-  - All enum fields use "unknown" (NOT "N/A") when uncertain
-  - All {value, confidence, reason?} fields must have this exact structure
+**CRITICAL TYPE SPECIFICATIONS**:
+  - body_visibility.arms_visible, wrists_visible, legs_visible: MUST be STRINGS ("high" | "medium" | "low" | "not_visible"), NOT booleans
+  - All enum fields: Use "unknown" when uncertain, NEVER use "N/A" or null
+  - All {value, confidence, reason?} fields: MUST have this exact object structure
+  - color.color_confidence: MUST be a number (0-1), not missing
+  - quick_fixes: MUST be an array of strings, NEVER a single string
+  - what_doesnt_work: MUST use underscore (not what_didnt_work)
+
+If ANY field is uncertain:
+  - Enums → "unknown"
+  - Numbers → Use best estimate (cannot be null)
+  - Strings → "unknown" or "not_visible"
+  - Objects → Include with all fields set to "unknown" values
+
+**NEVER omit entire required objects.** Include them even if all values are "unknown".
 
 **JSON Integrity**:
   - Complete ALL required objects listed above (even with "unknown" values if needed)
