@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import WardrobeMyItems from "./WardrobeMyItems";
 import WardrobeOutfitSuggestion from "./WardrobeOutfitSuggestion";
 import WardrobeLookbook from "./WardrobeLookbook";
@@ -8,8 +8,16 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 type WardrobeView = 'items' | 'suggestion' | 'calendar' | 'lookbook';
 
 const Wardrobe = () => {
-  useAnalytics(); // Auto-tracks all interactions
+  const { trackCustom } = useAnalytics();
   const [currentView, setCurrentView] = useState<WardrobeView>('items');
+
+  // Track virtual page views for wardrobe sub-views
+  useEffect(() => {
+    trackCustom('page_view', {
+      virtual_path: `/app/wardrobe/${currentView}`,
+      wardrobe_view: currentView,
+    });
+  }, [currentView, trackCustom]);
 
   const renderView = () => {
     switch (currentView) {

@@ -4,6 +4,7 @@ import { Heart, ArrowLeft, Loader2, X, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generateOutfitComposite, dataUrlToBlob } from '@/lib/outfitImageGenerator';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface WardrobeItem {
   id: string;
@@ -36,6 +37,7 @@ interface OutfitDetailViewProps {
 
 export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewProps) => {
   const { toast } = useToast();
+  const { trackCustom } = useAnalytics();
   const [selectedItems, setSelectedItems] = useState<WardrobeItem[]>(outfit.items || []);
   const [recommendedItems, setRecommendedItems] = useState<WardrobeItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -259,6 +261,14 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
           console.error('Update error:', updateError);
           throw updateError;
         }
+
+        // Track outfit saved to lookbook
+        trackCustom('outfit_saved_to_lookbook', {
+          outfit_id: outfit.id,
+          outfit_name: outfit.name,
+          occasion: outfit.occasion,
+          item_count: selectedItems.length,
+        });
 
         toast({
           title: "Saved!",

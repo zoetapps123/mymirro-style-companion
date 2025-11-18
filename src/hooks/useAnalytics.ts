@@ -65,17 +65,23 @@ export const useAnalytics = () => {
     }
   }, [location.pathname]);
 
-  // Track click events
+  // Track click events with semantic IDs
   const trackClick = useCallback((element: string, elementId?: string, additionalData?: Record<string, any>) => {
-    trackEvent({
-      eventType: 'click',
-      eventCategory: 'interaction',
-      eventData: {
-        element,
-        elementId,
-        ...additionalData,
-      },
-    });
+    // Only track clicks with semantic IDs or important elements
+    const semanticId = additionalData?.['data-analytics-id'];
+    const importantElements = ['button', 'a', 'input', 'select'];
+    
+    if (semanticId || importantElements.includes(element.toLowerCase())) {
+      trackEvent({
+        eventType: 'click',
+        eventCategory: 'interaction',
+        eventData: {
+          element: semanticId || element,
+          elementId,
+          ...additionalData,
+        },
+      });
+    }
   }, [trackEvent]);
 
   // Track page view duration
@@ -91,17 +97,26 @@ export const useAnalytics = () => {
     });
   }, [trackEvent]);
 
-  // Track scroll events
+  // Track scroll milestones
+  const scrollMilestonesReached = useRef<Set<number>>(new Set());
   const trackScroll = useCallback((scrollPosition: number, scrollPercentage: number) => {
-    trackEvent({
-      eventType: 'scroll',
-      eventCategory: 'interaction',
-      eventData: {
-        scroll_position: scrollPosition,
-        scroll_percentage: Math.round(scrollPercentage),
-        scroll_direction: scrollPosition > lastScrollPosition.current ? 'down' : 'up',
-      },
-    });
+    // Only track milestone percentages: 25%, 50%, 75%, 100%
+    const milestones = [25, 50, 75, 100];
+    const currentMilestone = milestones.find(m => 
+      scrollPercentage >= m && !scrollMilestonesReached.current.has(m)
+    );
+    
+    if (currentMilestone) {
+      scrollMilestonesReached.current.add(currentMilestone);
+      trackEvent({
+        eventType: 'scroll_milestone',
+        eventCategory: 'engagement',
+        eventData: {
+          milestone: currentMilestone,
+          scroll_position: scrollPosition,
+        },
+      });
+    }
     lastScrollPosition.current = scrollPosition;
   }, [trackEvent]);
 
@@ -114,9 +129,10 @@ export const useAnalytics = () => {
     });
   }, [trackEvent]);
 
-  // Auto-track page views
+  // Auto-track page views and reset scroll milestones
   useEffect(() => {
     pageStartTime.current = Date.now();
+    scrollMilestonesReached.current.clear(); // Reset milestones on page change
     
     trackEvent({
       eventType: 'page_view',
@@ -132,20 +148,18 @@ export const useAnalytics = () => {
     };
   }, [location.pathname, trackEvent, trackPageDuration]);
 
-  // Auto-track clicks on the entire document
+  // Auto-track clicks with semantic IDs
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const elementType = target.tagName.toLowerCase();
       const elementId = target.id;
-      const elementClass = target.className;
+      const analyticsId = target.getAttribute('data-analytics-id');
       const elementText = target.textContent?.substring(0, 50) || '';
 
       trackClick(elementType, elementId, {
-        class: elementClass,
+        'data-analytics-id': analyticsId,
         text: elementText,
-        x: e.clientX,
-        y: e.clientY,
       });
     };
 
@@ -178,20 +192,41 @@ export const useAnalytics = () => {
     };
   }, [trackScroll]);
 
-  // Track visibility changes (tab switching)
+  // Track session timeout (5+ minutes inactive)
+  const lastActivityTime = useRef<number>(Date.now());
+  const sessionTimeoutTracked = useRef<boolean>(false);
+
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      trackEvent({
-        eventType: document.hidden ? 'tab_hidden' : 'tab_visible',
-        eventCategory: 'engagement',
-        eventData: {
-          time_on_page: Date.now() - pageStartTime.current,
-        },
-      });
+    const updateActivity = () => {
+      lastActivityTime.current = Date.now();
+      sessionTimeoutTracked.current = false;
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    const checkInactivity = setInterval(() => {
+      const inactiveTime = Date.now() - lastActivityTime.current;
+      const fiveMinutes = 5 * 60 * 1000;
+
+      if (inactiveTime >= fiveMinutes && !sessionTimeoutTracked.current) {
+        sessionTimeoutTracked.current = true;
+        trackEvent({
+          eventType: 'session_timeout',
+          eventCategory: 'engagement',
+          eventData: {
+            inactive_duration_ms: inactiveTime,
+            total_session_time: Date.now() - pageStartTime.current,
+          },
+        });
+      }
+    }, 30000); // Check every 30 seconds
+
+    // Track user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(event => document.addEventListener(event, updateActivity, { passive: true }));
+
+    return () => {
+      clearInterval(checkInactivity);
+      activityEvents.forEach(event => document.removeEventListener(event, updateActivity));
+    };
   }, [trackEvent]);
 
   return {

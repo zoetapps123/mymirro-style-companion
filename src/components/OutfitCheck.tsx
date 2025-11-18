@@ -16,7 +16,6 @@ interface OutfitCheckProps {
 const occasions = ["Casual Day Out", "Office", "Dinner Date", "Party", "Wedding", "Travel", "Interview"];
 
 const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
-  useAnalytics(); // Auto-tracks all interactions
   const { trackCustom } = useAnalytics();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -34,6 +33,13 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
+    
+    // Track style check started
+    trackCustom('style_check_started', {
+      file_type: file.type,
+      file_size: file.size,
+    });
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setUploadedImage(reader.result as string);
@@ -331,6 +337,12 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
         onSelect={async (occasion) => {
           setSelectedOccasion(occasion);
           setShowOccasionModal(false);
+          
+          // Track occasion selection
+          trackCustom('style_check_occasion_selected', {
+            occasion: occasion,
+          });
+
           // Start check immediately after occasion selection
           if (uploadedImage) {
             setLoading(true);
@@ -388,15 +400,24 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
               setScanning(false);
               setResult({ ...data, image_url: uploadedImage });
               setLoading(false);
-              toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
               
+              // Track successful style check
               trackCustom('style_check_completed', {
                 occasion: occasion,
                 overall_score: data.overall_score,
-                outfit_name: data.outfit_name
+                outfit_name: data.outfit_name,
               });
+
+              toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
             } catch (error) {
               console.error('Error:', error);
+              
+              // Track style check error
+              trackCustom('style_check_error', {
+                occasion: occasion,
+                error_message: error instanceof Error ? error.message : 'Unknown error',
+              });
+
               toast({
                 title: "Error",
                 description: "Failed to analyze outfit",

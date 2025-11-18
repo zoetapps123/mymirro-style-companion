@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Save, Camera, Loader2, Shirt, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -41,6 +42,7 @@ const occasions = [
 
 const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfitsProps) => {
   const { toast } = useToast();
+  const { trackCustom } = useAnalytics();
   const [selectedOccasion, setSelectedOccasion] = useState("");
   const [loading, setLoading] = useState(false);
   const [outfits, setOutfits] = useState<any[]>([]);
@@ -87,6 +89,15 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
     }
 
     setLoading(true);
+    
+    // Track outfit generation started
+    trackCustom('outfit_generation_started', {
+      occasion: selectedOccasion,
+      selected_item_id: selectedItem.id,
+      selected_item_category: selectedItem.category,
+      wardrobe_item_count: wardrobeItems.length,
+    });
+
     try {
       console.log('Calling generate-outfit with:', {
         occasion: selectedOccasion,
@@ -128,6 +139,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       setOutfits(prev => [...prev, data]);
       setCurrentOutfitIndex(outfits.length);
       
+      // Track successful generation
+      trackCustom('outfit_generation_completed', {
+        occasion: selectedOccasion,
+        has_ai_suggestions: hasAiSuggestions,
+        outfit_item_count: Object.keys(data.outfit || {}).length,
+      });
+
       toast({
         title: "Outfit generated!",
         description: data.reasoning,
@@ -144,6 +162,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       }
     } catch (error) {
       console.error('Error generating outfit:', error);
+      
+      // Track error
+      trackCustom('outfit_generation_error', {
+        occasion: selectedOccasion,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+
       toast({
         title: "Error",
         description: "Failed to generate outfit. Try again.",

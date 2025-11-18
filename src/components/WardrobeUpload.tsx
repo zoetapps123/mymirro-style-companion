@@ -56,6 +56,13 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
+    
+    // Track upload started
+    trackCustom('wardrobe_upload_started', {
+      file_type: file.type,
+      file_size: file.size,
+    });
+
     setLoading(true);
     setProgress(10);
 
@@ -228,6 +235,13 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       const totalDetected = itemsDetected.length;
       const successfullyAdded = addedCount;
       
+      // Track upload completion
+      trackCustom('wardrobe_upload_completed', {
+        items_detected: totalDetected,
+        items_added: successfullyAdded,
+        items_skipped: skippedCount,
+      });
+
       toast({
         title: successfullyAdded > 0 ? 'Added to your wardrobe!' : 'No new items',
         description: successfullyAdded > 0
@@ -248,6 +262,12 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
     } catch (error) {
       console.error('Error processing image:', error);
+      
+      // Track upload error
+      trackCustom('wardrobe_upload_error', {
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+
       toast({
         title: "Error",
         description: "Failed to process image. Please try again with a clear photo.",
