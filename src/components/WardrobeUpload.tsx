@@ -26,7 +26,9 @@ interface WardrobeUploadProps {
 const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { trackClick, trackCustom } = useAnalytics();
+  const { trackClick, trackCustom, startFlow, trackFlowStep, completeFlow } = useAnalytics();
+  const uploadAttempts = useRef(0);
+  const uploadStartTime = useRef(0);
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -56,11 +58,26 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
+
+    uploadAttempts.current++;
+    uploadStartTime.current = Date.now();
+    
+    startFlow('wardrobe_upload', {
+      files_count: files.length,
+    });
+
+    trackCustom('upload_attempt', {
+      attempt_number: uploadAttempts.current,
+      files_count: files.length,
+      file_type: file.type,
+      file_size_bytes: file.size,
+    });
     
     // Track upload started
     trackCustom('wardrobe_upload_started', {
       file_type: file.type,
       file_size: file.size,
+      attempt_number: uploadAttempts.current,
     });
 
     setLoading(true);
@@ -94,6 +111,10 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
       // Upload the image to storage and call backend with URL (enables caching and smaller payloads)
       setProgress(20);
+      trackFlowStep('wardrobe_upload', 'file_selected', {
+        file_type: file.type,
+        file_size: file.size,
+      });
 
       const uploadPath = `${user.id}/wardrobe_uploads/${Date.now()}_${file.name.replace(/\s+/g, '-')}`;
       const { error: uploadError } = await supabase.storage
@@ -235,12 +256,32 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       const totalDetected = itemsDetected.length;
       const successfullyAdded = addedCount;
       
+      const uploadDuration = Date.now() - uploadStartTime.current;
+      
+      completeFlow('wardrobe_upload', true, {
+        items_detected: totalDetected,
+        items_added: successfullyAdded,
+        items_skipped: skippedCount,
+        duration_ms: uploadDuration,
+        attempt_number: uploadAttempts.current,
+      });
+
+      trackCustom('upload_success', {
+        items_added: successfullyAdded,
+        duration_ms: uploadDuration,
+        attempt_number: uploadAttempts.current,
+      });
+
       // Track upload completion
       trackCustom('wardrobe_upload_completed', {
         items_detected: totalDetected,
         items_added: successfullyAdded,
         items_skipped: skippedCount,
+        duration_ms: uploadDuration,
       });
+      
+      // Reset attempts on success
+      uploadAttempts.current = 0;
 
       toast({
         title: successfullyAdded > 0 ? 'Added to your wardrobe!' : 'No new items',

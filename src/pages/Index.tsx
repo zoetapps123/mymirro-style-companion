@@ -30,21 +30,20 @@ const Index = () => {
   const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   // Initialize analytics tracking
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, trackScreenView } = useAnalytics();
 
   useEffect(() => {
     checkAuthAndFlow();
   }, []);
 
-  // Track virtual page views for tab changes
+  // Track virtual page views and screen changes for tab changes
   useEffect(() => {
-    const virtualPath = `/app/${activeTab}`;
-    trackCustom('page_view', { 
+    trackScreenView(activeTab, { tab: activeTab });
+    trackCustom('page_view', {
+      virtual_path: `/app/${activeTab}`,
       tab: activeTab,
-      virtual_path: virtualPath,
-      referrer: document.referrer,
     });
-  }, [activeTab, trackCustom]);
+  }, [activeTab, trackCustom, trackScreenView]);
   const checkAuthAndFlow = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();

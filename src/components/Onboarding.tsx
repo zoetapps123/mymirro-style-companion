@@ -7,6 +7,7 @@ import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface OnboardingData {
   name: string;
@@ -20,7 +21,8 @@ interface OnboardingProps {
 }
 
 const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, startFlow, trackFlowStep, completeFlow } = useAnalytics();
+  const { toast } = useToast();
   const [data, setData] = useState<OnboardingData>({
     name: "",
     gender: "",
@@ -29,8 +31,9 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
 
   // Track onboarding started
   useEffect(() => {
+    startFlow('onboarding');
     trackCustom('onboarding_started', {});
-  }, [trackCustom]);
+  }, [trackCustom, startFlow]);
 
   const genderOptions = [
     { id: "female", label: "Female" },
@@ -47,37 +50,58 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
   ];
 
   const handleSubmit = async () => {
-    localStorage.setItem("onboard_name", data.name);
-    localStorage.setItem("onboard_gender", data.gender);
-    localStorage.setItem("onboard_age_range", data.ageRange);
-    
-    // Track onboarding completed
-    trackCustom('onboarding_completed', {
-      gender: data.gender,
-      age_range: data.ageRange,
-    });
+    try {
+      trackFlowStep('onboarding', 'submitting_data');
+      
+      localStorage.setItem("onboard_name", data.name);
+      localStorage.setItem("onboard_gender", data.gender);
+      localStorage.setItem("onboard_age_range", data.ageRange);
 
-    // Also store in Supabase user metadata and profiles table
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.auth.updateUser({
-        data: {
+      // Also store in Supabase user metadata and profiles table
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.auth.updateUser({
+          data: {
+            name: data.name,
+            gender: data.gender,
+            age_range: data.ageRange,
+          }
+        });
+
+        // Update profiles table
+        await supabase.from('user_profiles').upsert({
+          id: user.id,
           name: data.name,
           gender: data.gender,
           age_range: data.ageRange,
-        }
-      });
+        });
+      }
 
-      // Update profiles table
-      await supabase.from('user_profiles').upsert({
-        id: user.id,
-        name: data.name,
+      completeFlow('onboarding', true, {
         gender: data.gender,
         age_range: data.ageRange,
       });
+      
+      // Track onboarding completed
+      trackCustom('onboarding_completed', {
+        gender: data.gender,
+        age_range: data.ageRange,
+      });
+
+      onComplete();
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      
+      completeFlow('onboarding', false, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      
+      toast({
+        title: "Failed to save profile",
+        description: "Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    onComplete();
   };
 
   const canProceed = data.name.trim() && data.gender && data.ageRange;

@@ -42,7 +42,7 @@ const occasions = [
 
 const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfitsProps) => {
   const { toast } = useToast();
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, startFlow, trackFlowStep, completeFlow } = useAnalytics();
   const [selectedOccasion, setSelectedOccasion] = useState("");
   const [loading, setLoading] = useState(false);
   const [outfits, setOutfits] = useState<any[]>([]);
@@ -88,15 +88,24 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       return;
     }
 
-    setLoading(true);
+    const flowId = startFlow('outfit_generation', {
+      occasion: selectedOccasion,
+      selected_item_id: selectedItem.id,
+    });
     
-    // Track outfit generation started
+    trackFlowStep('outfit_generation', 'occasion_selected', { occasion: selectedOccasion });
+    trackFlowStep('outfit_generation', 'generating');
+
     trackCustom('outfit_generation_started', {
       occasion: selectedOccasion,
       selected_item_id: selectedItem.id,
       selected_item_category: selectedItem.category,
       wardrobe_item_count: wardrobeItems.length,
+      flow_id: flowId,
     });
+
+    setLoading(true);
+    const generationStartTime = Date.now();
 
     try {
       console.log('Calling generate-outfit with:', {
@@ -139,11 +148,21 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       setOutfits(prev => [...prev, data]);
       setCurrentOutfitIndex(outfits.length);
       
+      const generationDuration = Date.now() - generationStartTime;
+      
+      completeFlow('outfit_generation', true, {
+        occasion: selectedOccasion,
+        has_ai_suggestions: hasAiSuggestions,
+        outfit_item_count: Object.keys(data.outfit || {}).length,
+        duration_ms: generationDuration,
+      });
+
       // Track successful generation
       trackCustom('outfit_generation_completed', {
         occasion: selectedOccasion,
         has_ai_suggestions: hasAiSuggestions,
         outfit_item_count: Object.keys(data.outfit || {}).length,
+        duration_ms: generationDuration,
       });
 
       toast({
@@ -162,6 +181,12 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       }
     } catch (error) {
       console.error('Error generating outfit:', error);
+      
+      completeFlow('outfit_generation', false, {
+        occasion: selectedOccasion,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration_ms: Date.now() - generationStartTime,
+      });
       
       // Track error
       trackCustom('outfit_generation_error', {

@@ -16,7 +16,9 @@ interface OutfitCheckProps {
 const occasions = ["Casual Day Out", "Office", "Dinner Date", "Party", "Wedding", "Travel", "Interview"];
 
 const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, startFlow, trackFlowStep, completeFlow } = useAnalytics();
+  const uploadAttempts = useRef(0);
+  const uploadStartTime = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -33,6 +35,16 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
+
+    uploadAttempts.current++;
+    uploadStartTime.current = Date.now();
+      
+    trackCustom('upload_attempt', {
+      attempt_number: uploadAttempts.current,
+      file_type: file.type,
+      file_size_bytes: file.size,
+      context: 'style_check',
+    });
     
     // Track style check started
     trackCustom('style_check_started', {
