@@ -320,13 +320,12 @@ serve(async (req) => {
     
     console.log("🎨 Starting unified style check (extraction + scoring in ONE call)...");
     
-    const unifiedPrompt = MASTER_UNIFIED_STYLECHECK_PROMPT({
+    const unifiedPrompt = SIMPLIFIED_STYLECHECK_PROMPT({
       occasion,
       style,
       vibe,
-      wardrobeColors,
-      wardrobeCategories,
-      wardrobeItems: wardrobeFormatted,
+      wardrobe_summary: wardrobeFormatted,
+      season: 'current', // Could be enhanced with actual season detection
     });
 
     let aiResponse;
@@ -341,8 +340,17 @@ serve(async (req) => {
               { type: "image_url", image_url: { url: imageData } },
             ],
           }],
-          max_tokens: 4096,  // Prevent truncation
+          max_tokens: 4096,
           temperature: 0.3,
+          tools: [{
+            type: "function",
+            function: {
+              name: "analyze_outfit",
+              description: "Analyze outfit and return detailed style feedback",
+              parameters: GEMINI_RESPONSE_SCHEMA
+            }
+          }],
+          tool_choice: { type: "function", function: { name: "analyze_outfit" } }
         })
       );
     } catch (error: any) {
@@ -363,96 +371,56 @@ serve(async (req) => {
       throw error;
     }
 
-    // Parse AI response
-    const content = aiResponse.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error("No content in AI response");
+    // Parse AI response from tool call
+    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) {
+      throw new Error("No tool call in AI response");
     }
 
     if (DEBUG_MODE) {
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📦 RAW AI RESPONSE");
+      console.log("📦 RAW AI RESPONSE (Tool Call)");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log(content.substring(0, 500) + "...");
+      console.log(toolCall.function.arguments.substring(0, 500) + "...");
     }
 
     let unifiedResult;
     try {
-      // Strategy 1: Direct parse with markdown cleanup
-      const cleaned = content.trim().replace(/^```json\n?|```$/g, "");
-      unifiedResult = JSON.parse(cleaned);
-      console.log("✅ JSON parse successful (direct)");
+      unifiedResult = JSON.parse(toolCall.function.arguments);
+      console.log("✅ Tool call JSON parse successful");
     } catch (parseError) {
-      console.error("❌ JSON parse failed:", parseError);
-      console.error("Response length:", content.length, "chars");
+      console.error("❌ Tool call parse failed:", parseError);
       
-      // Strategy 2: Regex extraction for robust JSON recovery
-      try {
-        const jsonMatch = content.match(/{[\s\S]*}/);
-        if (jsonMatch) {
-          unifiedResult = JSON.parse(jsonMatch[0]);
-          console.log("✅ JSON recovered via regex extraction");
-        } else {
-          throw new Error("No JSON structure found in response");
-        }
-      } catch (regexError) {
-        console.error("❌ Regex extraction failed:", regexError);
-        
-        // Log diagnostic info
-        console.error("First 1000 chars:", content.substring(0, 1000));
-        console.error("Last 500 chars:", content.substring(Math.max(0, content.length - 500)));
-        
-        // Last resort: Use fallback with low confidence
-        console.warn("⚠️ Using fallback result due to parse failure");
-        const fallback = generateFallbackResult(style);
-        unifiedResult = {
-          ...fallback,
-          overall_score: 3.5,
-          components: {
-            fit: { score: 3.5, confidence: 0.5 },
-            color: { score: 3.5, confidence: 0.5 },
-            styling: { score: 3.5, confidence: 0.5 },
-            material: { score: 3.5, confidence: 0.5 },
-          },
-          confidence: 0.3,  // Low confidence for fallback
-        };
-      }
+      // Fallback
+      console.warn("⚠️ Using fallback result due to parse failure");
+      const fallback = generateFallbackResult(style);
+      unifiedResult = {
+        ...fallback,
+        overall_score: 3.5,
+        components: {
+          fit: { score: 3.5, reason: "Unable to analyze" },
+          color: { score: 3.5, reason: "Unable to analyze" },
+          styling: { score: 3.5, reason: "Unable to analyze" },
+          material: { score: 3.5, reason: "Unable to analyze" },
+        },
+        confidence: 0.3,
+      };
     }
 
-    // Validate with schema
-    if (DEBUG_MODE) console.log("🔍 Validating against VisualSchema...");
-    const validation = VisualSchema.safeParse(unifiedResult);
+    // Validate critical fields exist
+    if (DEBUG_MODE) console.log("🔍 Validating response structure...");
     
-    if (!validation.success) {
-      console.error("❌ Schema validation failed");
-      console.error("Missing/invalid fields:", JSON.stringify(validation.error.flatten().fieldErrors, null, 2));
-      
-      // Log which critical fields are missing
-      const criticalFields = ['fit', 'fabric', 'color', 'styling', 'overall_score', 'what_works', 'what_doesnt_work', 'quick_fixes'];
-      const missingCritical = criticalFields.filter(field => !unifiedResult[field]);
-      if (missingCritical.length > 0) {
-        console.error("🚨 CRITICAL FIELDS MISSING:", missingCritical);
-      }
-      
-      // Log body_visibility type issues
-      if (unifiedResult.body_visibility) {
-        const bv = unifiedResult.body_visibility;
-        if (typeof bv.arms_visible === 'boolean') {
-          console.error("⚠️ arms_visible is boolean, should be string");
-        }
-        if (typeof bv.legs_visible === 'boolean') {
-          console.error("⚠️ legs_visible is boolean, should be string");
-        }
-      }
-      
-      if (DEBUG_MODE) {
-        console.warn("Full validation errors:", validation.error.issues);
-      }
+    const criticalFields = ['overall_score', 'components', 'outfit_name', 'what_works', 'what_doesnt_work', 'quick_fixes', 'editorial'];
+    const missingCritical = criticalFields.filter(field => !unifiedResult[field]);
+    
+    if (missingCritical.length > 0) {
+      console.error("❌ Validation failed - missing critical fields:", missingCritical);
+      console.error("Response keys:", Object.keys(unifiedResult));
     } else {
-      if (DEBUG_MODE) console.log("✅ Schema validation passed");
+      if (DEBUG_MODE) console.log("✅ All critical fields present");
     }
     
-    const validated = validation.success ? validation.data : unifiedResult;
+    const validated = unifiedResult;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // CONSTRAINT FILTERING (Phase 1 Enhancement)
