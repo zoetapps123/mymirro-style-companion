@@ -36,9 +36,14 @@ const Index = () => {
     checkAuthAndFlow();
   }, []);
 
-  // Track tab changes (must be before any early returns to keep hooks order stable)
+  // Track virtual page views for tab changes
   useEffect(() => {
-    trackCustom('tab_change', { tab: activeTab });
+    const virtualPath = `/app/${activeTab}`;
+    trackCustom('page_view', { 
+      tab: activeTab,
+      virtual_path: virtualPath,
+      referrer: document.referrer,
+    });
   }, [activeTab, trackCustom]);
   const checkAuthAndFlow = async () => {
     try {

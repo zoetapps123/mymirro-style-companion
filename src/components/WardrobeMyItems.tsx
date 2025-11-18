@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { LoadingTile } from "@/components/ui/loading-tile";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
 // Image processing imported dynamically when needed
 
@@ -15,6 +16,7 @@ interface WardrobeMyItemsProps {
 
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const { items, isLoading, invalidateItems } = useWardrobeItems();
+  const { trackCustom } = useAnalytics();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [processingItems, setProcessingItems] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +60,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         .eq('id', itemId);
 
       if (error) throw error;
+
+      // Track item deletion
+      trackCustom('wardrobe_item_deleted', {
+        item_id: itemId,
+        item_name: itemName,
+      });
 
       toast({
         title: "Item removed",

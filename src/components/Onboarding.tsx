@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { useEffect } from "react";
 
 interface OnboardingData {
   name: string;
@@ -18,11 +20,17 @@ interface OnboardingProps {
 }
 
 const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
+  const { trackCustom } = useAnalytics();
   const [data, setData] = useState<OnboardingData>({
     name: "",
     gender: "",
     ageRange: "",
   });
+
+  // Track onboarding started
+  useEffect(() => {
+    trackCustom('onboarding_started', {});
+  }, [trackCustom]);
 
   const genderOptions = [
     { id: "female", label: "Female" },
@@ -43,6 +51,12 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
     localStorage.setItem("onboard_gender", data.gender);
     localStorage.setItem("onboard_age_range", data.ageRange);
     
+    // Track onboarding completed
+    trackCustom('onboarding_completed', {
+      gender: data.gender,
+      age_range: data.ageRange,
+    });
+
     // Also store in Supabase user metadata and profiles table
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
