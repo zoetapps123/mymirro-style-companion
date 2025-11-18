@@ -44,9 +44,12 @@ export type Database = {
           event_category: string
           event_data: Json | null
           event_type: string
+          flow_id: string | null
           id: string
           page_route: string
+          screen_name: string | null
           session_id: string
+          session_metadata: Json | null
           user_id: string
           viewport_height: number | null
           viewport_width: number | null
@@ -56,9 +59,12 @@ export type Database = {
           event_category: string
           event_data?: Json | null
           event_type: string
+          flow_id?: string | null
           id?: string
           page_route: string
+          screen_name?: string | null
           session_id: string
+          session_metadata?: Json | null
           user_id: string
           viewport_height?: number | null
           viewport_width?: number | null
@@ -68,9 +74,12 @@ export type Database = {
           event_category?: string
           event_data?: Json | null
           event_type?: string
+          flow_id?: string | null
           id?: string
           page_route?: string
+          screen_name?: string | null
           session_id?: string
+          session_metadata?: Json | null
           user_id?: string
           viewport_height?: number | null
           viewport_width?: number | null
@@ -573,7 +582,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      analytics_flow_funnel: {
+        Row: {
+          abandoned: number | null
+          completed: number | null
+          completion_rate: number | null
+          flow_name: string | null
+          started: number | null
+        }
+        Relationships: []
+      }
+      analytics_rage_taps: {
+        Row: {
+          affected_users: number | null
+          avg_clicks: number | null
+          element: string | null
+          page_route: string | null
+          rage_tap_count: number | null
+        }
+        Relationships: []
+      }
+      analytics_screen_dropoff: {
+        Row: {
+          exit_count: number | null
+          exit_rate: number | null
+          screen_name: string | null
+          total_views: number | null
+          unique_users: number | null
+        }
+        Relationships: []
+      }
+      analytics_upload_success: {
+        Row: {
+          avg_duration_seconds: number | null
+          date: string | null
+          failed_uploads: number | null
+          success_rate: number | null
+          successful_uploads: number | null
+          total_attempts: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cleanup_expired_cache: { Args: never; Returns: undefined }
