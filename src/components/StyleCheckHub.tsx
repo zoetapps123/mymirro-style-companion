@@ -1193,7 +1193,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       <div className="w-full">
                         <p className="font-semibold text-[#E26D6D] mb-2">What Doesn't Work</p>
                         <ul className="space-y-1">
-                          {(Array.isArray(result.what_didnt_work) ? result.what_didnt_work : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements]).map((item: string, idx: number) => (
+                          {(Array.isArray(result.what_doesnt_work) ? result.what_doesnt_work : [result.what_doesnt_work || result.what_could_be_better || result.verdict_improvements]).map((item: string, idx: number) => (
                             <li key={idx} className="text-sm text-muted-foreground flex items-start">
                               <span className="mr-2 text-[#E26D6D]">•</span>
                               <span>{item}</span>
@@ -1205,14 +1205,25 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                   </div>
                 )}
 
-                {result.quick_fix && (
+                {(result.quick_fix || result.quick_fixes) && (
                   <div className="bg-blue-500/10 rounded-xl p-4">
                     <div className="flex items-start gap-2">
                       <Sparkles className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                       <div className="w-full">
                         <p className="font-semibold text-blue-500 mb-2">Quick Fixes (Under 1 Minute)</p>
                         <ul className="space-y-1">
-                          {(Array.isArray(result.quick_fix) ? result.quick_fix : [result.quick_fix]).map((item: string, idx: number) => (
+                          {(() => {
+                            // Priority 1: quick_fixes array (new format from unified prompt)
+                            if (Array.isArray(result.quick_fixes) && result.quick_fixes.length > 0) {
+                              return result.quick_fixes;
+                            }
+                            // Priority 2: quick_fix string split by " | " (legacy format)
+                            if (typeof result.quick_fix === 'string' && result.quick_fix) {
+                              return result.quick_fix.split(' | ').filter(Boolean);
+                            }
+                            // Fallback
+                            return ["Consider minor adjustments"];
+                          })().map((item: string, idx: number) => (
                             <li key={idx} className="text-sm text-muted-foreground flex items-start">
                               <span className="mr-2">•</span>
                               <span>{item}</span>

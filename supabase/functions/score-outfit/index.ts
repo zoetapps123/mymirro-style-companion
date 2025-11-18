@@ -424,8 +424,27 @@ serve(async (req) => {
     const validation = VisualSchema.safeParse(unifiedResult);
     
     if (!validation.success) {
-      console.warn("⚠️ Schema validation issues (continuing with partial data):");
-      console.warn(JSON.stringify(validation.error.issues.slice(0, 5), null, 2));
+      console.error("❌ Schema validation failed");
+      console.error("Missing/invalid fields:", JSON.stringify(validation.error.flatten().fieldErrors, null, 2));
+      
+      // Log which critical fields are missing
+      const criticalFields = ['fit', 'fabric', 'color', 'styling', 'overall_score', 'what_works', 'what_doesnt_work', 'quick_fixes'];
+      const missingCritical = criticalFields.filter(field => !unifiedResult[field]);
+      if (missingCritical.length > 0) {
+        console.error("🚨 CRITICAL FIELDS MISSING:", missingCritical);
+      }
+      
+      // Log body_visibility type issues
+      if (unifiedResult.body_visibility) {
+        const bv = unifiedResult.body_visibility;
+        if (typeof bv.arms_visible === 'boolean') {
+          console.error("⚠️ arms_visible is boolean, should be string");
+        }
+        if (typeof bv.legs_visible === 'boolean') {
+          console.error("⚠️ legs_visible is boolean, should be string");
+        }
+      }
+      
       if (DEBUG_MODE) {
         console.warn("Full validation errors:", validation.error.issues);
       }

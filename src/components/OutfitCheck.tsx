@@ -592,9 +592,9 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                   <h4 className="text-sm sm:text-base font-semibold text-[#E26D6D]">What Doesn't Work</h4>
                 </div>
                 <ul className="space-y-1.5 pl-1">
-                  {(Array.isArray(result.what_didnt_work) 
-                    ? result.what_didnt_work 
-                    : [result.what_didnt_work || result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."]
+                  {(Array.isArray(result.what_doesnt_work) 
+                    ? result.what_doesnt_work 
+                    : [result.what_doesnt_work || result.what_could_be_better || result.verdict_improvements || "A few tweaks could elevate this look further."]
                   ).map((item: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
                       <span className="text-[#E26D6D] mt-0.5">⚠</span>
@@ -612,10 +612,18 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                     <h4 className="text-sm sm:text-base font-semibold text-gradient-accent">Quick Fix</h4>
                   </div>
                   <ul className="space-y-1.5 pl-1">
-                    {(Array.isArray(result.quick_fix) 
-                      ? result.quick_fix 
-                      : [result.quick_fix || result.quick_fixes]
-                    ).map((item: string, idx: number) => (
+                    {(() => {
+                      // Priority 1: quick_fixes array (new format from unified prompt)
+                      if (Array.isArray(result.quick_fixes) && result.quick_fixes.length > 0) {
+                        return result.quick_fixes;
+                      }
+                      // Priority 2: quick_fix string split by " | " (legacy format)
+                      if (typeof result.quick_fix === 'string' && result.quick_fix) {
+                        return result.quick_fix.split(' | ').filter(Boolean);
+                      }
+                      // Fallback
+                      return ["Consider minor adjustments for better cohesion"];
+                    })().map((item: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
                         <span className="text-accent mt-0.5">✨</span>
                         <span className="leading-relaxed font-medium text-foreground">{item}</span>
