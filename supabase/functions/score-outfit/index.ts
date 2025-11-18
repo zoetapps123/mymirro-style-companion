@@ -61,8 +61,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callGeminiAPI } from "../_shared/ai-config.ts";
 import { verifyAuth, unauthorizedResponse } from "../_shared/auth-utils.ts";
 import { generateCacheKey, getCachedResult, setCachedResult } from "../_shared/cache-utils.ts";
-import { MASTER_UNIFIED_STYLECHECK_PROMPT } from "../_shared/fashion/prompt/masterUnifiedStyleCheckPrompt.ts";
-import { VisualSchema } from "../_shared/fashion/schema/visualSchema.ts";
+import { SIMPLIFIED_STYLECHECK_PROMPT } from "../_shared/fashion/prompt/simplifiedStyleCheckPrompt.ts";
+import { GEMINI_RESPONSE_SCHEMA } from "../_shared/fashion/schema/geminiResponseSchema.ts";
 import { retryWithBackoff } from "../_shared/retry-utils.ts";
 
 const corsHeaders = {
