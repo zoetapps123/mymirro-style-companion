@@ -8,6 +8,7 @@ import { LoadingTile } from "@/components/ui/loading-tile";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
+import { isLikelyDuplicateWardrobeItem } from "@/lib/wardrobeDeduplication";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -193,7 +194,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
             // Items now come with generated images from Gemini
             let addedCount = 0;
-            const { isLikelyDuplicateWardrobeItem } = await import('@/lib/wardrobeDeduplication');
             
             const insertPromises = processData.items.map(async (item: any) => {
               // Check for duplicates using centralized logic
