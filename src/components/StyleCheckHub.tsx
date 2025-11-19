@@ -1308,53 +1308,55 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 onNavigate('outfit-battle');
               }}
             >
-              {/* Background diagonal stripes */}
-              <div className="absolute right-0 top-0 bottom-0 w-[40%] overflow-hidden pointer-events-none">
+              {/* Background diagonal stripes - Layer 1 (behind everything) */}
+              <div className="absolute right-0 top-0 bottom-0 w-[45%] overflow-hidden pointer-events-none">
                 <div 
-                  className="absolute bg-primary/5"
+                  className="absolute bg-primary/20"
                   style={{
-                    width: '40px',
-                    height: '200%',
-                    top: '-50%',
-                    right: '80px',
-                    transform: 'rotate(-25deg)',
+                    width: '32px',
+                    height: '200px',
+                    top: '-40px',
+                    right: '58px',
+                    transform: 'rotate(-28deg)',
                   }}
                 />
                 <div 
-                  className="absolute bg-primary/5"
+                  className="absolute bg-primary/20"
                   style={{
-                    width: '40px',
-                    height: '200%',
-                    top: '-50%',
-                    right: '20px',
-                    transform: 'rotate(-25deg)',
+                    width: '32px',
+                    height: '200px',
+                    top: '-40px',
+                    right: '18px',
+                    transform: 'rotate(-28deg)',
                   }}
                 />
               </div>
 
-              {/* VS Text on the right */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <div className="relative flex items-center">
+              {/* VS Text on the right - Layer 2 (on top of stripes) */}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                <div className="relative flex flex-col items-center" style={{ gap: '-4px' }}>
                   <span 
-                    className="font-satoshi text-primary/80"
+                    className="font-satoshi text-primary"
                     style={{
                       fontSize: '64px',
                       fontWeight: 900,
                       fontStyle: 'italic',
-                      lineHeight: '1',
-                      letterSpacing: '-2px',
+                      lineHeight: '0.75',
+                      transform: 'translateY(4px)',
+                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))',
                     }}
                   >
                     V
                   </span>
                   <span 
-                    className="font-satoshi text-primary/80"
+                    className="font-satoshi text-primary"
                     style={{
                       fontSize: '64px',
                       fontWeight: 900,
                       fontStyle: 'italic',
-                      lineHeight: '1',
-                      letterSpacing: '-2px',
+                      lineHeight: '0.75',
+                      transform: 'translateY(-4px)',
+                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))',
                     }}
                   >
                     S
@@ -1362,14 +1364,15 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 </div>
               </div>
 
-              {/* Left side content */}
-              <div className="relative z-10 flex flex-col justify-between h-full">
+              {/* Left side content - Layer 3 */}
+              <div className="relative z-20 flex flex-col justify-between h-full">
                 <div>
                   <h3 
-                    className="font-boston font-bold text-primary mb-1"
+                    className="font-boston font-bold text-primary"
                     style={{
                       fontSize: '20px',
                       lineHeight: '1.2',
+                      marginBottom: '6px',
                     }}
                   >
                     Outfit Battle
@@ -1379,7 +1382,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                     style={{
                       fontSize: '14px',
                       lineHeight: '1.4',
-                      marginBottom: '8px',
                     }}
                   >
                     Upload, compare, and crown the<br />best outfit.
@@ -1394,7 +1396,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                     borderRadius: '4px',
                     fontSize: '12px',
                     padding: '0',
-                    marginTop: '17px',
                   }}
                 >
                   Let's fight!
