@@ -70,6 +70,8 @@ serve(async (req) => {
 
     // --- NEW: Small system prompt only ---
     const systemPrompt = basePrompt;
+    
+    console.log("SYSTEM PROMPT SIZE:", systemPrompt.length);
 
     // --- NEW: Split user context into separate messages ---
     const userContextMessage = {
@@ -271,34 +273,36 @@ After they specify occasion, THEN call this tool immediately.`,
       toolsCount: tools.length
     });
 
-    // SINGLE JSON CALL - Get complete response with pills
-    const initialResponse = await retryWithBackoff(() => callGeminiAPI({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `
-You MUST return a JSON object EXACTLY like this:
+    // JSON enforcement prompt
+    const jsonEnforcePrompt = `
+You MUST respond ONLY in this JSON format:
 
 {
-  "assistant_message": "...",
-  "pills": ["...", "..."],
+  "assistant_message": "<string>",
+  "pills": ["<string>", "<string>", "..."],
   "metadata": {
-    "mode": "stylist | roast | chat | shopping | etc",
-    "intensity": "low | med | high"
+    "mode": "<chat|stylist|shopping|roast>",
+    "intent": "<summary>"
   }
 }
 
 Rules:
-- assistant_message = the full chat message
-- pills = SHORT (1–4 word) suggestions based on YOUR OWN assistant message
-- pills MUST be contextual and reflect the assistant's message
-- NEVER include markdown
-- NEVER wrap JSON in backticks
-- NO streaming inside the JSON
-          `
-        },
+- NO markdown
+- NO natural text outside JSON
+- NO explanations
+- NO backticks
+- The "assistant_message" contains your full natural-language reply to the user
+- "pills" = 3–8 short next-step suggestions based on your message
+- "metadata" describes how you interpreted intent
+- BREAKING THIS FORMAT WILL CRASH THE SYSTEM
+`;
+
+    // PASS 1: Get assistant message only
+    const initialResponse = await retryWithBackoff(() => callGeminiAPI({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: jsonEnforcePrompt },
         userContextMessage,
         wardrobeContextMessage,
         styleCheckContextMessage,
@@ -309,35 +313,41 @@ Rules:
 
     console.log('Chat: JSON response received');
 
-    // Extract and parse JSON
+    // Extract and parse JSON with fault tolerance
     const raw = initialResponse.choices?.[0]?.message?.content?.trim() || '{}';
+    
+    console.log("===== GEMINI RAW FIRST PASS =====");
+    console.log(raw);
+    console.log("===== END RAW OUTPUT =====");
+    
     let parsed;
     try {
       parsed = JSON.parse(raw);
-    } catch (e) {
-      console.error('Chat: JSON parse error, using fallback', e);
+    } catch (err) {
+      console.error("JSON PARSE ERROR:", err);
+      console.error("RAW THAT FAILED:", raw);
       parsed = {
-        assistant_message: "Oops! Something glitched. Let's try that again?",
-        pills: [],
-        metadata: {}
+        assistant_message: "Something slipped my heels 😂 let's try that again.",
+        pills: ["Retry", "Try again", "New chat"],
+        metadata: { mode: "error" }
       };
     }
 
     const assistantText = parsed.assistant_message || "";
-    const pills = parsed.pills || [];
+    const meta = parsed.metadata || {};
 
     console.log('Chat: parsed JSON', {
       messageLength: assistantText.length,
-      pillsCount: pills.length
+      metadata: meta
     });
 
-    // Create typing simulation stream
+    // Create typing simulation stream with two-pass architecture
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        console.log('Chat: starting typing simulation');
+        console.log('Chat: starting PASS 1 - typing simulation');
         
-        // Stream character by character for typing effect
+        // PASS 1: Stream assistant message character by character
         for (const ch of assistantText) {
           controller.enqueue(
             encoder.encode(
@@ -347,22 +357,67 @@ Rules:
           await new Promise(r => setTimeout(r, 12));
         }
 
-        // Send pills after message completes
-        if (pills.length > 0) {
-          console.log('Chat: sending pills', { count: pills.length, pills });
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        console.log('Chat: PASS 1 complete, starting PASS 2 - pill generation');
+
+        // PASS 2: Generate contextual pills based on assistant message
+        try {
+          const pillResponse = await retryWithBackoff(() => callGeminiAPI({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              {
+                role: "system",
+                content: "Generate 3-8 short (1-4 word) contextual pill suggestions based on the assistant's message. Return ONLY a JSON array of strings, nothing else."
+              },
+              {
+                role: "user",
+                content: `Here is the assistant message: "${assistantText}"\n\nGenerate contextual next-step suggestions as a JSON array. Examples: ["Upload outfit", "Try casual", "Show me jeans", "Budget tips"]`
+              }
+            ],
+            temperature: 0.6,
+            max_tokens: 100
+          }));
+
+          const pillRaw = pillResponse.choices?.[0]?.message?.content?.trim() || '[]';
+          console.log("===== GEMINI PILL RESPONSE =====");
+          console.log(pillRaw);
+          console.log("===== END PILL OUTPUT =====");
+
+          let pills = [];
+          try {
+            pills = JSON.parse(pillRaw);
+            if (!Array.isArray(pills)) pills = [];
+          } catch (e) {
+            console.error("Pill parse error:", e);
+            pills = ["Try again", "New topic", "Help me"];
+          }
+
+          if (pills.length > 0) {
+            console.log('Chat: sending PASS 2 pills', { count: pills.length, pills });
+            controller.enqueue(
+              encoder.encode(
+                `event: suggestions\ndata: ${JSON.stringify({
+                  type: "suggestions",
+                  pills: pills
+                })}\n\n`
+              )
+            );
+          }
+        } catch (pillError) {
+          console.error("PASS 2 pill generation error:", pillError);
+          // Graceful degradation: send basic pills
           controller.enqueue(
             encoder.encode(
               `event: suggestions\ndata: ${JSON.stringify({
                 type: "suggestions",
-                pills: pills
+                pills: ["Continue", "New topic", "Help"]
               })}\n\n`
             )
           );
         }
 
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
-        console.log('Chat: stream complete');
+        console.log('Chat: stream complete (PASS 1 + PASS 2)');
       }
     });
 
