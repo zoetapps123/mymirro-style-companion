@@ -529,10 +529,10 @@ const AICompanion = () => {
             try {
               const parsed = JSON.parse(jsonStr);
               
-              // Check for custom suggestion event
-              if (parsed.type === 'suggestions' && parsed.suggestions) {
-                console.log('AICompanion: received suggestions event', { count: parsed.suggestions.length, suggestions: parsed.suggestions });
-                setSuggestions(parsed.suggestions);
+              // Check for pills event
+              if (parsed.type === 'suggestions' && parsed.pills) {
+                console.log('AICompanion: received pills', { count: parsed.pills.length, pills: parsed.pills });
+                setSuggestions(parsed.pills);
                 continue;
               }
               
