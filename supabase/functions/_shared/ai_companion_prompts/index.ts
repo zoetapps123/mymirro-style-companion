@@ -1,6 +1,10 @@
-// AI Companion Prompt Modules
-// These modules are concatenated in order to form the complete system prompt
+// MAIN ASSEMBLER FOR AI COMPANION PROMPTS
+// ----------------------------------------
+// This file collects all 13 modules, validates them, formats them,
+// and outputs a fully structured, consistent, production-quality
+// system prompt for the MyMirro AI Companion.
 
+// ———————————————— IMPORT MODULES ————————————————
 import { PERSONA_PROMPT } from "./01_persona.ts";
 import { MODES_PROMPT } from "./02_modes.ts";
 import { TONE_MIRRORING_PROMPT } from "./03_tone_mirroring.ts";
@@ -15,24 +19,74 @@ import { SHOPPING_ADVISOR_ENGINE_PROMPT } from "./11_shopping_advisor_engine.ts"
 import { SUGGESTION_PILL_ENGINE_PROMPT } from "./12_suggestion_pill_engine.ts";
 import { WARDROBE_ENGINE_PROMPT } from "./13_wardrobe_engine.ts";
 
-/**
- * Concatenates all AI Companion prompt modules in order
- * @returns Complete system prompt for AI Companion
- */
+// ———————————————— MODULE ORDER ————————————————
+const MODULES = [
+  { id: 1, name: "Persona", content: PERSONA_PROMPT },
+  { id: 2, name: "Modes", content: MODES_PROMPT },
+  { id: 3, name: "Tone Mirroring", content: TONE_MIRRORING_PROMPT },
+  { id: 4, name: "Flirt Logic", content: FLIRT_LOGIC_PROMPT },
+  { id: 5, name: "Challenge Logic", content: CHALLENGE_LOGIC_PROMPT },
+  { id: 6, name: "Memory Engine", content: MEMORY_ENGINE_PROMPT },
+  { id: 7, name: "Brand Recommender", content: BRAND_RECOMMENDER_PROMPT },
+  { id: 8, name: "Wardrobe Upload Persuasion", content: WARDROBE_UPLOAD_PERSUASION_PROMPT },
+  { id: 9, name: "Tool Usage Rules", content: TOOL_USAGE_RULES_PROMPT },
+  { id: 10, name: "Outfit Engine", content: OUTFIT_ENGINE_PROMPT },
+  { id: 11, name: "Shopping Advisor Engine", content: SHOPPING_ADVISOR_ENGINE_PROMPT },
+  { id: 12, name: "Suggestion Pill Engine", content: SUGGESTION_PILL_ENGINE_PROMPT },
+  { id: 13, name: "Wardrobe Engine", content: WARDROBE_ENGINE_PROMPT },
+];
+
+// ———————————————— HELPER FUNCTIONS ————————————————
+
+/** Trim & normalize whitespace across modules */
+function normalizeContent(str: string): string {
+  return str
+    .replace(/\r\n/g, "\n") // normalize line endings
+    .replace(/[ \t]+$/gm, "") // remove trailing spaces
+    .trim();
+}
+
+/** Generate a short hash for version tracking */
+function generatePromptHash(fullPrompt: string): string {
+  let hash = 0;
+  for (let i = 0; i < fullPrompt.length; i++) {
+    hash = (hash * 31 + fullPrompt.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// ———————————————— MAIN ASSEMBLER ————————————————
+
 export function buildAICompanionPrompt(): string {
-  return [
-    PERSONA_PROMPT,
-    MODES_PROMPT,
-    TONE_MIRRORING_PROMPT,
-    FLIRT_LOGIC_PROMPT,
-    CHALLENGE_LOGIC_PROMPT,
-    MEMORY_ENGINE_PROMPT,
-    BRAND_RECOMMENDER_PROMPT,
-    WARDROBE_UPLOAD_PERSUASION_PROMPT,
-    TOOL_USAGE_RULES_PROMPT,
-    OUTFIT_ENGINE_PROMPT,
-    SHOPPING_ADVISOR_ENGINE_PROMPT,
-    SUGGESTION_PILL_ENGINE_PROMPT,
-    WARDROBE_ENGINE_PROMPT,
-  ].join("\n\n");
+  let finalOutput = [];
+  let errors = [];
+
+  for (const module of MODULES) {
+    if (!module.content || typeof module.content !== "string") {
+      errors.push(`❌ Module ${module.id} (${module.name}) missing or invalid`);
+      continue;
+    }
+
+    const normalized = normalizeContent(module.content);
+
+    finalOutput.push(
+      `\n\n<!-- ———————————————————————————— -->\n` +
+        `<!-- MODULE ${module.id}: ${module.name} -->\n` +
+        `<!-- ———————————————————————————— -->\n\n` +
+        normalized,
+    );
+  }
+
+  if (errors.length > 0) {
+    console.warn("AI Companion Prompt Build Warnings:", errors);
+  }
+
+  // Join modules into one complete prompt
+  const fullPrompt = `<AI_COMPANION_PROMPT>\n` + finalOutput.join("\n") + `\n\n</AI_COMPANION_PROMPT>`;
+
+  // Add version hash for debugging
+  const hash = generatePromptHash(fullPrompt);
+  const header = `<!-- MyMirro AI Companion Prompt | Version Hash: ${hash} -->\n`;
+
+  return header + fullPrompt;
 }
