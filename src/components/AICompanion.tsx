@@ -542,7 +542,36 @@ const AICompanion = () => {
               const toolCallsDelta = delta?.tool_calls;
               const toolCallsMessage = messageObj?.tool_calls;
 
-              if (content) assistantMessage += content;
+              if (content) {
+                assistantMessage += content;
+                
+                // Real-time typing effect
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMsgIndex = newMessages.findIndex(m => m.id === assistantMsgId);
+
+                  if (lastMsgIndex === -1) {
+                    // create new assistant message
+                    newMessages.push({
+                      id: assistantMsgId,
+                      role: "assistant",
+                      content: assistantMessage,
+                      toolCalls: collectedToolCalls,
+                      images: [],
+                      timestamp: new Date()
+                    });
+                  } else {
+                    // update existing assistant message
+                    newMessages[lastMsgIndex] = {
+                      ...newMessages[lastMsgIndex],
+                      content: assistantMessage,
+                      toolCalls: collectedToolCalls
+                    };
+                  }
+
+                  return newMessages;
+                });
+              }
 
               const toProcess = toolCallsDelta || toolCallsMessage;
               if (toProcess && Array.isArray(toProcess)) {
@@ -640,12 +669,33 @@ const AICompanion = () => {
 
                 if (content) {
                   assistantMessage += content;
+                  
+                  // Real-time typing effect
                   setMessages(prev => {
-                    const updated = prev.map(m =>
-                      m.id === assistantMsgId ? { ...m, content: assistantMessage, toolCalls: collectedToolCalls } : m
-                    );
-                    persistMessages(updated);
-                    return updated;
+                    const newMessages = [...prev];
+                    const lastMsgIndex = newMessages.findIndex(m => m.id === assistantMsgId);
+
+                    if (lastMsgIndex === -1) {
+                      // create new assistant message
+                      newMessages.push({
+                        id: assistantMsgId,
+                        role: "assistant",
+                        content: assistantMessage,
+                        toolCalls: collectedToolCalls,
+                        images: [],
+                        timestamp: new Date()
+                      });
+                    } else {
+                      // update existing assistant message
+                      newMessages[lastMsgIndex] = {
+                        ...newMessages[lastMsgIndex],
+                        content: assistantMessage,
+                        toolCalls: collectedToolCalls
+                      };
+                    }
+
+                    persistMessages(newMessages);
+                    return newMessages;
                   });
                 }
 
@@ -710,7 +760,35 @@ const AICompanion = () => {
             try {
               const parsed = JSON.parse(jsonStr);
               const content = parsed.choices?.[0]?.delta?.content;
-              if (content) assistantMessage += content;
+              if (content) {
+                assistantMessage += content;
+                
+                // Real-time typing effect
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMsgIndex = newMessages.findIndex(m => m.id === assistantMsgId);
+
+                  if (lastMsgIndex === -1) {
+                    // create new assistant message
+                    newMessages.push({
+                      id: assistantMsgId,
+                      role: "assistant",
+                      content: assistantMessage,
+                      toolCalls: [],
+                      images: [],
+                      timestamp: new Date()
+                    });
+                  } else {
+                    // update existing assistant message
+                    newMessages[lastMsgIndex] = {
+                      ...newMessages[lastMsgIndex],
+                      content: assistantMessage
+                    };
+                  }
+
+                  return newMessages;
+                });
+              }
             } catch {}
           }
         } catch (e) {
