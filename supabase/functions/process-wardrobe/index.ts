@@ -205,24 +205,25 @@ serve(async (req) => {
 
     const uniqueDetectedItems = dedupeResult.uniqueItems;
 
-    // Step 2: Generate individual product images for each item using Gemini (sequential with backoff)
-    console.log("Step 2: Generating product images with Gemini sequentially...");
+    // ========== PHASE 1.5: Generate Product Images ==========
+    console.log("Phase 1.5: Generating product images for all unique items...");
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const itemsWithImages: Array<DetectedItem & { imageUrl: string }> = [];
+    const itemsWithProcessedImages: Array<DetectedItem & { processedImageUrl: string }> = [];
 
     // Helper sleep
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
     for (let i = 0; i < uniqueDetectedItems.length; i++) {
       const item = uniqueDetectedItems[i];
-      console.log(`Starting generation for item ${i + 1}/${uniqueDetectedItems.length}: ${item.name}`);
+      console.log(`Generating image ${i + 1}/${uniqueDetectedItems.length}: ${item.name}`);
 
       let attempts = 0;
       const maxAttempts = 3; // 1 try + 2 retries
 
       while (attempts < maxAttempts) {
         try {
+          // Generate product image
           const imageData = await generateProductImage(item);
 
           // Upload to Storage
@@ -241,47 +242,8 @@ serve(async (req) => {
             data: { publicUrl },
           } = supabase.storage.from("outfits").getPublicUrl(fileName);
 
-          console.log(`Generated image for ${item.name}`);
-
-          // PHASE 2: Enrich with detailed metadata from ORIGINAL image
-          console.log(`Starting Phase 2 enrichment for: ${item.name}`);
-          let enrichedItem = { ...item };
-          
-          try {
-            const { data: enrichmentData, error: enrichmentError } = await supabase.functions.invoke(
-              'enrich-wardrobe-item',
-              {
-                body: {
-                  originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
-                  category: item.category,
-                  coreMetadata: {
-                    name: item.name,
-                    primary_color: item.primary_color,
-                    primary_color_name: item.primary_color_name,
-                    color_family: item.color_family,
-                    fabric_primary: item.fabric_primary,
-                    pattern_type: item.pattern_type,
-                    style_aesthetic: item.style_aesthetic,
-                    formality_level: item.formality_level,
-                    suitable_occasions: item.suitable_occasions
-                  }
-                }
-              }
-            );
-
-            if (enrichmentError) {
-              console.error('Enrichment error (non-fatal):', enrichmentError);
-              // Continue with core metadata only
-            } else if (enrichmentData?.detailedMetadata) {
-              console.log(`Phase 2 SUCCESS: Merged ${Object.keys(enrichmentData.detailedMetadata).length} detailed fields`);
-              enrichedItem = { ...item, ...enrichmentData.detailedMetadata };
-            }
-          } catch (enrichErr) {
-            console.error('Enrichment exception (non-fatal):', enrichErr);
-            // Continue with core metadata only
-          }
-
-          itemsWithImages.push({ ...enrichedItem, imageUrl: publicUrl });
+          console.log(`✅ Image generated for ${item.name}`);
+          itemsWithProcessedImages.push({ ...item, processedImageUrl: publicUrl });
           break; // success
         } catch (err) {
           const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
@@ -300,16 +262,77 @@ serve(async (req) => {
         }
       }
 
-      // small pacing delay between items to reduce burstiness
-      await sleep(500);
+      // Small pacing delay between items to reduce rate limiting
+      if (i < uniqueDetectedItems.length - 1) {
+        await sleep(2000);
+      }
     }
 
-    if (itemsWithImages.length === 0) {
+    if (itemsWithProcessedImages.length === 0) {
       return new Response(JSON.stringify({ error: "Failed to generate images for detected items", items: [] }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log(`✅ Phase 1 complete: ${itemsWithProcessedImages.length} items with images`);
+
+    // ========== PHASE 2: Enrich Metadata Only ==========
+    console.log("Phase 2: Enriching metadata for all items...");
+
+    const itemsWithImages: Array<DetectedItem & { imageUrl: string }> = [];
+
+    for (let i = 0; i < itemsWithProcessedImages.length; i++) {
+      const item = itemsWithProcessedImages[i];
+      console.log(`Enriching item ${i + 1}/${itemsWithProcessedImages.length}: ${item.name}`);
+
+      let enrichedItem = { ...item };
+
+      try {
+        const { data: enrichmentData, error: enrichmentError } = await supabase.functions.invoke(
+          'enrich-wardrobe-item',
+          {
+            body: {
+              originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
+              category: item.category,
+              coreMetadata: {
+                name: item.name,
+                primary_color: item.primary_color,
+                primary_color_name: item.primary_color_name,
+                color_family: item.color_family,
+                fabric_primary: item.fabric_primary,
+                pattern_type: item.pattern_type,
+                style_aesthetic: item.style_aesthetic,
+                formality_level: item.formality_level,
+                suitable_occasions: item.suitable_occasions
+              }
+            }
+          }
+        );
+
+        if (enrichmentError) {
+          console.error(`Enrichment error for ${item.name} (non-fatal):`, enrichmentError);
+        } else if (enrichmentData?.detailedMetadata) {
+          console.log(`✅ Enriched ${item.name}: merged ${Object.keys(enrichmentData.detailedMetadata).length} fields`);
+          enrichedItem = { ...item, ...enrichmentData.detailedMetadata };
+        }
+      } catch (enrichErr) {
+        console.error(`Enrichment exception for ${item.name} (non-fatal):`, enrichErr);
+      }
+
+      // Use the processed image URL from Phase 1 for final storage
+      itemsWithImages.push({
+        ...enrichedItem,
+        imageUrl: item.processedImageUrl
+      });
+
+      // Small delay between enrichment calls
+      if (i < itemsWithProcessedImages.length - 1) {
+        await sleep(1000);
+      }
+    }
+
+    console.log(`✅ Phase 2 complete: ${itemsWithImages.length} fully enriched items`);
 
     // Normalize categories using the same logic as the database trigger (as fallback)
     const normalizeCategory = (category: string): string => {
