@@ -1,0 +1,1 @@
+export const FLIRT_LOGIC_PROMPT = `<placeholder>`;

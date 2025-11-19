@@ -1,0 +1,1 @@
+export const BRAND_RECOMMENDER_PROMPT = `<placeholder>`;

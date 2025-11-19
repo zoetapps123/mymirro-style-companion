@@ -1,0 +1,1 @@
+export const MODES_PROMPT = `<placeholder>`;

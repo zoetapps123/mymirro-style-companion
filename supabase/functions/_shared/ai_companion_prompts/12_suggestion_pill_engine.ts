@@ -1,0 +1,1 @@
+export const SUGGESTION_PILL_ENGINE_PROMPT = `<placeholder>`;

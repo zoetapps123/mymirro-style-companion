@@ -1,0 +1,1 @@
+export const SHOPPING_ADVISOR_ENGINE_PROMPT = `<placeholder>`;

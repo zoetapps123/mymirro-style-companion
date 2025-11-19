@@ -1,0 +1,1 @@
+export const TOOL_USAGE_RULES_PROMPT = `<placeholder>`;
