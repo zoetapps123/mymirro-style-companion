@@ -96,10 +96,32 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
     }
   }
   
-  // Prepend system message to first user message if exists
-  const systemMsg = messages.find(m => m.role === 'system');
-  if (systemMsg && contents.length > 0 && contents[0].role === 'user') {
-    contents[0].parts.unshift({ text: systemMsg.content });
+  // Collect ALL system messages and prepend them to first user message
+  const systemMessages = messages.filter(m => m.role === 'system');
+  
+  if (systemMessages.length > 0) {
+    // Concatenate all system messages with clear separators
+    const combinedSystemText = systemMessages
+      .map(msg => msg.content)
+      .join('\n\n---\n\n');
+    
+    // Find the first USER message (not just contents[0])
+    const firstUserIndex = contents.findIndex(c => c.role === 'user');
+    
+    if (firstUserIndex !== -1) {
+      // Prepend combined system text to first user message
+      contents[firstUserIndex].parts.unshift({ text: combinedSystemText });
+      
+      // Log for verification
+      console.log('System messages processed:', {
+        systemMessageCount: systemMessages.length,
+        totalSystemChars: systemMessages.reduce((sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0), 0),
+        firstUserIndex,
+        preview: combinedSystemText.slice(0, 200) + '...'
+      });
+    } else {
+      console.warn('No user message found to attach system prompt to!');
+    }
   }
   
   return contents;
