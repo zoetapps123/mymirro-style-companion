@@ -68,6 +68,10 @@ serve(async (req) => {
     // Build the base multi-module AI companion prompt
     const basePrompt = buildAICompanionPrompt();
 
+    // TEMP TEST LOG: Verify new prompt system is loaded
+    console.log("AI_COMPANION_PROMPT_HASH:", basePrompt.slice(0, 200));
+    console.log("AI_COMPANION_PROMPT_MODULES_COUNT:", (basePrompt.match(/MODULE \d+:/g) || []).length);
+
     // Inject user context + wardrobe + fashion history
     const systemPrompt = `
 ${basePrompt}

@@ -126,121 +126,16 @@ export enum PromptCategory {
 export enum SystemRole {
   FASHION_STYLIST = "FASHION_STYLIST",
   FASHION_JUDGE = "FASHION_JUDGE",
-  AI_COMPANION = "AI_COMPANION",
   IMAGE_PROCESSOR = "IMAGE_PROCESSOR",
 }
 
 // ============================================
 // SYSTEM PROMPTS (role: 'system')
-// Used in: chat/index.ts
+// NOTE: AI_COMPANION now uses the modular prompt system
+// from ai_companion_prompts/index.ts (buildAICompanionPrompt)
 // ============================================
 
 export const SYSTEM_PROMPTS = {
-  [SystemRole.AI_COMPANION]: (params: {
-    userName?: string;
-    gender?: string;
-    location?: string;
-    bodyShape?: string;
-    skinTone?: string;
-    wardrobeItems?: any[];
-    recentBattles?: any[];
-    recentStyleChecks?: any[];
-  }) => {
-    const genderTone = params.gender === "male" ? "bro" : params.gender === "female" ? "girl" : "friend";
-    const userName = params.userName || "there";
-    const userCity = params.location || "India";
-    const bodyShape = params.bodyShape || "not specified";
-    const skinTone = params.skinTone || "not specified";
-
-    // Build wardrobe context with enhanced metadata
-    let wardrobeContext = "";
-    if (params.wardrobeItems && params.wardrobeItems.length > 0) {
-      const itemCount = params.wardrobeItems.length;
-
-      // Group items by category for better organization
-      const categorizedItems: Record<string, any[]> = {};
-      params.wardrobeItems.forEach((item: any) => {
-        const category = item.category || "Other";
-        if (!categorizedItems[category]) {
-          categorizedItems[category] = [];
-        }
-        categorizedItems[category].push(item);
-      });
-
-      const itemsList = Object.entries(categorizedItems)
-        .map(([category, items]) => {
-          const categoryItems = items.map((i: any) => `    • ${formatItemForAI(i)}`).join("\n");
-          return `  ${category} (${items.length} items):\n${categoryItems}`;
-        })
-        .join("\n\n");
-
-      wardrobeContext = `
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 USER'S COMPLETE WARDROBE INVENTORY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TOTAL ITEMS: ${itemCount}
-
-${itemsList}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-    } else {
-      wardrobeContext = "\n\n🎯 WARDROBE INVENTORY: No items added yet.";
-    }
-
-    // Add fashion history context
-    let historyContext = "";
-    if (params.recentBattles && params.recentBattles.length > 0) {
-      const battleSummary = params.recentBattles
-        .map((b: any) => {
-          const winner = b.results?.find((r: any) => r.rank === 1);
-          return winner ? `${winner.name} (${winner.score}/5.0)` : "N/A";
-        })
-        .join(", ");
-      historyContext += `\nRecent Battle Winners: ${battleSummary}`;
-    }
-
-    if (params.recentStyleChecks && params.recentStyleChecks.length > 0) {
-      const topScored = params.recentStyleChecks
-        .filter((s: any) => s.overall_score >= 4.0)
-        .map((s: any) => `${s.outfit_name} (${s.overall_score}/5.0 for ${s.occasion})`)
-        .slice(0, 2);
-      if (topScored.length > 0) {
-        historyContext += `\nTop Scored Outfits: ${topScored.join(", ")}`;
-      }
-    }
-
-    // Build base context that gets injected into modular prompts
-    const contextVariables = {
-      userName,
-      genderTone,
-      userCity,
-      bodyShape,
-      skinTone,
-      wardrobeContext,
-      historyContext: historyContext || "None yet",
-    };
-
-    // Get modular prompt system
-    const modularPrompt = buildAICompanionPrompt();
-
-    // Inject context into the modular prompt
-    return `🎯 PERSONALIZATION CONTEXT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-• User's Name: ${userName}
-• Gender Tone: Use "${genderTone}" naturally (bro, girl, dude, queen, etc.) — casual, not forced.
-• Location: ${userCity} — consider weather, local fashion culture, and brand availability.
-• Body Shape: ${bodyShape} — recommend fits that flatter this silhouette.
-• Skin Tone: ${skinTone} — suggest colors that enhance this tone.
-• Wardrobe Context: Full inventory with metadata (color, fabric, fit, style, occasion, etc.)${historyContext ? "\n• Fashion History: " + historyContext : ""}${wardrobeContext}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${modularPrompt}`;
-  },
-
   [SystemRole.IMAGE_PROCESSOR]: "Respond with STRICT JSON only. No prose.",
 };
 
