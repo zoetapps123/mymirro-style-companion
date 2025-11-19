@@ -1311,39 +1311,39 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               {/* Background diagonal stripes - Layer 1 (behind everything) */}
               <div className="absolute right-0 top-0 bottom-0 w-[45%] overflow-hidden pointer-events-none">
                 <div 
-                  className="absolute bg-primary/20"
+                  className="absolute bg-primary/25"
                   style={{
-                    width: '32px',
-                    height: '200px',
-                    top: '-40px',
-                    right: '58px',
-                    transform: 'rotate(-28deg)',
+                    width: '24px',
+                    height: '180px',
+                    top: '-30px',
+                    right: '72px',
+                    transform: 'rotate(-30deg)',
                   }}
                 />
                 <div 
-                  className="absolute bg-primary/20"
+                  className="absolute bg-primary/25"
                   style={{
-                    width: '32px',
-                    height: '200px',
-                    top: '-40px',
-                    right: '18px',
-                    transform: 'rotate(-28deg)',
+                    width: '24px',
+                    height: '180px',
+                    top: '-30px',
+                    right: '28px',
+                    transform: 'rotate(-30deg)',
                   }}
                 />
               </div>
 
-              {/* VS Text on the right - Layer 2 (on top of stripes) */}
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-                <div className="relative flex flex-col items-center" style={{ gap: '-4px' }}>
+              {/* VS Text on the right - Layer 2 (side-by-side) */}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                <div className="relative flex items-end" style={{ gap: '-8px' }}>
                   <span 
                     className="font-satoshi text-primary"
                     style={{
                       fontSize: '64px',
                       fontWeight: 900,
                       fontStyle: 'italic',
-                      lineHeight: '0.75',
-                      transform: 'translateY(4px)',
-                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))',
+                      lineHeight: '0.9',
+                      transform: 'translateY(-6px)',
+                      filter: 'drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2))',
                     }}
                   >
                     V
@@ -1354,19 +1354,19 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       fontSize: '64px',
                       fontWeight: 900,
                       fontStyle: 'italic',
-                      lineHeight: '0.75',
-                      transform: 'translateY(-4px)',
-                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))',
+                      lineHeight: '0.9',
+                      transform: 'translateY(6px)',
+                      filter: 'drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2))',
                     }}
                   >
-                    S
+                    s
                   </span>
                 </div>
               </div>
 
               {/* Left side content - Layer 3 */}
-              <div className="relative z-20 flex flex-col justify-between h-full">
-                <div>
+              <div className="relative z-20 flex flex-col h-full" style={{ paddingTop: '12px', paddingBottom: '15px' }}>
+                <div style={{ marginBottom: '8px' }}>
                   <h3 
                     className="font-boston font-bold text-primary"
                     style={{
@@ -1387,19 +1387,20 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                     Upload, compare, and crown the<br />best outfit.
                   </p>
                 </div>
-
-                <Button 
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold"
-                  style={{
-                    width: '76px',
-                    height: '19px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    padding: '0',
-                  }}
-                >
-                  Let's fight!
-                </Button>
+                <div style={{ marginTop: 'auto' }}>
+                  <Button 
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold"
+                    style={{
+                      width: '76px',
+                      height: '19px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      padding: '0',
+                    }}
+                  >
+                    Let's fight!
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
