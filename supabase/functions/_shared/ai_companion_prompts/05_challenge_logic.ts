@@ -1,0 +1,1 @@
+export const CHALLENGE_LOGIC_PROMPT = `<placeholder>`;

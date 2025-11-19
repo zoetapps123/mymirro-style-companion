@@ -1,0 +1,1 @@
+export const OUTFIT_ENGINE_PROMPT = `<placeholder>`;

@@ -1,0 +1,1 @@
+export const WARDROBE_UPLOAD_PERSUASION_PROMPT = `<placeholder>`;

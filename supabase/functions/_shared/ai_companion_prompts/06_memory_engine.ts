@@ -1,0 +1,1 @@
+export const MEMORY_ENGINE_PROMPT = `<placeholder>`;

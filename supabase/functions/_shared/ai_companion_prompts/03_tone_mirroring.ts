@@ -1,0 +1,1 @@
+export const TONE_MIRRORING_PROMPT = `<placeholder>`;
