@@ -157,11 +157,26 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       let invokeData: any = null;
       let invokeError: any = null;
 
+      // Check if running in iframe (Lovable preview)
+      const isInIframe = window.self !== window.top;
+      
       while (attempt < maxAttempts) {
         const { data, error } = await supabase.functions.invoke('process-wardrobe', {
           body: { imageUrl },
           headers: { Authorization: `Bearer ${freshSession.access_token}` },
         });
+
+        // Check for iframe blocking (Failed to fetch)
+        if (error && error.message === 'Failed to fetch' && isInIframe) {
+          toast({
+            title: 'Preview Limitation',
+            description: 'Image upload is blocked in preview. Please open in a new tab to upload.',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          setProgress(0);
+          return;
+        }
 
         // If success and not rate-limit sentinel from backend, stop
         const isRateLimited = !!(error && /429|rate/i.test(error?.message || '')) ||
