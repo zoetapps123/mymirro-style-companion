@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPIStreaming, callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
-import { SYSTEM_PROMPTS, SystemRole } from '../_shared/prompts.ts';
+import { buildAICompanionPrompt } from '../_shared/ai_companion_prompts/index.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
@@ -65,17 +65,33 @@ serve(async (req) => {
       console.error('Failed to fetch user context:', e);
     }
 
-    // Build system prompt
-    const systemPrompt = SYSTEM_PROMPTS[SystemRole.AI_COMPANION]({
-      userName: userProfile?.name || 'there',
-      gender: userProfile?.gender,
-      location: userProfile?.location || 'India',
-      bodyShape: bodyShape ?? undefined,
-      skinTone: skinTone ?? undefined,
-      wardrobeItems,
-      recentBattles,
-      recentStyleChecks
-    });
+    // Build the base multi-module AI companion prompt
+    const basePrompt = buildAICompanionPrompt();
+
+    // Inject user context + wardrobe + fashion history
+    const systemPrompt = `
+${basePrompt}
+
+<USER_CONTEXT>
+  <NAME>${userProfile?.name || ''}</NAME>
+  <GENDER>${userProfile?.gender || ''}</GENDER>
+  <LOCATION>${userProfile?.location || 'India'}</LOCATION>
+  <BODY_SHAPE>${bodyShape || ''}</BODY_SHAPE>
+  <SKIN_TONE>${skinTone || ''}</SKIN_TONE>
+</USER_CONTEXT>
+
+<WARDROBE_DATA>
+${JSON.stringify(wardrobeItems || [], null, 2)}
+</WARDROBE_DATA>
+
+<RECENT_BATTLES>
+${JSON.stringify(recentBattles || [], null, 2)}
+</RECENT_BATTLES>
+
+<RECENT_STYLE_CHECKS>
+${JSON.stringify(recentStyleChecks || [], null, 2)}
+</RECENT_STYLE_CHECKS>
+`;
 
     // Process messages to handle images
     const processedMessages = messages.map((msg: any) => {
