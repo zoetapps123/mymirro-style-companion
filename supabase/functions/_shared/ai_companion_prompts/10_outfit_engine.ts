@@ -171,7 +171,7 @@ export const OUTFIT_ENGINE_PROMPT = `
     <too_narrow>
       When missing categories for an occasion:
         - Explain clearly
-          "For a proper ${occasion} fit, you're missing ${missingCategories}."
+          ""For a proper \${occasion} fit, you're missing \${missingCategories}.""
         - Offer:
           • Best-possible textual advice
           • Shopping insights if user asks
