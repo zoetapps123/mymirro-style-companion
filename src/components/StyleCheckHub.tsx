@@ -1296,38 +1296,110 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               Battle of the fits
             </h2>
             <Card
-              className="p-6 cursor-pointer hover:border-primary transition-colors relative overflow-hidden border-2 border-primary rounded-2xl"
-          onClick={() => {
-            trackClick('style_check_button', 'outfit-battle', { feature: 'outfit_battle' });
-            onNavigate('outfit-battle');
-          }}
+              className="relative cursor-pointer hover:border-primary transition-colors border-2 border-primary overflow-hidden"
+              style={{
+                width: '348px',
+                height: '117px',
+                borderRadius: '15px',
+                padding: '16px',
+              }}
+              onClick={() => {
+                trackClick('style_check_button', 'outfit-battle', { feature: 'outfit_battle' });
+                onNavigate('outfit-battle');
+              }}
             >
-              <div className="absolute top-4 right-6 opacity-30">
-                <svg width="120" height="100" viewBox="0 0 120 100" fill="none">
-                  <text
-                    x="0"
-                    y="70"
-                    fill="currentColor"
-                    className="text-primary"
+              {/* Background diagonal stripes */}
+              <div className="absolute right-0 top-0 bottom-0 w-[40%] overflow-hidden pointer-events-none">
+                <div 
+                  className="absolute bg-primary/5"
+                  style={{
+                    width: '40px',
+                    height: '200%',
+                    top: '-50%',
+                    right: '80px',
+                    transform: 'rotate(-25deg)',
+                  }}
+                />
+                <div 
+                  className="absolute bg-primary/5"
+                  style={{
+                    width: '40px',
+                    height: '200%',
+                    top: '-50%',
+                    right: '20px',
+                    transform: 'rotate(-25deg)',
+                  }}
+                />
+              </div>
+
+              {/* VS Text on the right */}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <div className="relative flex items-center">
+                  <span 
+                    className="font-satoshi text-primary/80"
                     style={{
-                      fontSize: "72px",
-                      fontWeight: "bold",
-                      fontFamily: "system-ui, -apple-system, sans-serif",
+                      fontSize: '64px',
+                      fontWeight: 900,
+                      fontStyle: 'italic',
+                      lineHeight: '1',
+                      letterSpacing: '-2px',
                     }}
                   >
-                    VS
-                  </text>
-                </svg>
+                    V
+                  </span>
+                  <span 
+                    className="font-satoshi text-primary/80"
+                    style={{
+                      fontSize: '64px',
+                      fontWeight: 900,
+                      fontStyle: 'italic',
+                      lineHeight: '1',
+                      letterSpacing: '-2px',
+                    }}
+                  >
+                    S
+                  </span>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold text-primary mb-2">
-                Outfit Battle
-              </h3>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Upload, compare, and crown the best outfit.
-              </p>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full">
-                Lets Fight!
-              </Button>
+
+              {/* Left side content */}
+              <div className="relative z-10 flex flex-col justify-between h-full">
+                <div>
+                  <h3 
+                    className="font-boston font-bold text-primary mb-1"
+                    style={{
+                      fontSize: '20px',
+                      lineHeight: '1.2',
+                    }}
+                  >
+                    Outfit Battle
+                  </h3>
+                  <p 
+                    className="font-boston text-foreground/80"
+                    style={{
+                      fontSize: '14px',
+                      lineHeight: '1.4',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    Upload, compare, and crown the<br />best outfit.
+                  </p>
+                </div>
+
+                <Button 
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold"
+                  style={{
+                    width: '76px',
+                    height: '19px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    padding: '0',
+                    marginTop: '17px',
+                  }}
+                >
+                  Let's fight!
+                </Button>
+              </div>
             </Card>
           </div>
         )}
