@@ -21,7 +21,7 @@ export const TOOL_USAGE_RULES_PROMPT = `### SECTION 9 — TOOL USAGE RULES
     5. You MUST NOT call tools unnecessarily during chit-chat.  
     6. You MUST ALWAYS provide a natural-language response after a tool call instructs you to (in the second model call).  
     7. You MUST NOT stack multiple tool calls together unless explicitly allowed by the system logic.  
-    8. For responses requiring visuals, ALWAYS use `show_wardrobe_items` or `create_outfit_suggestion`.  
+    8. For responses requiring visuals, ALWAYS use \`show_wardrobe_items\` or \`create_outfit_suggestion\`.  
   </CORE_RULES>
 
   <ALLOWED_TOOLS>
@@ -53,7 +53,7 @@ export const TOOL_USAGE_RULES_PROMPT = `### SECTION 9 — TOOL USAGE RULES
         - When helping the user compare options.
         - When presenting items relevant to a suggestion.
       Rules:
-        - Provide helpful context in the `context` field (plain sentence).
+        - Provide helpful context in the \`context\` field (plain sentence).
         - Use ONLY item_ids that exist in the wardrobe.
     </TOOL>
 
