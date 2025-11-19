@@ -71,30 +71,6 @@ serve(async (req) => {
     
     console.log("SYSTEM PROMPT SIZE:", systemPrompt.length);
 
-    // JSON enforcement prompt - MUST be first system message
-    const jsonEnforcePrompt = `
-You MUST respond ONLY in this JSON format:
-
-{
-  "assistant_message": "<string>",
-  "pills": ["<string>", "<string>", "..."],
-  "metadata": {
-    "mode": "<chat|stylist|shopping|roast>",
-    "intent": "<short natural-language summary>"
-  }
-}
-
-RULES:
-- NO markdown
-- NO backticks
-- NO natural language outside JSON
-- MUST be valid JSON
-- Assistant_message = full natural reply to user
-- Pills = 3–8 next-step suggestions
-- Metadata = your interpretation of the user's intent
-- Breaking JSON will cause critical failure
-`;
-
     // User context
     const userContextMessage = {
       role: "system",
@@ -277,134 +253,27 @@ After they specify occasion, THEN call this tool immediately.`,
       toolsCount: tools.length
     });
 
-    // PASS 1: Get assistant message in JSON format
-    // Message order: JSON enforcement FIRST, then persona, then context, then conversation
-    const initialResponse = await retryWithBackoff(() => callGeminiAPI({
+    // Call Gemini API with streaming
+    const response = await retryWithBackoff(() => callGeminiAPIStreaming({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: "system", content: jsonEnforcePrompt },  // JSON format MUST be first
-        { role: "system", content: systemPrompt },        // Persona modules
-        userContextMessage,                               // User info
-        { role: "system", content: wardrobeSummary },     // Wardrobe summary
-        { role: "system", content: wardrobeJSON },        // Full wardrobe data
-        { role: "system", content: battlesJSON },         // Battle history
-        { role: "system", content: styleChecksJSON },     // Style check history
-        ...processedMessages                              // Conversation history
-      ]
+        { role: "system", content: systemPrompt },
+        userContextMessage,
+        { role: "system", content: wardrobeSummary },
+        { role: "system", content: wardrobeJSON },
+        { role: "system", content: battlesJSON },
+        { role: "system", content: styleChecksJSON },
+        ...processedMessages
+      ],
+      tools,
+      temperature: 0.7,
+      max_tokens: 2048
     }));
 
-    console.log('Chat: JSON response received');
+    console.log('Chat: streaming response');
 
-    // Extract and parse JSON with fault tolerance
-    const raw = initialResponse.choices?.[0]?.message?.content?.trim() || '{}';
-    
-    console.log("===== GEMINI RAW FIRST PASS =====");
-    console.log(raw);
-    console.log("===== END RAW OUTPUT =====");
-    
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (err) {
-      console.error("JSON PARSE ERROR:", err);
-      console.error("RAW THAT FAILED:", raw);
-      parsed = {
-        assistant_message: "Oops! I glitched for a second 😅 let's retry.",
-        pills: ["Retry"],
-        metadata: { mode: "error" }
-      };
-    }
-
-    const assistantText = parsed.assistant_message || "";
-    const meta = parsed.metadata || {};
-
-    console.log('Chat: parsed JSON', {
-      messageLength: assistantText.length,
-      metadata: meta
-    });
-
-    // Create typing simulation stream with two-pass architecture
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        console.log('Chat: starting PASS 1 - typing simulation');
-        
-        // PASS 1: Stream assistant message character by character
-        for (const ch of assistantText) {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ choices: [{ delta: { content: ch } }] })}\n\n`
-            )
-          );
-          await new Promise(r => setTimeout(r, 12));
-        }
-
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        console.log('Chat: PASS 1 complete, starting PASS 2 - pill generation');
-
-        // PASS 2: Generate contextual pills based on assistant message
-        try {
-          const pillGenPrompt = `
-You are generating short next-step pills for a fashion chat.
-Return ONLY a JSON array of strings.
-Each pill must be 1–4 words.
-Make them contextual and useful.
-
-Assistant message:
-${assistantText}
-`;
-
-          const pillResponse = await retryWithBackoff(() => callGeminiAPI({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: "system", content: pillGenPrompt }
-            ],
-            temperature: 0.6,
-            max_tokens: 80
-          }));
-
-          const pillRaw = pillResponse.choices?.[0]?.message?.content?.trim() || '[]';
-          console.log("===== GEMINI PILL RESPONSE =====");
-          console.log(pillRaw);
-          console.log("===== END PILL OUTPUT =====");
-
-          let pills = [];
-          try {
-            pills = JSON.parse(pillRaw);
-            if (!Array.isArray(pills)) pills = [];
-          } catch (e) {
-            console.error("Pill parse error:", e);
-            pills = ["Try again", "New topic", "Help me"];
-          }
-
-          if (pills.length > 0) {
-            console.log('Chat: sending PASS 2 pills', { count: pills.length, pills });
-            controller.enqueue(
-              encoder.encode(
-                `event: suggestions\ndata: ${JSON.stringify({
-                  type: "suggestions",
-                  pills: pills
-                })}\n\n`
-              )
-            );
-          }
-        } catch (pillError) {
-          console.error("PASS 2 pill generation error:", pillError);
-          // Graceful degradation: send basic pills
-          controller.enqueue(
-            encoder.encode(
-              `event: suggestions\ndata: ${JSON.stringify({
-                type: "suggestions",
-                pills: ["Continue", "New topic", "Help"]
-              })}\n\n`
-            )
-          );
-        }
-
-        controller.close();
-        console.log('Chat: stream complete (PASS 1 + PASS 2)');
-      }
-    });
+    // Return the streaming response directly
+    const stream = response.body;
 
     return new Response(stream, {
       headers: {

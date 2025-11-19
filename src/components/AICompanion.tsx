@@ -654,13 +654,6 @@ const AICompanion = () => {
               try {
                 const parsed = JSON.parse(jsonStr);
                 
-                // Check for custom suggestion event
-                if (parsed.type === 'suggestions' && parsed.suggestions) {
-                  console.log('AICompanion: received suggestions event', { count: parsed.suggestions.length, suggestions: parsed.suggestions });
-                  setSuggestions(parsed.suggestions);
-                  continue;
-                }
-                
                 const delta = parsed.choices?.[0]?.delta;
                 const messageObj = parsed.choices?.[0]?.message;
                 const content = delta?.content ?? messageObj?.content;
@@ -811,6 +804,29 @@ const AICompanion = () => {
       }
 
       trackCustom("reply_delivered");
+      
+      // Call pill-suggestions endpoint after streaming completes
+      if (assistantMessage) {
+        const lastUserMsg = messages[messages.length - 1]?.content || "";
+        if (lastUserMsg) {
+          try {
+            const { data, error } = await supabase.functions.invoke('pill-suggestions', {
+              body: { 
+                lastUserMessage: lastUserMsg,
+                lastAssistantMessage: assistantMessage 
+              }
+            });
+            
+            if (!error && data?.suggestions && Array.isArray(data.suggestions)) {
+              console.log('AICompanion: received pill suggestions', { count: data.suggestions.length, suggestions: data.suggestions });
+              setSuggestions(data.suggestions);
+            }
+          } catch (pillError) {
+            console.error('Failed to fetch pill suggestions:', pillError);
+            // Graceful degradation - don't show pills on error
+          }
+        }
+      }
       
       // Cleanup controller/timeout
       if (timeoutId) clearTimeout(timeoutId);
