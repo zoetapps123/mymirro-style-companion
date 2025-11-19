@@ -299,10 +299,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       uploadAttempts.current = 0;
 
       toast({
-        title: successfullyAdded > 0 ? 'Added to your wardrobe!' : 'No new items',
-        description: successfullyAdded > 0
-          ? `${successfullyAdded} item${successfullyAdded > 1 ? 's' : ''} added successfully.`
-          : 'All detected items already exist in your wardrobe.',
+        title: 'Items added!',
+        description: `${successfullyAdded} new item${successfullyAdded > 1 ? 's' : ''} in your wardrobe`,
       });
 
       // Track wardrobe item additions
