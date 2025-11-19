@@ -67,15 +67,37 @@ serve(async (req) => {
 
     // Build the base persona prompt (ONLY the 13 modules)
     const basePrompt = buildAICompanionPrompt();
-
-    // --- NEW: Small system prompt only ---
     const systemPrompt = basePrompt;
     
     console.log("SYSTEM PROMPT SIZE:", systemPrompt.length);
 
-    // --- NEW: Split user context into separate messages ---
+    // JSON enforcement prompt - MUST be first system message
+    const jsonEnforcePrompt = `
+You MUST respond ONLY in this JSON format:
+
+{
+  "assistant_message": "<string>",
+  "pills": ["<string>", "<string>", "..."],
+  "metadata": {
+    "mode": "<chat|stylist|shopping|roast>",
+    "intent": "<short natural-language summary>"
+  }
+}
+
+RULES:
+- NO markdown
+- NO backticks
+- NO natural language outside JSON
+- MUST be valid JSON
+- Assistant_message = full natural reply to user
+- Pills = 3–8 next-step suggestions
+- Metadata = your interpretation of the user's intent
+- Breaking JSON will cause critical failure
+`;
+
+    // User context
     const userContextMessage = {
-      role: "user",
+      role: "system",
       content: `
 <USER_CONTEXT>
   <NAME>${userProfile?.name || ''}</NAME>
@@ -87,35 +109,17 @@ serve(async (req) => {
 `
     };
 
-    // Wardrobe moved out of system prompt
-    const wardrobeContextMessage = {
-      role: "user",
-      content: `
-<WARDROBE_DATA>
-${JSON.stringify(wardrobeItems || [], null, 2)}
-</WARDROBE_DATA>
-`
-    };
+    // Wardrobe summary and data - separated for better context management
+    const wardrobeSummary = `
+<WARDROBE_SUMMARY>
+total_items=${wardrobeItems?.length || 0}
+categories=${[...new Set((wardrobeItems || []).map((i: any) => i.category))].join(", ")}
+</WARDROBE_SUMMARY>
+`;
 
-    // Style check history separated
-    const styleCheckContextMessage = {
-      role: "user",
-      content: `
-<RECENT_STYLE_CHECKS>
-${JSON.stringify(recentStyleChecks || [], null, 2)}
-</RECENT_STYLE_CHECKS>
-`
-    };
-
-    // battle history separated
-    const battleContextMessage = {
-      role: "user",
-      content: `
-<RECENT_BATTLES>
-${JSON.stringify(recentBattles || [], null, 2)}
-</RECENT_BATTLES>
-`
-    };
+    const wardrobeJSON = `WARDROBE_DATA_JSON:\n${JSON.stringify(wardrobeItems || [])}`;
+    const battlesJSON = `RECENT_BATTLES_JSON:\n${JSON.stringify(recentBattles || [])}`;
+    const styleChecksJSON = `RECENT_STYLE_CHECKS_JSON:\n${JSON.stringify(recentStyleChecks || [])}`;
 
     // Process messages to handle images
     const processedMessages = messages.map((msg: any) => {
@@ -273,41 +277,19 @@ After they specify occasion, THEN call this tool immediately.`,
       toolsCount: tools.length
     });
 
-    // JSON enforcement prompt
-    const jsonEnforcePrompt = `
-You MUST respond ONLY in this JSON format:
-
-{
-  "assistant_message": "<string>",
-  "pills": ["<string>", "<string>", "..."],
-  "metadata": {
-    "mode": "<chat|stylist|shopping|roast>",
-    "intent": "<summary>"
-  }
-}
-
-Rules:
-- NO markdown
-- NO natural text outside JSON
-- NO explanations
-- NO backticks
-- The "assistant_message" contains your full natural-language reply to the user
-- "pills" = 3–8 short next-step suggestions based on your message
-- "metadata" describes how you interpreted intent
-- BREAKING THIS FORMAT WILL CRASH THE SYSTEM
-`;
-
-    // PASS 1: Get assistant message only
+    // PASS 1: Get assistant message in JSON format
+    // Message order: JSON enforcement FIRST, then persona, then context, then conversation
     const initialResponse = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: jsonEnforcePrompt },
-        userContextMessage,
-        wardrobeContextMessage,
-        styleCheckContextMessage,
-        battleContextMessage,
-        ...processedMessages
+        { role: "system", content: jsonEnforcePrompt },  // JSON format MUST be first
+        { role: "system", content: systemPrompt },        // Persona modules
+        userContextMessage,                               // User info
+        { role: "system", content: wardrobeSummary },     // Wardrobe summary
+        { role: "system", content: wardrobeJSON },        // Full wardrobe data
+        { role: "system", content: battlesJSON },         // Battle history
+        { role: "system", content: styleChecksJSON },     // Style check history
+        ...processedMessages                              // Conversation history
       ]
     }));
 
@@ -327,8 +309,8 @@ Rules:
       console.error("JSON PARSE ERROR:", err);
       console.error("RAW THAT FAILED:", raw);
       parsed = {
-        assistant_message: "Something slipped my heels 😂 let's try that again.",
-        pills: ["Retry", "Try again", "New chat"],
+        assistant_message: "Oops! I glitched for a second 😅 let's retry.",
+        pills: ["Retry"],
         metadata: { mode: "error" }
       };
     }
@@ -362,20 +344,23 @@ Rules:
 
         // PASS 2: Generate contextual pills based on assistant message
         try {
+          const pillGenPrompt = `
+You are generating short next-step pills for a fashion chat.
+Return ONLY a JSON array of strings.
+Each pill must be 1–4 words.
+Make them contextual and useful.
+
+Assistant message:
+${assistantText}
+`;
+
           const pillResponse = await retryWithBackoff(() => callGeminiAPI({
             model: 'google/gemini-2.5-flash',
             messages: [
-              {
-                role: "system",
-                content: "Generate 3-8 short (1-4 word) contextual pill suggestions based on the assistant's message. Return ONLY a JSON array of strings, nothing else."
-              },
-              {
-                role: "user",
-                content: `Here is the assistant message: "${assistantText}"\n\nGenerate contextual next-step suggestions as a JSON array. Examples: ["Upload outfit", "Try casual", "Show me jeans", "Budget tips"]`
-              }
+              { role: "system", content: pillGenPrompt }
             ],
             temperature: 0.6,
-            max_tokens: 100
+            max_tokens: 80
           }));
 
           const pillRaw = pillResponse.choices?.[0]?.message?.content?.trim() || '[]';
