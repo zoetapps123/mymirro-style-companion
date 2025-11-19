@@ -65,17 +65,16 @@ serve(async (req) => {
       console.error('Failed to fetch user context:', e);
     }
 
-    // Build the base multi-module AI companion prompt
+    // Build the base persona prompt (ONLY the 13 modules)
     const basePrompt = buildAICompanionPrompt();
 
-    // TEMP TEST LOG: Verify new prompt system is loaded
-    console.log("AI_COMPANION_PROMPT_HASH:", basePrompt.slice(0, 200));
-    console.log("AI_COMPANION_PROMPT_MODULES_COUNT:", (basePrompt.match(/MODULE \d+:/g) || []).length);
+    // --- NEW: Small system prompt only ---
+    const systemPrompt = basePrompt;
 
-    // Inject user context + wardrobe + fashion history
-    const systemPrompt = `
-${basePrompt}
-
+    // --- NEW: Split user context into separate messages ---
+    const userContextMessage = {
+      role: "user",
+      content: `
 <USER_CONTEXT>
   <NAME>${userProfile?.name || ''}</NAME>
   <GENDER>${userProfile?.gender || ''}</GENDER>
@@ -83,19 +82,38 @@ ${basePrompt}
   <BODY_SHAPE>${bodyShape || ''}</BODY_SHAPE>
   <SKIN_TONE>${skinTone || ''}</SKIN_TONE>
 </USER_CONTEXT>
+`
+    };
 
+    // Wardrobe moved out of system prompt
+    const wardrobeContextMessage = {
+      role: "user",
+      content: `
 <WARDROBE_DATA>
 ${JSON.stringify(wardrobeItems || [], null, 2)}
 </WARDROBE_DATA>
+`
+    };
 
-<RECENT_BATTLES>
-${JSON.stringify(recentBattles || [], null, 2)}
-</RECENT_BATTLES>
-
+    // Style check history separated
+    const styleCheckContextMessage = {
+      role: "user",
+      content: `
 <RECENT_STYLE_CHECKS>
 ${JSON.stringify(recentStyleChecks || [], null, 2)}
 </RECENT_STYLE_CHECKS>
-`;
+`
+    };
+
+    // battle history separated
+    const battleContextMessage = {
+      role: "user",
+      content: `
+<RECENT_BATTLES>
+${JSON.stringify(recentBattles || [], null, 2)}
+</RECENT_BATTLES>
+`
+    };
 
     // Process messages to handle images
     const processedMessages = messages.map((msg: any) => {
@@ -257,8 +275,12 @@ After they specify occasion, THEN call this tool immediately.`,
     const initialResponse = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: systemPrompt },
-        ...processedMessages,
+        { role: "system", content: systemPrompt },
+        userContextMessage,
+        wardrobeContextMessage,
+        styleCheckContextMessage,
+        battleContextMessage,
+        ...processedMessages
       ],
       tools
     }));
@@ -555,9 +577,13 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
       
       // Step 3: Call Gemini again with tool results to get final response
       const conversationWithTools = [
-        { role: 'system', content: systemPrompt },
+        { role: "system", content: systemPrompt },
+        userContextMessage,
+        wardrobeContextMessage,
+        styleCheckContextMessage,
+        battleContextMessage,
         ...processedMessages,
-        { role: 'assistant', content: assistantMessage.content || null, tool_calls: toolCalls },
+        { role: "assistant", content: assistantMessage.content || null, tool_calls: toolCalls },
         ...toolResults
       ];
       
@@ -915,8 +941,12 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
     const geminiResponse = await callGeminiAPIStreaming({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: systemPrompt },
-        ...processedMessages,
+        { role: "system", content: systemPrompt },
+        userContextMessage,
+        wardrobeContextMessage,
+        styleCheckContextMessage,
+        battleContextMessage,
+        ...processedMessages
       ],
       tools
     });
@@ -1066,7 +1096,11 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
 
                         // Build follow-up conversation and stream it
                         const conversationWithTools = [
-                          { role: 'system', content: systemPrompt },
+                          { role: "system", content: systemPrompt },
+                          userContextMessage,
+                          wardrobeContextMessage,
+                          styleCheckContextMessage,
+                          battleContextMessage,
                           ...processedMessages,
                           { role: 'assistant', content: null, tool_calls: [{ type: 'function', function: { name: fnName, arguments: JSON.stringify(fnArgs) } }] },
                           ...toolResults
@@ -1291,7 +1325,11 @@ RULES:
                 const suggestionsResponse = await retryWithBackoff(() => callGeminiAPI({
                   model: 'google/gemini-2.5-flash',
                   messages: [
-                    { role: 'system', content: systemPrompt },
+                    { role: "system", content: systemPrompt },
+                    userContextMessage,
+                    wardrobeContextMessage,
+                    styleCheckContextMessage,
+                    battleContextMessage,
                     { role: 'user', content: userPrompt }
                   ],
                   temperature: 0.7,
