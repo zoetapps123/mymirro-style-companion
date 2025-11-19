@@ -272,10 +272,133 @@ After they specify occasion, THEN call this tool immediately.`,
 
     console.log('Chat: streaming response');
 
-    // Return the streaming response directly
-    const stream = response.body;
+    // Transform Gemini SSE format to OpenAI format
+    let assistantMessage = '';
+    const lastUserMsg = processedMessages.filter((m: any) => m.role === 'user').pop();
 
-    return new Response(stream, {
+    const transformStream = new ReadableStream({
+      async start(controller) {
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        const encoder = new TextEncoder();
+        let buffer = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Process complete lines
+            let newlineIdx;
+            while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+              const line = buffer.slice(0, newlineIdx).trim();
+              buffer = buffer.slice(newlineIdx + 1);
+
+              if (!line || line.startsWith(':')) continue;
+              if (!line.startsWith('data: ')) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') {
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                continue;
+              }
+
+              try {
+                // Parse Gemini format
+                const geminiData = JSON.parse(jsonStr);
+                const candidate = geminiData.candidates?.[0];
+                
+                if (!candidate) continue;
+
+                console.log('Transform: received Gemini chunk', { hasCandidate: !!candidate });
+
+                // Handle function calls
+                const functionCall = candidate.content?.parts?.find((p: any) => p.functionCall);
+                if (functionCall) {
+                  const openAIFormat = {
+                    choices: [{
+                      delta: {
+                        tool_calls: [{
+                          type: 'function',
+                          function: {
+                            name: functionCall.functionCall.name,
+                            arguments: JSON.stringify(functionCall.functionCall.args)
+                          }
+                        }]
+                      }
+                    }]
+                  };
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                  continue;
+                }
+
+                // Handle text content
+                const textPart = candidate.content?.parts?.find((p: any) => p.text);
+                if (textPart?.text) {
+                  assistantMessage += textPart.text;  // Accumulate full message
+                  console.log('Transform: sending OpenAI format', { hasContent: true, chunkLength: textPart.text.length });
+                  
+                  const openAIFormat = {
+                    choices: [{
+                      delta: {
+                        content: textPart.text
+                      }
+                    }]
+                  };
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+                }
+              } catch (parseErr) {
+                console.error('Failed to parse Gemini SSE:', parseErr);
+              }
+            }
+          }
+
+          console.log('Transform: stream ended, total chars:', assistantMessage.length);
+
+          // After stream ends, call pill-suggestions
+          if (lastUserMsg && assistantMessage) {
+            try {
+              console.log('Calling pill-suggestions with:', { 
+                userMsgLength: lastUserMsg.content?.length || 0, 
+                assistantMsgLength: assistantMessage.length 
+              });
+
+              const pillResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/pill-suggestions`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': req.headers.get('Authorization') || ''
+                },
+                body: JSON.stringify({
+                  lastUserMessage: typeof lastUserMsg.content === 'string' ? lastUserMsg.content : lastUserMsg.content[0].text,
+                  lastAssistantMessage: assistantMessage
+                })
+              });
+
+              if (pillResponse.ok) {
+                const { suggestions } = await pillResponse.json();
+                console.log('Pill suggestions received:', suggestions);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'suggestions', pills: suggestions })}\n\n`));
+              } else {
+                console.error('Pill suggestions failed:', await pillResponse.text());
+              }
+            } catch (pillErr) {
+              console.error('Pill generation failed:', pillErr);
+            }
+          }
+
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (error) {
+          console.error('Stream transform error:', error);
+          controller.error(error);
+        }
+      }
+    });
+
+    return new Response(transformStream, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
