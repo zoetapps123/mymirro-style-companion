@@ -69,7 +69,20 @@ serve(async (req) => {
     const basePrompt = buildAICompanionPrompt();
     const systemPrompt = basePrompt;
     
+    // CRITICAL VALIDATION: Ensure system prompt is present
+    if (!systemPrompt || systemPrompt.trim().length === 0) {
+      console.error("CRITICAL ERROR: systemPrompt is undefined or empty!");
+      throw new Error("System prompt failed to load - AI Companion modules not initialized");
+    }
+    
+    // Generate hash for verification
+    const promptHash = Array.from(new TextEncoder().encode(systemPrompt))
+      .reduce((hash, byte) => ((hash << 5) - hash) + byte, 0)
+      .toString(16);
+    
     console.log("SYSTEM PROMPT SIZE:", systemPrompt.length);
+    console.log("AI_COMPANION_PROMPT_HASH:", promptHash);
+    console.log("AI_COMPANION_MODULES_LOADED: ✓");
 
     // User context
     const userContextMessage = {
@@ -252,6 +265,12 @@ After they specify occasion, THEN call this tool immediately.`,
       messageCount: processedMessages.length,
       toolsCount: tools.length
     });
+
+    // FINAL VALIDATION: Ensure systemPrompt hasn't been corrupted
+    if (!systemPrompt || typeof systemPrompt !== 'string' || systemPrompt.length === 0) {
+      console.error("CRITICAL ERROR: systemPrompt corrupted before API call!");
+      throw new Error("System prompt validation failed - refusing to call AI without persona");
+    }
 
     // Call Gemini API with streaming
     const response = await retryWithBackoff(() => callGeminiAPIStreaming({
