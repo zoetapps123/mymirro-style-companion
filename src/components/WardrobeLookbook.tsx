@@ -4,6 +4,7 @@ import { Heart, Shirt, Calendar, Sparkles, Filter, DoorOpen } from 'lucide-react
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { orderOutfitForDisplay } from '@/lib/utils';
+import lookbookEmptyImg from '@/assets/lookbook-empty.png';
 
 interface WardrobeItem {
   id: string;
@@ -193,6 +194,11 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
       <div className="flex-1 p-6 space-y-8">
         {Object.keys(groupedOutfits).length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
+            <img 
+              src={lookbookEmptyImg} 
+              alt="Empty lookbook" 
+              className="w-[220px] h-auto object-contain mb-8"
+            />
             <h3 className="text-2xl font-bold text-primary mb-3 text-center">
               No saved fits yet
             </h3>
