@@ -822,6 +822,17 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                 ) {
                   suggestions = ['Date', 'College', 'Work', 'Party', 'Wedding', 'Chill day', 'Formal event', 'Casual hangout'];
                 }
+                // 🔥 TOP PRIORITY — Budget questions (override others)
+                else if (
+                  lowerQuestion.includes("price") ||
+                  lowerQuestion.includes("budget") ||
+                  lowerQuestion.includes("range") ||
+                  lowerQuestion.includes("spend") ||
+                  lowerQuestion.includes("afford") ||
+                  /how much/i.test(questionText)
+                ) {
+                  suggestions = ["Student-safe", "Mid range", "Premium okay", "No limit"];
+                }
                 // Vibe/style questions
                 else if (
                   lowerQuestion.includes("vibe") || 
@@ -1234,6 +1245,17 @@ You MUST do BOTH: provide text AND call the tool. DO NOT modify the item_ids. DO
                 /what('s| is) (this|it) for/i.test(questionText)
               ) {
                 suggestions = ['Date', 'College', 'Work', 'Party', 'Wedding', 'Chill day', 'Formal event', 'Casual hangout'];
+              }
+              // 🔥 TOP PRIORITY — Budget questions (override others)
+              else if (
+                lowerQuestion.includes("price") ||
+                lowerQuestion.includes("budget") ||
+                lowerQuestion.includes("range") ||
+                lowerQuestion.includes("spend") ||
+                lowerQuestion.includes("afford") ||
+                /how much/i.test(questionText)
+              ) {
+                suggestions = ["Student-safe", "Mid range", "Premium okay", "No limit"];
               }
               // Vibe/style questions
               else if (
