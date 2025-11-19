@@ -12,7 +12,7 @@ import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { useOutfits } from '@/hooks/useOutfits';
 import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
 import { orderOutfitForDisplay } from '@/lib/utils';
-import lockIcon from '@/assets/lock-icon.png';
+import lockIcon from '@/assets/lock-icon-outfit.png';
 
 interface WardrobeItem {
   id: string;
@@ -111,7 +111,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           <img 
             src={lockIcon} 
             alt="Locked" 
-            className="w-48 h-48 mb-8 object-contain"
+            className="w-[87px] h-[87px] mb-6 object-contain"
           />
           <h3 className="text-2xl font-bold text-primary mb-3 text-center">
             Still off-limits 👀
