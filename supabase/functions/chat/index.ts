@@ -3,6 +3,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPIStreaming, callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
 import { buildAICompanionPrompt } from '../_shared/ai_companion_prompts/index.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
+import { 
+  getConversationState, 
+  updateConversationState, 
+  incrementTurn 
+} from '../_shared/conversation-state-utils.ts';
+import { validateWardrobe } from '../_shared/wardrobe-validation-utils.ts';
+import { detectIntent } from '../_shared/intent-detection-utils.ts';
+import { inferOccasion } from '../_shared/occasion-inference-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,6 +57,44 @@ serve(async (req) => {
     const userId = user.id;
     const { messages, userProfile, wardrobeItems, recentBattles, recentStyleChecks } = await req.json();
 
+    // Increment conversation turn
+    const currentTurn = await incrementTurn(supabase, userId);
+    console.log('Current conversation turn:', currentTurn);
+
+    // Get conversation state
+    let conversationState = await getConversationState(supabase, userId);
+
+    // Validate wardrobe
+    const wardrobeValidation = validateWardrobe(wardrobeItems || []);
+
+    // Update wardrobe validation state
+    await updateConversationState(supabase, userId, {
+      wardrobe_validation_state: wardrobeValidation,
+    });
+
+    // Detect intent from last user message
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+    const intentDetection = lastUserMessage 
+      ? detectIntent(lastUserMessage.content) 
+      : { intent: 'general', confidence: 0, query_type: 'general' };
+
+    // Infer occasion
+    const occasionInference = lastUserMessage
+      ? inferOccasion(lastUserMessage.content, messages)
+      : { inferred_occasion: null, confidence: 0 };
+
+    // Update conversation state with detected intent
+    await updateConversationState(supabase, userId, {
+      last_intent_detected: intentDetection.intent,
+      last_intent_confidence: intentDetection.confidence / 100,
+      last_user_query_type: intentDetection.query_type,
+      last_known_occasion: occasionInference.inferred_occasion || conversationState?.last_known_occasion,
+      current_turn: currentTurn,
+    });
+
+    // Refresh state
+    conversationState = await getConversationState(supabase, userId);
+
     // Fetch user profile
     let bodyShape: string | null = null;
     let skinTone: string | null = null;
@@ -84,17 +130,9 @@ serve(async (req) => {
     console.log("AI_COMPANION_PROMPT_HASH:", promptHash);
     console.log("AI_COMPANION_MODULES_LOADED: ✓");
 
-    // Conversation state tracking
-    const conversationMetadata = {
-      recentOutfitGeneration: messages.slice(-4).some((m: any) => 
-        m.role === 'assistant' && m.content?.includes('create_outfit_suggestion')
-      ),
-      lastOccasion: messages.slice(-3).reverse().find((m: any) => 
-        /wedding|party|date|office|casual|brunch|festive/i.test(m.content)
-      )?.content,
-    };
-
-    // User context
+    // User context with enhanced conversation state
+    const turnsSinceLastOutfit = (conversationState?.current_turn || 0) - (conversationState?.last_outfit_generation_turn || 0);
+    
     const userContextMessage = {
       role: "system",
       content: `
@@ -104,31 +142,73 @@ serve(async (req) => {
   <LOCATION>${userProfile?.location || 'India'}</LOCATION>
   <BODY_SHAPE>${bodyShape || ''}</BODY_SHAPE>
   <SKIN_TONE>${skinTone || ''}</SKIN_TONE>
+  
   <CONVERSATION_STATE>
-    <RECENT_OUTFIT_GENERATED>${conversationMetadata.recentOutfitGeneration}</RECENT_OUTFIT_GENERATED>
-    <LAST_OCCASION>${conversationMetadata.lastOccasion || 'none'}</LAST_OCCASION>
+    <CURRENT_TURN>${conversationState?.current_turn || 0}</CURRENT_TURN>
+    <LAST_OUTFIT_GENERATION_TURN>${conversationState?.last_outfit_generation_turn || 0}</LAST_OUTFIT_GENERATION_TURN>
+    <TURNS_SINCE_LAST_OUTFIT>${turnsSinceLastOutfit}</TURNS_SINCE_LAST_OUTFIT>
+    <LAST_INTENT_DETECTED>${conversationState?.last_intent_detected || 'none'}</LAST_INTENT_DETECTED>
+    <LAST_INTENT_CONFIDENCE>${((conversationState?.last_intent_confidence || 0) * 100).toFixed(0)}%</LAST_INTENT_CONFIDENCE>
+    <LAST_KNOWN_OCCASION>${conversationState?.last_known_occasion || 'none'}</LAST_KNOWN_OCCASION>
+    <LAST_QUERY_TYPE>${conversationState?.last_user_query_type || 'none'}</LAST_QUERY_TYPE>
+    <RECOMMENDATION_MODE>${conversationState?.recommendation_mode || 'outfit'}</RECOMMENDATION_MODE>
+    <OUTSTANDING_QUESTION>${conversationState?.outstanding_question_flag || false}</OUTSTANDING_QUESTION>
   </CONVERSATION_STATE>
+  
+  <WARDROBE_VALIDATION>
+    <TOTAL_ITEMS>${wardrobeValidation.total_items}</TOTAL_ITEMS>
+    <HAS_MINIMUM_ITEMS>${wardrobeValidation.has_minimum_items}</HAS_MINIMUM_ITEMS>
+    <HAS_TOPS>${wardrobeValidation.has_tops}</HAS_TOPS>
+    <HAS_BOTTOMS>${wardrobeValidation.has_bottoms}</HAS_BOTTOMS>
+    <HAS_SHOES>${wardrobeValidation.has_shoes}</HAS_SHOES>
+    <HAS_ETHNIC_SET>${wardrobeValidation.has_ethnic_set}</HAS_ETHNIC_SET>
+    <HAS_DRESSES>${wardrobeValidation.has_dresses}</HAS_DRESSES>
+    <WARDROBE_HEALTH_SCORE>${wardrobeValidation.wardrobe_health_score}/100</WARDROBE_HEALTH_SCORE>
+    <CATEGORIES>${wardrobeValidation.categories.join(', ')}</CATEGORIES>
+  </WARDROBE_VALIDATION>
+  
+  <CURRENT_INTENT_DETECTION>
+    <DETECTED_INTENT>${intentDetection.intent}</DETECTED_INTENT>
+    <CONFIDENCE>${intentDetection.confidence}%</CONFIDENCE>
+    <INFERRED_OCCASION>${occasionInference.inferred_occasion || 'none'}</INFERRED_OCCASION>
+    <OCCASION_CONFIDENCE>${occasionInference.confidence}%</OCCASION_CONFIDENCE>
+  </CURRENT_INTENT_DETECTION>
 </USER_CONTEXT>
 
-<WARDROBE_VALIDATION_RULES>
-CRITICAL: Before calling generate_outfits tool, you MUST verify:
-  1. Wardrobe has at least 1 top (shirt, tee, blouse, kurta, polo, etc.)
-  2. Wardrobe has at least 1 bottom (jeans, pants, trousers, skirt, shorts, etc.)
-  3. Wardrobe has at least 1 footwear (shoes, sneakers, boots, sandals, etc.)
+<CRITICAL_RULES>
+ANTI-SPAM PROTECTION:
+  - Last outfit generation was at turn ${conversationState?.last_outfit_generation_turn || 0}
+  - Current turn is ${conversationState?.current_turn || 0}
+  - Turns since last outfit: ${turnsSinceLastOutfit}
+  - DO NOT generate outfits if turns_since_last_outfit < 2 UNLESS user explicitly asks for "more", "different", "another"
 
-If ANY of these are missing:
-  - DO NOT call generate_outfits tool
-  - Politely ask the user to upload missing items
-  - Explain what categories they need
+TIMING INTELLIGENCE:
+  - Detected intent: ${intentDetection.intent}
+  - Confidence: ${intentDetection.confidence}%
+  - Query type: ${intentDetection.query_type}
+  
+  GENERATE OUTFITS IMMEDIATELY when:
+    ✓ Intent is 'explicit_outfit' OR 'implicit_outfit'
+    ✓ Confidence ≥ 60%
+    ✓ Occasion known OR inferred
+    ✓ Wardrobe has minimum items OR flexible generation possible
+    ✓ Turns since last outfit ≥ 2
+  
+  ASK ONE CLARIFYING QUESTION when:
+    • Intent confidence ≥ 60% BUT occasion unclear
+    • Example: "What's the occasion?"
+  
+  DO NOT GENERATE when:
+    ✗ Intent is 'theory', 'shopping', 'wardrobe-info', 'general'
+    ✗ Confidence < 60%
+    ✗ Turns since last outfit < 2 (anti-spam)
+    ✗ Wardrobe completely empty (0 items)
 
-The backend will reject insufficient wardrobes anyway, so validate first to avoid errors.
-
-NEVER call generate_outfits for:
-  - Casual conversation
-  - Theoretical style questions  
-  - General fashion advice
-  - When user just wants to chat
-</WARDROBE_VALIDATION_RULES>
+1-QUESTION RULE:
+  - Maximum 1 clarifying question per request
+  - Outstanding question flag: ${conversationState?.outstanding_question_flag || false}
+  - If outstanding_question = true, generate immediately on next turn
+</CRITICAL_RULES>
 `
     };
 
@@ -370,6 +450,27 @@ After they specify occasion, THEN call this tool immediately.`,
                 // Handle function calls
                 const functionCall = candidate.content?.parts?.find((p: any) => p.functionCall);
                 if (functionCall) {
+                  // Track outfit generation in conversation state
+                  if (functionCall.functionCall.name === 'generate_outfits') {
+                    await updateConversationState(supabase, userId, {
+                      last_outfit_generation_turn: currentTurn,
+                      recommendation_mode: 'outfit',
+                      outstanding_question_flag: false,
+                    });
+                  }
+                  
+                  if (functionCall.functionCall.name === 'show_wardrobe_items') {
+                    await updateConversationState(supabase, userId, {
+                      recommendation_mode: 'items',
+                    });
+                  }
+                  
+                  if (functionCall.functionCall.name === 'analyze_shopping_needs') {
+                    await updateConversationState(supabase, userId, {
+                      recommendation_mode: 'general',
+                    });
+                  }
+                  
                   const openAIFormat = {
                     choices: [{
                       delta: {

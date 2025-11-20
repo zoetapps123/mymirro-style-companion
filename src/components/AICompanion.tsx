@@ -13,7 +13,7 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
-  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient";
+  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient" | "show_single_item" | "recommend_general_item";
   data: any;
   showAsRecommendation?: boolean;
 }
@@ -1305,6 +1305,24 @@ const AICompanion = () => {
                       <div key={tcIdx}>
                         {tc.type === "show_wardrobe_items" && (
                           <WardrobeItemsDisplay itemIds={tc.data.item_ids} context={tc.data.context} />
+                        )}
+                        {tc.type === "show_single_item" && (
+                          <div className="my-3">
+                            <p className="text-sm text-muted-foreground mb-2">{tc.data.context}</p>
+                            <WardrobeItemsDisplay 
+                              itemIds={[tc.data.item_id]} 
+                              context=""
+                            />
+                          </div>
+                        )}
+                        {tc.type === "recommend_general_item" && (
+                          <div className="my-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                            <h4 className="font-semibold mb-2">💡 Recommended: {tc.data.item_type}</h4>
+                            <p className="text-sm text-muted-foreground mb-2">{tc.data.reason}</p>
+                            {tc.data.occasion_fit && (
+                              <p className="text-xs text-muted-foreground">Perfect for: {tc.data.occasion_fit}</p>
+                            )}
+                          </div>
                         )}
                         {tc.type === "create_outfit_suggestion" && (
                           <OutfitSuggestionDisplay
