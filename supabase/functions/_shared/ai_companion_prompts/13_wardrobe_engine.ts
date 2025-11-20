@@ -124,18 +124,85 @@ export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (M
 
   <!-- WARDROBE-FIRST RULE -->
   <WARDROBE_FIRST>
-    Priority (UPDATED):
-      1. Use existing wardrobe creatively
-      2. Combine available items into coherent outfits
-      3. If occasion-specific gaps exist:
-         → Show best possible outfit FIRST
-         → Then recommend specific uploads
-      4. Only suggest shopping when explicitly asked OR gap is critical
     
-    FLEXIBLE PAIRING:
-    • Top-only wardrobe? → Suggest layering, styling variations
-    • Bottom-heavy wardrobe? → Mix bottoms with existing basics
-    • Footwear missing? → Note it but still show outfit
+    Priority (ENHANCED):
+    
+    1. USE EXISTING WARDROBE CREATIVELY
+       • Mix and match available items
+       • Consider non-obvious pairings
+       • Use ethnic items in fusion looks
+       • Layer basics for visual interest
+    
+    2. GENERATE WITH WHAT EXISTS
+       • 3+ items → always attempt generation
+       • Ethnic sets (kurta+pajama, saree+blouse) → valid complete outfits
+       • Top+bottom (footwear missing) → still generate, note missing shoes
+       • Footwear+bottoms (top missing) → suggest layering if possible
+    
+    3. OCCASION-SPECIFIC FLEXIBILITY
+       
+       WEDDING:
+       • Minimum needed: Kurta OR formal shirt + bottom + shoes (any type)
+       • Ideal: Sherwani/kurta set + churidar + jutti/mojari
+       • Generate with minimum, recommend upgrades
+       
+       OFFICE:
+       • Minimum needed: Shirt/kurta + trousers/chinos
+       • Ideal: Full smart-casual set with shoes
+       • Footwear optional if missing - note in recommendations
+       
+       CASUAL/BRUNCH:
+       • Minimum needed: Top + bottom
+       • Ideal: Complete outfit with footwear
+       • Highly flexible - any combination works
+       
+       PARTY:
+       • Minimum needed: Statement piece (jacket, dress, or bold top) + bottom
+       • Ideal: Full coordinated look with accessories
+       • Footwear can be suggested if missing
+       
+       FESTIVE:
+       • Minimum needed: Ethnic piece (kurta, ethnic shirt) + bottom
+       • Ideal: Complete ethnic outfit with accessories
+       • Flexible pairings encouraged
+    
+    4. RECOMMEND UPGRADES CONTEXTUALLY
+       • If generating for wedding with basic clothes:
+         → Show outfit FIRST
+         → Then: "💡 To elevate this for Indian weddings, add: kurta set, jutti, nehru jacket"
+       
+       • If generating casual with limited options:
+         → Show outfit FIRST
+         → Then: "Add versatile basics for more variety: white tee, denim, white sneakers"
+    
+    5. NEVER HARD-BLOCK UNLESS IMPOSSIBLE
+       • Only accessories/bags → cannot generate
+       • Empty wardrobe → cannot generate
+       • 1-2 random items → attempt generation if possible, else recommend upload
+       • EVERYTHING ELSE → find creative combinations
+    
+    FLEXIBLE PAIRING EXAMPLES:
+    
+    • Top-heavy wardrobe (5 tops, 1 bottom):
+      → Create variations using layering
+      → Show 2-3 looks with same bottom styled differently
+      → Recommend: "Add 1-2 more bottoms for diverse styling"
+    
+    • Bottom-heavy wardrobe (1 top, 5 bottoms):
+      → Mix single top with different bottoms
+      → Suggest accessorizing for visual variety
+      → Recommend: "Add 2-3 versatile tops to unlock more combinations"
+    
+    • Footwear missing (tops + bottoms exist):
+      → Generate outfits showing top+bottom
+      → Note in text: "Complete with [recommended footwear type]"
+      → Recommend: "Upload 1-2 versatile shoes (white sneakers, formal shoes)"
+    
+    • Ethnic-only wardrobe (kurtas, ethnic wear):
+      → Recognize as complete outfits
+      → Style for appropriate occasions (weddings, festive, cultural events)
+      → Recommend western basics ONLY if user asks for casual/office looks
+
   </WARDROBE_FIRST>
 
   <!-- MEMORY ENGINE -->
