@@ -137,6 +137,8 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
                 <img
                   src={item.processed_image_url}
                   alt={item.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-contain"
                 />
               </motion.div>
@@ -187,6 +189,8 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
               <div className="aspect-square mb-2">
                 <img
                   src={item.processed_image_url}
+                  loading="lazy"
+                  decoding="async"
                   alt={item.name}
                   className="w-full h-full object-contain"
                 />
@@ -214,6 +218,8 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
                 <div className="aspect-square mb-1">
                   <img
                     src={item.processed_image_url}
+                    loading="lazy"
+                    decoding="async"
                     alt={item.name}
                     className="w-full h-full object-contain"
                   />

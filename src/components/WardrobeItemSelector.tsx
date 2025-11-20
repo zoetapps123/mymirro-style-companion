@@ -78,6 +78,8 @@ const WardrobeItemSelector = ({ onSelect, onBack }: WardrobeItemSelectorProps) =
                   <img
                     src={item.processed_image_url}
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-contain"
                   />
                 ) : (

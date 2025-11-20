@@ -622,6 +622,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                         <img
                           src={item.processed_image_url || item.image_url}
                           alt={item.name}
+                          loading="lazy"
+                          decoding="async"
                           className="max-w-full max-h-full object-contain"
                         />
                       </div>
@@ -871,6 +873,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                   <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2">
                     <img
                       src={item.processed_image_url || item.image_url}
+                      loading="lazy"
+                      decoding="async"
                       alt={item.name}
                       className="w-full h-full object-cover"
                     />
