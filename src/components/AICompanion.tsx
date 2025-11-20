@@ -8,11 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { compressImages, MAX_FILE_SIZE } from "@/lib/imageCompression";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
+import { WardrobeInsufficientPrompt } from "./chat/WardrobeInsufficientPrompt";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
-  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits";
+  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient";
   data: any;
 }
 
@@ -82,6 +83,18 @@ const AICompanion = () => {
   const chatStartTimeRef = useRef<number>(Date.now());
   const messageCountRef = useRef<number>(0);
   const [lastChatTime, setLastChatTime] = useState<number>(0);
+  
+  // PHASE 6: Tool call tracker to prevent infinite loops
+  const toolCallTracker = useRef<{ [key: string]: number }>({});
+  const resetToolCallTracker = () => {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60000;
+    Object.keys(toolCallTracker.current).forEach(key => {
+      if (toolCallTracker.current[key] < oneMinuteAgo) {
+        delete toolCallTracker.current[key];
+      }
+    });
+  };
 
   // Retry helper with exponential backoff
   const retryWithBackoff = async <T,>(fn: () => Promise<T>, maxRetries = 3): Promise<T> => {
@@ -113,130 +126,153 @@ const AICompanion = () => {
     throw new Error("Max retries reached");
   };
 
-  // Helper function to generate outfits via edge function
+  // PHASE 3: Refactored generateOutfitsFromToolCall - NO immediate loading tiles
   const generateOutfitsFromToolCall = async (args: any, assistantMsgId: string) => {
+    // PHASE 6: Add 30-second timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Outfit generation timed out after 30s')), 30000)
+    );
+
     try {
       console.log("Generating outfits with params:", args, "Current wardrobe items:", wardrobeItems.length);
 
-      // Check if wardrobe is empty
-      if (!wardrobeItems || wardrobeItems.length === 0) {
-        console.warn("Cannot generate outfits: wardrobe is empty");
-        toast({
-          title: "Empty Wardrobe",
-          description: "Please add some items to your wardrobe first before generating outfits.",
-          variant: "destructive",
-        });
-
-        // Remove loading placeholder
-        setMessages((prev) => {
-          const updated = prev.map((m) => {
-            if (m.id === assistantMsgId) {
-              return {
-                ...m,
-                toolCalls: (m.toolCalls || []).filter(
-                  (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits",
-                ),
-              };
-            }
-            return m;
-          });
-          persistMessages(updated);
-          return updated;
-        });
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke("generate-outfit", {
-        body: {
-          generationType: "occasion",
-          occasion: args.occasion || "casual",
-          style: args.style || "any",
-          wardrobeItems: wardrobeItems,
-          maxOutfits: Math.min(args.count || 3, 3),
-          bypassCache: false,
-        },
-      });
-
-      if (error) {
-        console.error("Outfit generation failed:", error);
-        toast({
-          title: "Generation Failed",
-          description: "Could not generate outfits. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log("Outfits generated:", data);
-
-      if (data?.outfits && data.outfits.length > 0) {
-        // Map outfits to format expected by OutfitSuggestionDisplay
-        // The edge function returns { items: [{id, name, category}, ...], reasoning, name }
-        // We need to convert items array to item_ids array
-        const outfitData = data.outfits.map((outfit: any) => ({
-          outfit_name: outfit.name || "Styled Look",
-          item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
-          reasoning: outfit.reasoning || "Complete look from your wardrobe.",
-        }));
-
-        console.log("Mapped outfit data:", outfitData);
-
-        // Create a single tool call with all outfits
-        const outfitToolCall: ToolCall = {
-          type: "create_outfit_suggestion" as const,
-          data: {
-            outfits: outfitData,
+      const generationPromise = (async () => {
+        const { data, error } = await supabase.functions.invoke("generate-outfit", {
+          body: {
+            generationType: "occasion",
+            occasion: args.occasion || "casual",
+            style: args.style || "any",
+            wardrobeItems: wardrobeItems,
+            maxOutfits: Math.min(args.count || 3, 3),
+            bypassCache: false,
           },
-        };
+        });
 
-        // Update messages: remove loading, add actual outfits
-        setMessages((prev) => {
-          const updated = prev.map((m) => {
-            if (m.id === assistantMsgId) {
-              return {
-                ...m,
-                toolCalls: [
-                  ...(m.toolCalls || []).filter(
+        if (error) {
+          console.error("Outfit generation failed:", error);
+          throw error;
+        }
+
+        console.log("Outfits generated:", data);
+
+        // PHASE 3: Handle needsUpload response (insufficient wardrobe)
+        if (data?.needsUpload) {
+          console.warn("Wardrobe insufficient:", data.message);
+          
+          // Create wardrobe_insufficient tool call
+          const insufficientToolCall: ToolCall = {
+            type: "wardrobe_insufficient" as any,
+            data: {
+              missingCategories: data.missingCategories || [],
+              reason: data.message || "Upload more items to get outfit suggestions",
+            },
+          };
+
+          setMessages((prev) => {
+            const updated = prev.map((m) => {
+              if (m.id === assistantMsgId) {
+                return {
+                  ...m,
+                  toolCalls: [
+                    ...(m.toolCalls || []).filter(
+                      (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits",
+                    ),
+                    insufficientToolCall,
+                  ],
+                };
+              }
+              return m;
+            });
+            persistMessages(updated);
+            return updated;
+          });
+          return;
+        }
+
+        if (data?.outfits && data.outfits.length > 0) {
+          // Map outfits to format expected by OutfitSuggestionDisplay
+          const outfitData = data.outfits.map((outfit: any) => ({
+            outfit_name: outfit.name || "Styled Look",
+            item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
+            reasoning: outfit.reasoning || "Complete look from your wardrobe.",
+          }));
+
+          console.log("Mapped outfit data:", outfitData);
+
+          // Create a single tool call with all outfits
+          const outfitToolCall: ToolCall = {
+            type: "create_outfit_suggestion" as const,
+            data: {
+              outfits: outfitData,
+            },
+          };
+
+          // Update messages: remove loading, add actual outfits
+          setMessages((prev) => {
+            const updated = prev.map((m) => {
+              if (m.id === assistantMsgId) {
+                return {
+                  ...m,
+                  toolCalls: [
+                    ...(m.toolCalls || []).filter(
+                      (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits",
+                    ),
+                    outfitToolCall,
+                  ],
+                };
+              }
+              return m;
+            });
+            persistMessages(updated);
+            return updated;
+          });
+        } else {
+          console.warn("No outfits generated");
+          
+          // Remove loading placeholder
+          setMessages((prev) => {
+            const updated = prev.map((m) => {
+              if (m.id === assistantMsgId) {
+                return {
+                  ...m,
+                  toolCalls: (m.toolCalls || []).filter(
                     (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits",
                   ),
-                  outfitToolCall,
-                ],
-              };
-            }
-            return m;
+                };
+              }
+              return m;
+            });
+            persistMessages(updated);
+            return updated;
           });
-          persistMessages(updated);
-          return updated;
-        });
-      } else {
-        console.warn("No outfits generated");
-        toast({
-          title: "No Outfits",
-          description: data?.message || "Could not create outfits with your current wardrobe.",
-        });
+        }
+      })();
 
-        // Remove loading placeholder
-        setMessages((prev) => {
-          const updated = prev.map((m) => {
-            if (m.id === assistantMsgId) {
-              return {
-                ...m,
-                toolCalls: (m.toolCalls || []).filter(
-                  (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits",
-                ),
-              };
-            }
-            return m;
-          });
-          persistMessages(updated);
-          return updated;
-        });
-      }
+      await Promise.race([generationPromise, timeoutPromise]);
     } catch (error) {
-      console.error("Failed to generate outfits:", error);
+      console.error("Error in generateOutfitsFromToolCall:", error);
+      
+      // PHASE 3: ALWAYS remove loading tiles on error
+      setMessages((prev) => {
+        const updated = prev.map((m) => {
+          if (m.id === assistantMsgId) {
+            return {
+              ...m,
+              toolCalls: (m.toolCalls || []).filter(
+                (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits",
+              ),
+            };
+          }
+          return m;
+        });
+        persistMessages(updated);
+        return updated;
+      });
+
+      const errorMsg = error instanceof Error ? error.message : "An unexpected error occurred";
       toast({
-        title: "Error",
-        description: "An unexpected error occurred while generating outfits.",
+        title: "Generation Error",
+        description: errorMsg.includes('timed out') ? 'Request took too long. Try again with fewer items.' : errorMsg,
         variant: "destructive",
       });
     }
@@ -753,21 +789,28 @@ const AICompanion = () => {
                   if (name && typeof argsStr === "string") {
                     try {
                       const args = JSON.parse(argsStr);
-                      console.log("AICompanion: parsed tool call", { type: name, data: args });
-                      if (name === "generate_outfits") {
-                        // Show loading tiles immediately
-                        const loadingCall: ToolCall = {
-                          type: "outfits_loading",
-                          data: { count: Math.min(args.count || 3, 3) },
-                        };
-                        collectedToolCalls.push(loadingCall);
-                        // Trigger actual outfit generation
-                        generateOutfitsFromToolCall(args, assistantMsgId);
-                      } else if (name === "create_outfit_suggestion") {
-                        // Remove loading placeholders if any
-                        collectedToolCalls = collectedToolCalls.filter((c) => c.type !== "outfits_loading");
-                      }
-                      collectedToolCalls.push({ type: name as any, data: args });
+                        console.log("AICompanion: parsed tool call", { type: name, data: args });
+                        
+                        // PHASE 6: Prevent infinite loops
+                        if (name === "generate_outfits") {
+                          resetToolCallTracker();
+                          const trackKey = `generate_outfits_${Date.now()}`;
+                          const recentCalls = Object.keys(toolCallTracker.current).filter(k => k.startsWith('generate_outfits')).length;
+                          
+                          if (recentCalls >= 3) {
+                            console.warn('⚠️ Too many generate_outfits calls in 1 minute, blocking to prevent loop');
+                            return;
+                          }
+                          
+                          toolCallTracker.current[trackKey] = Date.now();
+                          
+                          // PHASE 3: DO NOT show loading tiles immediately - generateOutfitsFromToolCall handles display
+                          generateOutfitsFromToolCall(args, assistantMsgId);
+                        } else if (name === "create_outfit_suggestion") {
+                          // Remove loading placeholders if any
+                          collectedToolCalls = collectedToolCalls.filter((c) => c.type !== "outfits_loading");
+                        }
+                        collectedToolCalls.push({ type: name as any, data: args });
                     } catch (e) {
                       console.error("Failed to parse tool call args:", e);
                     }
@@ -878,14 +921,21 @@ const AICompanion = () => {
                       try {
                         const args = JSON.parse(argsStr);
                         console.log("AICompanion: parsed tool call", { type: name, data: args });
+                        
+                        // PHASE 6: Prevent infinite loops (Safari fallback path)
                         if (name === "generate_outfits") {
-                          // Show loading tiles immediately
-                          const loadingCall: ToolCall = {
-                            type: "outfits_loading",
-                            data: { count: Math.min(args.count || 3, 3) },
-                          };
-                          collectedToolCalls.push(loadingCall);
-                          // Trigger actual outfit generation
+                          resetToolCallTracker();
+                          const trackKey = `generate_outfits_${Date.now()}`;
+                          const recentCalls = Object.keys(toolCallTracker.current).filter(k => k.startsWith('generate_outfits')).length;
+                          
+                          if (recentCalls >= 3) {
+                            console.warn('⚠️ Too many generate_outfits calls in 1 minute, blocking to prevent loop');
+                            return;
+                          }
+                          
+                          toolCallTracker.current[trackKey] = Date.now();
+                          
+                          // PHASE 3: DO NOT show loading tiles immediately
                           generateOutfitsFromToolCall(args, assistantMsgId);
                         } else if (name === "create_outfit_suggestion") {
                           // Remove loading placeholders when outfits arrive
@@ -1205,6 +1255,12 @@ const AICompanion = () => {
                             itemIds={tc.data.item_ids}
                             reasoning={tc.data.reasoning}
                             outfits={tc.data.outfits}
+                          />
+                        )}
+                        {tc.type === "wardrobe_insufficient" && (
+                          <WardrobeInsufficientPrompt
+                            missingCategories={tc.data.missingCategories || []}
+                            reason={tc.data.reason || "Upload more items to get outfit suggestions"}
                           />
                         )}
                         {tc.type === "outfits_loading" && (

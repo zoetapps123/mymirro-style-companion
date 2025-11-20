@@ -95,6 +95,26 @@ serve(async (req) => {
   <BODY_SHAPE>${bodyShape || ''}</BODY_SHAPE>
   <SKIN_TONE>${skinTone || ''}</SKIN_TONE>
 </USER_CONTEXT>
+
+<WARDROBE_VALIDATION_RULES>
+CRITICAL: Before calling generate_outfits tool, you MUST verify:
+  1. Wardrobe has at least 1 top (shirt, tee, blouse, kurta, polo, etc.)
+  2. Wardrobe has at least 1 bottom (jeans, pants, trousers, skirt, shorts, etc.)
+  3. Wardrobe has at least 1 footwear (shoes, sneakers, boots, sandals, etc.)
+
+If ANY of these are missing:
+  - DO NOT call generate_outfits tool
+  - Politely ask the user to upload missing items
+  - Explain what categories they need
+
+The backend will reject insufficient wardrobes anyway, so validate first to avoid errors.
+
+NEVER call generate_outfits for:
+  - Casual conversation
+  - Theoretical style questions  
+  - General fashion advice
+  - When user just wants to chat
+</WARDROBE_VALIDATION_RULES>
 `
     };
 

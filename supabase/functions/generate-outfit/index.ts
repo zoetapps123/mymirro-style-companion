@@ -40,6 +40,47 @@ serve(async (req) => {
 
     console.log('Generating outfits:', { generationType, occasion, style, anchorItem: anchorItem?.name, bypassCache });
 
+    // PHASE 2: Validate wardrobe sufficiency BEFORE generation
+    const validateWardrobe = (items: any[]) => {
+      if (!items || items.length === 0) {
+        return { ok: false, missingCategories: ['tops', 'bottoms', 'shoes'], reason: 'Your wardrobe is empty. Upload at least 1 top, 1 bottom, and 1 pair of shoes to get outfit suggestions.' };
+      }
+
+      const norm = (s: any) => (s || '').toString().toLowerCase();
+      const hasTop = items.some((i: any) => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => norm(i.category).includes(k)));
+      const hasBottom = items.some((i: any) => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => norm(i.category).includes(k)));
+      const hasShoes = items.some((i: any) => ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => norm(i.category).includes(k)));
+
+      const missing: string[] = [];
+      if (!hasTop) missing.push('tops');
+      if (!hasBottom) missing.push('bottoms');
+      if (!hasShoes) missing.push('shoes');
+
+      if (missing.length > 0) {
+        return { ok: false, missingCategories: missing, reason: `To create complete outfits, you need at least 1 ${missing.join(', 1 ')}. Upload these items to get started!` };
+      }
+
+      if (items.length < 3) {
+        return { ok: false, missingCategories: [], reason: `Your wardrobe has only ${items.length} item${items.length === 1 ? '' : 's'}. Upload a few more items to create diverse outfits!` };
+      }
+
+      return { ok: true, missingCategories: [], reason: 'Sufficient' };
+    };
+
+    const validation = validateWardrobe(wardrobeItems);
+    if (!validation.ok) {
+      console.warn('⚠️ Wardrobe validation failed:', validation.reason);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          needsUpload: true, 
+          missingCategories: validation.missingCategories,
+          message: validation.reason 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Check cache first (unless bypassed)
     const itemIds = wardrobeItems?.map((i: any) => i.id).sort() || [];
     const cacheKey = await generateCacheKey({ 
