@@ -110,6 +110,57 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_state: {
+        Row: {
+          created_at: string | null
+          current_turn: number | null
+          id: string
+          last_generated_outfit_ids: string[] | null
+          last_intent_confidence: number | null
+          last_intent_detected: string | null
+          last_known_occasion: string | null
+          last_outfit_generation_turn: number | null
+          last_user_query_type: string | null
+          outstanding_question_flag: boolean | null
+          recommendation_mode: string | null
+          updated_at: string | null
+          user_id: string
+          wardrobe_validation_state: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_turn?: number | null
+          id?: string
+          last_generated_outfit_ids?: string[] | null
+          last_intent_confidence?: number | null
+          last_intent_detected?: string | null
+          last_known_occasion?: string | null
+          last_outfit_generation_turn?: number | null
+          last_user_query_type?: string | null
+          outstanding_question_flag?: boolean | null
+          recommendation_mode?: string | null
+          updated_at?: string | null
+          user_id: string
+          wardrobe_validation_state?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          current_turn?: number | null
+          id?: string
+          last_generated_outfit_ids?: string[] | null
+          last_intent_confidence?: number | null
+          last_intent_detected?: string | null
+          last_known_occasion?: string | null
+          last_outfit_generation_turn?: number | null
+          last_user_query_type?: string | null
+          outstanding_question_flag?: boolean | null
+          recommendation_mode?: string | null
+          updated_at?: string | null
+          user_id?: string
+          wardrobe_validation_state?: Json | null
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           context: Json | null
