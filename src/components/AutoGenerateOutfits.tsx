@@ -4,6 +4,8 @@ import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
+import { useWardrobeItems } from "@/hooks/useWardrobeItems";
+import { OutfitGridLoadingSkeleton } from "@/components/ui/outfit-loading-skeleton";
 import {
   Carousel,
   CarouselContent,
@@ -37,40 +39,26 @@ interface AutoGenerateOutfitsProps {
 const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
+  const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
   const [styleOutfits, setStyleOutfits] = useState<Outfit[]>([]);
   const [occasionOutfits, setOccasionOutfits] = useState<Outfit[]>([]);
   const [editingOutfit, setEditingOutfit] = useState<Outfit | null>(null);
 
   useEffect(() => {
-    fetchWardrobeItems();
-  }, []);
-
-  useEffect(() => {
-    if (wardrobeItems.length >= 6) {
-      // Load previously generated outfits from localStorage
-      const savedStyleOutfits = localStorage.getItem('auto_generated_style_outfits');
-      const savedOccasionOutfits = localStorage.getItem('auto_generated_occasion_outfits');
-      
-      if (savedStyleOutfits && savedOccasionOutfits) {
-        // Load saved outfits
-        setStyleOutfits(JSON.parse(savedStyleOutfits));
-        setOccasionOutfits(JSON.parse(savedOccasionOutfits));
+    if (wardrobeItems.length >= 6 && styleOutfits.length === 0 && occasionOutfits.length === 0) {
+      const cachedOutfits = localStorage.getItem('auto-generated-outfits');
+      if (cachedOutfits) {
+        try {
+          const { style, occasion } = JSON.parse(cachedOutfits);
+          setStyleOutfits(style || []);
+          setOccasionOutfits(occasion || []);
+        } catch (e) {
+          console.error('Failed to parse cached outfits');
+        }
       } else {
-        // Generate for the first time only
         generateAllOutfits();
       }
     }
-  }, [wardrobeItems]);
-
-  const fetchWardrobeItems = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('wardrobe_items')
-      .select('*');
-    setWardrobeItems(data || []);
-    setLoading(false);
-  };
 
   const generateAllOutfits = async () => {
     setLoading(true);
@@ -137,9 +125,25 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         onBack={() => setEditingOutfit(null)}
         onSave={() => {
           setEditingOutfit(null);
-          toast({ title: "Outfit saved!", description: "Your outfit is now in your collection." });
+          toast({
+            title: "Outfit saved!",
+            description: "Your outfit has been saved to your lookbook.",
+          });
         }}
       />
+    );
+  }
+
+  // Show loading skeleton while fetching wardrobe items
+  if (isLoadingWardrobe) {
+    return (
+      <div className="flex flex-col h-screen bg-background">
+        <div className="flex-1 overflow-y-auto pb-20">
+          <div className="p-4">
+            <OutfitGridLoadingSkeleton message="Preparing your wardrobe..." outfitCount={6} />
+          </div>
+        </div>
+      </div>
     );
   }
 

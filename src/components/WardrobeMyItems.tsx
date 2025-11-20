@@ -8,6 +8,7 @@ import { LoadingTile } from "@/components/ui/loading-tile";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
+import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -273,6 +274,19 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     if (selectedCategory === "All") return true;
     return normalizeCategory(item.category) === selectedCategory;
   });
+
+  // Show loading skeleton while fetching items
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-screen bg-background">
+        <div className="flex-1 overflow-y-auto pb-20">
+          <div className="p-4">
+            <WardrobeLoadingSkeleton message="Loading your closet..." itemCount={8} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show empty state if no items
   if (items.length === 0 && processingItems === 0) {
