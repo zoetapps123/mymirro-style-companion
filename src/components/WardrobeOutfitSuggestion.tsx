@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { useOutfits } from '@/hooks/useOutfits';
 import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
+import { OutfitGridLoadingSkeleton } from '@/components/ui/outfit-loading-skeleton';
 import { orderOutfitForDisplay } from '@/lib/utils';
 import lockIcon from '@/assets/lock-icon-outfit.png';
 
@@ -676,44 +677,15 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     );
   }
 
-  // Show skeleton on first load
+  // Show loading skeleton while both wardrobeItems and cachedOutfits are loading
   if (isLoadingOutfits || isLoadingWardrobe) {
     return (
-      <div className="flex flex-col h-full bg-background">
-        {/* Feature Icons */}
-        <div className="px-4 pt-6 pb-4">
-          <div className="grid grid-cols-4 gap-4">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              const isActive = feature.active;
-              return (
-                <button
-                  key={feature.title}
-                  onClick={() => onNavigate(feature.view)}
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
-                      isActive
-                        ? "bg-primary border-2 border-primary"
-                        : "bg-background border-2 border-border"
-                    }`}
-                  >
-                    <Icon
-                      className={`w-7 h-7 ${
-                        isActive ? "text-primary-foreground" : "text-muted-foreground"
-                      }`}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-center leading-tight whitespace-pre-line">
-                    {feature.title}
-                  </span>
-                </button>
-              );
-            })}
+      <div className="flex flex-col h-screen bg-background">
+        <div className="flex-1 overflow-y-auto pb-20">
+          <div className="p-4">
+            <OutfitGridLoadingSkeleton message="Loading outfits..." outfitCount={6} />
           </div>
         </div>
-        <OutfitSuggestionSkeleton />
       </div>
     );
   }

@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWardrobeItems } from "@/hooks/useWardrobeItems";
+import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -47,27 +49,16 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
   const [loading, setLoading] = useState(false);
   const [outfits, setOutfits] = useState<any[]>([]);
   const [currentOutfitIndex, setCurrentOutfitIndex] = useState(0);
-  const [wardrobeItems, setWardrobeItems] = useState<any[]>([]);
+  const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [outfitName, setOutfitName] = useState("");
   const [aiGenerationCount, setAiGenerationCount] = useState(0);
-
-  useEffect(() => {
-    fetchWardrobeItems();
-  }, []);
 
   useEffect(() => {
     if (!selectedItem) {
       onTryAnother();
     }
   }, [selectedItem, onTryAnother]);
-
-  const fetchWardrobeItems = async () => {
-    const { data } = await supabase
-      .from('wardrobe_items')
-      .select('*');
-    setWardrobeItems(data || []);
-  };
 
   const generateOutfit = async () => {
     if (!selectedOccasion) {
@@ -258,11 +249,24 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
 
   const currentOutfit = outfits[currentOutfitIndex];
 
+  // Show loading skeleton while fetching wardrobe items
+  if (isLoadingWardrobe) {
+    return (
+      <div className="flex flex-col h-screen bg-background">
+        <div className="flex-1 overflow-y-auto pb-20">
+          <div className="p-4">
+            <WardrobeLoadingSkeleton message="Loading wardrobe items..." itemCount={6} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const navigateOutfit = (direction: 'prev' | 'next') => {
     if (direction === 'prev' && currentOutfitIndex > 0) {
       setCurrentOutfitIndex(prev => prev - 1);
     } else if (direction === 'next' && currentOutfitIndex < outfits.length - 1) {
-      setCurrentOutfitIndex(prev => prev + 1);
+      setCurrentOutfitIndex(prev => prev - 1);
     }
   };
 
