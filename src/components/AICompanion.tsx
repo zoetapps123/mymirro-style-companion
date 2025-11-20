@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { compressImages, MAX_FILE_SIZE } from "@/lib/imageCompression";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import ReactMarkdown from "react-markdown";
@@ -442,17 +443,46 @@ const AICompanion = () => {
       }
     };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImages((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const fileArray = Array.from(files);
+    
+    // Validate file sizes
+    const oversizedFiles = fileArray.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      toast({
+        title: "File Too Large",
+        description: `Some files exceed 20MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Show loading state
+    setIsLoading(true);
+    
+    try {
+      const compressedImages = await compressImages(fileArray, {
+        maxSize: 512,
+        quality: 0.8,
+        format: 'image/jpeg'
+      });
+      
+      setSelectedImages((prev) => [...prev, ...compressedImages]);
+      
+      console.log(`Compressed ${fileArray.length} image(s) successfully`);
+    } catch (error) {
+      console.error('Image compression failed:', error);
+      toast({
+        title: "Compression Failed",
+        description: error instanceof Error ? error.message : "Could not compress images. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const removeImage = (index: number) => {
