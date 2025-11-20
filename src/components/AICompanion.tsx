@@ -11,7 +11,7 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
-  type: 'show_wardrobe_items' | 'create_outfit_suggestion' | 'outfits_loading';
+  type: 'show_wardrobe_items' | 'create_outfit_suggestion' | 'outfits_loading' | 'generate_outfits';
   data: any;
 }
 
@@ -112,6 +112,64 @@ const AICompanion = () => {
       }
     }
     throw new Error('Max retries reached');
+  };
+
+  // Helper function to generate outfits via edge function
+  const generateOutfitsFromToolCall = async (args: any, assistantMsgId: string) => {
+    try {
+      console.log('Generating outfits with params:', args);
+      
+      const { data, error } = await supabase.functions.invoke('generate-outfit', {
+        body: {
+          generationType: 'occasion',
+          occasion: args.occasion || 'casual',
+          style: args.style || 'any',
+          wardrobeItems: wardrobeItems,
+          maxOutfits: Math.min(args.count || 3, 3),
+          bypassCache: false
+        }
+      });
+
+      if (error) {
+        console.error('Outfit generation failed:', error);
+        return;
+      }
+
+      console.log('Outfits generated:', data);
+
+      if (data?.outfits && data.outfits.length > 0) {
+        // Convert to create_outfit_suggestion format
+        const outfitToolCalls: ToolCall[] = data.outfits.map((outfit: any) => ({
+          type: 'create_outfit_suggestion' as const,
+          data: {
+            outfit_id: outfit.id,
+            outfit_name: outfit.name,
+            items: outfit.items,
+            reasoning: outfit.reasoning || ''
+          }
+        }));
+
+        // Update messages: remove loading, add actual outfits
+        setMessages(prev => {
+          const updated = prev.map(m => {
+            if (m.id === assistantMsgId) {
+              return {
+                ...m,
+                toolCalls: [
+                  ...(m.toolCalls || []).filter(tc => tc.type !== 'outfits_loading' && tc.type !== 'generate_outfits'),
+                  ...outfitToolCalls
+                ]
+              };
+            }
+            return m;
+          });
+          persistMessages(updated);
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error('Failed to generate outfits:', error);
+    }
   };
 
   // Load user profile from onboarding
@@ -588,6 +646,8 @@ const AICompanion = () => {
                         // Show loading tiles immediately
                         const loadingCall: ToolCall = { type: 'outfits_loading', data: { count: Math.min(args.count || 3, 3) } };
                         collectedToolCalls.push(loadingCall);
+                        // Trigger actual outfit generation
+                        generateOutfitsFromToolCall(args, assistantMsgId);
                       } else if (name === 'create_outfit_suggestion') {
                         // Remove loading placeholders if any
                         collectedToolCalls = collectedToolCalls.filter(c => c.type !== 'outfits_loading');
@@ -707,6 +767,8 @@ const AICompanion = () => {
                           // Show loading tiles immediately
                           const loadingCall: ToolCall = { type: 'outfits_loading', data: { count: Math.min(args.count || 3, 3) } };
                           collectedToolCalls.push(loadingCall);
+                          // Trigger actual outfit generation
+                          generateOutfitsFromToolCall(args, assistantMsgId);
                         } else if (name === 'create_outfit_suggestion') {
                           // Remove loading placeholders when outfits arrive
                           collectedToolCalls = collectedToolCalls.filter(c => c.type !== 'outfits_loading');
