@@ -4,6 +4,7 @@ import { X, Plus, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
+import { WardrobeItem } from "@/hooks/useWardrobeItems";
 import {
   Dialog,
   DialogContent,
@@ -13,15 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { orderOutfitForDisplay } from "@/lib/utils";
-
-interface WardrobeItem {
-  id: string;
-  name: string;
-  category: string;
-  image_url: string;
-  processed_image_url: string;
-  color: string;
-}
 
 interface Outfit {
   id: string;
@@ -135,7 +127,7 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
                 className="aspect-square bg-gray-50 rounded-xl overflow-hidden p-4"
               >
                 <img
-                  src={item.processed_image_url}
+                  src={item.processed_image_url || item.image_url}
                   alt={item.name}
                   loading="lazy"
                   decoding="async"
@@ -188,7 +180,7 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
               </Button>
               <div className="aspect-square mb-2">
                 <img
-                  src={item.processed_image_url}
+                  src={item.processed_image_url || item.image_url}
                   loading="lazy"
                   decoding="async"
                   alt={item.name}
@@ -217,7 +209,7 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
               >
                 <div className="aspect-square mb-1">
                   <img
-                    src={item.processed_image_url}
+                    src={item.processed_image_url || item.image_url}
                     loading="lazy"
                     decoding="async"
                     alt={item.name}
