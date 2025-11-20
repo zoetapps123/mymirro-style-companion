@@ -4,7 +4,7 @@ import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { useWardrobeItems } from "@/hooks/useWardrobeItems";
+import { useWardrobeItems, WardrobeItem } from "@/hooks/useWardrobeItems";
 import { OutfitGridLoadingSkeleton } from "@/components/ui/outfit-loading-skeleton";
 import {
   Carousel,
@@ -15,15 +15,6 @@ import {
 } from "@/components/ui/carousel";
 import OutfitDetailEditor from "./OutfitDetailEditor";
 import { orderOutfitForDisplay } from "@/lib/utils";
-
-interface WardrobeItem {
-  id: string;
-  name: string;
-  category: string;
-  image_url: string;
-  processed_image_url: string;
-  color: string;
-}
 
 interface Outfit {
   id: string;
@@ -59,6 +50,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         generateAllOutfits();
       }
     }
+  }, [wardrobeItems]);
 
   const generateAllOutfits = async () => {
     setLoading(true);
@@ -105,7 +97,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         {orderOutfitForDisplay(outfit.items).map((item, idx) => (
           <div key={idx} className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
             <img
-              src={item.processed_image_url}
+              src={item.processed_image_url || item.image_url}
               alt={item.name}
               loading="lazy"
               decoding="async"
