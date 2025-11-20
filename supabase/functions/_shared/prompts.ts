@@ -820,6 +820,7 @@ export const OUTFIT_GENERATION_PROMPTS = {
 INPUT CONTEXT (available as variables):
 • wardrobe: ${JSON.stringify(wardrobeData, null, 2)}
 • request: ${JSON.stringify(requestContext, null, 2)}
+${anchorItem ? `• anchorItem: ${JSON.stringify({ id: anchorItem.id, name: anchorItem.name, category: anchorItem.category }, null, 2)}` : ''}
 
 GOALS
 1. Generate up to ${requestContext.count} high-quality, wearable outfits drawn from the wardrobe.
@@ -829,6 +830,23 @@ GOALS
 5. Provide a confidence score (0.0–1.0) per outfit. Use this to let the chat decide to show, hide or request clarification.
 
 ESSENTIAL RULES (enforce strictly)
+
+${anchorItem ? `
+🔒 CRITICAL: ANCHOR ITEM RULE (HIGHEST PRIORITY)
+• EVERY outfit MUST include the anchor item: ID=${anchorItem.id} ("${anchorItem.name}")
+• This is a NON-NEGOTIABLE requirement. If you cannot create an outfit that includes this item, DO NOT generate that outfit.
+• The anchor item must appear in the "pieces" array of EVERY outfit in your response.
+• Build outfits AROUND this item - pair it with different complementary pieces from the wardrobe.
+• NEVER substitute the anchor item with a different item from the same category.
+• If you generate 3 outfits, all 3 must contain wardrobeItemId="${anchorItem.id}".
+
+VERIFICATION CHECKLIST (before returning response):
+✓ Does outfit #1 include wardrobeItemId="${anchorItem.id}"? 
+✓ Does outfit #2 include wardrobeItemId="${anchorItem.id}"?
+✓ Does outfit #3 include wardrobeItemId="${anchorItem.id}"?
+If ANY answer is NO, reject that outfit and regenerate.
+` : ''}
+
 A. Minimum outfit structure:
 • For outfits using separates: Must include 3 core pieces: 1 Upperwear OR Dress, 1 Lowerwear (if not Dress), 1 Footwear.
 • Exception: Dress/jumpsuit can be 1 garment + footwear (2 items).
@@ -844,8 +862,11 @@ C. GenderTone-aware suggestions:
 • Use genderTone to suggest culturally appropriate silhouettes if both options exist in wardrobe. But do not invent category types. GenderTone only influences styleTag wording, not item selection.
 
 D. Deduplication & Variety:
-• Do not reuse the same item ID across multiple generated outfits in the same response unless wardrobe is extremely small (<5 items) AND requested count exceeds possible unique combinations. If reuse is unavoidable, mark those outfits with lower confidence.
-• Ensure visual distinction between outfits: vary color palettes, key items, or silhouettes.
+${anchorItem 
+  ? `• The anchor item (ID=${anchorItem.id}) MUST appear in EVERY outfit - this is the ONLY exception to the no-reuse rule.
+• All OTHER items should not be reused across outfits unless wardrobe is extremely small (<5 items).`
+  : `• Do not reuse the same item ID across multiple generated outfits in the same response unless wardrobe is extremely small (<5 items) AND requested count exceeds possible unique combinations. If reuse is unavoidable, mark those outfits with lower confidence.`}
+• Ensure visual distinction between outfits: vary color palettes, key items (except anchor), or silhouettes.
 
 E. Color Harmony:
 • Use color_family and primary_color hex to enforce visually pleasing combos.
@@ -904,10 +925,11 @@ Return JSON object with these keys:
 
 GENERATION DETAILS (how to compute/confidence & selection logic)
 1. Preference order when selecting items:
-   a. Items where suitable_occasions includes the requested occasion.
-   b. Items where formality_level matches or is one step below required formality (avoid lower-than-needed).
-   c. Items matching requested style if provided.
-   d. Items that improve color harmony and silhouette balance.
+${anchorItem ? `   a. START with the anchor item (ID=${anchorItem.id}) - this is MANDATORY in every outfit.` : ''}
+   ${anchorItem ? 'b' : 'a'}. Items where suitable_occasions includes the requested occasion.
+   ${anchorItem ? 'c' : 'b'}. Items where formality_level matches or is one step below required formality (avoid lower-than-needed).
+   ${anchorItem ? 'd' : 'c'}. Items matching requested style if provided.
+   ${anchorItem ? 'e' : 'd'}. Items that improve color harmony and silhouette balance.
 2. Confidence calculation heuristic (approx):
    • base = 0.5
    • +0.15 if all pieces explicit match suitable_occasions

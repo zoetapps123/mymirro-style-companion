@@ -477,6 +477,28 @@ serve(async (req) => {
       };
     });
 
+    // Validate anchor item inclusion
+    if (anchorItem) {
+      console.log('[ANCHOR ITEM VALIDATION]', {
+        anchorItemId: anchorItem.id,
+        anchorItemName: anchorItem.name,
+        totalOutfits: outfitsWithItems.length
+      });
+      
+      outfitsWithItems.forEach((outfit: any, index: number) => {
+        const hasAnchorItem = outfit.items.some((item: any) => item.id === anchorItem.id);
+        console.log(`Outfit #${index + 1}: ${hasAnchorItem ? '✅' : '❌'} Contains anchor item`, {
+          outfitItems: outfit.items.map((i: any) => `${i.name} (${i.id})`),
+          anchorItemFound: hasAnchorItem
+        });
+        
+        if (!hasAnchorItem) {
+          console.error(`🚨 VALIDATION FAILED: Outfit #${index + 1} missing anchor item ${anchorItem.id}`);
+        }
+      });
+    }
+
+
     // Build response with new metadata
     const response: any = {
       success: true,
