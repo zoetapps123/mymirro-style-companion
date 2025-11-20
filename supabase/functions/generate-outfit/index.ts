@@ -40,36 +40,111 @@ serve(async (req) => {
 
     console.log('Generating outfits:', { generationType, occasion, style, anchorItem: anchorItem?.name, bypassCache });
 
-    // PHASE 2: Validate wardrobe sufficiency BEFORE generation
+    // PHASE 2: Flexible wardrobe validation - allow generation unless impossible
     const validateWardrobe = (items: any[]) => {
       if (!items || items.length === 0) {
-        return { ok: false, missingCategories: ['tops', 'bottoms', 'shoes'], reason: 'Your wardrobe is empty. Upload at least 1 top, 1 bottom, and 1 pair of shoes to get outfit suggestions.' };
+        return { 
+          ok: false, 
+          missingCategories: ['tops', 'bottoms', 'shoes'], 
+          reason: 'Your wardrobe is empty. Upload at least 1 top, 1 bottom, and 1 pair of shoes to get outfit suggestions.',
+          canGenerate: false
+        };
       }
 
       const norm = (s: any) => (s || '').toString().toLowerCase();
-      const hasTop = items.some((i: any) => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => norm(i.category).includes(k)));
-      const hasBottom = items.some((i: any) => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => norm(i.category).includes(k)));
-      const hasShoes = items.some((i: any) => ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => norm(i.category).includes(k)));
-
+      
+      // Check for tops
+      const tops = items.filter((i: any) => 
+        ['shirt','top','tee','t-shirt','blouse','polo','kurta','kurti','tank'].some(k => norm(i.category).includes(k))
+      );
+      
+      // Check for bottoms
+      const bottoms = items.filter((i: any) => 
+        ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom','legging','pajama','churidar','dhoti','lungi'].some(k => norm(i.category).includes(k))
+      );
+      
+      // Check for footwear
+      const shoes = items.filter((i: any) => 
+        ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper','jutti','mojari','kolhapuri'].some(k => norm(i.category).includes(k))
+      );
+      
+      // Check for complete ethnic outfits (kurta sets, sarees, etc.)
+      const ethnicComplete = items.filter((i: any) => 
+        ['kurta set','saree','lehenga','sherwani','salwar kameez','suit'].some(k => norm(i.category).includes(k) || norm(i.name).includes(k))
+      );
+      
+      // Check for dresses (complete outfits)
+      const dresses = items.filter((i: any) => 
+        ['dress','gown','jumpsuit','romper','one-piece','onepiece'].some(k => norm(i.category).includes(k))
+      );
+      
       const missing: string[] = [];
-      if (!hasTop) missing.push('tops');
-      if (!hasBottom) missing.push('bottoms');
-      if (!hasShoes) missing.push('shoes');
-
-      if (missing.length > 0) {
-        return { ok: false, missingCategories: missing, reason: `To create complete outfits, you need at least 1 ${missing.join(', 1 ')}. Upload these items to get started!` };
+      
+      // Can generate if:
+      // 1. Has at least 1 top + 1 bottom + 1 footwear
+      // 2. OR has ethnic complete outfit + footwear
+      // 3. OR has dress + footwear
+      // 4. OR has at least 3 items total (flexible generation)
+      
+      const hasBasicOutfit = tops.length > 0 && bottoms.length > 0 && shoes.length > 0;
+      const hasEthnicOutfit = ethnicComplete.length > 0 && shoes.length > 0;
+      const hasDressOutfit = dresses.length > 0 && shoes.length > 0;
+      const hasMinimalItems = items.length >= 3;
+      
+      const canGenerate = hasBasicOutfit || hasEthnicOutfit || hasDressOutfit || hasMinimalItems;
+      
+      // Track what's missing for recommendations
+      if (tops.length === 0) missing.push('tops');
+      if (bottoms.length === 0) missing.push('bottoms');
+      if (shoes.length === 0) missing.push('shoes');
+      
+      // If can generate but has gaps, suggest upgrades
+      if (canGenerate && missing.length > 0) {
+        return { 
+          ok: true, 
+          missingCategories: missing, 
+          reason: `Good wardrobe! Consider adding ${missing.join(', ')} for more versatility.`,
+          canGenerate: true,
+          needsUpgrade: true
+        };
       }
-
-      if (items.length < 3) {
-        return { ok: false, missingCategories: [], reason: `Your wardrobe has only ${items.length} item${items.length === 1 ? '' : 's'}. Upload a few more items to create diverse outfits!` };
+      
+      // If cannot generate at all (only accessories, <3 items total)
+      if (!canGenerate) {
+        const onlyAccessories = items.every((i: any) => 
+          ['accessory','bag','belt','watch','jewelry','hat','scarf'].some(k => norm(i.category).includes(k))
+        );
+        
+        if (onlyAccessories) {
+          return { 
+            ok: false, 
+            missingCategories: ['tops', 'bottoms', 'shoes'], 
+            reason: 'You have only accessories. Upload clothing items (tops, bottoms, shoes) to create outfits.',
+            canGenerate: false
+          };
+        }
+        
+        return { 
+          ok: false, 
+          missingCategories: missing.length > 0 ? missing : ['more items'], 
+          reason: `Upload a few more items to create diverse outfits. You need: ${missing.join(', ') || 'more clothing pieces'}.`,
+          canGenerate: false
+        };
       }
-
-      return { ok: true, missingCategories: [], reason: 'Sufficient' };
+      
+      return { 
+        ok: true, 
+        missingCategories: [], 
+        reason: 'Sufficient wardrobe',
+        canGenerate: true
+      };
     };
 
     const validation = validateWardrobe(wardrobeItems);
-    if (!validation.ok) {
-      console.warn('⚠️ Wardrobe validation failed:', validation.reason);
+    
+    // CRITICAL: Only block if literally cannot generate
+    if (!validation.canGenerate) {
+      console.warn('⚠️ Cannot generate outfits:', validation.reason);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -79,6 +154,11 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Log if wardrobe has gaps but can still generate
+    if (validation.needsUpgrade) {
+      console.log('✓ Generating with gaps:', validation.reason);
     }
 
     // Check cache first (unless bypassed)
@@ -400,7 +480,10 @@ serve(async (req) => {
     // Build response with new metadata
     const response: any = {
       success: true,
-      outfits: outfitsWithItems
+      outfits: outfitsWithItems,
+      needsMoreItems: validation.needsUpgrade || false,
+      missingCategories: validation.missingCategories || [],
+      upgradeMessage: validation.needsUpgrade ? validation.reason : null
     };
 
     // Add new prompt 2 fields if present
