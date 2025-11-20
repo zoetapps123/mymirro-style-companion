@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
-import { OUTFIT_GENERATION_PROMPTS } from '../_shared/prompts.ts';
+import { OUTFIT_GENERATION_PROMPTS, OUTFIT_ENGINE_PROMPT, WARDROBE_ENGINE_PROMPT } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
@@ -404,7 +404,8 @@ function buildOutfitGenerationPrompt(
   maxOutfits?: number,
   userLocation?: { temp: number; weather: string; lat: number } | null
 ): string {
-  return OUTFIT_GENERATION_PROMPTS.BUILD_PROMPT({
+  // Build the base prompt from existing logic
+  const basePrompt = OUTFIT_GENERATION_PROMPTS.BUILD_PROMPT({
     generationType,
     occasion,
     style,
@@ -413,4 +414,11 @@ function buildOutfitGenerationPrompt(
     maxOutfits,
     userLocation: userLocation ? { temp: userLocation.temp, weather: userLocation.weather } : undefined
   });
+
+  // Integrate the advanced engine prompts for enhanced outfit generation
+  return `${WARDROBE_ENGINE_PROMPT}
+
+${OUTFIT_ENGINE_PROMPT}
+
+${basePrompt}`;
 }
