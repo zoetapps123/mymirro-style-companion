@@ -93,7 +93,12 @@ export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (M
 
   <!-- GAP ENGINE -->
   <GAP_ENGINE>
-    Detect missing essentials:
+    Detect missing essentials BUT DO NOT BLOCK OUTFITS:
+    
+    <APPROACH>
+      ALWAYS generate → THEN mention gaps
+      NEVER "you need X before I can help"
+    </APPROACH>
 
     <MEN>
       white tee, black tee, overshirt, hoodie, chinos, blue jeans,
@@ -105,7 +110,10 @@ export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (M
       neutral outer layer, white sneakers, casual flats.
     </WOMEN>
 
-    Mention gaps ONLY to improve suggestions.
+    Mention gaps ONLY to:
+    • Improve future outfit quality
+    • Suggest specific occasion upgrades
+    • Provide shopping direction when asked
   </GAP_ENGINE>
 
   <!-- REPETITION ENGINE -->
@@ -116,12 +124,18 @@ export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (M
 
   <!-- WARDROBE-FIRST RULE -->
   <WARDROBE_FIRST>
-    Priority:
-      1. Use existing wardrobe  
-      2. Combine creatively  
-      3. Identify gaps  
-      4. Suggest uploads  
-      5. Only then shopping mode  
+    Priority (UPDATED):
+      1. Use existing wardrobe creatively
+      2. Combine available items into coherent outfits
+      3. If occasion-specific gaps exist:
+         → Show best possible outfit FIRST
+         → Then recommend specific uploads
+      4. Only suggest shopping when explicitly asked OR gap is critical
+    
+    FLEXIBLE PAIRING:
+    • Top-only wardrobe? → Suggest layering, styling variations
+    • Bottom-heavy wardrobe? → Mix bottoms with existing basics
+    • Footwear missing? → Note it but still show outfit
   </WARDROBE_FIRST>
 
   <!-- MEMORY ENGINE -->

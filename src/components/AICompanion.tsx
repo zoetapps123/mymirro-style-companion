@@ -15,6 +15,7 @@ import ReactMarkdown from "react-markdown";
 interface ToolCall {
   type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient";
   data: any;
+  showAsRecommendation?: boolean;
 }
 
 interface Message {
@@ -155,7 +156,63 @@ const AICompanion = () => {
 
         console.log("Outfits generated:", data);
 
-        // PHASE 3: Handle needsUpload response (insufficient wardrobe)
+        // PHASE 3: Handle needsMoreItems flag (partial wardrobe - show outfits + recommendations)
+        if (data?.needsMoreItems && data?.outfits && data.outfits.length > 0) {
+          console.log('✓ Generated outfits with wardrobe gaps:', {
+            outfitCount: data.outfits.length,
+            missingCategories: data.missingCategories
+          });
+          
+          // Map outfits to format expected by OutfitSuggestionDisplay
+          const outfitData = data.outfits.map((outfit: any) => ({
+            outfit_name: outfit.name || "Styled Look",
+            item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
+            reasoning: outfit.reasoning || "Complete look from your wardrobe.",
+          }));
+
+          // Create outfit tool call
+          const outfitToolCall: ToolCall = {
+            type: "create_outfit_suggestion" as const,
+            data: {
+              outfits: outfitData,
+            },
+          };
+          
+          // Create upgrade recommendation tool call
+          const upgradeToolCall: ToolCall = {
+            type: "wardrobe_insufficient",
+            data: {
+              missingCategories: data.missingCategories || [],
+              reason: data.upgradeMessage || `To create better ${args.occasion || ''} outfits, consider adding: ${data.missingCategories.join(', ')}`,
+              showAsRecommendation: true
+            },
+          };
+          
+          // Update messages with BOTH outfits and upgrade suggestions
+          setMessages((prev) => {
+            const updated = prev.map((m) => {
+              if (m.id === assistantMsgId) {
+                return {
+                  ...m,
+                  toolCalls: [
+                    ...(m.toolCalls || []).filter(
+                      (tc) => tc.type !== "outfits_loading" && tc.type !== "generate_outfits"
+                    ),
+                    outfitToolCall,
+                    upgradeToolCall,
+                  ],
+                };
+              }
+              return m;
+            });
+            persistMessages(updated);
+            return updated;
+          });
+          
+          return; // Exit early - don't run fallback insufficient logic
+        }
+
+        // PHASE 3: Handle needsUpload response (insufficient wardrobe - complete failure)
         if (data?.needsUpload) {
           console.warn("Wardrobe insufficient:", data.message);
           
@@ -1261,6 +1318,7 @@ const AICompanion = () => {
                           <WardrobeInsufficientPrompt
                             missingCategories={tc.data.missingCategories || []}
                             reason={tc.data.reason || "Upload more items to get outfit suggestions"}
+                            isRecommendation={tc.data.showAsRecommendation || false}
                           />
                         )}
                         {tc.type === "outfits_loading" && (
