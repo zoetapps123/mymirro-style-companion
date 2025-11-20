@@ -1,7 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPIStreaming, callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
-import { buildAICompanionPrompt } from '../_shared/ai_companion_prompts/index.ts';
+import { 
+  buildAICompanionPrompt,
+  OUTFIT_ENGINE_PROMPT,
+  WARDROBE_ENGINE_PROMPT,
+  TOOL_USAGE_RULES_PROMPT
+} from '../_shared/ai_companion_prompts/index.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
 import { 
   getConversationState, 
@@ -82,6 +87,14 @@ serve(async (req) => {
     const occasionInference = lastUserMessage
       ? inferOccasion(lastUserMessage.content, messages)
       : { inferred_occasion: null, confidence: 0 };
+    
+    console.log('[INTENT DETECTION]', {
+      message: lastUserMessage?.content?.substring(0, 50),
+      intent: intentDetection.intent,
+      confidence: intentDetection.confidence,
+      query_type: intentDetection.query_type,
+      occasion: occasionInference.inferred_occasion
+    });
 
     // Update conversation state with detected intent
     await updateConversationState(supabase, userId, {
@@ -94,6 +107,14 @@ serve(async (req) => {
 
     // Refresh state
     conversationState = await getConversationState(supabase, userId);
+    
+    console.log('[CONVERSATION STATE]', {
+      current_turn: conversationState?.current_turn,
+      last_outfit_turn: conversationState?.last_outfit_generation_turn,
+      turns_since_outfit: (conversationState?.current_turn || 0) - (conversationState?.last_outfit_generation_turn || 0),
+      recommendation_mode: conversationState?.recommendation_mode,
+      outstanding_question: conversationState?.outstanding_question_flag
+    });
 
     // Fetch user profile
     let bodyShape: string | null = null;
@@ -265,30 +286,39 @@ categories=${[...new Set((wardrobeItems || []).map((i: any) => i.category))].joi
         type: "function",
         function: {
           name: "generate_outfits",
-          description: `Generate complete outfit suggestions from user's wardrobe. 
+          description: `Generate complete outfit suggestions from user's wardrobe.
+
+⚠️ CRITICAL ANTI-SPAM CHECK (MUST CHECK BEFORE CALLING):
+- Current turn: ${conversationState?.current_turn || 0}
+- Last outfit generation turn: ${conversationState?.last_outfit_generation_turn || 0}
+- Turns since last outfit: ${(conversationState?.current_turn || 0) - (conversationState?.last_outfit_generation_turn || 0)}
+
+ONLY call this tool if BOTH conditions are met:
+  ✓ Intent confidence >= 60% AND
+  ✓ (turns_since_last_outfit >= 2 OR user explicitly requests "more", "different", "another", "new outfits", "show me more")
+  
+DO NOT CALL if:
+  ✗ User is chatting casually ("what?", "nice", "ok", "cool", "bro", general conversation)
+  ✗ turns_since_last_outfit < 2 (unless explicit request for more)
+  ✗ User asks theory/shopping/general questions
+  ✗ Intent confidence < 60%
+
+If anti-spam triggered, respond conversationally instead of calling this tool.
 
 WHEN TO USE - TWO SCENARIOS:
 
-A) USER SPECIFIES OCCASION → Call immediately:
+A) USER SPECIFIES OCCASION → Call immediately (if anti-spam check passes):
    - "what should I wear for [occasion]"
    - "outfit for [occasion]" 
    - "[occasion] outfit"
-   - "what can I wear to [event]"
-   Examples:
-   - "date night" → Call instantly
-   - "what should I wear casually" → Call instantly
-   - "outfit for work" → Call instantly
+   Examples: "date night", "what should I wear casually", "outfit for work"
 
-B) USER DOESN'T SPECIFY OCCASION → DO NOT CALL, ask for occasion first:
+B) USER DOESN'T SPECIFY OCCASION → Ask for occasion first (max 1 question):
    - "what outfits can I create"
-   - "what can I wear"
    - "suggest outfits"
-   - "show me outfit ideas"
-   Examples:
-   - "what outfits can I create with what I have?" → Ask: "What occasion are you dressing for?"
-   - "suggest some outfits" → Ask: "Sure! What's the occasion?"
+   Examples: "what outfits can I create?" → Ask: "What occasion are you dressing for?"
    
-After they specify occasion, THEN call this tool immediately.`,
+After they specify occasion, THEN call this tool (if anti-spam check passes).`,
           parameters: {
             type: "object",
             properties: {
@@ -392,10 +422,11 @@ After they specify occasion, THEN call this tool immediately.`,
       messages: [
         { role: "system", content: systemPrompt },
         userContextMessage,
-        { role: "system", content: wardrobeSummary },
-        { role: "system", content: wardrobeJSON },
-        { role: "system", content: battlesJSON },
-        { role: "system", content: styleChecksJSON },
+        // CRITICAL: Inject Module 09, 10, 13 prompts EVERY TIME to ensure outfit generation follows styling rules
+        { role: "system", content: TOOL_USAGE_RULES_PROMPT },     // Module 09 - Tool Usage Rules
+        { role: "system", content: OUTFIT_ENGINE_PROMPT },        // Module 10 - Outfit Engine
+        { role: "system", content: WARDROBE_ENGINE_PROMPT },      // Module 13 - Wardrobe Engine
+        { role: "system", content: `${wardrobeSummary}\n\n${wardrobeJSON}\n\n${battlesJSON}\n\n${styleChecksJSON}` },
         ...processedMessages
       ],
       tools,
