@@ -6,7 +6,20 @@ export interface IntentDetection {
 }
 
 export function detectIntent(userMessage: string): IntentDetection {
-  const msg = userMessage.toLowerCase();
+  const msg = userMessage.toLowerCase().trim();
+  
+  // SHORT MESSAGE GUARD - Prevent ambiguous 1-2 word messages from triggering outfit generation
+  // This fixes the "what?" bug - casual responses should not trigger outfit intent
+  if (msg.length <= 10) {
+    const shortAmbiguous = /^(what|huh|ok|okay|bro|yeah|yea|nah|nope|wtf|lol|lmao|hmm|ohh?|uh|umm?|nice|cool)\??!?\.?$/i;
+    if (shortAmbiguous.test(msg)) {
+      return {
+        intent: 'general',
+        confidence: 5,  // Near-zero confidence - clearly not an outfit request
+        query_type: 'general',
+      };
+    }
+  }
   
   // EXPLICIT OUTFIT INTENT (90%+ confidence)
   const explicitPatterns = [
