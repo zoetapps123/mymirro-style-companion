@@ -6,6 +6,7 @@ import { Sparkles } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { orderOutfitForDisplay } from '@/lib/utils';
 import { WardrobeItem } from '@/hooks/useWardrobeItems';
+import { WardrobeInsufficientPrompt } from './WardrobeInsufficientPrompt';
 
 interface WardrobeItemsDisplayProps {
   itemIds: string[];
