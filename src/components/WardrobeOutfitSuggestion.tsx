@@ -334,21 +334,31 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const generateOutfits = async (type: 'occasion' | 'style' | 'anchor', value: string, anchorItem?: WardrobeItem) => {
     const key = `${type}-${value}`;
     
+    // SET LOADING IMMEDIATELY - BEFORE any checks
+    setLoading(prev => ({ ...prev, [key]: true }));
+    
     // Check if outfits already exist
     if (type === 'occasion' && occasionOutfits[value]?.length > 0) {
       console.log(`Outfits for ${value} already loaded from database`);
+      setLoading(prev => ({ ...prev, [key]: false }));
       return;
     }
     if (type === 'style' && styleOutfits[value]?.length > 0) {
       console.log(`Outfits for ${value} already loaded from database`);
+      setLoading(prev => ({ ...prev, [key]: false }));
       return;
     }
-    if (type === 'anchor' && anchorOutfits.length > 0) {
-      console.log('Anchor outfits already loaded');
-      return;
+    // FIX: Check if outfits exist for THIS SPECIFIC anchor item, not all anchor items
+    if (type === 'anchor' && anchorItem) {
+      const hasOutfitsForThisItem = anchorOutfits.some(outfit => 
+        outfit.items.some(item => item.id === anchorItem.id)
+      );
+      if (hasOutfitsForThisItem) {
+        console.log(`Anchor outfits already loaded for ${anchorItem.name}`);
+        setLoading(prev => ({ ...prev, [key]: false }));
+        return;
+      }
     }
-
-    setLoading(prev => ({ ...prev, [key]: true }));
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -593,7 +603,12 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
 
   const OutfitCarousel = ({ outfits, sectionKey }: { outfits: GeneratedOutfit[], sectionKey: string }) => {
     const [emblaRef] = useEmblaCarousel({ loop: false, align: 'start' });
-    const isLoading = loading[sectionKey];
+    
+    // FIX: Check loading state using the same key format as generateOutfits
+    // For anchor items, the key is `anchor-${itemId}`
+    const isLoading = Object.entries(loading).some(([key, value]) => 
+      key.startsWith(sectionKey) && value === true
+    );
 
     return (
       <div className="overflow-hidden" ref={emblaRef}>
@@ -604,6 +619,13 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               <OutfitLoadingTile />
             </div>
           ))}
+          
+          {/* Show empty state when no outfits and not loading */}
+          {!isLoading && outfits.length === 0 && (
+            <div className="w-full text-center py-8 text-muted-foreground">
+              <p className="text-sm">No outfits generated yet. Click an item to create outfits!</p>
+            </div>
+          )}
           
           {/* Actual outfits */}
           {!isLoading && outfits.map((outfit, idx) => (
@@ -827,6 +849,16 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           <p className="text-sm text-muted-foreground mb-4">
             Select a top or bottom to build outfits around
           </p>
+          
+          {/* Show loading message when generating for anchor item */}
+          {selectedAnchorItem && loading[`anchor-${selectedAnchorItem.id}`] && (
+            <div className="mb-4 p-3 bg-primary/10 rounded-lg">
+              <p className="text-sm text-primary animate-pulse">
+                Creating outfits for {selectedAnchorItem.name}...
+              </p>
+            </div>
+          )}
+          
           <div className="flex gap-4 overflow-x-auto pb-4 mb-4">
             {wardrobeItems
               .filter(item => ['Tops', 'Bottoms'].includes(item.category))
@@ -834,15 +866,21 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               .map(item => (
                 <div
                   key={item.id}
-                  className={`flex-shrink-0 w-24 cursor-pointer ${
-                    selectedAnchorItem?.id === item.id ? 'ring-2 ring-primary rounded-lg' : ''
-                  }`}
+                  className={`flex-shrink-0 w-24 cursor-pointer transition-all ${
+                    selectedAnchorItem?.id === item.id 
+                      ? 'ring-2 ring-primary rounded-lg scale-105' 
+                      : 'hover:scale-105'
+                  } ${loading[`anchor-${item.id}`] ? 'opacity-50' : ''}`}
                   onClick={() => {
+                    // Clear previous anchor outfits when selecting a new item
+                    if (selectedAnchorItem?.id !== item.id) {
+                      setAnchorOutfits([]);
+                    }
                     setSelectedAnchorItem(item);
                     generateOutfits('anchor', item.id, item);
                   }}
                 >
-                  <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2">
+                  <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
                     <img
                       src={item.processed_image_url || item.image_url}
                       loading="lazy"
@@ -850,6 +888,11 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                       alt={item.name}
                       className="w-full h-full object-cover"
                     />
+                    {loading[`anchor-${item.id}`] && (
+                      <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-center truncate">{item.name}</p>
                 </div>
@@ -858,7 +901,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           {selectedAnchorItem && (
             <OutfitCarousel
               outfits={anchorOutfits}
-              sectionKey="anchor"
+              sectionKey={`anchor-${selectedAnchorItem.id}`}
             />
           )}
         </section>
