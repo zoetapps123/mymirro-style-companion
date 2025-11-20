@@ -84,6 +84,16 @@ serve(async (req) => {
     console.log("AI_COMPANION_PROMPT_HASH:", promptHash);
     console.log("AI_COMPANION_MODULES_LOADED: ✓");
 
+    // Conversation state tracking
+    const conversationMetadata = {
+      recentOutfitGeneration: messages.slice(-4).some((m: any) => 
+        m.role === 'assistant' && m.content?.includes('create_outfit_suggestion')
+      ),
+      lastOccasion: messages.slice(-3).reverse().find((m: any) => 
+        /wedding|party|date|office|casual|brunch|festive/i.test(m.content)
+      )?.content,
+    };
+
     // User context
     const userContextMessage = {
       role: "system",
@@ -94,6 +104,10 @@ serve(async (req) => {
   <LOCATION>${userProfile?.location || 'India'}</LOCATION>
   <BODY_SHAPE>${bodyShape || ''}</BODY_SHAPE>
   <SKIN_TONE>${skinTone || ''}</SKIN_TONE>
+  <CONVERSATION_STATE>
+    <RECENT_OUTFIT_GENERATED>${conversationMetadata.recentOutfitGeneration}</RECENT_OUTFIT_GENERATED>
+    <LAST_OCCASION>${conversationMetadata.lastOccasion || 'none'}</LAST_OCCASION>
+  </CONVERSATION_STATE>
 </USER_CONTEXT>
 
 <WARDROBE_VALIDATION_RULES>
