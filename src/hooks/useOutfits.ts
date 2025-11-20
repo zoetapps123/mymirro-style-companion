@@ -70,8 +70,8 @@ export const useOutfits = () => {
   const query = useQuery({
     queryKey: ['outfits-suggestions'],
     queryFn: fetchOutfits,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 60 * 60 * 1000, // 1 hour - good balance for AI-generated content
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours - safe due to invalidation on save/regenerate
   });
 
   const invalidateOutfits = () => {

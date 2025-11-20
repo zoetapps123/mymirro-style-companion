@@ -435,6 +435,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
               <img
                 src={item.processed_image_url || item.image_url}
                 alt={item.name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-contain"
               />
               {/* Delete Button */}

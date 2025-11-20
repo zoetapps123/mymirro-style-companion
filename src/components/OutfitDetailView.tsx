@@ -392,6 +392,8 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
                   <img 
                     src={item.processed_image_url || item.image_url} 
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -443,7 +445,9 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
                             >
                               <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
                                 <img 
-                                  src={item.processed_image_url || item.image_url} 
+                                  src={item.processed_image_url || item.image_url}
+                                  loading="lazy"
+                                  decoding="async"
                                   alt={item.name}
                                   className="w-full h-full object-cover"
                                 />

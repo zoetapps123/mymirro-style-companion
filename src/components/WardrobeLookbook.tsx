@@ -223,6 +223,8 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                         <img
                           src={outfit.preview_image_url}
                           alt={outfit.style_tag || outfit.name}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-contain"
                         />
                         <button
@@ -239,6 +241,8 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                             <img
                               src={item.processed_image_url || item.image_url}
                               alt={item.name}
+                              loading="lazy"
+                              decoding="async"
                               className="max-w-full max-h-full object-contain"
                             />
                           </div>
