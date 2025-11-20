@@ -1365,8 +1365,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               </div>
 
               {/* Left side content - Layer 3 */}
-              <div className="relative z-20 flex flex-col h-full" style={{ paddingTop: '12px', paddingBottom: '15px' }}>
-                <div style={{ marginBottom: '8px' }}>
+              <div className="relative z-20 flex flex-col h-full" style={{ paddingTop: '4px', paddingBottom: '15px' }}>
+                <div style={{ marginBottom: '10px' }}>
                   <h3 
                     className="font-boston font-bold text-primary"
                     style={{
