@@ -117,7 +117,33 @@ const AICompanion = () => {
   // Helper function to generate outfits via edge function
   const generateOutfitsFromToolCall = async (args: any, assistantMsgId: string) => {
     try {
-      console.log('Generating outfits with params:', args);
+      console.log('Generating outfits with params:', args, 'Current wardrobe items:', wardrobeItems.length);
+      
+      // Check if wardrobe is empty
+      if (!wardrobeItems || wardrobeItems.length === 0) {
+        console.warn('Cannot generate outfits: wardrobe is empty');
+        toast({
+          title: "Empty Wardrobe",
+          description: "Please add some items to your wardrobe first before generating outfits.",
+          variant: "destructive"
+        });
+        
+        // Remove loading placeholder
+        setMessages(prev => {
+          const updated = prev.map(m => {
+            if (m.id === assistantMsgId) {
+              return {
+                ...m,
+                toolCalls: (m.toolCalls || []).filter(tc => tc.type !== 'outfits_loading' && tc.type !== 'generate_outfits')
+              };
+            }
+            return m;
+          });
+          persistMessages(updated);
+          return updated;
+        });
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('generate-outfit', {
         body: {
@@ -132,22 +158,35 @@ const AICompanion = () => {
 
       if (error) {
         console.error('Outfit generation failed:', error);
+        toast({
+          title: "Generation Failed",
+          description: "Could not generate outfits. Please try again.",
+          variant: "destructive"
+        });
         return;
       }
 
       console.log('Outfits generated:', data);
 
       if (data?.outfits && data.outfits.length > 0) {
-        // Convert to create_outfit_suggestion format
-        const outfitToolCalls: ToolCall[] = data.outfits.map((outfit: any) => ({
+        // Map outfits to format expected by OutfitSuggestionDisplay
+        // The edge function returns { items: [{id, name, category}, ...], reasoning, name }
+        // We need to convert items array to item_ids array
+        const outfitData = data.outfits.map((outfit: any) => ({
+          outfit_name: outfit.name || 'Styled Look',
+          item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
+          reasoning: outfit.reasoning || 'Complete look from your wardrobe.'
+        }));
+
+        console.log('Mapped outfit data:', outfitData);
+
+        // Create a single tool call with all outfits
+        const outfitToolCall: ToolCall = {
           type: 'create_outfit_suggestion' as const,
           data: {
-            outfit_id: outfit.id,
-            outfit_name: outfit.name,
-            items: outfit.items,
-            reasoning: outfit.reasoning || ''
+            outfits: outfitData
           }
-        }));
+        };
 
         // Update messages: remove loading, add actual outfits
         setMessages(prev => {
@@ -157,8 +196,29 @@ const AICompanion = () => {
                 ...m,
                 toolCalls: [
                   ...(m.toolCalls || []).filter(tc => tc.type !== 'outfits_loading' && tc.type !== 'generate_outfits'),
-                  ...outfitToolCalls
+                  outfitToolCall
                 ]
+              };
+            }
+            return m;
+          });
+          persistMessages(updated);
+          return updated;
+        });
+      } else {
+        console.warn('No outfits generated');
+        toast({
+          title: "No Outfits",
+          description: data?.message || "Could not create outfits with your current wardrobe.",
+        });
+        
+        // Remove loading placeholder
+        setMessages(prev => {
+          const updated = prev.map(m => {
+            if (m.id === assistantMsgId) {
+              return {
+                ...m,
+                toolCalls: (m.toolCalls || []).filter(tc => tc.type !== 'outfits_loading' && tc.type !== 'generate_outfits')
               };
             }
             return m;
@@ -169,6 +229,11 @@ const AICompanion = () => {
       }
     } catch (error) {
       console.error('Failed to generate outfits:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while generating outfits.",
+        variant: "destructive"
+      });
     }
   };
 
