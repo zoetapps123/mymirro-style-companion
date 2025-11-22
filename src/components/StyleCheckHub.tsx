@@ -1355,7 +1355,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 </div>
                 <div className="mt-auto">
                   <Button 
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold w-[70px] xs:w-[76px] h-[18px] xs:h-[19px] rounded-[4px] text-[10px] xs:text-xs p-0"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold w-[90px] xs:w-[100px] sm:w-[110px] h-[28px] xs:h-[32px] sm:h-[36px] rounded-md text-xs xs:text-sm px-3 xs:px-4"
                   >
                     Let&apos;s fight!
                   </Button>
