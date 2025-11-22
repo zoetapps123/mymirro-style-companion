@@ -1026,8 +1026,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           </motion.div>
         )}
 
-        {/* Check Another Outfit CTA - shown when no results */}
-        {!result && !predicting && !scanning && (
+        {/* Check Another Outfit CTA - shown after user dismisses vibe prediction */}
+        {uploadedImage && !showPredictionSheet && !result && !predicting && !scanning && (
           <div className="flex justify-center py-4">
             <Button
               variant="default"
