@@ -1026,6 +1026,23 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           </motion.div>
         )}
 
+        {/* Check Another Outfit CTA - shown when no results */}
+        {!result && !predicting && !scanning && (
+          <div className="flex justify-center py-4">
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full max-w-sm rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+              onClick={() => {
+                // Dummy button - placeholder for future functionality
+                console.log('Check another outfit clicked');
+              }}
+            >
+              Check another outfit
+            </Button>
+          </div>
+        )}
+
         {/* Results Display */}
         {result && (
           <div className="space-y-6 animate-fade-in">
@@ -1268,17 +1285,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 }}
               >
                 Check Another Outfit
-              </Button>
-
-              {/* Additional Check Another Outfit CTA */}
-              <Button
-                variant="default"
-                className="w-full rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                onClick={() => {
-                  // Dummy button - no action
-                }}
-              >
-                Check another outfit
               </Button>
 
               {/* Battle Button CTA - appears after style check */}
