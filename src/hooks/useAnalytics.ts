@@ -66,6 +66,10 @@ export const useAnalytics = () => {
   // Deduplication tracking
   const recentEvents = useRef<Map<string, number>>(new Map());
 
+  // Page view tracking
+  const currentPageViewId = useRef<string | null>(null);
+  const sessionInitialized = useRef<boolean>(false);
+
   // Helper function to get screen category from screen name
   const getScreenCategory = useCallback((screenName: string): string | null => {
     if (!screenName) return null;
@@ -87,11 +91,58 @@ export const useAnalytics = () => {
     return null;
   }, [location.pathname]);
 
+  // Initialize or update session in sessions table
+  const ensureSession = useCallback(async (userId: string) => {
+    if (sessionInitialized.current) return;
+    
+    try {
+      const { data: existing } = await supabase
+        .from('sessions')
+        .select('session_id')
+        .eq('session_id', sessionId.current)
+        .single();
+
+      if (!existing) {
+        await supabase.from('sessions').insert({
+          session_id: sessionId.current,
+          user_id: userId,
+          started_at: new Date(sessionStartTime).toISOString(),
+          viewport_width: window.innerWidth,
+          viewport_height: window.innerHeight,
+          session_metadata: {}
+        });
+      }
+      
+      sessionInitialized.current = true;
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Session initialization error:', error);
+      }
+    }
+  }, []);
+
+  // Update session end time
+  const updateSessionEnd = useCallback(async () => {
+    try {
+      await supabase
+        .from('sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('session_id', sessionId.current);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Session end update error:', error);
+      }
+    }
+  }, []);
+
   // Track an event - never throw errors
   const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId, engagementSource, pageRoute, virtualPath }: AnalyticsEvent) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Ensure session exists
+      await ensureSession(user.id);
 
       // Deduplication: Skip if same event was tracked within last 1 second
       const dedupKey = `${eventType}_${user.id}_${sessionId.current}_${JSON.stringify(eventData || {})}`;
@@ -133,30 +184,44 @@ export const useAnalytics = () => {
         ? eventData.duration_seconds 
         : null;
 
-      await supabase.from('analytics_events').insert({
-        user_id: user.id,
-        session_id: sessionId.current,
-        event_type: eventType,
-        event_category: eventCategory,
-        event_data: eventData || null,
-        page_route: pageRoute || location.pathname,
-        virtual_path: finalVirtualPath,
-        screen_name: finalScreenName,
-        screen_category: finalScreenCategory,
-        user_action,
-        event_source: engagementSource || null,
-        duration_seconds,
-        flow_id: flowId || null,
-        viewport_width: window.innerWidth,
-        viewport_height: window.innerHeight,
-      });
+      // Track to new tables based on event type
+      if (eventType === 'page_view' || eventType === 'screen_view') {
+        // Insert into page_views table
+        const { data: pageView } = await supabase.from('page_views').insert({
+          session_id: sessionId.current,
+          user_id: user.id,
+          page_route: pageRoute || location.pathname,
+          screen_name: finalScreenName,
+          screen_category: finalScreenCategory,
+          virtual_path: finalVirtualPath,
+          duration_seconds: null
+        }).select('id').single();
+
+        if (pageView) {
+          currentPageViewId.current = pageView.id;
+        }
+      } else {
+        // Insert into user_events table
+        await supabase.from('user_events').insert({
+          session_id: sessionId.current,
+          page_view_id: currentPageViewId.current,
+          user_id: user.id,
+          event_type: eventType,
+          event_category: eventCategory,
+          event_source: engagementSource || null,
+          user_action,
+          duration_seconds,
+          flow_id: flowId || null,
+          event_data: eventData || {}
+        });
+      }
     } catch (error) {
       // Silently fail - analytics should never break the app
       if (process.env.NODE_ENV === 'development') {
         console.warn('Analytics tracking error:', error);
       }
     }
-  }, [location.pathname, getScreenCategory, inferScreenFromPath]);
+  }, [location.pathname, getScreenCategory, inferScreenFromPath, ensureSession]);
 
   // Detect rage taps
   const detectRageTap = useCallback((element: string, x: number, y: number) => {
@@ -323,22 +388,38 @@ export const useAnalytics = () => {
   }, [trackEvent]);
 
   // Screen tracking functions
-  const trackScreenView = useCallback((screenName: string, metadata?: Record<string, any>, virtualPath?: string, pageRoute?: string) => {
+  const trackScreenView = useCallback(async (screenName: string, metadata?: Record<string, any>, virtualPath?: string, pageRoute?: string) => {
     const currentPageRoute = pageRoute || virtualPath || `/app/${screenName}`;
     
-    if (currentScreen.current) {
-      // Track exit from previous screen
+    if (currentScreen.current && currentPageViewId.current) {
+      // Update previous page view with exit time and duration
+      const timeOnScreen = Math.round((Date.now() - screenStartTime.current) / 1000);
+      try {
+        await supabase.from('page_views')
+          .update({ 
+            exited_at: new Date().toISOString(),
+            duration_seconds: timeOnScreen
+          })
+          .eq('id', currentPageViewId.current);
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Page view update error:', error);
+        }
+      }
+
+      // Track exit event
       trackEvent({
         eventType: 'screen_exit',
         eventCategory: 'navigation',
         eventData: {
           from_screen: currentScreen.current,
           to_screen: screenName,
-          time_on_screen: Date.now() - screenStartTime.current,
+          time_on_screen: timeOnScreen,
+          duration_seconds: timeOnScreen,
           ...metadata
         },
         screenName: currentScreen.current,
-        engagementSource: `${currentScreen.current} - Screen Exit`,
+        engagementSource: `navigation:screen_exit`,
         pageRoute: currentPageRoute,
         virtualPath: virtualPath
       });
@@ -356,7 +437,7 @@ export const useAnalytics = () => {
         ...metadata
       },
       screenName,
-      engagementSource: screenName,
+      engagementSource: `navigation:screen_view`,
       pageRoute: currentPageRoute,
       virtualPath: virtualPath
     });
@@ -441,16 +522,18 @@ export const useAnalytics = () => {
       const inactiveTime = Date.now() - lastActivityTime.current;
       const fiveMinutes = 5 * 60 * 1000;
 
-      if (inactiveTime >= fiveMinutes && !sessionTimeoutTracked.current) {
+        if (inactiveTime >= fiveMinutes && !sessionTimeoutTracked.current) {
         sessionTimeoutTracked.current = true;
+        updateSessionEnd();
         trackEvent({
           eventType: 'session_timeout',
           eventCategory: 'engagement',
           eventData: {
             inactive_duration_ms: inactiveTime,
+            inactive_duration_seconds: Math.round(inactiveTime / 1000),
             total_session_time: Date.now() - sessionStartTime,
           },
-          engagementSource: 'Session Timeout'
+          engagementSource: 'system:session_timeout'
         });
       }
     }, 30000); // Check every 30 seconds
@@ -461,25 +544,11 @@ export const useAnalytics = () => {
 
     // Track session end on page unload
     const handleBeforeUnload = () => {
-      const sessionDuration = Date.now() - sessionStartTime;
+      // Update session end time
       navigator.sendBeacon(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/analytics_events`,
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/sessions?session_id=eq.${sessionId.current}`,
         JSON.stringify({
-          user_id: sessionId.current,
-          session_id: sessionId.current,
-          event_type: 'session_end',
-          event_category: 'navigation',
-          event_data: {
-            exit_route: location.pathname,
-            exit_screen: currentScreen.current,
-            session_duration_ms: sessionDuration,
-            session_duration_seconds: Math.round(sessionDuration / 1000),
-            reason: 'user_exit'
-          },
-          page_route: location.pathname,
-          screen_name: currentScreen.current,
-          viewport_width: window.innerWidth,
-          viewport_height: window.innerHeight,
+          ended_at: new Date().toISOString()
         })
       );
     };
@@ -491,19 +560,11 @@ export const useAnalytics = () => {
       } else {
         const hiddenDuration = Date.now() - lastActivityTime.current;
         if (hiddenDuration > 30 * 60 * 1000) { // 30 minutes
-          trackEvent({
-            eventType: 'session_end',
-            eventCategory: 'navigation',
-            eventData: {
-              reason: 'long_inactivity',
-              inactive_duration_ms: hiddenDuration,
-              session_duration_ms: Date.now() - sessionStartTime
-            },
-            engagementSource: 'system:long_inactivity'
-          });
-          // Generate new session
-          sessionStartTime = Date.now();
+          updateSessionEnd();
+          // Generate new session ID for next activity
           sessionId.current = getSessionId();
+          sessionStartTime = Date.now();
+          sessionInitialized.current = false;
         }
       }
     };
