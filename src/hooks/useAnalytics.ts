@@ -322,19 +322,29 @@ export const useAnalytics = () => {
     }
   }, [trackEvent, detectRageTap, location.pathname]);
 
-  // Track page view duration
-  const trackPageDuration = useCallback(() => {
-    const duration = Date.now() - pageStartTime.current;
-    trackEvent({
-      eventType: 'page_view_duration',
-      eventCategory: 'navigation',
-      eventData: {
-        duration_ms: duration,
-        duration_seconds: Math.round(duration / 1000),
-      },
-      engagementSource: `${location.pathname} - Page View Duration`
-    });
-  }, [trackEvent, location.pathname]);
+  // Track page view duration by updating page_views table directly
+  const trackPageDuration = useCallback(async () => {
+    if (!currentPageViewId.current) return;
+    
+    const durationMs = Date.now() - pageStartTime.current;
+    const durationSeconds = Math.round(durationMs / 1000);
+    
+    try {
+      await supabase
+        .from('page_views')
+        .update({ 
+          duration_ms: durationMs,
+          duration_seconds: durationSeconds,
+          exited_at: new Date().toISOString(),
+          exit_reason: 'navigation'
+        })
+        .eq('id', currentPageViewId.current);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Page duration update error:', error);
+      }
+    }
+  }, []);
 
   // Track scroll milestones
   const scrollMilestonesReached = useRef<Set<number>>(new Set());
@@ -448,23 +458,6 @@ export const useAnalytics = () => {
         }
       }
 
-      // Track exit event
-      trackEvent({
-        eventType: 'screen_exit',
-        eventCategory: 'navigation',
-        eventData: {
-          from_screen: currentScreen.current,
-          to_screen: screenName,
-          time_on_screen: timeOnScreen,
-          duration_seconds: timeOnScreen,
-          numeric_value: timeOnScreen,
-          ...metadata
-        },
-        screenName: currentScreen.current,
-        engagementSource: `navigation:screen_exit`,
-        pageRoute: currentPageRoute,
-        virtualPath: virtualPath
-      });
     }
     
     // Track entry to new screen
@@ -497,11 +490,17 @@ export const useAnalytics = () => {
     });
   }, [trackEvent]);
 
-  // Auto-track page views and reset scroll milestones
+  // Auto-track page views with duration tracking
   useEffect(() => {
+    // Track page duration before route change
+    if (currentPageViewId.current) {
+      trackPageDuration();
+    }
+    
+    // Reset tracking for new page
     const currentPath = location.pathname;
     pageStartTime.current = Date.now();
-    scrollMilestonesReached.current.clear(); // Reset milestones on page change
+    scrollMilestonesReached.current.clear();
     
     // Infer screen name from path
     const screenName = currentPath === '/' ? 'index' : 
@@ -520,7 +519,7 @@ export const useAnalytics = () => {
       pageRoute: currentPath
     });
 
-    // Track page duration on unmount
+    // Track page duration on unmount/route change
     return () => {
       trackPageDuration();
     };
