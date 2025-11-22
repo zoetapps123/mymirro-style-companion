@@ -19,7 +19,7 @@ interface StyleCheckHubProps {
 }
 
 const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) => {
-  const { trackClick } = useAnalytics();
+  const { trackClick, trackCustom } = useAnalytics();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showOccasionModal, setShowOccasionModal] = useState(false);
@@ -152,6 +152,12 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Track upload attempt
+      trackCustom('style_check_image_selected', {
+        file_size: file.size,
+        file_type: file.type,
+      }, 'stylecheck:image_upload', '/app/stylecheck');
+      
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;

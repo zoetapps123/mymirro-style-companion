@@ -347,7 +347,13 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
             Upload your clothes to unlock outfit ideas, styling and personalised suggestions.
           </p>
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              trackCustom(ANALYTICS_EVENTS.ADD_ITEM_CLICKED, {
+                element_id: 'wardrobe-empty-add-item',
+                context: 'empty_state',
+              }, 'wardrobe:add_item_clicked', WARDROBE_ROUTES.GALLERY);
+              fileInputRef.current?.click();
+            }}
             className="px-8 py-3 bg-primary/10 text-primary rounded-full font-medium hover:bg-primary/20 transition-colors"
           >
             Add Item +
@@ -380,7 +386,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => onNavigate(feature.view)}
+                onClick={() => {
+                  trackCustom(ANALYTICS_EVENTS.BUTTON_CLICK, {
+                    element_id: `wardrobe-nav-${feature.view}`,
+                    element_text: feature.title,
+                    target_view: feature.view,
+                  }, `wardrobe:navigate_${feature.view}`, WARDROBE_ROUTES.GALLERY);
+                  onNavigate(feature.view);
+                }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="flex flex-col items-center gap-2"
