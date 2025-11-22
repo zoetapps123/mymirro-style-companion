@@ -160,11 +160,11 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Top App Bar */}
+      {/* Top App Bar - Fixed at top */}
       <TopAppBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Scrollable Main Content with proper spacing */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+      {/* Main Content - Each component manages its own scrolling */}
+      <main className="flex-1 overflow-hidden">
         {renderContent()}
       </main>
     </div>
