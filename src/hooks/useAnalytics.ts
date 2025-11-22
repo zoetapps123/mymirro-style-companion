@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from 'react-router-dom';
+import { getDeviceInfo, getUTMParams, getReferrer, isEntryPoint } from '@/lib/deviceDetection';
 
 // In-memory fallback for iOS Private Mode
 let memorySessionId: string | null = null;
@@ -69,6 +70,7 @@ export const useAnalytics = () => {
   // Page view tracking
   const currentPageViewId = useRef<string | null>(null);
   const sessionInitialized = useRef<boolean>(false);
+  const entryPointTracked = useRef<boolean>(false);
 
   // Helper function to get screen category from screen name
   const getScreenCategory = useCallback((screenName: string): string | null => {
@@ -96,6 +98,8 @@ export const useAnalytics = () => {
     if (sessionInitialized.current) return;
     
     try {
+      const deviceInfo = getDeviceInfo();
+      
       const { data: existing } = await supabase
         .from('sessions')
         .select('session_id')
@@ -107,9 +111,13 @@ export const useAnalytics = () => {
           session_id: sessionId.current,
           user_id: userId,
           started_at: new Date(sessionStartTime).toISOString(),
-          viewport_width: window.innerWidth,
-          viewport_height: window.innerHeight,
-          session_metadata: {}
+          viewport_width: deviceInfo.viewport_width,
+          viewport_height: deviceInfo.viewport_height,
+          session_metadata: {
+            device_type: deviceInfo.device_type,
+            os_name: deviceInfo.os_name,
+            browser_name: deviceInfo.browser_name
+          }
         });
       }
       
@@ -186,33 +194,63 @@ export const useAnalytics = () => {
 
       // Track to new tables based on event type
       if (eventType === 'page_view' || eventType === 'screen_view') {
-        // Insert into page_views table
+        // Get device and UTM info
+        const deviceInfo = getDeviceInfo();
+        const utmParams = getUTMParams();
+        const referrer = getReferrer();
+        const entry_point = (!entryPointTracked.current && isEntryPoint()) ? finalVirtualPath : null;
+        
+        if (entry_point) {
+          entryPointTracked.current = true;
+        }
+        
+        // Insert into page_views table with comprehensive metadata
         const { data: pageView } = await supabase.from('page_views').insert({
           session_id: sessionId.current,
           user_id: user.id,
+          occurred_at: new Date().toISOString(),
           page_route: pageRoute || location.pathname,
+          page_title: eventData?.page_title || document.title,
           screen_name: finalScreenName,
           screen_category: finalScreenCategory,
           virtual_path: finalVirtualPath,
-          duration_seconds: null
+          referrer: referrer || null,
+          utm_source: utmParams.utm_source || null,
+          utm_medium: utmParams.utm_medium || null,
+          utm_campaign: utmParams.utm_campaign || null,
+          entry_point: entry_point,
+          device_type: deviceInfo.device_type,
+          os_name: deviceInfo.os_name,
+          browser_name: deviceInfo.browser_name,
+          viewport_width: deviceInfo.viewport_width,
+          viewport_height: deviceInfo.viewport_height,
+          duration_ms: null,
+          exit_reason: null,
+          metadata: eventData || {}
         }).select('id').single();
 
         if (pageView) {
           currentPageViewId.current = pageView.id;
         }
       } else {
-        // Insert into user_events table
+        // Insert into user_events table with enhanced fields
         await supabase.from('user_events').insert({
           session_id: sessionId.current,
           page_view_id: currentPageViewId.current,
           user_id: user.id,
+          occurred_at: new Date().toISOString(),
           event_type: eventType,
           event_category: eventCategory,
+          event_name: eventData?.event_name || user_action,
           event_source: engagementSource || null,
           user_action,
+          element_id: eventData?.element_id || eventData?.element || null,
+          element_text: eventData?.element_text || eventData?.text || null,
+          value: eventData?.value || null,
+          numeric_value: eventData?.numeric_value !== undefined ? eventData.numeric_value : null,
           duration_seconds,
           flow_id: flowId || null,
-          event_data: eventData || {}
+          metadata: eventData || {}
         });
       }
     } catch (error) {
@@ -392,13 +430,16 @@ export const useAnalytics = () => {
     const currentPageRoute = pageRoute || virtualPath || `/app/${screenName}`;
     
     if (currentScreen.current && currentPageViewId.current) {
-      // Update previous page view with exit time and duration
-      const timeOnScreen = Math.round((Date.now() - screenStartTime.current) / 1000);
+      // Update previous page view with exit time and duration (in ms for precision)
+      const timeOnScreenMs = Date.now() - screenStartTime.current;
+      const timeOnScreen = Math.round(timeOnScreenMs / 1000);
       try {
         await supabase.from('page_views')
           .update({ 
             exited_at: new Date().toISOString(),
-            duration_seconds: timeOnScreen
+            duration_seconds: timeOnScreen,
+            duration_ms: timeOnScreenMs,
+            exit_reason: 'navigation'
           })
           .eq('id', currentPageViewId.current);
       } catch (error) {
@@ -416,6 +457,7 @@ export const useAnalytics = () => {
           to_screen: screenName,
           time_on_screen: timeOnScreen,
           duration_seconds: timeOnScreen,
+          numeric_value: timeOnScreen,
           ...metadata
         },
         screenName: currentScreen.current,
@@ -434,6 +476,7 @@ export const useAnalytics = () => {
       eventCategory: 'navigation',
       eventData: {
         screen_name: screenName,
+        page_title: metadata?.page_title,
         ...metadata
       },
       screenName,
