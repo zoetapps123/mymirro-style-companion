@@ -23,7 +23,13 @@ const safeLocalStorage = {
 };
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<Tab>("home");
+  // Restore last active tab from localStorage
+  const getInitialTab = (): Tab => {
+    const saved = safeLocalStorage.get('active_tab');
+    return (saved as Tab) || 'home';
+  };
+  
+  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab());
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -35,6 +41,11 @@ const Index = () => {
   useEffect(() => {
     checkAuthAndFlow();
   }, []);
+
+  // Persist active tab to localStorage whenever it changes
+  useEffect(() => {
+    safeLocalStorage.set('active_tab', activeTab);
+  }, [activeTab]);
 
   // Track virtual page views and screen changes for tab changes
   useEffect(() => {
