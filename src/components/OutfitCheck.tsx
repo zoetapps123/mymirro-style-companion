@@ -1,7 +1,7 @@
 import { Upload, CheckCircle, Share2, Camera, Package, Shirt, AlertCircle, Sparkles, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -16,7 +16,7 @@ interface OutfitCheckProps {
 const occasions = ["Casual Day Out", "Office", "Dinner Date", "Party", "Wedding", "Travel", "Interview"];
 
 const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
-  const { trackCustom, startFlow, trackFlowStep, completeFlow } = useAnalytics();
+  const { trackCustom, startFlow, trackFlowStep, completeFlow, trackScreenView } = useAnalytics();
   const uploadAttempts = useRef(0);
   const uploadStartTime = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,6 +29,16 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
   const [extracting, setExtracting] = useState(false);
   const [extractedItems, setExtractedItems] = useState<any[]>([]);
   const [showOccasionModal, setShowOccasionModal] = useState(false);
+
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'outfit-check',
+      { context: 'style_check' },
+      '/app/stylecheck/outfit-check',
+      '/app/stylecheck/outfit-check'
+    );
+  }, [trackScreenView]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -44,13 +54,13 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       file_type: file.type,
       file_size_bytes: file.size,
       context: 'style_check',
-    }, 'Style Check - Upload Attempt');
+    }, 'Style Check - Upload Attempt', '/app/stylecheck/outfit-check');
     
     // Track style check started
     trackCustom('style_check_started', {
       file_type: file.type,
       file_size: file.size,
-    }, 'Style Check - Started');
+    }, 'Style Check - Started', '/app/stylecheck/outfit-check');
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -353,7 +363,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
           // Track occasion selection
           trackCustom('style_check_occasion_selected', {
             occasion: occasion,
-          }, `Style Check - ${occasion}`);
+          }, `Style Check - ${occasion}`, '/app/stylecheck/outfit-check');
 
           // Start check immediately after occasion selection
           if (uploadedImage) {
@@ -418,7 +428,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                 occasion: occasion,
                 overall_score: data.overall_score,
                 outfit_name: data.outfit_name,
-              }, `Style Check - Completed (${occasion})`);
+              }, `Style Check - Completed (${occasion})`, '/app/stylecheck/outfit-check');
 
               toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
             } catch (error) {
@@ -428,7 +438,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
               trackCustom('style_check_error', {
                 occasion: occasion,
                 error_message: error instanceof Error ? error.message : 'Unknown error',
-              }, 'Style Check - Error');
+              }, 'Style Check - Error', '/app/stylecheck/outfit-check');
 
               toast({
                 title: "Error",

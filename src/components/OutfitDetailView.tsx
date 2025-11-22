@@ -37,7 +37,7 @@ interface OutfitDetailViewProps {
 
 export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewProps) => {
   const { toast } = useToast();
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const [selectedItems, setSelectedItems] = useState<WardrobeItem[]>(outfit.items || []);
   const [recommendedItems, setRecommendedItems] = useState<WardrobeItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -47,6 +47,20 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
   const [isSaving, setIsSaving] = useState(false);
   const [draggedItem, setDraggedItem] = useState<WardrobeItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'outfit-detail-editor',
+      { 
+        outfit_id: outfit.id,
+        outfit_name: outfit.name,
+        items_count: outfit.items?.length || 0,
+      },
+      '/app/outfit-detail',
+      '/app/outfit-detail'
+    );
+  }, [trackScreenView]);
 
   useEffect(() => {
     loadRecommendedItems();

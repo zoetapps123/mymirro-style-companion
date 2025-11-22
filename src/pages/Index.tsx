@@ -38,12 +38,13 @@ const Index = () => {
 
   // Track virtual page views and screen changes for tab changes
   useEffect(() => {
-    trackScreenView(activeTab, { tab: activeTab });
-    trackCustom('page_view', {
-      virtual_path: `/app/${activeTab}`,
-      tab: activeTab,
-    });
-  }, [activeTab, trackCustom, trackScreenView]);
+    trackScreenView(
+      activeTab, 
+      { tab: activeTab },
+      `/app/${activeTab}`,
+      `/app/${activeTab}`
+    );
+  }, [activeTab, trackScreenView]);
   const checkAuthAndFlow = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();

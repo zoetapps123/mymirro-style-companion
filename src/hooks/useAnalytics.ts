@@ -36,6 +36,8 @@ interface AnalyticsEvent {
   screenName?: string;
   flowId?: string;
   engagementSource?: string;
+  pageRoute?: string;
+  virtualPath?: string;
 }
 
 interface FlowState {
@@ -62,7 +64,7 @@ export const useAnalytics = () => {
   const screenStartTime = useRef<number>(Date.now());
 
   // Track an event - never throw errors
-  const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId, engagementSource }: AnalyticsEvent) => {
+  const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId, engagementSource, pageRoute, virtualPath }: AnalyticsEvent) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -73,12 +75,13 @@ export const useAnalytics = () => {
         event_type: eventType,
         event_category: eventCategory,
         event_data: eventData || null,
-        page_route: location.pathname,
+        page_route: pageRoute || location.pathname,
         viewport_width: window.innerWidth,
         viewport_height: window.innerHeight,
         screen_name: screenName || currentScreen.current || null,
         flow_id: flowId || null,
         engagement_source: engagementSource || null,
+        virtual_path: virtualPath || null,
       });
     } catch (error) {
       // Silently fail - analytics should never break the app
@@ -116,18 +119,19 @@ export const useAnalytics = () => {
   }, [trackEvent]);
 
   // Track click events with semantic IDs
-  const trackClick = useCallback((element: string, elementId?: string, additionalData?: Record<string, any>, x?: number, y?: number) => {
+  const trackClick = useCallback((element: string, elementId?: string, additionalData?: Record<string, any>, x?: number, y?: number, pageRoute?: string) => {
     // Only track clicks with semantic IDs or important elements
     const semanticId = additionalData?.['data-analytics-id'];
     const importantElements = ['button', 'a', 'input', 'select'];
     
     if (semanticId || importantElements.includes(element.toLowerCase())) {
       const elementText = additionalData?.text || '';
+      const currentPageRoute = pageRoute || location.pathname;
       const engagementSource = semanticId 
-        ? `${location.pathname} - ${semanticId}`
+        ? `${currentPageRoute} - ${semanticId}`
         : elementText 
-          ? `${location.pathname} - ${elementText.substring(0, 50)}`
-          : `${location.pathname} - ${element}`;
+          ? `${currentPageRoute} - ${elementText.substring(0, 50)}`
+          : `${currentPageRoute} - ${element}`;
       
       trackEvent({
         eventType: 'click',
@@ -137,7 +141,8 @@ export const useAnalytics = () => {
           elementId,
           ...additionalData,
         },
-        engagementSource
+        engagementSource,
+        pageRoute: currentPageRoute
       });
       
       // Detect rage taps for buttons
@@ -251,7 +256,9 @@ export const useAnalytics = () => {
   }, [trackEvent]);
 
   // Screen tracking functions
-  const trackScreenView = useCallback((screenName: string, metadata?: Record<string, any>) => {
+  const trackScreenView = useCallback((screenName: string, metadata?: Record<string, any>, virtualPath?: string, pageRoute?: string) => {
+    const currentPageRoute = pageRoute || virtualPath || `/app/${screenName}`;
+    
     if (currentScreen.current) {
       // Track exit from previous screen
       trackEvent({
@@ -264,7 +271,9 @@ export const useAnalytics = () => {
           ...metadata
         },
         screenName: currentScreen.current,
-        engagementSource: `${currentScreen.current} - Screen Exit`
+        engagementSource: `${currentScreen.current} - Screen Exit`,
+        pageRoute: currentPageRoute,
+        virtualPath: virtualPath
       });
     }
     
@@ -280,33 +289,41 @@ export const useAnalytics = () => {
         ...metadata
       },
       screenName,
-      engagementSource: screenName
+      engagementSource: screenName,
+      pageRoute: currentPageRoute,
+      virtualPath: virtualPath
     });
   }, [trackEvent]);
 
   // Track custom events
-  const trackCustom = useCallback((eventType: string, eventData?: Record<string, any>, engagementSource?: string) => {
+  const trackCustom = useCallback((eventType: string, eventData?: Record<string, any>, engagementSource?: string, pageRoute?: string) => {
     trackEvent({
       eventType,
       eventCategory: 'custom',
       eventData,
-      engagementSource: engagementSource || `Custom - ${eventType}`
+      engagementSource: engagementSource || `Custom - ${eventType}`,
+      pageRoute: pageRoute
     });
   }, [trackEvent]);
 
   // Auto-track page views and reset scroll milestones
   useEffect(() => {
+    const currentPath = location.pathname;
     pageStartTime.current = Date.now();
     scrollMilestonesReached.current.clear(); // Reset milestones on page change
     
-    trackEvent({
-      eventType: 'page_view',
-      eventCategory: 'navigation',
-      eventData: {
-        referrer: document.referrer,
-      },
-      engagementSource: location.pathname
-    });
+    // Only track actual route changes (not index page, which is handled by trackScreenView)
+    if (currentPath !== '/') {
+      trackEvent({
+        eventType: 'page_view',
+        eventCategory: 'navigation',
+        eventData: {
+          referrer: document.referrer,
+        },
+        engagementSource: currentPath,
+        pageRoute: currentPath
+      });
+    }
 
     // Track page duration on unmount
     return () => {

@@ -1,15 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import StyleCheckHub from "./StyleCheckHub";
 import OutfitCheck from "./OutfitCheck";
 import OutfitBattle from "./OutfitBattle";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 type StyleCheckView = 'hub' | 'outfit-check' | 'outfit-battle';
 
 const StyleCheck = () => {
+  const { trackScreenView } = useAnalytics();
   const [currentView, setCurrentView] = useState<StyleCheckView>('hub');
   const [battleData, setBattleData] = useState<any>(null);
+
+  // Track screen views for StyleCheck sub-views
+  useEffect(() => {
+    const screenMap = {
+      'hub': 'stylecheck-hub',
+      'outfit-check': 'stylecheck-outfit-check',
+      'outfit-battle': 'stylecheck-battle',
+    };
+    
+    const screenName = screenMap[currentView];
+    trackScreenView(
+      screenName,
+      { stylecheck_view: currentView },
+      `/app/stylecheck/${currentView}`,
+      `/app/stylecheck/${currentView}`
+    );
+  }, [currentView, trackScreenView]);
 
   const handleNavigateToBattle = (outfitData: any) => {
     setBattleData(outfitData);
