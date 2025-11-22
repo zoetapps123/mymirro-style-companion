@@ -1270,6 +1270,17 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 Check Another Outfit
               </Button>
 
+              {/* Additional Check Another Outfit CTA */}
+              <Button
+                variant="default"
+                className="w-full rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                onClick={() => {
+                  // Dummy button - no action
+                }}
+              >
+                Check another outfit
+              </Button>
+
               {/* Battle Button CTA - appears after style check */}
               {onNavigateToBattle && (
                 <div className="glass-card rounded-2xl p-4 border-2 border-accent/30 bg-gradient-to-r from-accent/10 to-primary/10">
