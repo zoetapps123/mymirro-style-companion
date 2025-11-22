@@ -66,6 +66,27 @@ export const useAnalytics = () => {
   // Deduplication tracking
   const recentEvents = useRef<Map<string, number>>(new Map());
 
+  // Helper function to get screen category from screen name
+  const getScreenCategory = useCallback((screenName: string): string | null => {
+    if (!screenName) return null;
+    if (screenName.startsWith('stylecheck')) return 'stylecheck';
+    if (screenName.startsWith('wardrobe')) return 'wardrobe';
+    if (screenName === 'chat') return 'chat';
+    if (screenName === 'home') return 'home';
+    if (screenName === 'profile') return 'profile';
+    return 'other';
+  }, []);
+
+  // Helper function to infer screen from current path
+  const inferScreenFromPath = useCallback((): string | null => {
+    const path = location.pathname;
+    if (path.includes('/stylecheck')) return 'stylecheck-hub';
+    if (path.includes('/wardrobe')) return 'wardrobe-hub';
+    if (path.includes('/chat')) return 'chat';
+    if (path === '/') return 'home';
+    return null;
+  }, [location.pathname]);
+
   // Track an event - never throw errors
   const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId, engagementSource, pageRoute, virtualPath }: AnalyticsEvent) => {
     try {
@@ -96,6 +117,22 @@ export const useAnalytics = () => {
         }
       }
 
+      // Auto-populate missing context
+      const finalScreenName = screenName || currentScreen.current || inferScreenFromPath();
+      const finalVirtualPath = virtualPath || 
+        (finalScreenName ? `/app/${finalScreenName}` : null) ||
+        location.pathname;
+      const finalScreenCategory = finalScreenName ? getScreenCategory(finalScreenName) : null;
+
+      // Extract user_action from event_type or event_data
+      const user_action = eventData?.user_action || 
+        eventType.replace(/_/g, ' ').toLowerCase();
+      
+      // Extract duration_seconds if present in event_data
+      const duration_seconds = typeof eventData?.duration_seconds === 'number' 
+        ? eventData.duration_seconds 
+        : null;
+
       await supabase.from('analytics_events').insert({
         user_id: user.id,
         session_id: sessionId.current,
@@ -103,12 +140,15 @@ export const useAnalytics = () => {
         event_category: eventCategory,
         event_data: eventData || null,
         page_route: pageRoute || location.pathname,
+        virtual_path: finalVirtualPath,
+        screen_name: finalScreenName,
+        screen_category: finalScreenCategory,
+        user_action,
+        event_source: engagementSource || null,
+        duration_seconds,
+        flow_id: flowId || null,
         viewport_width: window.innerWidth,
         viewport_height: window.innerHeight,
-        screen_name: screenName || currentScreen.current || null,
-        flow_id: flowId || null,
-        engagement_source: engagementSource || null,
-        virtual_path: virtualPath || null,
       });
     } catch (error) {
       // Silently fail - analytics should never break the app
@@ -116,7 +156,7 @@ export const useAnalytics = () => {
         console.warn('Analytics tracking error:', error);
       }
     }
-  }, [location.pathname]);
+  }, [location.pathname, getScreenCategory, inferScreenFromPath]);
 
   // Detect rage taps
   const detectRageTap = useCallback((element: string, x: number, y: number) => {

@@ -62,11 +62,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       if (error) throw error;
 
-      // Track item deletion
+      const item = items.find(i => i.id === itemId);
+      
+      // Track item deletion with category context
       trackCustom('wardrobe_item_deleted', {
         item_id: itemId,
         item_name: itemName,
-      }, 'Wardrobe - Item Deleted');
+        category: item?.category
+      }, 'user_action:delete_item');
 
       toast({
         title: "Item removed",

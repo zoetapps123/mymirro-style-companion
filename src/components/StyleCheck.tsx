@@ -13,19 +13,18 @@ const StyleCheck = () => {
   const [currentView, setCurrentView] = useState<StyleCheckView>('hub');
   const [battleData, setBattleData] = useState<any>(null);
 
-  // Track screen views for StyleCheck sub-views
+  // Track screen views for StyleCheck sub-views with standardized naming
   useEffect(() => {
-    const screenMap = {
+    const screenMap: Record<StyleCheckView, string> = {
       'hub': 'stylecheck-hub',
-      'outfit-check': 'stylecheck-outfit-check',
-      'outfit-battle': 'stylecheck-battle',
+      'outfit-check': 'stylecheck-check',
+      'outfit-battle': 'stylecheck-battle'
     };
     
     const screenName = screenMap[currentView];
     trackScreenView(
       screenName,
       { stylecheck_view: currentView },
-      `/app/stylecheck/${currentView}`,
       `/app/stylecheck/${currentView}`
     );
   }, [currentView, trackScreenView]);
