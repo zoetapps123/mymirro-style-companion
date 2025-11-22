@@ -5,6 +5,7 @@ import OutfitBattle from "./OutfitBattle";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 
 type StyleCheckView = 'hub' | 'outfit-check' | 'outfit-battle';
 
@@ -15,17 +16,18 @@ const StyleCheck = () => {
 
   // Track screen views for StyleCheck sub-views with standardized naming
   useEffect(() => {
-    const screenMap: Record<StyleCheckView, string> = {
-      'hub': 'stylecheck-hub',
-      'outfit-check': 'stylecheck-check',
-      'outfit-battle': 'stylecheck-battle'
+    const routeMap: Record<StyleCheckView, { route: string; title: string }> = {
+      'hub': { route: '/stylecheck', title: 'Style Check Hub' },
+      'outfit-check': { route: '/stylecheck/check', title: 'Outfit Check' },
+      'outfit-battle': { route: '/stylecheck/battle', title: 'Outfit Battle' }
     };
     
-    const screenName = screenMap[currentView];
+    const { route, title } = routeMap[currentView];
     trackScreenView(
-      screenName,
-      { stylecheck_view: currentView },
-      `/app/stylecheck/${currentView}`
+      `stylecheck-${currentView}`,
+      { stylecheck_view: currentView, page_title: title },
+      route,
+      route
     );
   }, [currentView, trackScreenView]);
 

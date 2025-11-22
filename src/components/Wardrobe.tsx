@@ -4,6 +4,7 @@ import WardrobeOutfitSuggestion from "./WardrobeOutfitSuggestion";
 import WardrobeLookbook from "./WardrobeLookbook";
 import WardrobeComingSoon from "./WardrobeComingSoon";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { WARDROBE_ROUTES, WARDROBE_PAGE_TITLES } from "@/lib/wardrobeRoutes";
 
 type WardrobeView = 'items' | 'suggestion' | 'calendar' | 'lookbook';
 
@@ -11,20 +12,26 @@ const Wardrobe = () => {
   const { trackScreenView } = useAnalytics();
   const [currentView, setCurrentView] = useState<WardrobeView>('items');
 
-  // Track virtual page views for wardrobe sub-views with standardized naming
+  // Track virtual page views for wardrobe sub-views with consistent route naming
   useEffect(() => {
-    const screenMap: Record<WardrobeView, string> = {
-      'items': 'wardrobe-items',
-      'suggestion': 'wardrobe-outfits',
-      'calendar': 'wardrobe-calendar',
-      'lookbook': 'wardrobe-lookbook'
+    const routeMap: Record<WardrobeView, string> = {
+      'items': WARDROBE_ROUTES.GALLERY,
+      'suggestion': WARDROBE_ROUTES.OUTFITS,
+      'calendar': WARDROBE_ROUTES.CALENDAR,
+      'lookbook': WARDROBE_ROUTES.LOOKBOOK
     };
     
-    const screenName = screenMap[currentView];
+    const route = routeMap[currentView];
+    const title = WARDROBE_PAGE_TITLES[route];
+    
     trackScreenView(
-      screenName,
-      { wardrobe_view: currentView },
-      `/app/wardrobe/${currentView}`
+      `wardrobe-${currentView}`,
+      { 
+        wardrobe_view: currentView,
+        page_title: title
+      },
+      route,
+      route
     );
   }, [currentView, trackScreenView]);
 

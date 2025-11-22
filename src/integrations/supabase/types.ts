@@ -370,39 +370,78 @@ export type Database = {
       }
       page_views: {
         Row: {
+          browser_name: string | null
+          device_type: string | null
+          duration_ms: number | null
           duration_seconds: number | null
           entered_at: string
+          entry_point: string | null
+          exit_reason: string | null
           exited_at: string | null
           id: string
+          metadata: Json | null
+          occurred_at: string
+          os_name: string | null
           page_route: string
+          page_title: string | null
+          referrer: string | null
           screen_category: string | null
           screen_name: string | null
           session_id: string
           user_id: string
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
           virtual_path: string | null
         }
         Insert: {
+          browser_name?: string | null
+          device_type?: string | null
+          duration_ms?: number | null
           duration_seconds?: number | null
           entered_at?: string
+          entry_point?: string | null
+          exit_reason?: string | null
           exited_at?: string | null
           id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          os_name?: string | null
           page_route: string
+          page_title?: string | null
+          referrer?: string | null
           screen_category?: string | null
           screen_name?: string | null
           session_id: string
           user_id: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           virtual_path?: string | null
         }
         Update: {
+          browser_name?: string | null
+          device_type?: string | null
+          duration_ms?: number | null
           duration_seconds?: number | null
           entered_at?: string
+          entry_point?: string | null
+          exit_reason?: string | null
           exited_at?: string | null
           id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          os_name?: string | null
           page_route?: string
+          page_title?: string | null
+          referrer?: string | null
           screen_category?: string | null
           screen_name?: string | null
           session_id?: string
           user_id?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           virtual_path?: string | null
         }
         Relationships: [
@@ -545,44 +584,65 @@ export type Database = {
         Row: {
           created_at: string
           duration_seconds: number | null
+          element_id: string | null
+          element_text: string | null
           event_category: string
           event_data: Json | null
+          event_name: string | null
           event_source: string | null
           event_type: string
           flow_id: string | null
           id: string
+          metadata: Json | null
+          numeric_value: number | null
+          occurred_at: string
           page_view_id: string | null
           session_id: string
           user_action: string | null
           user_id: string
+          value: string | null
         }
         Insert: {
           created_at?: string
           duration_seconds?: number | null
+          element_id?: string | null
+          element_text?: string | null
           event_category: string
           event_data?: Json | null
+          event_name?: string | null
           event_source?: string | null
           event_type: string
           flow_id?: string | null
           id?: string
+          metadata?: Json | null
+          numeric_value?: number | null
+          occurred_at?: string
           page_view_id?: string | null
           session_id: string
           user_action?: string | null
           user_id: string
+          value?: string | null
         }
         Update: {
           created_at?: string
           duration_seconds?: number | null
+          element_id?: string | null
+          element_text?: string | null
           event_category?: string
           event_data?: Json | null
+          event_name?: string | null
           event_source?: string | null
           event_type?: string
           flow_id?: string | null
           id?: string
+          metadata?: Json | null
+          numeric_value?: number | null
+          occurred_at?: string
           page_view_id?: string | null
           session_id?: string
           user_action?: string | null
           user_id?: string
+          value?: string | null
         }
         Relationships: [
           {

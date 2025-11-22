@@ -10,6 +10,7 @@ import { compressImages, MAX_FILE_SIZE } from "@/lib/imageCompression";
 import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisualElements";
 import { WardrobeInsufficientPrompt } from "./chat/WardrobeInsufficientPrompt";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {

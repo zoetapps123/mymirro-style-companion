@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { LoadingTile } from "@/components/ui/loading-tile";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
+import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
 import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
 // Image processing imported dynamically when needed
@@ -65,11 +67,13 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       const item = items.find(i => i.id === itemId);
       
       // Track item deletion with category context
-      trackCustom('wardrobe_item_deleted', {
+      trackCustom(ANALYTICS_EVENTS.WARDROBE_ITEM_DELETED, {
         item_id: itemId,
         item_name: itemName,
-        category: item?.category
-      }, 'user_action:delete_item');
+        category: item?.category,
+        element_id: 'delete-item-button',
+        element_text: 'Delete'
+      }, 'user_action:delete_item', WARDROBE_ROUTES.GALLERY);
 
       toast({
         title: "Item removed",

@@ -8,6 +8,8 @@ import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
+import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import { ItemClassificationDialog } from "./ItemClassificationDialog";
 // Image processing functions imported dynamically when needed
 
@@ -66,18 +68,22 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       files_count: files.length,
     });
 
-    trackCustom('upload_attempt', {
+    trackCustom(ANALYTICS_EVENTS.ADD_ITEM_IMAGE_SELECTED, {
       attempt_number: uploadAttempts.current,
       files_count: files.length,
       file_type: file.type,
       file_size_bytes: file.size,
-    }, 'user_action:upload_start');
+      element_id: 'file-upload-input',
+      numeric_value: file.size
+    }, 'user_action:upload_start', WARDROBE_ROUTES.UPLOAD);
     
     // Track upload submit
-    trackCustom('wardrobe_upload_submit', {
+    trackCustom(ANALYTICS_EVENTS.ADD_ITEM_CLICKED, {
       files_count: files.length,
       file_size_kb: Math.round(file.size / 1024),
-    }, 'user_action:upload_start');
+      element_id: 'upload-button',
+      numeric_value: files.length
+    }, 'user_action:upload_start', WARDROBE_ROUTES.UPLOAD);
 
     setLoading(true);
     setProgress(10);
