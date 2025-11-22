@@ -93,7 +93,7 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       selected_item_category: selectedItem.category,
       wardrobe_item_count: wardrobeItems.length,
       flow_id: flowId,
-    });
+    }, `Generate Outfits - ${selectedOccasion}`);
 
     setLoading(true);
     const generationStartTime = Date.now();
@@ -154,7 +154,7 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         has_ai_suggestions: hasAiSuggestions,
         outfit_item_count: Object.keys(data.outfit || {}).length,
         duration_ms: generationDuration,
-      });
+      }, `Generate Outfits - Completed (${selectedOccasion})`);
 
       toast({
         title: "Outfit generated!",
@@ -183,7 +183,7 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       trackCustom('outfit_generation_error', {
         occasion: selectedOccasion,
         error_message: error instanceof Error ? error.message : 'Unknown error',
-      });
+      }, 'Generate Outfits - Error');
 
       toast({
         title: "Error",

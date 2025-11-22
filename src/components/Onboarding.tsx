@@ -32,7 +32,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
   // Track onboarding started
   useEffect(() => {
     startFlow('onboarding');
-    trackCustom('onboarding_started', {});
+    trackCustom('onboarding_started', {}, 'Onboarding - Started');
   }, [trackCustom, startFlow]);
 
   const genderOptions = [
@@ -86,7 +86,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
       trackCustom('onboarding_completed', {
         gender: data.gender,
         age_range: data.ageRange,
-      });
+      }, 'Onboarding - Completed');
 
       onComplete();
     } catch (error) {

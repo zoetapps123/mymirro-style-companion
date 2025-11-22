@@ -456,7 +456,7 @@ const AICompanion = () => {
     setMessages([greeting]);
     setShowPrompts(true);
     persistMessages([greeting]);
-    trackCustom("chat_reset");
+    trackCustom("chat_reset", {}, "AI Chat - Reset Conversation");
   };
 
   // Check session and initialize greeting
@@ -486,7 +486,7 @@ const AICompanion = () => {
         }));
         setMessages(messagesWithDates);
         setShowPrompts(messagesWithDates.length <= 1);
-        trackCustom("session_restored");
+        trackCustom("session_restored", {}, "AI Chat - Session Restored");
       } catch (e) {
         // Invalid session, start fresh
         initializeSession();
@@ -509,7 +509,7 @@ const AICompanion = () => {
     setMessages([greeting]);
     setShowPrompts(true);
     persistMessages([greeting]);
-    trackCustom("session_started", { userName });
+    trackCustom("session_started", { userName }, "AI Chat - Session Started");
   };
 
   useEffect(() => {
@@ -683,12 +683,12 @@ const AICompanion = () => {
 
           if (res.status === 402) {
             errorMessage = "Service unavailable. Please contact support.";
-            trackCustom("payment_required_error");
+            trackCustom("payment_required_error", {}, "AI Chat - Payment Required Error");
           } else if (res.status === 401) {
             errorMessage = "Authentication error. Please sign in again.";
-            trackCustom("auth_error");
+            trackCustom("auth_error", {}, "AI Chat - Auth Error");
           } else {
-            trackCustom("chat_api_error", { status: res.status });
+            trackCustom("chat_api_error", { status: res.status }, "AI Chat - API Error");
           }
 
           setChatError(errorMessage);
@@ -888,7 +888,7 @@ const AICompanion = () => {
           return updated;
         });
         await maybeGenerateClientFallback();
-        trackCustom("reply_delivered");
+        trackCustom("reply_delivered", {}, "AI Chat - Reply Delivered");
         if (timeoutId) clearTimeout(timeoutId);
         abortControllerRef.current = null;
         return; // Done for Mobile Safari
@@ -1088,7 +1088,7 @@ const AICompanion = () => {
         }
       }
 
-      trackCustom("reply_delivered");
+      trackCustom("reply_delivered", {}, "AI Chat - Reply Delivered");
 
       // Call pill-suggestions endpoint after streaming completes
       if (assistantMessage) {
@@ -1132,7 +1132,7 @@ const AICompanion = () => {
       }
 
       setChatError(errorMessage);
-      trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" });
+      trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" }, "AI Chat - Error");
 
       // Log error to backend for customer visibility
       try {
@@ -1166,13 +1166,13 @@ const AICompanion = () => {
 
   const handleSuggestionClick = (suggestion: string) => {
     setSuggestions([]); // Clear pills immediately
-    trackCustom("suggestion_clicked", { suggestion });
+    trackCustom("suggestion_clicked", { suggestion }, "AI Chat - Suggestion Clicked");
     handleSend(suggestion);
   };
 
   const handleCardClick = (query: string) => {
     setShowPrompts(false);
-    trackCustom("query_card_clicked", { query });
+    trackCustom("query_card_clicked", { query }, "AI Chat - Query Card Clicked");
     // Directly send the card query
     handleSend(query);
   };
@@ -1209,7 +1209,7 @@ const AICompanion = () => {
       has_images: selectedImages.length > 0,
       image_count: selectedImages.length,
       message_length: textToSend.length,
-    });
+    }, "AI Chat - Message Sent");
 
     const userMessage: Message = {
       id: Date.now().toString(),

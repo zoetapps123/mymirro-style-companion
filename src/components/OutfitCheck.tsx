@@ -44,13 +44,13 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       file_type: file.type,
       file_size_bytes: file.size,
       context: 'style_check',
-    });
+    }, 'Style Check - Upload Attempt');
     
     // Track style check started
     trackCustom('style_check_started', {
       file_type: file.type,
       file_size: file.size,
-    });
+    }, 'Style Check - Started');
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -353,7 +353,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
           // Track occasion selection
           trackCustom('style_check_occasion_selected', {
             occasion: occasion,
-          });
+          }, `Style Check - ${occasion}`);
 
           // Start check immediately after occasion selection
           if (uploadedImage) {
@@ -418,7 +418,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
                 occasion: occasion,
                 overall_score: data.overall_score,
                 outfit_name: data.outfit_name,
-              });
+              }, `Style Check - Completed (${occasion})`);
 
               toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });
             } catch (error) {
@@ -428,7 +428,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
               trackCustom('style_check_error', {
                 occasion: occasion,
                 error_message: error instanceof Error ? error.message : 'Unknown error',
-              });
+              }, 'Style Check - Error');
 
               toast({
                 title: "Error",
