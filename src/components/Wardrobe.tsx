@@ -8,19 +8,18 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 type WardrobeView = 'items' | 'suggestion' | 'calendar' | 'lookbook';
 
 const Wardrobe = () => {
-  const { trackCustom } = useAnalytics();
+  const { trackScreenView } = useAnalytics();
   const [currentView, setCurrentView] = useState<WardrobeView>('items');
 
   // Track virtual page views for wardrobe sub-views
   useEffect(() => {
-    const { trackScreenView } = useAnalytics();
     trackScreenView(
       `wardrobe-${currentView}`,
       { wardrobe_view: currentView },
       `/app/wardrobe/${currentView}`,
       `/app/wardrobe/${currentView}`
     );
-  }, [currentView]);
+  }, [currentView, trackScreenView]);
 
   const renderView = () => {
     switch (currentView) {
