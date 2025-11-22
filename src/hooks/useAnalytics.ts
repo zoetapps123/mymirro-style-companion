@@ -312,18 +312,22 @@ export const useAnalytics = () => {
     pageStartTime.current = Date.now();
     scrollMilestonesReached.current.clear(); // Reset milestones on page change
     
-    // Only track actual route changes (not index page, which is handled by trackScreenView)
-    if (currentPath !== '/') {
-      trackEvent({
-        eventType: 'page_view',
-        eventCategory: 'navigation',
-        eventData: {
-          referrer: document.referrer,
-        },
-        engagementSource: currentPath,
-        pageRoute: currentPath
-      });
-    }
+    // Infer screen name from path
+    const screenName = currentPath === '/' ? 'index' : 
+                       currentPath === '/history' ? 'history' : 
+                       currentPath.startsWith('/') ? currentPath.slice(1) || 'unknown' : 
+                       'unknown';
+    
+    trackEvent({
+      eventType: 'page_view',
+      eventCategory: 'navigation',
+      screenName: screenName,
+      eventData: {
+        referrer: document.referrer,
+      },
+      engagementSource: currentPath,
+      pageRoute: currentPath
+    });
 
     // Track page duration on unmount
     return () => {
