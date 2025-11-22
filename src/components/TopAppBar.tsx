@@ -2,6 +2,8 @@ import { MessageCircle, Shirt, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import logo from "@/assets/logo.png";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
@@ -12,6 +14,7 @@ interface TopAppBarProps {
 }
 
 const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
+  const { trackCustom } = useAnalytics();
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
 
@@ -25,6 +28,17 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
     };
     loadUserData();
   }, []);
+  
+  const handleTabChange = (tab: Tab) => {
+    // Track tab navigation
+    trackCustom(ANALYTICS_EVENTS.TAB_CHANGE, {
+      from_tab: activeTab,
+      to_tab: tab,
+      element_id: `nav-${tab}`,
+    }, `navigation:tab_change`, `/app/${tab}`);
+    
+    onTabChange(tab);
+  };
 
   const navItems = [
     { id: "home" as Tab, icon: MessageCircle, label: "AI Companion" },
@@ -47,7 +61,7 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
         {/* Right: Profile */}
         <div className="absolute right-4">
           <button
-            onClick={() => onTabChange("profile" as Tab)}
+            onClick={() => handleTabChange("profile" as Tab)}
             aria-label="Profile"
             className="h-10 w-10 rounded-full overflow-hidden ring-2 ring-border/50 hover:ring-primary/50 transition-all active:scale-95"
           >
@@ -69,7 +83,7 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
           return (
             <button
               key={item.id}
-              onClick={() => onTabChange(item.id)}
+              onClick={() => handleTabChange(item.id)}
               aria-label={item.label}
               className={`flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition-all duration-300 active:scale-95 relative min-w-[80px] ${
                 isActive

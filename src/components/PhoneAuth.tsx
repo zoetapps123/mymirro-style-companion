@@ -9,6 +9,7 @@ import slide2 from "@/assets/slide-2.png";
 import slide3 from "@/assets/slide-3.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { z } from "zod";
 import {
   Select,
@@ -47,6 +48,7 @@ const hashPhoneNumber = async (phone: string): Promise<string> => {
 };
 
 const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
+  const { trackCustom } = useAnalytics();
   const [loading, setLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
@@ -141,6 +143,12 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
         localStorage.setItem("last_login", Date.now().toString());
         localStorage.setItem("user_phone", fullPhone);
+        
+        // Track successful signup
+        trackCustom('auth_signup_success', {
+          method: 'phone',
+          country_code: countryCode,
+        }, 'user_action:signup', '/auth/signup');
 
         toast({
           title: "Welcome to MyMirro! 🎉",
@@ -166,6 +174,12 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
         localStorage.setItem("last_login", Date.now().toString());
         localStorage.setItem("user_phone", fullPhone);
         localStorage.setItem("is_signin", "true");
+        
+        // Track successful signin
+        trackCustom('auth_signin_success', {
+          method: 'phone',
+          country_code: countryCode,
+        }, 'user_action:signin', '/auth/signin');
 
         toast({
           title: "Welcome back! 👋",
