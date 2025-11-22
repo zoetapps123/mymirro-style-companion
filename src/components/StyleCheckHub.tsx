@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords } from "lucide-react";
+import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -982,6 +982,27 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      
+                      {/* X button to clear and reset */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setUploadedImage(null);
+                          setSelectedOccasion("");
+                          setSelectedStyle("");
+                          setSelectedVibe("");
+                          setPrediction(null);
+                          setShowPredictionSheet(false);
+                          setShowOccasionSelector(false);
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                      
                       <div className="absolute bottom-4 left-4 right-4">
                         <p className="text-white font-semibold text-lg">
                           Looking good! Let&apos;s check your style 👀
