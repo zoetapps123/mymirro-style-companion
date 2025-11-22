@@ -20,7 +20,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
   const uploadAttempts = useRef(0);
   const uploadStartTime = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+    const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -29,6 +29,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
   const [extracting, setExtracting] = useState(false);
   const [extractedItems, setExtractedItems] = useState<any[]>([]);
   const [showOccasionModal, setShowOccasionModal] = useState(false);
+  const styleCheckStartTime = useRef<number>(0);
 
   // Track screen view on mount
   useEffect(() => {
@@ -48,6 +49,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
 
     uploadAttempts.current++;
     uploadStartTime.current = Date.now();
+    styleCheckStartTime.current = Date.now();
       
     trackCustom('upload_attempt', {
       attempt_number: uploadAttempts.current,
@@ -55,12 +57,6 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       file_size_bytes: file.size,
       context: 'style_check',
     }, 'Style Check - Upload Attempt', '/app/stylecheck/outfit-check');
-    
-    // Track style check started
-    trackCustom('style_check_started', {
-      file_type: file.type,
-      file_size: file.size,
-    }, 'Style Check - Started', '/app/stylecheck/outfit-check');
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -222,6 +218,8 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
 
   const handleShare = async () => {
     if (!result) return;
+    
+    const shareMethod = navigator.canShare?.({ files: [] }) ? 'native_share' : 'download';
 
     const canvas = document.createElement('canvas');
     canvas.width = 1080;
@@ -339,6 +337,13 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       link.click();
       toast({ title: "Image downloaded!", description: "Share on your socials" });
     }
+    
+    // Track share action
+    trackCustom('share_style_check', {
+      occasion: selectedOccasion,
+      score: result.overall_score,
+      share_method: shareMethod,
+    }, 'Style Check - Shared', '/app/stylecheck/outfit-check');
   };
 
   const handleBattleNavigation = () => {
@@ -364,6 +369,12 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
           trackCustom('style_check_occasion_selected', {
             occasion: occasion,
           }, `Style Check - ${occasion}`, '/app/stylecheck/outfit-check');
+          
+          // Track style check submit
+          trackCustom('style_check_submit', {
+            occasion: occasion,
+            file_size_kb: uploadedImage ? Math.round(uploadedImage.length / 1024) : 0,
+          }, 'Style Check - Submit', '/app/stylecheck/outfit-check');
 
           // Start check immediately after occasion selection
           if (uploadedImage) {
@@ -423,11 +434,14 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
               setResult({ ...data, image_url: uploadedImage });
               setLoading(false);
               
+              const processingTime = Date.now() - styleCheckStartTime.current;
+              
               // Track successful style check
               trackCustom('style_check_completed', {
                 occasion: occasion,
                 overall_score: data.overall_score,
                 outfit_name: data.outfit_name,
+                processing_time_ms: processingTime,
               }, `Style Check - Completed (${occasion})`, '/app/stylecheck/outfit-check');
 
               toast({ title: 'Score complete!', description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0` });

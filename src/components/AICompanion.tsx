@@ -80,7 +80,7 @@ const AICompanion = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const chatStartTimeRef = useRef<number>(Date.now());
   const messageCountRef = useRef<number>(0);
   const [lastChatTime, setLastChatTime] = useState<number>(0);
@@ -347,6 +347,16 @@ const AICompanion = () => {
       location: location || undefined,
     });
   }, []);
+  
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'ai-companion',
+      { tab: 'chat' },
+      '/app/chat',
+      '/app/chat'
+    );
+  }, [trackScreenView]);
 
   // Fetch all wardrobe items for chat context
   const fetchWardrobeItems = async () => {

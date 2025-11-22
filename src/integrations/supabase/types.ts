@@ -51,6 +51,7 @@ export type Database = {
           screen_name: string | null
           session_id: string
           session_metadata: Json | null
+          user_action: string | null
           user_id: string
           viewport_height: number | null
           viewport_width: number | null
@@ -68,6 +69,7 @@ export type Database = {
           screen_name?: string | null
           session_id: string
           session_metadata?: Json | null
+          user_action?: string | null
           user_id: string
           viewport_height?: number | null
           viewport_width?: number | null
@@ -85,6 +87,7 @@ export type Database = {
           screen_name?: string | null
           session_id?: string
           session_metadata?: Json | null
+          user_action?: string | null
           user_id?: string
           viewport_height?: number | null
           viewport_width?: number | null
@@ -677,6 +680,53 @@ export type Database = {
           success_rate: number | null
           successful_uploads: number | null
           total_attempts: number | null
+        }
+        Relationships: []
+      }
+      v_analytics_health: {
+        Row: {
+          affected_rows: number | null
+          issue: string | null
+          pct_of_total: number | null
+        }
+        Relationships: []
+      }
+      v_feature_engagement: {
+        Row: {
+          active_days: number | null
+          first_seen: string | null
+          last_seen: string | null
+          total_events: number | null
+          unique_sessions: number | null
+          unique_users: number | null
+          user_action: string | null
+        }
+        Relationships: []
+      }
+      v_session_summary: {
+        Row: {
+          actions_performed: string[] | null
+          screens_visited: string[] | null
+          session_duration_seconds: number | null
+          session_end: string | null
+          session_id: string | null
+          session_start: string | null
+          total_events: number | null
+          unique_actions: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      v_user_journey: {
+        Row: {
+          created_at: string | null
+          next_action: string | null
+          previous_action: string | null
+          screen_name: string | null
+          seconds_since_last_action: number | null
+          session_id: string | null
+          user_action: string | null
+          user_id: string | null
         }
         Relationships: []
       }
