@@ -947,9 +947,20 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           >
             {/* Hero Section */}
             <div className="space-y-3">
-              <h1 className="text-4xl sm:text-5xl font-bold text-primary">
-                Style Check
-              </h1>
+              <div className="flex items-center justify-between gap-4">
+                <h1 className="text-4xl sm:text-5xl font-bold text-primary">
+                  Style Check
+                </h1>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/history')}
+                  className="gap-2 shrink-0"
+                >
+                  <HistoryIcon className="w-4 h-4" />
+                  <span className="hidden xs:inline">View History</span>
+                  <span className="xs:hidden">History</span>
+                </Button>
+              </div>
               <p className="text-muted-foreground text-base sm:text-lg max-w-md">
                 Upload your outfit, get AI-powered style insights in seconds ✨
               </p>
@@ -973,7 +984,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute bottom-4 left-4 right-4">
                         <p className="text-white font-semibold text-lg">
-                          Looking good! Let's check your style 👀
+                          Looking good! Let&apos;s check your style 👀
                         </p>
                       </div>
                     </div>
@@ -1012,18 +1023,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 disabled={predicting || scanning}
               />
             </motion.div>
-
-            {/* History Button */}
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => navigate('/history')}
-                className="gap-2"
-              >
-                <HistoryIcon className="w-4 h-4" />
-                View History
-              </Button>
-            </div>
           </motion.div>
         )}
 
