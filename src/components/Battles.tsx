@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface Participant {
   name: string;
@@ -27,6 +28,7 @@ interface Battle {
 const Battles = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -37,6 +39,16 @@ const Battles = () => {
   useEffect(() => {
     fetchLatestBattle();
   }, []);
+  
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'outfit-battles',
+      { context: 'style_check' },
+      '/app/stylecheck/battles',
+      '/app/stylecheck/battles'
+    );
+  }, [trackScreenView]);
 
   const fetchLatestBattle = async () => {
     const { data, error } = await supabase
@@ -169,6 +181,13 @@ const Battles = () => {
       if (dbError) throw dbError;
 
       const winner = data.results.find((r: BattleResult) => r.rank === 1);
+      
+      // Track battle completion
+      trackCustom('outfit_battle_completed', {
+        participant_count: participants.length,
+        winner_name: winner?.name,
+        winner_score: winner?.score,
+      }, 'Battle - Completed');
       
       setShowCelebration(true);
       setTimeout(() => setShowCelebration(false), 4000);
@@ -321,6 +340,13 @@ const Battles = () => {
           description: "Share your battle results on social media",
         });
       }
+      
+      // Track share action
+      trackCustom('share_battle', {
+        winner: latestBattle.results[0].name,
+        participant_count: latestBattle.results.length,
+        share_method: navigator.canShare && navigator.canShare(shareData) ? 'native_share' : 'download',
+      }, 'Battle - Shared');
     } catch (error) {
       console.error('Share error:', error);
       toast({

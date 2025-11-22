@@ -73,12 +73,11 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       file_size_bytes: file.size,
     }, 'Wardrobe Upload - Upload Attempt');
     
-    // Track upload started
-    trackCustom('wardrobe_upload_started', {
-      file_type: file.type,
-      file_size: file.size,
-      attempt_number: uploadAttempts.current,
-    }, 'Wardrobe Upload - Started');
+    // Track upload submit
+    trackCustom('wardrobe_upload_submit', {
+      files_count: files.length,
+      file_size_kb: Math.round(file.size / 1024),
+    }, 'Wardrobe Upload - Submit');
 
     setLoading(true);
     setProgress(10);

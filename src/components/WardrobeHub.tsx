@@ -1,10 +1,24 @@
 import { DoorOpen, Sparkles, Calendar, Shirt } from "lucide-react";
 import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface WardrobeHubProps {
   onNavigate: (view: 'upload' | 'generate' | 'calendar' | 'items' | 'suggestion' | 'lookbook') => void;
 }
 const WardrobeHub = ({ onNavigate }: WardrobeHubProps) => {
+  const { trackScreenView } = useAnalytics();
+  
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'wardrobe-hub',
+      { tab: 'wardrobe' },
+      '/app/wardrobe/hub',
+      '/app/wardrobe/hub'
+    );
+  }, [trackScreenView]);
+  
   const features = [
     {
       icon: DoorOpen,

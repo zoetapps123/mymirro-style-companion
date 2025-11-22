@@ -1,18 +1,23 @@
 import { Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface ShareOutfitCardProps {
   outfitName: string;
   imageUrl?: string;
   score?: number;
   onShare: () => void;
+  outfitId?: string;
 }
 
-const ShareOutfitCard = ({ outfitName, imageUrl, score, onShare }: ShareOutfitCardProps) => {
+const ShareOutfitCard = ({ outfitName, imageUrl, score, onShare, outfitId }: ShareOutfitCardProps) => {
   const { toast } = useToast();
+  const { trackCustom } = useAnalytics();
 
   const handleShare = async () => {
+    const shareMethod = navigator.canShare?.({ files: [] }) ? 'native_share' : 'download';
+    
     try {
       const canvas = document.createElement('canvas');
       canvas.width = 1080;
@@ -87,6 +92,14 @@ const ShareOutfitCard = ({ outfitName, imageUrl, score, onShare }: ShareOutfitCa
           description: "Share your outfit card on social media" 
         });
       }
+      
+      // Track share action
+      trackCustom('share_outfit', {
+        outfit_id: outfitId,
+        outfit_name: outfitName,
+        has_score: !!score,
+        share_method: shareMethod,
+      }, 'Outfit - Shared');
       
       onShare();
     } catch (error) {

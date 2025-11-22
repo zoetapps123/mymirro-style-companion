@@ -86,14 +86,15 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
     
     trackFlowStep('outfit_generation', 'occasion_selected', { occasion: selectedOccasion });
     trackFlowStep('outfit_generation', 'generating');
-
-    trackCustom('outfit_generation_started', {
+    
+    // Track outfit generation submit
+    trackCustom('outfit_generation_submit', {
       occasion: selectedOccasion,
       selected_item_id: selectedItem.id,
       selected_item_category: selectedItem.category,
       wardrobe_item_count: wardrobeItems.length,
       flow_id: flowId,
-    }, `Generate Outfits - ${selectedOccasion}`);
+    }, `Generate Outfits - Submit (${selectedOccasion})`);
 
     setLoading(true);
     const generationStartTime = Date.now();
