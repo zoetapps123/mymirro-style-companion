@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Heart, Shirt, Calendar, Sparkles, Filter, DoorOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { orderOutfitForDisplay } from '@/lib/utils';
 import lookbookEmptyImg from '@/assets/lookbook-empty.png';
 
@@ -31,6 +32,7 @@ interface WardrobeLookbookProps {
 
 const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
   const { toast } = useToast();
+  const { trackCustom } = useAnalytics();
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
 
@@ -106,8 +108,14 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
     return ['All', ...Array.from(uniqueOccasions), ...Array.from(uniqueStyles)];
   }, [outfits]);
 
-  const unsaveOutfit = async (outfitId: string, e: React.MouseEvent) => {
+  const unsaveOutfit = async (outfitId: string, outfitName: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    trackCustom('outfit_unsaved_from_lookbook', {
+      outfit_id: outfitId,
+      outfit_name: outfitName
+    }, 'lookbook:outfit_unsaved');
+    
     try {
       const { error } = await supabase
         .from('outfits')
@@ -217,6 +225,14 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                   <div
                     key={outfit.id}
                     className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => {
+                      trackCustom('outfit_card_clicked', {
+                        outfit_id: outfit.id,
+                        outfit_name: outfit.name,
+                        occasion: outfit.occasion,
+                        source: 'lookbook'
+                      }, 'lookbook:outfit_clicked');
+                    }}
                   >
                     {outfit.preview_image_url ? (
                       <div className="aspect-square bg-muted relative">
@@ -228,7 +244,7 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                           className="w-full h-full object-contain"
                         />
                         <button
-                          onClick={(e) => unsaveOutfit(outfit.id, e)}
+                          onClick={(e) => unsaveOutfit(outfit.id, outfit.name, e)}
                           className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
                         >
                           <Heart className="w-6 h-6 fill-primary text-primary" />
@@ -248,7 +264,7 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                           </div>
                         ))}
                         <button
-                          onClick={(e) => unsaveOutfit(outfit.id, e)}
+                          onClick={(e) => unsaveOutfit(outfit.id, outfit.name, e)}
                           className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
                         >
                           <Heart className="w-6 h-6 fill-primary text-primary" />
