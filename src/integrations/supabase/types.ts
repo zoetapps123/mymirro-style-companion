@@ -368,6 +368,90 @@ export type Database = {
         }
         Relationships: []
       }
+      page_views: {
+        Row: {
+          duration_seconds: number | null
+          entered_at: string
+          exited_at: string | null
+          id: string
+          page_route: string
+          screen_category: string | null
+          screen_name: string | null
+          session_id: string
+          user_id: string
+          virtual_path: string | null
+        }
+        Insert: {
+          duration_seconds?: number | null
+          entered_at?: string
+          exited_at?: string | null
+          id?: string
+          page_route: string
+          screen_category?: string | null
+          screen_name?: string | null
+          session_id: string
+          user_id: string
+          virtual_path?: string | null
+        }
+        Update: {
+          duration_seconds?: number | null
+          entered_at?: string
+          exited_at?: string | null
+          id?: string
+          page_route?: string
+          screen_category?: string | null
+          screen_name?: string | null
+          session_id?: string
+          user_id?: string
+          virtual_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_views_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "page_views_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_session_analytics"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          ended_at: string | null
+          session_id: string
+          session_metadata: Json | null
+          started_at: string
+          user_id: string
+          viewport_height: number | null
+          viewport_width: number | null
+        }
+        Insert: {
+          ended_at?: string | null
+          session_id: string
+          session_metadata?: Json | null
+          started_at?: string
+          user_id: string
+          viewport_height?: number | null
+          viewport_width?: number | null
+        }
+        Update: {
+          ended_at?: string | null
+          session_id?: string
+          session_metadata?: Json | null
+          started_at?: string
+          user_id?: string
+          viewport_height?: number | null
+          viewport_width?: number | null
+        }
+        Relationships: []
+      }
       style_checks: {
         Row: {
           color_score: number
@@ -454,6 +538,73 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_events: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          event_category: string
+          event_data: Json | null
+          event_source: string | null
+          event_type: string
+          flow_id: string | null
+          id: string
+          page_view_id: string | null
+          session_id: string
+          user_action: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          event_category: string
+          event_data?: Json | null
+          event_source?: string | null
+          event_type: string
+          flow_id?: string | null
+          id?: string
+          page_view_id?: string | null
+          session_id: string
+          user_action?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          event_category?: string
+          event_data?: Json | null
+          event_source?: string | null
+          event_type?: string
+          flow_id?: string | null
+          id?: string
+          page_view_id?: string | null
+          session_id?: string
+          user_action?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_events_page_view_id_fkey"
+            columns: ["page_view_id"]
+            isOneToOne: false
+            referencedRelation: "page_views"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "user_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_session_analytics"
+            referencedColumns: ["session_id"]
           },
         ]
       }
@@ -752,11 +903,47 @@ export type Database = {
         }
         Relationships: []
       }
+      v_analytics_events_unified: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          event_category: string | null
+          event_data: Json | null
+          event_source: string | null
+          event_type: string | null
+          flow_id: string | null
+          id: string | null
+          page_route: string | null
+          screen_category: string | null
+          screen_name: string | null
+          session_id: string | null
+          session_metadata: Json | null
+          user_action: string | null
+          user_id: string | null
+          viewport_height: number | null
+          viewport_width: number | null
+          virtual_path: string | null
+        }
+        Relationships: []
+      }
       v_analytics_health: {
         Row: {
           affected_rows: number | null
           issue: string | null
           pct_of_total: number | null
+        }
+        Relationships: []
+      }
+      v_event_analytics: {
+        Row: {
+          avg_duration_seconds: number | null
+          event_count: number | null
+          event_source: string | null
+          screen_category: string | null
+          screen_name: string | null
+          unique_sessions: number | null
+          unique_users: number | null
+          user_action: string | null
         }
         Relationships: []
       }
@@ -772,6 +959,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_page_analytics: {
+        Row: {
+          avg_duration_seconds: number | null
+          current_viewers: number | null
+          median_duration_seconds: number | null
+          screen_category: string | null
+          screen_name: string | null
+          total_views: number | null
+          unique_sessions: number | null
+          unique_users: number | null
+        }
+        Relationships: []
+      }
       v_screen_time_analysis: {
         Row: {
           avg_duration_seconds: number | null
@@ -781,6 +981,20 @@ export type Database = {
           total_time_seconds: number | null
           unique_sessions: number | null
           unique_users: number | null
+        }
+        Relationships: []
+      }
+      v_session_analytics: {
+        Row: {
+          actions_performed: string[] | null
+          ended_at: string | null
+          page_views_count: number | null
+          screens_visited: string[] | null
+          session_duration_seconds: number | null
+          session_id: string | null
+          started_at: string | null
+          user_events_count: number | null
+          user_id: string | null
         }
         Relationships: []
       }
