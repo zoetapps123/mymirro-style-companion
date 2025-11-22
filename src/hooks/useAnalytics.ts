@@ -112,8 +112,16 @@ export const useAnalytics = () => {
       'outfit_generation_anchor_selected': (d) => `Selected ${d.item_name} as anchor item`,
       'outfit_card_clicked': (d) => `Opened ${d.outfit_name || 'outfit'} details`,
       'outfit_saved_to_lookbook': (d) => `Saved ${d.outfit_name} to Lookbook`,
-      'outfit_regenerate_all': (d) => `Regenerated all outfit suggestions`,
+      'outfit_regenerate_all_clicked': (d) => `Regenerated all outfits (had ${d.previous_outfit_count} outfits)`,
       'outfit_generation_try_another': (d) => `Switched anchor item for outfit generation`,
+      'wardrobe_feature_navigation': (d) => `Navigated from ${d.from_view} to ${d.to_view}`,
+      
+      // Outfit editor
+      'outfit_item_added': (d) => `Added ${d.item_name} to outfit`,
+      'outfit_item_removed': (d) => `Removed ${d.item_name} from outfit`,
+      'outfit_image_regenerated': (d) => `Regenerated image for ${d.outfit_name || 'outfit'}`,
+      'outfit_edit_started': () => `Started editing outfit template`,
+      'outfit_save_dialog_opened': () => `Opened save dialog for outfit`,
       
       // Filters
       'filter_applied': (d) => {

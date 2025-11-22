@@ -129,6 +129,16 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
       }
     }
 
+    // TRACK EVENT
+    trackCustom('outfit_item_removed', {
+      outfit_id: outfit.id,
+      item_id: itemId,
+      item_name: item.name,
+      item_category: item.category,
+      items_remaining: selectedItems.length - 1,
+      element_id: `remove-item-${itemId}`,
+    }, `Outfit Editor - Removed ${item.name}`);
+
     setSelectedItems(prev => prev.filter(i => i.id !== itemId));
   };
 
@@ -158,6 +168,16 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
     const hasItemInCategory = selectedItems.some(i => i.category === item.category);
     
     if (hasItemInCategory) {
+      // TRACK EVENT
+      trackCustom('outfit_item_added', {
+        outfit_id: outfit.id,
+        item_id: item.id,
+        item_name: item.name,
+        item_category: item.category,
+        replaced: true,
+        element_id: `add-item-${item.id}`,
+      }, `Outfit Editor - Replaced ${item.category} with ${item.name}`);
+      
       setSelectedItems(prev => 
         prev.map(i => i.category === item.category ? item : i)
       );
@@ -166,6 +186,16 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
         description: `Replaced ${item.category} with ${item.name}`
       });
     } else {
+      // TRACK EVENT
+      trackCustom('outfit_item_added', {
+        outfit_id: outfit.id,
+        item_id: item.id,
+        item_name: item.name,
+        item_category: item.category,
+        replaced: false,
+        element_id: `add-item-${item.id}`,
+      }, `Outfit Editor - Added ${item.name}`);
+      
       setSelectedItems(prev => [...prev, item]);
       toast({
         title: "Item added",
@@ -383,7 +413,16 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
           <p className="text-muted-foreground mb-4">{outfit.style_tag}</p>
 
           {hasChanges && !isRegenerating && (
-            <Button onClick={regenerateOutfitImage} className="w-full mb-6">
+            <Button onClick={() => {
+              trackCustom('outfit_image_regenerated', {
+                outfit_id: outfit.id,
+                outfit_name: outfit.name,
+                items_changed: hasChanges,
+                element_id: 'regenerate-image-btn',
+              }, 'Outfit Editor - Regenerated Outfit Image');
+              
+              regenerateOutfitImage();
+            }} className="w-full mb-6">
               🔄 Update Outfit Image
             </Button>
           )}

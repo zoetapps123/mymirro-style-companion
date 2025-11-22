@@ -77,6 +77,21 @@ export const ANALYTICS_EVENTS = {
   OUTFIT_BATTLE_RIGHT_SWIPE: 'outfit_battle_right_swipe',
   OUTFIT_BATTLE_UP_SWIPE: 'outfit_battle_up_swipe',
 
+  // Outfit Suggestion Events
+  OUTFIT_GENERATION_OCCASION_SELECTED: 'outfit_generation_occasion_selected',
+  OUTFIT_GENERATION_STYLE_SELECTED: 'outfit_generation_style_selected',
+  OUTFIT_GENERATION_ANCHOR_SELECTED: 'outfit_generation_anchor_selected',
+  OUTFIT_SAVED_TO_LOOKBOOK: 'outfit_saved_to_lookbook',
+  OUTFIT_REGENERATE_ALL_CLICKED: 'outfit_regenerate_all_clicked',
+  WARDROBE_FEATURE_NAVIGATION: 'wardrobe_feature_navigation',
+
+  // Outfit Editor Events
+  OUTFIT_ITEM_ADDED: 'outfit_item_added',
+  OUTFIT_ITEM_REMOVED: 'outfit_item_removed',
+  OUTFIT_IMAGE_REGENERATED: 'outfit_image_regenerated',
+  OUTFIT_EDIT_STARTED: 'outfit_edit_started',
+  OUTFIT_SAVE_DIALOG_OPENED: 'outfit_save_dialog_opened',
+
   // Navigation Events
   PAGE_NAVIGATION: 'page_navigation',
   BACK_NAVIGATION: 'back_navigation',
