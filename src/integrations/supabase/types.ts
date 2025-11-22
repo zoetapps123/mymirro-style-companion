@@ -54,6 +54,7 @@ export type Database = {
           user_id: string
           viewport_height: number | null
           viewport_width: number | null
+          virtual_path: string | null
         }
         Insert: {
           created_at?: string
@@ -70,6 +71,7 @@ export type Database = {
           user_id: string
           viewport_height?: number | null
           viewport_width?: number | null
+          virtual_path?: string | null
         }
         Update: {
           created_at?: string
@@ -86,6 +88,7 @@ export type Database = {
           user_id?: string
           viewport_height?: number | null
           viewport_width?: number | null
+          virtual_path?: string | null
         }
         Relationships: []
       }

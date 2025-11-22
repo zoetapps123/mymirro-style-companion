@@ -1,4 +1,6 @@
 import { Calendar, DoorOpen, Sparkles, Shirt } from "lucide-react";
+import { useEffect } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface WardrobeComingSoonProps {
   onBack: () => void;
@@ -6,12 +8,23 @@ interface WardrobeComingSoonProps {
 }
 
 const WardrobeComingSoon = ({ onBack, onNavigate }: WardrobeComingSoonProps) => {
+  const { trackScreenView } = useAnalytics();
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
     { icon: Sparkles, title: "Outfits", view: 'suggestion' as const, active: false },
     { icon: Calendar, title: "Plan Your\nLook", view: 'calendar' as const, active: true },
     { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
   ];
+
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'wardrobe-calendar-placeholder',
+      { view: 'calendar' },
+      '/app/wardrobe/calendar',
+      '/app/wardrobe/calendar'
+    );
+  }, [trackScreenView]);
 
   return (
     <div className="flex flex-col h-full bg-background">

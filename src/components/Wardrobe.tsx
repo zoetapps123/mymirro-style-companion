@@ -13,11 +13,14 @@ const Wardrobe = () => {
 
   // Track virtual page views for wardrobe sub-views
   useEffect(() => {
-    trackCustom('page_view', {
-      virtual_path: `/app/wardrobe/${currentView}`,
-      wardrobe_view: currentView,
-    }, `Wardrobe - ${currentView.charAt(0).toUpperCase() + currentView.slice(1)} View`);
-  }, [currentView, trackCustom]);
+    const { trackScreenView } = useAnalytics();
+    trackScreenView(
+      `wardrobe-${currentView}`,
+      { wardrobe_view: currentView },
+      `/app/wardrobe/${currentView}`,
+      `/app/wardrobe/${currentView}`
+    );
+  }, [currentView]);
 
   const renderView = () => {
     switch (currentView) {

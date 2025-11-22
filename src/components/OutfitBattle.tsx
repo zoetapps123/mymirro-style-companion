@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Camera, Crown, Trophy, Share2, Plus, X, Sparkles } from "lucide-react";
@@ -56,8 +56,7 @@ interface OutfitBattleProps {
 }
 
 const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
-  useAnalytics(); // Auto-tracks all interactions
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -71,6 +70,16 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   const [pendingImage, setPendingImage] = useState<{ imageData: string, imageFile: File } | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [comparisonText, setComparisonText] = useState<string>("");
+
+  // Track screen view on mount
+  useEffect(() => {
+    trackScreenView(
+      'outfit-battle',
+      { context: 'battle_setup' },
+      '/app/stylecheck/outfit-battle',
+      '/app/stylecheck/outfit-battle'
+    );
+  }, [trackScreenView]);
 
   const addParticipant = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -251,7 +260,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
         participant_count: participants.length,
         winner: data.results[0].name,
         winner_score: data.results[0].score
-      }, 'Outfit Battle - Completed');
+      }, 'Outfit Battle - Completed', '/app/stylecheck/outfit-battle');
 
       // Persist battle in background (non-blocking)
       // Persist battle in background (non-blocking)
