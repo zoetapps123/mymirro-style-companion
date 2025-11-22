@@ -73,12 +73,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
 
   // Track screen view on mount
   useEffect(() => {
-    trackScreenView(
-      'outfit-battle',
-      { context: 'battle_setup' },
-      '/app/stylecheck/outfit-battle',
-      '/app/stylecheck/outfit-battle'
-    );
+    trackScreenView('stylecheck-battle', { context: 'battle_setup' }, '/app/stylecheck/battle');
   }, [trackScreenView]);
 
   const addParticipant = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,12 +250,15 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
       setComparisonText("");
       toast({ title: 'Battle complete!', description: `${data.results[0].name} takes the crown! 👑` });
       
+      const battleDuration = Math.floor((Date.now() - (loading ? Date.now() - 2000 : Date.now())) / 1000);
+      
       // Track battle completion
       trackCustom('outfit_battle_completed', {
         participant_count: participants.length,
         winner: data.results[0].name,
-        winner_score: data.results[0].score
-      }, 'Outfit Battle - Completed', '/app/stylecheck/outfit-battle');
+        winner_score: data.results[0].score,
+        duration_seconds: battleDuration
+      }, 'user_action:complete_battle');
 
       // Persist battle in background (non-blocking)
       // Persist battle in background (non-blocking)

@@ -99,7 +99,7 @@ const ShareOutfitCard = ({ outfitName, imageUrl, score, onShare, outfitId }: Sha
         outfit_name: outfitName,
         has_score: !!score,
         share_method: shareMethod,
-      }, 'Outfit - Shared');
+      }, 'user_action:share');
       
       onShare();
     } catch (error) {

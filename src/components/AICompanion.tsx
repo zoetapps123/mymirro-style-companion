@@ -350,12 +350,7 @@ const AICompanion = () => {
   
   // Track screen view on mount
   useEffect(() => {
-    trackScreenView(
-      'ai-companion',
-      { tab: 'chat' },
-      '/app/chat',
-      '/app/chat'
-    );
+    trackScreenView('chat', { tab: 'chat' }, '/app/chat');
   }, [trackScreenView]);
 
   // Fetch all wardrobe items for chat context
@@ -466,7 +461,7 @@ const AICompanion = () => {
     setMessages([greeting]);
     setShowPrompts(true);
     persistMessages([greeting]);
-    trackCustom("chat_reset", {}, "AI Chat - Reset Conversation");
+    trackCustom("chat_reset", {}, "user_action:reset_chat");
   };
 
   // Check session and initialize greeting
@@ -496,7 +491,7 @@ const AICompanion = () => {
         }));
         setMessages(messagesWithDates);
         setShowPrompts(messagesWithDates.length <= 1);
-        trackCustom("session_restored", {}, "AI Chat - Session Restored");
+        trackCustom("session_restored", {}, "system:session_restored");
       } catch (e) {
         // Invalid session, start fresh
         initializeSession();
@@ -519,7 +514,7 @@ const AICompanion = () => {
     setMessages([greeting]);
     setShowPrompts(true);
     persistMessages([greeting]);
-    trackCustom("session_started", { userName }, "AI Chat - Session Started");
+    trackCustom("session_started", { userName }, "system:session_start");
   };
 
   useEffect(() => {
@@ -693,12 +688,12 @@ const AICompanion = () => {
 
           if (res.status === 402) {
             errorMessage = "Service unavailable. Please contact support.";
-            trackCustom("payment_required_error", {}, "AI Chat - Payment Required Error");
+            trackCustom("payment_required_error", {}, "system:error");
           } else if (res.status === 401) {
             errorMessage = "Authentication error. Please sign in again.";
-            trackCustom("auth_error", {}, "AI Chat - Auth Error");
+            trackCustom("auth_error", {}, "system:error");
           } else {
-            trackCustom("chat_api_error", { status: res.status }, "AI Chat - API Error");
+            trackCustom("chat_api_error", { status: res.status }, "system:error");
           }
 
           setChatError(errorMessage);
@@ -898,7 +893,7 @@ const AICompanion = () => {
           return updated;
         });
         await maybeGenerateClientFallback();
-        trackCustom("reply_delivered", {}, "AI Chat - Reply Delivered");
+        trackCustom("reply_delivered", {}, "system:message_delivered");
         if (timeoutId) clearTimeout(timeoutId);
         abortControllerRef.current = null;
         return; // Done for Mobile Safari
@@ -1098,7 +1093,7 @@ const AICompanion = () => {
         }
       }
 
-      trackCustom("reply_delivered", {}, "AI Chat - Reply Delivered");
+      trackCustom("reply_delivered", {}, "system:message_delivered");
 
       // Call pill-suggestions endpoint after streaming completes
       if (assistantMessage) {
@@ -1142,7 +1137,7 @@ const AICompanion = () => {
       }
 
       setChatError(errorMessage);
-      trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" }, "AI Chat - Error");
+      trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" }, "system:error");
 
       // Log error to backend for customer visibility
       try {
@@ -1176,13 +1171,13 @@ const AICompanion = () => {
 
   const handleSuggestionClick = (suggestion: string) => {
     setSuggestions([]); // Clear pills immediately
-    trackCustom("suggestion_clicked", { suggestion }, "AI Chat - Suggestion Clicked");
+    trackCustom("suggestion_clicked", { suggestion }, "user_action:click_suggestion");
     handleSend(suggestion);
   };
 
   const handleCardClick = (query: string) => {
     setShowPrompts(false);
-    trackCustom("query_card_clicked", { query }, "AI Chat - Query Card Clicked");
+    trackCustom("query_card_clicked", { query }, "user_action:click_query_card");
     // Directly send the card query
     handleSend(query);
   };
@@ -1215,7 +1210,7 @@ const AICompanion = () => {
     const timeSpentSeconds = Math.floor((Date.now() - chatStartTimeRef.current) / 1000);
     trackCustom("chat_message_sent", {
       message_number: messageCountRef.current,
-      time_in_chat_seconds: timeSpentSeconds,
+      duration_seconds: timeSpentSeconds,
       has_images: selectedImages.length > 0,
       image_count: selectedImages.length,
       message_length: textToSend.length,

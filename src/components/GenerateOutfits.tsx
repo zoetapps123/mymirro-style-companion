@@ -141,6 +141,7 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       setCurrentOutfitIndex(outfits.length);
       
       const generationDuration = Date.now() - generationStartTime;
+      const durationSeconds = Math.floor(generationDuration / 1000);
       
       completeFlow('outfit_generation', true, {
         occasion: selectedOccasion,
@@ -148,6 +149,12 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         outfit_item_count: Object.keys(data.outfit || {}).length,
         duration_ms: generationDuration,
       });
+      
+      trackCustom('outfit_generated', {
+        occasion: selectedOccasion,
+        base_item: selectedItem.name,
+        duration_seconds: durationSeconds
+      }, 'user_action:generate_outfit');
 
       // Track successful generation
       trackCustom('outfit_generation_completed', {

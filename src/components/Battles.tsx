@@ -42,12 +42,7 @@ const Battles = () => {
   
   // Track screen view on mount
   useEffect(() => {
-    trackScreenView(
-      'outfit-battles',
-      { context: 'style_check' },
-      '/app/stylecheck/battles',
-      '/app/stylecheck/battles'
-    );
+    trackScreenView('stylecheck-battles', { context: 'style_check' }, '/app/stylecheck/battles');
   }, [trackScreenView]);
 
   const fetchLatestBattle = async () => {
@@ -187,7 +182,7 @@ const Battles = () => {
         participant_count: participants.length,
         winner_name: winner?.name,
         winner_score: winner?.score,
-      }, 'Battle - Completed');
+      }, 'user_action:complete_battle');
       
       setShowCelebration(true);
       setTimeout(() => setShowCelebration(false), 4000);
@@ -346,7 +341,7 @@ const Battles = () => {
         winner: latestBattle.results[0].name,
         participant_count: latestBattle.results.length,
         share_method: navigator.canShare && navigator.canShare(shareData) ? 'native_share' : 'download',
-      }, 'Battle - Shared');
+      }, 'user_action:share');
     } catch (error) {
       console.error('Share error:', error);
       toast({
