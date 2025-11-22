@@ -63,11 +63,38 @@ export const useAnalytics = () => {
   const currentScreen = useRef<string>('');
   const screenStartTime = useRef<number>(Date.now());
 
+  // Deduplication tracking
+  const recentEvents = useRef<Map<string, number>>(new Map());
+
   // Track an event - never throw errors
   const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId, engagementSource, pageRoute, virtualPath }: AnalyticsEvent) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Deduplication: Skip if same event was tracked within last 1 second
+      const dedupKey = `${eventType}_${user.id}_${sessionId.current}_${JSON.stringify(eventData || {})}`;
+      const now = Date.now();
+      const lastTracked = recentEvents.current.get(dedupKey);
+      
+      if (lastTracked && now - lastTracked < 1000) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Skipping duplicate event:', eventType, eventData);
+        }
+        return;
+      }
+      
+      recentEvents.current.set(dedupKey, now);
+      
+      // Clean old entries (keep only last 10 seconds)
+      if (recentEvents.current.size > 100) {
+        const oldestAllowed = now - 10000;
+        for (const [key, timestamp] of recentEvents.current.entries()) {
+          if (timestamp < oldestAllowed) {
+            recentEvents.current.delete(key);
+          }
+        }
+      }
 
       await supabase.from('analytics_events').insert({
         user_id: user.id,
@@ -334,25 +361,6 @@ export const useAnalytics = () => {
       trackPageDuration();
     };
   }, [location.pathname, trackEvent, trackPageDuration]);
-
-  // Auto-track clicks with semantic IDs and coordinates
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const elementType = target.tagName.toLowerCase();
-      const elementId = target.id;
-      const analyticsId = target.getAttribute('data-analytics-id');
-      const elementText = target.textContent?.substring(0, 50) || '';
-
-      trackClick(elementType, elementId, {
-        'data-analytics-id': analyticsId,
-        text: elementText,
-      }, e.clientX, e.clientY);
-    };
-
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [trackClick]);
 
   // Auto-track scroll events with debouncing
   useEffect(() => {

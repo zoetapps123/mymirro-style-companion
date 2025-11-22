@@ -683,6 +683,27 @@ export type Database = {
         }
         Relationships: []
       }
+      v_analytics_events_clean: {
+        Row: {
+          created_at: string | null
+          engagement_source: string | null
+          event_category: string | null
+          event_data: Json | null
+          event_type: string | null
+          flow_id: string | null
+          id: string | null
+          page_route: string | null
+          screen_name: string | null
+          session_id: string | null
+          session_metadata: Json | null
+          user_action: string | null
+          user_id: string | null
+          viewport_height: number | null
+          viewport_width: number | null
+          virtual_path: string | null
+        }
+        Relationships: []
+      }
       v_analytics_health: {
         Row: {
           affected_rows: number | null
