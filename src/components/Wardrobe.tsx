@@ -16,7 +16,7 @@ const Wardrobe = () => {
     trackCustom('page_view', {
       virtual_path: `/app/wardrobe/${currentView}`,
       wardrobe_view: currentView,
-    });
+    }, `Wardrobe - ${currentView.charAt(0).toUpperCase() + currentView.slice(1)} View`);
   }, [currentView, trackCustom]);
 
   const renderView = () => {

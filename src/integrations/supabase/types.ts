@@ -41,6 +41,7 @@ export type Database = {
       analytics_events: {
         Row: {
           created_at: string
+          engagement_source: string | null
           event_category: string
           event_data: Json | null
           event_type: string
@@ -56,6 +57,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          engagement_source?: string | null
           event_category: string
           event_data?: Json | null
           event_type: string
@@ -71,6 +73,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          engagement_source?: string | null
           event_category?: string
           event_data?: Json | null
           event_type?: string

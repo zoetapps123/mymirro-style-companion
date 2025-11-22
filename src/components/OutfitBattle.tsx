@@ -251,7 +251,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
         participant_count: participants.length,
         winner: data.results[0].name,
         winner_score: data.results[0].score
-      });
+      }, 'Outfit Battle - Completed');
 
       // Persist battle in background (non-blocking)
       // Persist battle in background (non-blocking)

@@ -35,6 +35,7 @@ interface AnalyticsEvent {
   eventData?: Record<string, any>;
   screenName?: string;
   flowId?: string;
+  engagementSource?: string;
 }
 
 interface FlowState {
@@ -61,7 +62,7 @@ export const useAnalytics = () => {
   const screenStartTime = useRef<number>(Date.now());
 
   // Track an event - never throw errors
-  const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId }: AnalyticsEvent) => {
+  const trackEvent = useCallback(async ({ eventType, eventCategory, eventData, screenName, flowId, engagementSource }: AnalyticsEvent) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -77,6 +78,7 @@ export const useAnalytics = () => {
         viewport_height: window.innerHeight,
         screen_name: screenName || currentScreen.current || null,
         flow_id: flowId || null,
+        engagement_source: engagementSource || null,
       });
     } catch (error) {
       // Silently fail - analytics should never break the app
@@ -103,7 +105,8 @@ export const useAnalytics = () => {
           element,
           click_count: recentClicks.length + 1,
           coordinates: { x, y }
-        }
+        },
+        engagementSource: `Rage Tap - ${element}`
       });
     }
     
@@ -119,6 +122,13 @@ export const useAnalytics = () => {
     const importantElements = ['button', 'a', 'input', 'select'];
     
     if (semanticId || importantElements.includes(element.toLowerCase())) {
+      const elementText = additionalData?.text || '';
+      const engagementSource = semanticId 
+        ? `${location.pathname} - ${semanticId}`
+        : elementText 
+          ? `${location.pathname} - ${elementText.substring(0, 50)}`
+          : `${location.pathname} - ${element}`;
+      
       trackEvent({
         eventType: 'click',
         eventCategory: 'interaction',
@@ -127,6 +137,7 @@ export const useAnalytics = () => {
           elementId,
           ...additionalData,
         },
+        engagementSource
       });
       
       // Detect rage taps for buttons
@@ -134,7 +145,7 @@ export const useAnalytics = () => {
         detectRageTap(semanticId || elementId || element, x, y);
       }
     }
-  }, [trackEvent, detectRageTap]);
+  }, [trackEvent, detectRageTap, location.pathname]);
 
   // Track page view duration
   const trackPageDuration = useCallback(() => {
@@ -146,8 +157,9 @@ export const useAnalytics = () => {
         duration_ms: duration,
         duration_seconds: Math.round(duration / 1000),
       },
+      engagementSource: `${location.pathname} - Page View Duration`
     });
-  }, [trackEvent]);
+  }, [trackEvent, location.pathname]);
 
   // Track scroll milestones
   const scrollMilestonesReached = useRef<Set<number>>(new Set());
@@ -167,10 +179,11 @@ export const useAnalytics = () => {
           milestone: currentMilestone,
           scroll_position: scrollPosition,
         },
+        engagementSource: `${location.pathname} - ${currentMilestone}% Scrolled`
       });
     }
     lastScrollPosition.current = scrollPosition;
-  }, [trackEvent]);
+  }, [trackEvent, location.pathname]);
 
   // Flow tracking functions
   const startFlow = useCallback((flowName: string, metadata?: Record<string, any>) => {
@@ -188,7 +201,8 @@ export const useAnalytics = () => {
         flow_name: flowName,
         ...metadata
       },
-      flowId
+      flowId,
+      engagementSource: `${flowName} - Started`
     });
     
     return flowId;
@@ -208,7 +222,8 @@ export const useAnalytics = () => {
           time_since_start: Date.now() - flow.startTime,
           ...metadata
         },
-        flowId: flow.flowId
+        flowId: flow.flowId,
+        engagementSource: `${flowName} - ${stepName}`
       });
     }
   }, [trackEvent]);
@@ -228,7 +243,8 @@ export const useAnalytics = () => {
           total_steps: flow.steps.length,
           ...metadata
         },
-        flowId: flow.flowId
+        flowId: flow.flowId,
+        engagementSource: `${flowName} - ${success ? 'Completed' : 'Abandoned'}`
       });
       activeFlows.current.delete(flowName);
     }
@@ -247,7 +263,8 @@ export const useAnalytics = () => {
           time_on_screen: Date.now() - screenStartTime.current,
           ...metadata
         },
-        screenName: currentScreen.current
+        screenName: currentScreen.current,
+        engagementSource: `${currentScreen.current} - Screen Exit`
       });
     }
     
@@ -262,16 +279,18 @@ export const useAnalytics = () => {
         screen_name: screenName,
         ...metadata
       },
-      screenName
+      screenName,
+      engagementSource: screenName
     });
   }, [trackEvent]);
 
   // Track custom events
-  const trackCustom = useCallback((eventType: string, eventData?: Record<string, any>) => {
+  const trackCustom = useCallback((eventType: string, eventData?: Record<string, any>, engagementSource?: string) => {
     trackEvent({
       eventType,
       eventCategory: 'custom',
       eventData,
+      engagementSource: engagementSource || `Custom - ${eventType}`
     });
   }, [trackEvent]);
 
@@ -286,6 +305,7 @@ export const useAnalytics = () => {
       eventData: {
         referrer: document.referrer,
       },
+      engagementSource: location.pathname
     });
 
     // Track page duration on unmount
@@ -361,6 +381,7 @@ export const useAnalytics = () => {
             inactive_duration_ms: inactiveTime,
             total_session_time: Date.now() - sessionStartTime,
           },
+          engagementSource: 'Session Timeout'
         });
       }
     }, 30000); // Check every 30 seconds
@@ -408,7 +429,8 @@ export const useAnalytics = () => {
               reason: 'long_inactivity',
               inactive_duration_ms: hiddenDuration,
               session_duration_ms: Date.now() - sessionStartTime
-            }
+            },
+            engagementSource: 'Session End - Long Inactivity'
           });
           // Generate new session
           sessionStartTime = Date.now();

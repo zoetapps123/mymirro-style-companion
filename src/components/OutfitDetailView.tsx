@@ -268,7 +268,7 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
           outfit_name: outfit.name,
           occasion: outfit.occasion,
           item_count: selectedItems.length,
-        });
+        }, 'Outfit Detail - Saved to Lookbook');
 
         toast({
           title: "Saved!",

@@ -71,14 +71,14 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       files_count: files.length,
       file_type: file.type,
       file_size_bytes: file.size,
-    });
+    }, 'Wardrobe Upload - Upload Attempt');
     
     // Track upload started
     trackCustom('wardrobe_upload_started', {
       file_type: file.type,
       file_size: file.size,
       attempt_number: uploadAttempts.current,
-    });
+    }, 'Wardrobe Upload - Started');
 
     setLoading(true);
     setProgress(10);
@@ -285,7 +285,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         items_added: successfullyAdded,
         duration_ms: uploadDuration,
         attempt_number: uploadAttempts.current,
-      });
+      }, 'Wardrobe Upload - Success');
 
       // Track upload completion
       trackCustom('wardrobe_upload_completed', {
@@ -293,7 +293,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         items_added: successfullyAdded,
         items_skipped: skippedCount,
         duration_ms: uploadDuration,
-      });
+      }, 'Wardrobe Upload - Completed');
       
       // Reset attempts on success
       uploadAttempts.current = 0;
@@ -309,7 +309,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         items_skipped: skippedCount,
         total_detected: itemsDetected.length,
         upload_method: 'manual_photo'
-      });
+      }, 'Wardrobe Upload - Items Added');
 
       setProgress(100);
       fetchWardrobeItems();
@@ -320,7 +320,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       // Track upload error
       trackCustom('wardrobe_upload_error', {
         error_message: error instanceof Error ? error.message : 'Unknown error',
-      });
+      }, 'Wardrobe Upload - Error');
 
       toast({
         title: "Error",

@@ -66,7 +66,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       trackCustom('wardrobe_item_deleted', {
         item_id: itemId,
         item_name: itemName,
-      });
+      }, 'Wardrobe - Item Deleted');
 
       toast({
         title: "Item removed",
