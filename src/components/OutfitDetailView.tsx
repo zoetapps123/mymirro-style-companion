@@ -51,14 +51,13 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
   // Track screen view on mount
   useEffect(() => {
     trackScreenView(
-      'outfit-detail-editor',
+      'wardrobe-outfit-editor',
       { 
         outfit_id: outfit.id,
         outfit_name: outfit.name,
         items_count: outfit.items?.length || 0,
       },
-      '/app/outfit-detail',
-      '/app/outfit-detail'
+      '/app/wardrobe/outfit-editor'
     );
   }, [trackScreenView]);
 

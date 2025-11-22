@@ -176,7 +176,7 @@ export const useAnalytics = () => {
           click_count: recentClicks.length + 1,
           coordinates: { x, y }
         },
-        engagementSource: `Rage Tap - ${element}`
+        engagementSource: `user_action:rage_tap`
       });
     }
     
@@ -392,7 +392,7 @@ export const useAnalytics = () => {
       eventData: {
         referrer: document.referrer,
       },
-      engagementSource: currentPath,
+      engagementSource: 'navigation:page_view',
       pageRoute: currentPath
     });
 
@@ -499,7 +499,7 @@ export const useAnalytics = () => {
               inactive_duration_ms: hiddenDuration,
               session_duration_ms: Date.now() - sessionStartTime
             },
-            engagementSource: 'Session End - Long Inactivity'
+            engagementSource: 'system:long_inactivity'
           });
           // Generate new session
           sessionStartTime = Date.now();

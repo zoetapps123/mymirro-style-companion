@@ -71,13 +71,13 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       files_count: files.length,
       file_type: file.type,
       file_size_bytes: file.size,
-    }, 'Wardrobe Upload - Upload Attempt');
+    }, 'user_action:upload_start');
     
     // Track upload submit
     trackCustom('wardrobe_upload_submit', {
       files_count: files.length,
       file_size_kb: Math.round(file.size / 1024),
-    }, 'Wardrobe Upload - Submit');
+    }, 'user_action:upload_start');
 
     setLoading(true);
     setProgress(10);
@@ -282,17 +282,17 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
       trackCustom('upload_success', {
         items_added: successfullyAdded,
-        duration_ms: uploadDuration,
+        duration_seconds: Math.floor(uploadDuration / 1000),
         attempt_number: uploadAttempts.current,
-      }, 'Wardrobe Upload - Success');
+      }, 'system:processing_complete');
 
       // Track upload completion
       trackCustom('wardrobe_upload_completed', {
         items_detected: totalDetected,
         items_added: successfullyAdded,
         items_skipped: skippedCount,
-        duration_ms: uploadDuration,
-      }, 'Wardrobe Upload - Completed');
+        duration_seconds: Math.floor(uploadDuration / 1000),
+      }, 'user_action:complete_upload');
       
       // Reset attempts on success
       uploadAttempts.current = 0;
@@ -308,7 +308,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         items_skipped: skippedCount,
         total_detected: itemsDetected.length,
         upload_method: 'manual_photo'
-      }, 'Wardrobe Upload - Items Added');
+      }, 'user_action:add_items');
 
       setProgress(100);
       fetchWardrobeItems();
@@ -319,7 +319,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       // Track upload error
       trackCustom('wardrobe_upload_error', {
         error_message: error instanceof Error ? error.message : 'Unknown error',
-      }, 'Wardrobe Upload - Error');
+      }, 'system:error');
 
       toast({
         title: "Error",

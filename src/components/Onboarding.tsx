@@ -86,7 +86,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
       trackCustom('onboarding_completed', {
         gender: data.gender,
         age_range: data.ageRange,
-      }, 'Onboarding - Completed');
+      }, 'user_action:complete_onboarding');
 
       onComplete();
     } catch (error) {
