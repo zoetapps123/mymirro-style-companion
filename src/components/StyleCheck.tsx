@@ -9,11 +9,48 @@ import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 
 type StyleCheckView = 'hub' | 'outfit-check' | 'outfit-battle';
 
+// Safe localStorage wrapper to avoid iOS Private Mode errors
+const safeLocalStorage = {
+  get: (key: string) => { try { return localStorage.getItem(key); } catch { return null; } },
+  set: (key: string, value: string) => { try { localStorage.setItem(key, value); } catch {} },
+};
+
 const StyleCheck = () => {
   const { trackScreenView } = useAnalytics();
-  const [currentView, setCurrentView] = useState<StyleCheckView>('hub');
-  const [battleData, setBattleData] = useState<any>(null);
+  
+  // Restore last view from localStorage
+  const getInitialView = (): StyleCheckView => {
+    const saved = safeLocalStorage.get('stylecheck_current_view');
+    return (saved as StyleCheckView) || 'hub';
+  };
+  
+  const getInitialBattleData = () => {
+    const saved = safeLocalStorage.get('stylecheck_battle_data');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+  
+  const [currentView, setCurrentView] = useState<StyleCheckView>(getInitialView());
+  const [battleData, setBattleData] = useState<any>(getInitialBattleData());
 
+  // Persist view to localStorage whenever it changes
+  useEffect(() => {
+    safeLocalStorage.set('stylecheck_current_view', currentView);
+  }, [currentView]);
+  
+  // Persist battle data to localStorage whenever it changes
+  useEffect(() => {
+    if (battleData) {
+      safeLocalStorage.set('stylecheck_battle_data', JSON.stringify(battleData));
+    }
+  }, [battleData]);
+  
   // Track screen views for StyleCheck sub-views with standardized naming
   useEffect(() => {
     const routeMap: Record<StyleCheckView, { route: string; title: string }> = {
