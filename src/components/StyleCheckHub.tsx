@@ -1302,68 +1302,32 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               Battle of the fits
             </h2>
             <Card
-              className="relative cursor-pointer hover:border-primary transition-colors border-2 border-primary overflow-hidden"
-              style={{
-                width: '348px',
-                height: '117px',
-                borderRadius: '15px',
-                padding: '16px',
-              }}
+              className="relative cursor-pointer hover:border-primary transition-colors border-2 border-primary overflow-hidden w-full max-w-[348px] sm:max-w-full p-4 rounded-[15px] h-[117px] sm:h-auto sm:min-h-[117px]"
               onClick={() => {
                 trackClick('style_check_button', 'outfit-battle', { feature: 'outfit_battle' });
                 onNavigate('outfit-battle');
               }}
             >
               {/* Background diagonal stripes - Layer 1 (behind everything) */}
-              <div className="absolute right-0 top-0 bottom-0 w-[45%] overflow-hidden pointer-events-none">
+              <div className="absolute right-0 top-0 bottom-0 w-[45%] sm:w-[35%] overflow-hidden pointer-events-none">
                 <div 
-                  className="absolute bg-primary/25"
-                  style={{
-                    width: '24px',
-                    height: '180px',
-                    top: '-30px',
-                    right: '72px',
-                    transform: 'rotate(-30deg)',
-                  }}
+                  className="absolute bg-primary/25 w-6 h-[180px] -top-[30px] right-[72px] sm:right-[60px] -rotate-[30deg]"
                 />
                 <div 
-                  className="absolute bg-primary/25"
-                  style={{
-                    width: '24px',
-                    height: '180px',
-                    top: '-30px',
-                    right: '28px',
-                    transform: 'rotate(-30deg)',
-                  }}
+                  className="absolute bg-primary/25 w-6 h-[180px] -top-[30px] right-[28px] sm:right-[20px] -rotate-[30deg]"
                 />
               </div>
 
               {/* VS Text on the right - Layer 2 (side-by-side) */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+              <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
                 <div className="relative flex items-end" style={{ gap: '-8px' }}>
                   <span 
-                    className="font-satoshi text-primary"
-                    style={{
-                      fontSize: '64px',
-                      fontWeight: 900,
-                      fontStyle: 'italic',
-                      lineHeight: '0.9',
-                      transform: 'translateY(-6px)',
-                      filter: 'drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2))',
-                    }}
+                    className="font-satoshi text-primary text-[48px] sm:text-[64px] font-black italic leading-[0.9] -translate-y-1.5 drop-shadow-md"
                   >
                     V
                   </span>
                   <span 
-                    className="font-satoshi text-primary"
-                    style={{
-                      fontSize: '64px',
-                      fontWeight: 900,
-                      fontStyle: 'italic',
-                      lineHeight: '0.9',
-                      transform: 'translateY(6px)',
-                      filter: 'drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2))',
-                    }}
+                    className="font-satoshi text-primary text-[48px] sm:text-[64px] font-black italic leading-[0.9] translate-y-1.5 drop-shadow-md"
                   >
                     s
                   </span>
@@ -1371,39 +1335,27 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               </div>
 
               {/* Left side content - Layer 3 */}
-              <div className="relative z-20 flex flex-col h-full" style={{ paddingTop: '4px', paddingBottom: '15px' }}>
-                <div style={{ marginBottom: '10px' }}>
+              <div className="relative z-20 flex flex-col h-full pt-1 pb-[15px] max-w-[60%] sm:max-w-[65%]">
+                <div className="mb-2 sm:mb-[10px]">
                   <h3 
-                    className="font-boston font-bold text-primary"
-                    style={{
-                      fontSize: '20px',
-                      lineHeight: '1.2',
-                      marginTop: '-13px',
-                      marginBottom: '6px',
-                    }}
+                    className="font-boston font-bold text-primary text-lg sm:text-[20px] leading-[1.2] -mt-[13px] mb-1.5"
                   >
                     Outfit Battle
                   </h3>
                   <p 
-                    className="font-boston text-foreground/80"
-                    style={{
-                      fontSize: '14px',
-                      lineHeight: '1.4',
-                    }}
+                    className="font-boston text-foreground/80 text-xs sm:text-sm leading-[1.4] hidden sm:block"
                   >
                     Upload, compare, and crown the<br />best outfit.
                   </p>
+                  <p 
+                    className="font-boston text-foreground/80 text-xs leading-[1.4] sm:hidden"
+                  >
+                    Upload, compare, crown the best outfit.
+                  </p>
                 </div>
-                <div style={{ marginTop: 'auto' }}>
+                <div className="mt-auto">
                   <Button 
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold"
-                    style={{
-                      width: '76px',
-                      height: '19px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      padding: '0',
-                    }}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold w-[76px] h-[19px] rounded-[4px] text-xs p-0"
                   >
                     Let's fight!
                   </Button>
