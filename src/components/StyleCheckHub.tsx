@@ -1372,6 +1372,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                     style={{
                       fontSize: '20px',
                       lineHeight: '1.2',
+                      marginTop: '-10px',
                       marginBottom: '6px',
                     }}
                   >
