@@ -392,6 +392,8 @@ export type Database = {
           utm_campaign: string | null
           utm_medium: string | null
           utm_source: string | null
+          viewport_height: number | null
+          viewport_width: number | null
           virtual_path: string | null
         }
         Insert: {
@@ -417,6 +419,8 @@ export type Database = {
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
+          viewport_height?: number | null
+          viewport_width?: number | null
           virtual_path?: string | null
         }
         Update: {
@@ -442,6 +446,8 @@ export type Database = {
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
+          viewport_height?: number | null
+          viewport_width?: number | null
           virtual_path?: string | null
         }
         Relationships: [
