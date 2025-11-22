@@ -946,11 +946,11 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
             className="space-y-6"
           >
             {/* Hero Section */}
-            <div className="text-center space-y-3">
+            <div className="space-y-3">
               <h1 className="text-4xl sm:text-5xl font-bold text-primary">
                 Style Check
               </h1>
-              <p className="text-muted-foreground text-base sm:text-lg max-w-md mx-auto">
+              <p className="text-muted-foreground text-base sm:text-lg max-w-md">
                 Upload your outfit, get AI-powered style insights in seconds ✨
               </p>
             </div>
