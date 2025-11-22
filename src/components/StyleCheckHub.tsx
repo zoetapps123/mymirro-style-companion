@@ -1319,15 +1319,15 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               </div>
 
               {/* VS Text on the right - Layer 2 (side-by-side) */}
-              <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+              <div className="absolute right-1 xs:right-2 sm:right-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
                 <div className="relative flex items-end" style={{ gap: '-8px' }}>
                   <span 
-                    className="font-satoshi text-primary text-[48px] sm:text-[64px] font-black italic leading-[0.9] -translate-y-1.5 drop-shadow-md"
+                    className="font-satoshi text-primary text-[40px] xs:text-[48px] sm:text-[56px] md:text-[64px] font-black italic leading-[0.9] -translate-y-1 xs:-translate-y-1.5 drop-shadow-md"
                   >
                     V
                   </span>
                   <span 
-                    className="font-satoshi text-primary text-[48px] sm:text-[64px] font-black italic leading-[0.9] translate-y-1.5 drop-shadow-md"
+                    className="font-satoshi text-primary text-[40px] xs:text-[48px] sm:text-[56px] md:text-[64px] font-black italic leading-[0.9] translate-y-1 xs:translate-y-1.5 drop-shadow-md"
                   >
                     s
                   </span>
@@ -1335,29 +1335,29 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               </div>
 
               {/* Left side content - Layer 3 */}
-              <div className="relative z-20 flex flex-col h-full pt-1 pb-[15px] max-w-[60%] sm:max-w-[65%]">
-                <div className="mb-2 sm:mb-[10px]">
+              <div className="relative z-20 flex flex-col h-full pt-1 pb-[15px] max-w-[58%] xs:max-w-[60%] sm:max-w-[65%]">
+                <div className="mb-1.5 xs:mb-2 sm:mb-[10px]">
                   <h3 
-                    className="font-boston font-bold text-primary text-lg sm:text-[20px] leading-[1.2] -mt-[13px] mb-1.5"
+                    className="font-boston font-bold text-primary text-base xs:text-lg sm:text-[20px] leading-[1.2] -mt-3 xs:-mt-[13px] mb-1 xs:mb-1.5"
                   >
                     Outfit Battle
                   </h3>
                   <p 
-                    className="font-boston text-foreground/80 text-xs sm:text-sm leading-[1.4] hidden sm:block"
+                    className="font-boston text-foreground/80 text-[10px] xs:text-xs sm:text-sm leading-[1.3] xs:leading-[1.4] hidden sm:block"
                   >
                     Upload, compare, and crown the<br />best outfit.
                   </p>
                   <p 
-                    className="font-boston text-foreground/80 text-xs leading-[1.4] sm:hidden"
+                    className="font-boston text-foreground/80 text-[10px] xs:text-xs leading-[1.3] xs:leading-[1.4] sm:hidden"
                   >
                     Upload, compare, crown the best outfit.
                   </p>
                 </div>
                 <div className="mt-auto">
                   <Button 
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold w-[76px] h-[19px] rounded-[4px] text-xs p-0"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-boston font-bold w-[70px] xs:w-[76px] h-[18px] xs:h-[19px] rounded-[4px] text-[10px] xs:text-xs p-0"
                   >
-                    Let's fight!
+                    Let&apos;s fight!
                   </Button>
                 </div>
               </div>
