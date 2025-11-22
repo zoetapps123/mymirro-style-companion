@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { orderOutfitForDisplay } from "@/lib/utils";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface Outfit {
   id: string;
@@ -31,17 +32,35 @@ interface OutfitDetailEditorProps {
 
 const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDetailEditorProps) => {
   const { toast } = useToast();
+  const { trackCustom } = useAnalytics();
   const [selectedItems, setSelectedItems] = useState<WardrobeItem[]>(outfit.items);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [outfitName, setOutfitName] = useState("");
   const [showTemplate, setShowTemplate] = useState(true);
 
   const removeItem = (itemId: string) => {
+    const item = selectedItems.find(i => i.id === itemId);
+    if (item) {
+      trackCustom('outfit_item_removed', {
+        outfit_id: outfit.id,
+        item_id: itemId,
+        item_name: item.name,
+        item_category: item.category,
+        element_id: `remove-item-${itemId}`,
+      }, `Outfit Template Editor - Removed ${item.name}`);
+    }
     setSelectedItems(prev => prev.filter(item => item.id !== itemId));
   };
 
   const addItem = (item: WardrobeItem) => {
     if (!selectedItems.find(i => i.id === item.id)) {
+      trackCustom('outfit_item_added', {
+        outfit_id: outfit.id,
+        item_id: item.id,
+        item_name: item.name,
+        item_category: item.category,
+        element_id: `add-item-${item.id}`,
+      }, `Outfit Template Editor - Added ${item.name}`);
       setSelectedItems(prev => [...prev, item]);
     }
   };
@@ -84,6 +103,15 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
         .insert(outfitItems);
 
       if (itemsError) throw itemsError;
+
+      // TRACK EVENT
+      trackCustom('outfit_saved_to_lookbook', {
+        outfit_id: savedOutfit.id,
+        outfit_name: outfitName,
+        occasion: outfit.label,
+        item_count: selectedItems.length,
+        element_id: 'save-outfit-submit',
+      }, `Outfit Template Editor - Saved ${outfitName}`);
 
       toast({
         title: "Outfit saved!",
@@ -143,7 +171,15 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
           <Button variant="outline" onClick={onBack} className="flex-1">
             Back
           </Button>
-          <Button onClick={() => setShowTemplate(false)} className="flex-1">
+          <Button onClick={() => {
+            trackCustom('outfit_edit_started', {
+              outfit_id: outfit.id,
+              outfit_label: outfit.label,
+              items_count: selectedItems.length,
+              element_id: 'edit-customize-btn',
+            }, 'Outfit Template Editor - Started Editing');
+            setShowTemplate(false);
+          }} className="flex-1">
             Edit & Customize
           </Button>
         </div>
@@ -231,7 +267,15 @@ const OutfitDetailEditor = ({ outfit, wardrobeItems, onBack, onSave }: OutfitDet
         <Button variant="outline" onClick={onBack} className="flex-1">
           Back
         </Button>
-        <Button onClick={() => setShowSaveDialog(true)} className="flex-1">
+        <Button onClick={() => {
+          trackCustom('outfit_save_dialog_opened', {
+            outfit_id: outfit.id,
+            outfit_label: outfit.label,
+            items_count: selectedItems.length,
+            element_id: 'save-outfit-btn',
+          }, 'Outfit Template Editor - Opened Save Dialog');
+          setShowSaveDialog(true);
+        }} className="flex-1">
           <Save className="w-4 h-4 mr-2" />
           Save Outfit
         </Button>

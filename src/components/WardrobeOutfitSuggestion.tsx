@@ -14,6 +14,8 @@ import { OutfitSuggestionSkeleton } from './OutfitSuggestionSkeleton';
 import { OutfitGridLoadingSkeleton } from '@/components/ui/outfit-loading-skeleton';
 import { orderOutfitForDisplay } from '@/lib/utils';
 import lockIcon from '@/assets/lock-icon-outfit.png';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { ANALYTICS_EVENTS } from '@/lib/analyticsEvents';
 
 interface WardrobeItem {
   id: string;
@@ -49,6 +51,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   // Use cached data from hooks
   const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
   const { outfits: cachedOutfits, isLoading: isLoadingOutfits, invalidateOutfits } = useOutfits();
+  const { trackCustom } = useAnalytics();
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -635,7 +638,20 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * 0.05 }}
               className="flex-shrink-0 w-[280px] cursor-pointer"
-              onClick={() => setSelectedOutfit(outfit)}
+              onClick={() => {
+                // TRACK EVENT
+                trackCustom('outfit_card_clicked', {
+                  outfit_id: outfit.id,
+                  outfit_name: outfit.name,
+                  occasion: outfit.occasion,
+                  style_tag: outfit.style_tag,
+                  item_count: outfit.items.length,
+                  source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                  element_id: `outfit-card-${outfit.id}`,
+                }, `Outfit Suggestion - Opened ${outfit.name} Details`);
+                
+                setSelectedOutfit(outfit);
+              }}
             >
               <div className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative aspect-square bg-white p-4 flex items-center justify-center">
@@ -666,6 +682,17 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!isSaved) {
+                            // TRACK EVENT
+                            trackCustom('outfit_saved_to_lookbook', {
+                              outfit_id: outfit.id,
+                              outfit_name: outfit.name,
+                              occasion: outfit.occasion,
+                              style_tag: outfit.style_tag,
+                              item_count: outfit.items.length,
+                              source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                              element_id: `save-outfit-${outfit.id}`,
+                            }, `Outfit Suggestion - Saved ${outfit.name} to Lookbook`);
+                            
                             saveToLookbook(outfit);
                           }
                         }}
@@ -723,7 +750,14 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
             return (
               <button
                 key={feature.title}
-                onClick={() => onNavigate(feature.view)}
+                onClick={() => {
+                  trackCustom('wardrobe_feature_navigation', {
+                    from_view: 'suggestion',
+                    to_view: feature.view,
+                    element_id: `nav-icon-${feature.view}`,
+                  }, `Outfit Suggestion - Navigated to ${feature.title}`);
+                  onNavigate(feature.view);
+                }}
                 className="flex flex-col items-center gap-2"
               >
                 <div
@@ -758,7 +792,19 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               <p className="text-sm text-muted-foreground">Regenerate outfits with your latest pieces</p>
             </div>
             <Button
-              onClick={regenerateAllOutfits}
+              onClick={() => {
+                trackCustom('outfit_regenerate_all_clicked', {
+                  previous_outfit_count: [
+                    ...Object.values(occasionOutfits).flat(),
+                    ...Object.values(styleOutfits).flat(),
+                    ...anchorOutfits
+                  ].length,
+                  wardrobe_item_count: wardrobeItems.length,
+                  has_new_items: hasNewItems,
+                  element_id: 'regenerate-all-btn',
+                }, 'Outfit Suggestion - Regenerated All Outfits');
+                regenerateAllOutfits();
+              }}
               disabled={loading['regenerate-all']}
               className="gap-2"
             >
@@ -786,6 +832,15 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 onClick={() => {
                   setSelectedOccasion(occasion);
                   localStorage.setItem('last_selected_occasion', occasion);
+                  
+                  // TRACK EVENT
+                  trackCustom('outfit_generation_occasion_selected', {
+                    occasion,
+                    outfit_count: occasionOutfits[occasion]?.length || 0,
+                    has_existing_outfits: !!occasionOutfits[occasion]?.length,
+                    element_id: `occasion-chip-${occasion}`,
+                  }, `Outfit Suggestion - ${occasion} Selected`);
+                  
                   if (!occasionOutfits[occasion] || occasionOutfits[occasion].length === 0) {
                     generateOutfits('occasion', occasion);
                   }
@@ -820,6 +875,15 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 onClick={() => {
                   setSelectedStyle(style);
                   localStorage.setItem('last_selected_style', style);
+                  
+                  // TRACK EVENT
+                  trackCustom('outfit_generation_style_selected', {
+                    style,
+                    outfit_count: styleOutfits[style]?.length || 0,
+                    has_existing_outfits: !!styleOutfits[style]?.length,
+                    element_id: `style-chip-${style}`,
+                  }, `Outfit Suggestion - ${style} Selected`);
+                  
                   if (!styleOutfits[style] || styleOutfits[style].length === 0) {
                     generateOutfits('style', style);
                   }
@@ -876,6 +940,17 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                     if (selectedAnchorItem?.id !== item.id) {
                       setAnchorOutfits([]);
                     }
+                    
+                    // TRACK EVENT
+                    trackCustom('outfit_generation_anchor_selected', {
+                      item_id: item.id,
+                      item_name: item.name,
+                      item_category: item.category,
+                      item_color: item.color,
+                      is_reselection: selectedAnchorItem?.id === item.id,
+                      element_id: `anchor-item-${item.id}`,
+                    }, `Outfit Suggestion - Selected ${item.name} as Anchor`);
+                    
                     setSelectedAnchorItem(item);
                     generateOutfits('anchor', item.id, item);
                   }}
