@@ -431,11 +431,20 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
           <div className="flex gap-2 min-w-max">
             {categories.map((category) => (
               <motion.div key={category} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                  className={`rounded-full min-h-[36px] transition-all duration-300 ${
+              <Button
+                variant={selectedCategory === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setSelectedCategory(category);
+                  trackCustom('filter_applied', {
+                    filter_type: 'category',
+                    filter_value: category,
+                    item_count: items.filter(item => 
+                      category === 'All' || item.category === category
+                    ).length
+                  }, 'wardrobe:category_filter');
+                }}
+                className={`rounded-full min-h-[36px] transition-all duration-300 ${
                     selectedCategory === category
                       ? "bg-primary text-primary-foreground shadow-lg"
                       : "bg-transparent border-border text-foreground hover:bg-muted"
@@ -465,6 +474,14 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * 0.05 }}
               className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border/50 relative bg-background"
+              onClick={() => {
+                trackCustom('wardrobe_item_clicked', {
+                  item_id: item.id,
+                  item_name: item.name,
+                  item_category: item.category,
+                  source: 'gallery'
+                }, 'wardrobe:item_clicked');
+              }}
             >
               <img
                 src={item.processed_image_url || item.image_url}

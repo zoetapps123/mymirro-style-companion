@@ -206,6 +206,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
   const saveOutfit = async () => {
     if (!currentOutfit || !outfitName.trim()) return;
 
+    // Track save intent
+    trackCustom('outfit_save_clicked', {
+      outfit_name: outfitName,
+      occasion: selectedOccasion,
+      item_count: Object.keys(currentOutfit.outfit || {}).length
+    }, 'generate_outfits:save_outfit');
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -452,11 +459,17 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          onClick={onTryAnother}
-          disabled={loading}
-        >
+      <Button
+        variant="outline"
+        disabled={loading}
+        onClick={(e) => {
+          trackCustom('outfit_generation_try_another', {
+            previous_outfit_count: outfits.length,
+            occasion: selectedOccasion
+          }, 'generate_outfits:try_another');
+          onTryAnother();
+        }}
+      >
           <RefreshCw className="w-4 h-4 mr-2" />
           Try Another Item
         </Button>

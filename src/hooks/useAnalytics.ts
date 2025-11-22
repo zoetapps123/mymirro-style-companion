@@ -93,6 +93,62 @@ export const useAnalytics = () => {
     return null;
   }, [location.pathname]);
 
+  // Generate human-readable user_action from event type and data
+  const generateUserAction = useCallback((eventType: string, eventData: any = {}): string => {
+    const actionMap: Record<string, (data: any) => string> = {
+      // Wardrobe interactions
+      'wardrobe_item_clicked': (d) => `Opened ${d.item_name || 'wardrobe item'} details`,
+      'wardrobe_item_deleted': (d) => `Deleted ${d.item_name || 'item'} from wardrobe`,
+      'wardrobe_item_edited': (d) => `Updated ${d.item_name || 'item'} properties`,
+      'wardrobe_item_shared': (d) => `Shared ${d.item_name || 'item'}`,
+      
+      // Navigation
+      'tab_change': (d) => `Switched from ${d.from_tab} to ${d.to_tab}`,
+      'wardrobe_nav': (d) => `Navigated to ${d.view} view`,
+      
+      // Outfit generation
+      'outfit_generation_occasion_selected': (d) => `Selected ${d.occasion} occasion for outfit generation`,
+      'outfit_generation_style_selected': (d) => `Selected ${d.style} style for outfits`,
+      'outfit_generation_anchor_selected': (d) => `Selected ${d.item_name} as anchor item`,
+      'outfit_card_clicked': (d) => `Opened ${d.outfit_name || 'outfit'} details`,
+      'outfit_saved_to_lookbook': (d) => `Saved ${d.outfit_name} to Lookbook`,
+      'outfit_regenerate_all': (d) => `Regenerated all outfit suggestions`,
+      'outfit_generation_try_another': (d) => `Switched anchor item for outfit generation`,
+      
+      // Filters
+      'filter_applied': (d) => {
+        if (d.filter_type === 'category') return `Filtered wardrobe to show only ${d.filter_value}`;
+        if (d.filter_type === 'lookbook') return `Filtered lookbook by ${d.filter_value}`;
+        return `Applied ${d.filter_type} filter: ${d.filter_value}`;
+      },
+      
+      // Profile actions
+      'settings_opened': () => `Opened settings menu`,
+      'referral_initiated': (d) => `Shared referral link via ${d.share_method || 'unknown'}`,
+      'sign_out_clicked': () => `Signed out from profile`,
+      'profile_stat_clicked': (d) => `Viewed ${d.stat_type?.replace(/_/g, ' ')} details`,
+      
+      // Upload actions
+      'add_item_clicked': (d) => `Opened wardrobe upload from ${d.source}`,
+      'add_item_image_selected': () => `Selected image for wardrobe upload`,
+      
+      // Auth
+      'auth_signup_success': (d) => `Signed up successfully via ${d.method}`,
+      'auth_signin_success': (d) => `Signed in successfully via ${d.method}`,
+      
+      // Frustration events
+      'error_popup_shown': (d) => `Error: ${d.error_message || 'Unknown error'}`,
+      'rage_click': (d) => `Rage clicked on ${d.element_text || d.element_id || 'element'} ${d.click_count || 3} times`,
+      
+      // Style Check
+      'style_check_image_selected': () => `Selected image for style check`,
+      'outfit_battle_completed': (d) => `Completed outfit battle (Winner: ${d.winner})`,
+    };
+    
+    // Use custom mapping if available, otherwise fallback
+    return actionMap[eventType]?.(eventData) || eventType.replace(/_/g, ' ').toLowerCase();
+  }, []);
+
   // Initialize or update session in sessions table
   const ensureSession = useCallback(async (userId: string) => {
     if (sessionInitialized.current) return;
@@ -183,9 +239,8 @@ export const useAnalytics = () => {
         location.pathname;
       const finalScreenCategory = finalScreenName ? getScreenCategory(finalScreenName) : null;
 
-      // Extract user_action from event_type or event_data
-      const user_action = eventData?.user_action || 
-        eventType.replace(/_/g, ' ').toLowerCase();
+      // Generate descriptive user_action from event context
+      const user_action = eventData?.user_action || generateUserAction(eventType, eventData);
       
       // Extract duration_seconds if present in event_data
       const duration_seconds = typeof eventData?.duration_seconds === 'number' 
@@ -261,25 +316,27 @@ export const useAnalytics = () => {
     }
   }, [location.pathname, getScreenCategory, inferScreenFromPath, ensureSession]);
 
-  // Detect rage taps
-  const detectRageTap = useCallback((element: string, x: number, y: number) => {
+  // Detect rage taps (rapid repeated clicks)
+  const detectRageTap = useCallback((element: string, elementText: string, x: number, y: number) => {
     const now = Date.now();
     const recentClicks = clickHistory.current.filter(c => 
-      now - c.timestamp < 3000 && // Within 3 seconds
+      now - c.timestamp < 2000 && // Within 2 seconds
       Math.abs(c.x - x) < 50 && // Within 50px radius
       Math.abs(c.y - y) < 50
     );
     
     if (recentClicks.length >= 2) { // 3+ clicks in same area (2 recent + current)
       trackEvent({
-        eventType: 'rage_tap',
+        eventType: 'rage_click',
         eventCategory: 'frustration',
         eventData: {
-          element,
+          element_id: element,
+          element_text: elementText,
           click_count: recentClicks.length + 1,
+          time_span_ms: now - recentClicks[0].timestamp,
           coordinates: { x, y }
         },
-        engagementSource: `user_action:rage_tap`
+        engagementSource: `frustration:rage_click`
       });
     }
     
@@ -317,7 +374,7 @@ export const useAnalytics = () => {
       
       // Detect rage taps for buttons
       if (element.toLowerCase() === 'button' && x !== undefined && y !== undefined) {
-        detectRageTap(semanticId || elementId || element, x, y);
+        detectRageTap(semanticId || elementId || element, elementText, x, y);
       }
     }
   }, [trackEvent, detectRageTap, location.pathname]);
@@ -489,6 +546,21 @@ export const useAnalytics = () => {
       pageRoute: pageRoute
     });
   }, [trackEvent]);
+
+  // Track errors (for integration with toast)
+  const trackError = useCallback((errorMessage: string, errorContext?: Record<string, any>) => {
+    trackEvent({
+      eventType: 'error_popup_shown',
+      eventCategory: 'frustration',
+      eventData: {
+        error_message: errorMessage,
+        error_type: errorContext?.error_type || 'toast_error',
+        error_context: errorContext,
+        screen_name: currentScreen.current || inferScreenFromPath()
+      },
+      engagementSource: 'frustration:error_popup'
+    });
+  }, [trackEvent, inferScreenFromPath]);
 
   // Auto-track page views with duration tracking
   useEffect(() => {

@@ -5,22 +5,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserAnalytics } from "@/hooks/useUserAnalytics";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { formatDistanceToNow } from "date-fns";
 
 const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const [userName, setUserName] = useState("Style Enthusiast");
   const [userEmail, setUserEmail] = useState("");
   const { analytics, loading: analyticsLoading } = useUserAnalytics();
 
   // Track screen view on mount
   useEffect(() => {
-    import('@/hooks/useAnalytics').then(({ useAnalytics }) => {
-      const { trackScreenView } = useAnalytics();
-      trackScreenView('profile', { context: 'user_profile' }, '/app/profile');
-    });
-  }, []);
+    trackScreenView('profile', { context: 'user_profile' }, '/app/profile');
+  }, [trackScreenView]);
 
   useEffect(() => {
     fetchUserData();
@@ -41,6 +40,8 @@ const Profile = () => {
   };
 
   const handleSignOut = async () => {
+    trackCustom('sign_out_clicked', { source: 'profile' }, 'profile:sign_out');
+    
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
@@ -60,6 +61,12 @@ const Profile = () => {
     // Use deployed URL if available, otherwise fallback to current origin
     const deployedUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const referralText = `Check out MyMirro - Your AI Fashion Companion! 👗✨\n\n${deployedUrl}`;
+    
+    trackCustom('referral_initiated', {
+      share_method: navigator.share ? 'native' : 'clipboard',
+      wardrobe_items: analytics.wardrobeItems,
+      saved_outfits: analytics.savedOutfits
+    }, 'profile:referral');
     
     if (navigator.share) {
       navigator.share({
@@ -103,7 +110,9 @@ const Profile = () => {
             <h3 className="font-semibold text-base sm:text-lg truncate">{userName}</h3>
             <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{userEmail}</p>
           </div>
-          <Button variant="ghost" size="icon" className="min-w-[40px] min-h-[40px] flex-shrink-0">
+          <Button variant="ghost" size="icon" className="min-w-[40px] min-h-[40px] flex-shrink-0" onClick={() => {
+            trackCustom('settings_opened', { source: 'profile' }, 'profile:settings_opened');
+          }}>
             <Settings className="w-5 h-5" />
           </Button>
         </div>
@@ -111,31 +120,71 @@ const Profile = () => {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
-        <div className="glass-card rounded-xl p-3 text-center">
+        <div 
+          className="glass-card rounded-xl p-3 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => {
+            trackCustom('profile_stat_clicked', {
+              stat_type: 'wardrobe_items',
+              stat_value: analytics.wardrobeItems
+            }, 'profile:stat_clicked');
+          }}
+        >
           <p className="text-xl sm:text-2xl font-bold text-primary">
             {analyticsLoading ? '...' : analytics.wardrobeItems}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Wardrobe Items</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center">
+        <div 
+          className="glass-card rounded-xl p-3 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => {
+            trackCustom('profile_stat_clicked', {
+              stat_type: 'saved_outfits',
+              stat_value: analytics.savedOutfits
+            }, 'profile:stat_clicked');
+          }}
+        >
           <p className="text-xl sm:text-2xl font-bold text-accent">
             {analyticsLoading ? '...' : analytics.savedOutfits}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Saved Looks</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center">
+        <div 
+          className="glass-card rounded-xl p-3 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => {
+            trackCustom('profile_stat_clicked', {
+              stat_type: 'style_checks',
+              stat_value: analytics.styleChecks
+            }, 'profile:stat_clicked');
+          }}
+        >
           <p className="text-xl sm:text-2xl font-bold text-primary">
             {analyticsLoading ? '...' : analytics.styleChecks}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Style Checks</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center">
+        <div 
+          className="glass-card rounded-xl p-3 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => {
+            trackCustom('profile_stat_clicked', {
+              stat_type: 'battles_won',
+              stat_value: analytics.battlesWon
+            }, 'profile:stat_clicked');
+          }}
+        >
           <p className="text-xl sm:text-2xl font-bold text-accent">
             {analyticsLoading ? '...' : analytics.battlesWon}
           </p>
           <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Battles Won</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center col-span-2">
+        <div 
+          className="glass-card rounded-xl p-3 text-center col-span-2 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => {
+            trackCustom('profile_stat_clicked', {
+              stat_type: 'total_events',
+              stat_value: analytics.totalEvents
+            }, 'profile:stat_clicked');
+          }}
+        >
           <p className="text-xl sm:text-2xl font-bold text-primary">
             {analyticsLoading ? '...' : analytics.totalEvents}
           </p>
