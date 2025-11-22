@@ -31,13 +31,12 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
   const [showOccasionModal, setShowOccasionModal] = useState(false);
   const styleCheckStartTime = useRef<number>(0);
 
-  // Track screen view on mount
+  // Track screen view on mount with standardized naming
   useEffect(() => {
     trackScreenView(
-      'outfit-check',
+      'stylecheck-check',
       { context: 'style_check' },
-      '/app/stylecheck/outfit-check',
-      '/app/stylecheck/outfit-check'
+      '/app/stylecheck/check'
     );
   }, [trackScreenView]);
 

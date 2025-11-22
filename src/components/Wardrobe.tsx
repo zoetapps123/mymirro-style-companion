@@ -11,12 +11,19 @@ const Wardrobe = () => {
   const { trackScreenView } = useAnalytics();
   const [currentView, setCurrentView] = useState<WardrobeView>('items');
 
-  // Track virtual page views for wardrobe sub-views
+  // Track virtual page views for wardrobe sub-views with standardized naming
   useEffect(() => {
+    const screenMap: Record<WardrobeView, string> = {
+      'items': 'wardrobe-items',
+      'suggestion': 'wardrobe-outfits',
+      'calendar': 'wardrobe-calendar',
+      'lookbook': 'wardrobe-lookbook'
+    };
+    
+    const screenName = screenMap[currentView];
     trackScreenView(
-      `wardrobe-${currentView}`,
+      screenName,
       { wardrobe_view: currentView },
-      `/app/wardrobe/${currentView}`,
       `/app/wardrobe/${currentView}`
     );
   }, [currentView, trackScreenView]);

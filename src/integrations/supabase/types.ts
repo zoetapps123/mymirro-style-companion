@@ -41,13 +41,15 @@ export type Database = {
       analytics_events: {
         Row: {
           created_at: string
-          engagement_source: string | null
+          duration_seconds: number | null
           event_category: string
           event_data: Json | null
+          event_source: string | null
           event_type: string
           flow_id: string | null
           id: string
           page_route: string
+          screen_category: string | null
           screen_name: string | null
           session_id: string
           session_metadata: Json | null
@@ -59,13 +61,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          engagement_source?: string | null
+          duration_seconds?: number | null
           event_category: string
           event_data?: Json | null
+          event_source?: string | null
           event_type: string
           flow_id?: string | null
           id?: string
           page_route: string
+          screen_category?: string | null
           screen_name?: string | null
           session_id: string
           session_metadata?: Json | null
@@ -77,13 +81,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          engagement_source?: string | null
+          duration_seconds?: number | null
           event_category?: string
           event_data?: Json | null
+          event_source?: string | null
           event_type?: string
           flow_id?: string | null
           id?: string
           page_route?: string
+          screen_category?: string | null
           screen_name?: string | null
           session_id?: string
           session_metadata?: Json | null
@@ -686,13 +692,15 @@ export type Database = {
       v_analytics_events_clean: {
         Row: {
           created_at: string | null
-          engagement_source: string | null
+          duration_seconds: number | null
           event_category: string | null
           event_data: Json | null
+          event_source: string | null
           event_type: string | null
           flow_id: string | null
           id: string | null
           page_route: string | null
+          screen_category: string | null
           screen_name: string | null
           session_id: string | null
           session_metadata: Json | null
@@ -701,6 +709,46 @@ export type Database = {
           viewport_height: number | null
           viewport_width: number | null
           virtual_path: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          event_category?: string | null
+          event_data?: Json | null
+          event_source?: string | null
+          event_type?: string | null
+          flow_id?: string | null
+          id?: string | null
+          page_route?: string | null
+          screen_category?: string | null
+          screen_name?: string | null
+          session_id?: string | null
+          session_metadata?: Json | null
+          user_action?: string | null
+          user_id?: string | null
+          viewport_height?: number | null
+          viewport_width?: number | null
+          virtual_path?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          event_category?: string | null
+          event_data?: Json | null
+          event_source?: string | null
+          event_type?: string | null
+          flow_id?: string | null
+          id?: string | null
+          page_route?: string | null
+          screen_category?: string | null
+          screen_name?: string | null
+          session_id?: string | null
+          session_metadata?: Json | null
+          user_action?: string | null
+          user_id?: string | null
+          viewport_height?: number | null
+          viewport_width?: number | null
+          virtual_path?: string | null
         }
         Relationships: []
       }
@@ -724,6 +772,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_screen_time_analysis: {
+        Row: {
+          avg_duration_seconds: number | null
+          median_duration_seconds: number | null
+          screen_category: string | null
+          screen_name: string | null
+          total_time_seconds: number | null
+          unique_sessions: number | null
+          unique_users: number | null
+        }
+        Relationships: []
+      }
       v_session_summary: {
         Row: {
           actions_performed: string[] | null
@@ -738,6 +798,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_user_action_frequency: {
+        Row: {
+          avg_duration_seconds: number | null
+          event_count: number | null
+          event_source: string | null
+          screen_category: string | null
+          unique_sessions: number | null
+          unique_users: number | null
+          user_action: string | null
+        }
+        Relationships: []
+      }
       v_user_journey: {
         Row: {
           created_at: string | null
@@ -748,6 +820,24 @@ export type Database = {
           session_id: string | null
           user_action: string | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      v_user_journey_detailed: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          event_data: Json | null
+          event_source: string | null
+          next_screen: string | null
+          previous_screen: string | null
+          screen_category: string | null
+          screen_name: string | null
+          seconds_since_last_event: number | null
+          session_id: string | null
+          user_action: string | null
+          user_id: string | null
+          virtual_path: string | null
         }
         Relationships: []
       }

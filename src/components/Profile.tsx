@@ -14,6 +14,14 @@ const Profile = () => {
   const [userEmail, setUserEmail] = useState("");
   const { analytics, loading: analyticsLoading } = useUserAnalytics();
 
+  // Track screen view on mount
+  useEffect(() => {
+    import('@/hooks/useAnalytics').then(({ useAnalytics }) => {
+      const { trackScreenView } = useAnalytics();
+      trackScreenView('profile', { context: 'user_profile' }, '/app/profile');
+    });
+  }, []);
+
   useEffect(() => {
     fetchUserData();
   }, []);
