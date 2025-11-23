@@ -675,32 +675,54 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                     const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
                     const isSaved = savedOutfitIds.has(outfitKey);
                     return (
-                      <Button
-                        variant={isSaved ? "default" : "outline"}
-                        size="sm"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isSaved) {
-                            // TRACK EVENT
-                            trackCustom('outfit_saved_to_lookbook', {
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            trackCustom('outfit_view_clicked', {
                               outfit_id: outfit.id,
                               outfit_name: outfit.name,
                               occasion: outfit.occasion,
                               style_tag: outfit.style_tag,
                               item_count: outfit.items.length,
                               source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
-                              element_id: `save-outfit-${outfit.id}`,
-                            }, `Outfit Suggestion - Saved ${outfit.name} to Lookbook`);
+                              element_id: `view-outfit-${outfit.id}`,
+                            }, `Outfit Suggestion - Viewed ${outfit.name} Details`);
                             
-                            saveToLookbook(outfit);
-                          }
-                        }}
-                        disabled={isSaved}
-                      >
-                        <Heart className={`w-4 h-4 mr-2 ${isSaved ? 'fill-current' : ''}`} />
-                        {isSaved ? 'Saved to Lookbook' : 'Save to Lookbook'}
-                      </Button>
+                            setSelectedOutfit(outfit);
+                          }}
+                        >
+                          View Item
+                        </Button>
+                        <Button
+                          variant={isSaved ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isSaved) {
+                              trackCustom('outfit_saved_to_lookbook', {
+                                outfit_id: outfit.id,
+                                outfit_name: outfit.name,
+                                occasion: outfit.occasion,
+                                style_tag: outfit.style_tag,
+                                item_count: outfit.items.length,
+                                source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                                element_id: `save-outfit-${outfit.id}`,
+                              }, `Outfit Suggestion - Saved ${outfit.name} to Lookbook`);
+                              
+                              saveToLookbook(outfit);
+                            }
+                          }}
+                          disabled={isSaved}
+                        >
+                          <Heart className={`w-4 h-4 mr-1 ${isSaved ? 'fill-current' : ''}`} />
+                          {isSaved ? 'Saved' : 'Save'}
+                        </Button>
+                      </div>
                     );
                   })()}
                 </div>
