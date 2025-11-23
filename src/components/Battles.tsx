@@ -23,6 +23,7 @@ interface Battle {
   results: BattleResult[];
   winner_verdict: string;
   created_at: string;
+  participants: Array<{ name: string; imageData: string }>;
 }
 
 const Battles = () => {
@@ -64,6 +65,7 @@ const Battles = () => {
         results: (data.results as any).results || [],
         winner_verdict: (data.results as any).winner_verdict || 'Battle complete!',
         created_at: data.created_at,
+        participants: (data.participants as any) || [],
       });
     }
   };
@@ -169,7 +171,7 @@ const Battles = () => {
         .from('battles')
         .insert({
           user_id: user.id,
-          participants: participants.map(p => ({ name: p.name })),
+          participants: participants.map(p => ({ name: p.name, imageData: p.imageData })),
           results: data,
         });
 
@@ -511,9 +513,17 @@ const Battles = () => {
                   </div>
                   <div className="relative">
                     <div className="w-24 h-24 rounded-full border-4 border-primary overflow-hidden bg-muted">
-                      <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
-                        {latestBattle.results[1]?.name.charAt(0)}
-                      </div>
+                      {latestBattle.participants?.[1]?.imageData ? (
+                        <img 
+                          src={latestBattle.participants[1].imageData} 
+                          alt={latestBattle.results[1]?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
+                          {latestBattle.results[1]?.name.charAt(0)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <p className="text-xs font-medium mt-2 text-center max-w-[100px] truncate">
@@ -527,9 +537,17 @@ const Battles = () => {
                   <div className="relative mb-2">
                     <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-primary animate-pulse" />
                     <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted glow-primary">
-                      <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
-                        {latestBattle.results[0]?.name.charAt(0)}
-                      </div>
+                      {latestBattle.participants?.[0]?.imageData ? (
+                        <img 
+                          src={latestBattle.participants[0].imageData} 
+                          alt={latestBattle.results[0]?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
+                          {latestBattle.results[0]?.name.charAt(0)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <p className="text-sm font-bold mt-2 text-center max-w-[120px] truncate text-primary">
@@ -545,9 +563,17 @@ const Battles = () => {
                   </div>
                   <div className="relative">
                     <div className="w-24 h-24 rounded-full border-4 border-primary overflow-hidden bg-muted">
-                      <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
-                        {latestBattle.results[2]?.name.charAt(0)}
-                      </div>
+                      {latestBattle.participants?.[2]?.imageData ? (
+                        <img 
+                          src={latestBattle.participants[2].imageData} 
+                          alt={latestBattle.results[2]?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
+                          {latestBattle.results[2]?.name.charAt(0)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <p className="text-xs font-medium mt-2 text-center max-w-[100px] truncate">
@@ -563,9 +589,17 @@ const Battles = () => {
               <div className="relative mb-2">
                 <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-primary animate-pulse" />
                 <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted glow-primary">
-                  <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
-                    {latestBattle.results[0]?.name.charAt(0)}
-                  </div>
+                  {latestBattle.participants?.[0]?.imageData ? (
+                    <img 
+                      src={latestBattle.participants[0].imageData} 
+                      alt={latestBattle.results[0]?.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
+                      {latestBattle.results[0]?.name.charAt(0)}
+                    </div>
+                  )}
                 </div>
               </div>
               <p className="text-sm font-bold mt-2 text-center text-primary">
@@ -576,7 +610,6 @@ const Battles = () => {
 
           {/* Leaderboard */}
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Leaderboard</h4>
             {latestBattle.results.map((result) => (
               <div
                 key={result.name}
@@ -587,8 +620,13 @@ const Battles = () => {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center text-2xl">
-                    {result.rank === 1 ? "👑" : result.rank === 2 ? "🥈" : "🥉"}
+                  <div className="relative">
+                    {result.rank === 1 && (
+                      <Crown className="absolute -top-6 -left-1 w-6 h-6 text-primary animate-pulse" />
+                    )}
+                    <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center text-2xl">
+                      {result.rank === 1 ? "👑" : result.rank === 2 ? "🥈" : "🥉"}
+                    </div>
                   </div>
                   <div>
                     <p className="font-semibold">{result.name}</p>
