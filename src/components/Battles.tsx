@@ -23,7 +23,6 @@ interface Battle {
   results: BattleResult[];
   winner_verdict: string;
   created_at: string;
-  participants: Array<{ name: string; imageData: string }>;
 }
 
 const Battles = () => {
@@ -65,7 +64,6 @@ const Battles = () => {
         results: (data.results as any).results || [],
         winner_verdict: (data.results as any).winner_verdict || 'Battle complete!',
         created_at: data.created_at,
-        participants: (data.participants as any) || [],
       });
     }
   };
@@ -171,7 +169,7 @@ const Battles = () => {
         .from('battles')
         .insert({
           user_id: user.id,
-          participants: participants.map(p => ({ name: p.name, imageData: p.imageData })),
+          participants: participants.map(p => ({ name: p.name })),
           results: data,
         });
 
@@ -492,121 +490,13 @@ const Battles = () => {
 
       {/* Latest Battle Results */}
       {latestBattle && latestBattle.results.length > 0 && (
-        <div className="glass-card rounded-2xl p-6 space-y-6">
-          <div className="flex items-center justify-between mb-2">
+        <div className="glass-card rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">Latest Battle</h3>
             <span className="text-xs text-muted-foreground">
               {latestBattle.results.length} participants • {new Date(latestBattle.created_at).toLocaleDateString()}
             </span>
           </div>
-
-          {/* Podium Display - Show top 3 if available, otherwise just winner */}
-          {latestBattle.results.length >= 3 ? (
-            <div className="relative py-8 mb-4">
-              {/* 3 Circles Podium Layout */}
-              <div className="flex items-end justify-center gap-4 relative">
-                {/* 2nd Place - Left */}
-                <div className="flex flex-col items-center" style={{ marginBottom: '40px' }}>
-                  <div className="text-sm font-bold text-muted-foreground mb-1 flex items-center gap-1">
-                    <span className="text-lg">2</span>
-                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-primary" />
-                  </div>
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-full border-4 border-primary overflow-hidden bg-muted">
-                      {latestBattle.participants?.[1]?.imageData ? (
-                        <img 
-                          src={latestBattle.participants[1].imageData} 
-                          alt={latestBattle.results[1]?.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
-                          {latestBattle.results[1]?.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs font-medium mt-2 text-center max-w-[100px] truncate">
-                    {latestBattle.results[1]?.name}
-                  </p>
-                </div>
-
-                {/* 1st Place - Center (Winner) */}
-                <div className="flex flex-col items-center">
-                  <div className="text-lg font-bold text-primary mb-2">1</div>
-                  <div className="relative mb-2">
-                    <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-primary animate-pulse" />
-                    <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted glow-primary">
-                      {latestBattle.participants?.[0]?.imageData ? (
-                        <img 
-                          src={latestBattle.participants[0].imageData} 
-                          alt={latestBattle.results[0]?.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
-                          {latestBattle.results[0]?.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm font-bold mt-2 text-center max-w-[120px] truncate text-primary">
-                    {latestBattle.results[0]?.name}
-                  </p>
-                </div>
-
-                {/* 3rd Place - Right */}
-                <div className="flex flex-col items-center" style={{ marginBottom: '40px' }}>
-                  <div className="text-sm font-bold text-muted-foreground mb-1 flex items-center gap-1">
-                    <span className="text-lg">3</span>
-                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-muted-foreground" />
-                  </div>
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-full border-4 border-primary overflow-hidden bg-muted">
-                      {latestBattle.participants?.[2]?.imageData ? (
-                        <img 
-                          src={latestBattle.participants[2].imageData} 
-                          alt={latestBattle.results[2]?.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
-                          {latestBattle.results[2]?.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs font-medium mt-2 text-center max-w-[100px] truncate">
-                    {latestBattle.results[2]?.name}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Single Winner Display for < 3 participants */
-            <div className="flex flex-col items-center py-6 mb-4">
-              <div className="text-lg font-bold text-primary mb-2">1</div>
-              <div className="relative mb-2">
-                <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-primary animate-pulse" />
-                <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted glow-primary">
-                  {latestBattle.participants?.[0]?.imageData ? (
-                    <img 
-                      src={latestBattle.participants[0].imageData} 
-                      alt={latestBattle.results[0]?.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
-                      {latestBattle.results[0]?.name.charAt(0)}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <p className="text-sm font-bold mt-2 text-center text-primary">
-                {latestBattle.results[0]?.name}
-              </p>
-            </div>
-          )}
 
           {/* Leaderboard */}
           <div className="space-y-3">
