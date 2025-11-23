@@ -871,14 +871,14 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Image Modal */}
       <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
-        <DialogContent className="max-w-[90vw] w-full sm:max-w-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-[85vw] w-auto sm:max-w-lg p-4 z-[100]">
           <div className="relative w-full">
             {/* Header with buttons */}
-            <div className="absolute top-0 right-0 z-10 flex gap-2 p-4">
+            <div className="absolute top-2 right-2 z-10 flex gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm"
+                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm h-8 w-8"
                 onClick={() => elevatedImage && downloadImage(elevatedImage, 'ai-enhanced-style.png')}
               >
                 <Download className="w-4 h-4" />
@@ -886,7 +886,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm"
+                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm h-8 w-8"
                 onClick={() => setShowImageModal(false)}
               >
                 <X className="w-4 h-4" />
@@ -897,7 +897,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               <img
                 src={elevatedImage}
                 alt="AI enhanced outfit"
-                className="w-full h-auto max-h-[80vh] object-contain"
+                className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
               />
             )}
           </div>
