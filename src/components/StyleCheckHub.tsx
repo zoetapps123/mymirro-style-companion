@@ -1519,10 +1519,10 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
 
       {/* Enhanced Image Modal */}
       <Dialog open={showEnhancedImageModal} onOpenChange={setShowEnhancedImageModal}>
-        <DialogContent className="max-w-[95vw] sm:max-w-3xl p-0 bg-transparent border-none">
+        <DialogContent className="max-w-[90vw] sm:max-w-xl md:max-w-2xl p-4 bg-background border-2 border-pink-500">
           <div className="relative">
             {/* Top right buttons */}
-            <div className="absolute top-2 right-2 z-10 flex gap-2">
+            <div className="absolute -top-2 -right-2 z-10 flex gap-2">
               <Button
                 variant="ghost"
                 size="icon"
