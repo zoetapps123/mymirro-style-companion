@@ -870,6 +870,37 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
         onConfirm={handlePredictionConfirm}
         onEdit={handlePredictionEdit}
         onClose={() => setShowPredictionSheet(false)}
+        onRetry={async () => {
+          if (uploadedImage) {
+            setShowPredictionSheet(false);
+            setPredicting(true);
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              const { data, error } = await supabase.functions.invoke('predict-outfit-vibe', {
+                body: { imageData: uploadedImage },
+                headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+              });
+
+              if (error) throw error;
+              
+              setPrediction(data);
+              setSelectedOccasion(data.occasion);
+              setSelectedStyle(data.style);
+              setSelectedVibe(data.vibe);
+              setShowPredictionSheet(true);
+            } catch (error) {
+              console.error('Prediction error:', error);
+              toast({
+                title: "Couldn't predict vibe",
+                description: "No worries, let's choose manually",
+              });
+              setShowOccasionModal(true);
+            } finally {
+              setPredicting(false);
+            }
+          }
+        }}
+        isScanning={predicting}
       />
 
       <OccasionVibeSelector
@@ -983,23 +1014,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       
-                      {/* Retry and X buttons */}
-                      <div className="absolute top-2 right-2 flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm hover:scale-110 transition-transform"
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setScanning(true);
-                            await startStyleCheck();
-                          }}
-                          disabled={scanning}
-                          title="Retry style check"
-                        >
-                          <RefreshCw className={`w-5 h-5 ${scanning ? 'animate-spin' : ''}`} />
-                        </Button>
+                      {/* X button only */}
+                      <div className="absolute top-2 right-2">
                         <Button
                           variant="ghost"
                           size="icon"

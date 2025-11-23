@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, RefreshCw } from "lucide-react";
 
 interface VibePredictionSheetProps {
   isOpen: boolean;
@@ -14,6 +14,8 @@ interface VibePredictionSheetProps {
   onConfirm: () => void;
   onEdit: () => void;
   onClose: () => void;
+  onRetry?: () => void;
+  isScanning?: boolean;
 }
 
 export const VibePredictionSheet = ({
@@ -22,6 +24,8 @@ export const VibePredictionSheet = ({
   onConfirm,
   onEdit,
   onClose,
+  onRetry,
+  isScanning = false,
 }: VibePredictionSheetProps) => {
   if (!prediction) return null;
 
@@ -65,14 +69,27 @@ export const VibePredictionSheet = ({
                     </Badge>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
+                <div className="flex gap-2 shrink-0">
+                  {onRetry && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onRetry}
+                      disabled={isScanning}
+                      className="hover:scale-110 transition-transform"
+                      title="Retry prediction"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${isScanning ? 'animate-spin' : ''}`} />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClose}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
 
               {/* Actions */}
