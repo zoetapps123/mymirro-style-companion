@@ -700,26 +700,6 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
         >
           <div className="glass-card rounded-2xl p-6 space-y-4">
             <div className="text-center space-y-4">
-              <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-              >
-                <motion.div
-                  animate={{ 
-                    y: [0, -10, 0],
-                    rotate: [0, 10, -10, 0],
-                    scale: [1, 1.1, 1]
-                  }}
-                  transition={{ 
-                    repeat: Infinity,
-                    duration: 2,
-                    delay: 0.5
-                  }}
-                >
-                  <Crown className="w-16 h-16 mx-auto text-primary" />
-                </motion.div>
-              </motion.div>
               {results.results[0].imageData && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -728,8 +708,32 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
                     scale: 1
                   }}
                   transition={{ delay: 0.3 }}
-                  className="relative"
+                  className="relative inline-block"
                 >
+                  {/* Crown positioned ON TOP of image */}
+                  <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                    className="absolute -top-8 left-1/2 -translate-x-1/2 z-10"
+                  >
+                    <motion.div
+                      animate={{ 
+                        y: [0, -10, 0],
+                        rotate: [0, 10, -10, 0],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{ 
+                        repeat: Infinity,
+                        duration: 2,
+                        delay: 0.5
+                      }}
+                    >
+                      <Crown className="w-16 h-16 text-primary drop-shadow-lg" />
+                    </motion.div>
+                  </motion.div>
+                  
+                  {/* Winner's Image */}
                   <motion.div
                     animate={{ 
                       boxShadow: [
@@ -810,7 +814,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
                     stiffness: 200
                   }}
                   className={`flex items-center gap-3 p-3 rounded-lg ${
-                    index === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
+                    result.rank === 1 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
                   }`}
                 >
                   {result.imageData && (
@@ -821,7 +825,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
                     />
                   )}
                   <div className="flex items-center gap-3 flex-1">
-                    <span className={`text-xl font-bold ${index === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <span className={`text-xl font-bold ${result.rank === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
                       {result.rank}
                     </span>
                     <div className="flex-1">
