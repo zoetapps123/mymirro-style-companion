@@ -355,6 +355,9 @@ serve(async (req) => {
     // PHASE 2: Determine winner from analyzed participants
     const battleResult = await determineWinner(participantAnalyses);
     
+    // Sort results by rank to ensure rank 1 (winner) is first
+    battleResult.results.sort((a: any, b: any) => a.rank - b.rank);
+    
     // PHASE 3: Enhance results with individual style check data
     const enhancedResults = {
       ...battleResult,
