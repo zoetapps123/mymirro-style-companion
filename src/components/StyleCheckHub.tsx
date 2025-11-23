@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords, X, RefreshCw } from "lucide-react";
+import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords, X, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +41,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const [elevating, setElevating] = useState(false);
   const [elevatedImage, setElevatedImage] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [userFeedback, setUserFeedback] = useState<'like' | 'dislike' | null>(null);
 
   // Restore Style Check state from localStorage or database
   useEffect(() => {
@@ -659,6 +660,21 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     }
   };
 
+  const handleFeedback = (feedback: 'like' | 'dislike') => {
+    setUserFeedback(feedback);
+    // Store feedback locally (can be connected to backend later)
+    if (uploadedImage) {
+      const feedbackKey = `stylecheck_feedback_${uploadedImage.substring(0, 20)}`;
+      localStorage.setItem(feedbackKey, feedback);
+    }
+    toast({
+      title: feedback === 'like' ? "Thanks for your feedback! 💜" : "Thanks for your feedback",
+      description: feedback === 'like' 
+        ? "We're glad you found this helpful!" 
+        : "We'll use this to improve our analysis.",
+    });
+  };
+
   /**
    * Phase 8: Helper to build comprehensive improvements from unified schema
    * Combines all available feedback sources with deduplication
@@ -1217,6 +1233,31 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 <div className="bg-muted/30 rounded-xl p-3 text-center">
                   <p className="text-xs text-muted-foreground mb-1">Occasion</p>
                   <p className="text-xl font-bold text-accent">{result.occasion_score.toFixed(1)}</p>
+                </div>
+              </div>
+
+              {/* Feedback Section */}
+              <div className="flex items-center justify-center gap-2 py-4 border-t border-border/50">
+                <span className="text-sm text-muted-foreground">Was this helpful?</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant={userFeedback === 'like' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleFeedback('like')}
+                    className="group relative hover:scale-105 transition-all duration-300"
+                  >
+                    <ThumbsUp className={`w-4 h-4 transition-transform duration-300 ${userFeedback === 'like' ? 'fill-current' : 'group-hover:-rotate-12'}`} />
+                    <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+                  </Button>
+                  <Button
+                    variant={userFeedback === 'dislike' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleFeedback('dislike')}
+                    className="group relative hover:scale-105 transition-all duration-300"
+                  >
+                    <ThumbsDown className={`w-4 h-4 transition-transform duration-300 ${userFeedback === 'dislike' ? 'fill-current' : 'group-hover:rotate-12'}`} />
+                    <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+                  </Button>
                 </div>
               </div>
 
