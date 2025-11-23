@@ -1113,6 +1113,38 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 <div className="relative">
                   <img src={result.image_url} alt="Checked outfit" className="w-full aspect-square object-cover rounded-xl" />
                   
+                  {/* Top right action buttons */}
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                      onClick={async () => {
+                        setScanning(true);
+                        await startStyleCheck();
+                      }}
+                      disabled={scanning}
+                      title="Retry style check"
+                    >
+                      <Loader2 className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                      onClick={() => {
+                        setResult(null);
+                        setUploadedImage(null);
+                        setExtractedItems([]);
+                        setExtracted(false);
+                        setElevatedImage(null);
+                      }}
+                      title="Close"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
                   <Button
                     variant="default"
                     className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary/70 backdrop-blur-md hover:bg-primary/80 rounded-full shadow-lg"
