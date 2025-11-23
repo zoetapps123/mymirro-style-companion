@@ -12,10 +12,6 @@ import { VibePredictionSheet } from "./VibePredictionSheet";
 import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
 import { motion } from "framer-motion";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
@@ -46,7 +42,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const [elevatedImage, setElevatedImage] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [userFeedback, setUserFeedback] = useState<'like' | 'dislike' | null>(null);
-  const [showEnhancedImageModal, setShowEnhancedImageModal] = useState(false);
 
   // Restore Style Check state from localStorage or database
   useEffect(() => {
@@ -1158,8 +1153,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                         <img
                           src={elevatedImage}
                           alt="AI enhanced outfit"
-                          className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setShowEnhancedImageModal(true)}
+                          className="w-full h-full object-cover"
                         />
                       ) : null}
                     </div>
@@ -1516,46 +1510,6 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
           </div>
         )}
       </div>
-
-      {/* Enhanced Image Modal */}
-      <Dialog open={showEnhancedImageModal} onOpenChange={setShowEnhancedImageModal}>
-        <DialogContent className="max-w-[95vw] w-full sm:max-w-md md:max-w-lg lg:max-w-xl p-2 sm:p-4 bg-background border-2 border-pink-500">
-          <div className="relative">
-            {/* Top right buttons */}
-            <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 z-10 flex gap-1 sm:gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm h-8 w-8 sm:h-10 sm:w-10"
-                onClick={() => {
-                  if (elevatedImage) {
-                    downloadImage(elevatedImage, 'ai-enhanced-outfit.png');
-                  }
-                }}
-              >
-                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm h-8 w-8 sm:h-10 sm:w-10"
-                onClick={() => setShowEnhancedImageModal(false)}
-              >
-                <X className="w-3 h-3 sm:w-4 sm:h-4" />
-              </Button>
-            </div>
-            
-            {/* Enhanced Image */}
-            {elevatedImage && (
-              <img
-                src={elevatedImage}
-                alt="AI Enhanced Outfit"
-                className="w-full h-auto rounded-lg max-h-[80vh] object-contain"
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
