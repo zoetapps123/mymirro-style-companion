@@ -490,16 +490,93 @@ const Battles = () => {
 
       {/* Latest Battle Results */}
       {latestBattle && latestBattle.results.length > 0 && (
-        <div className="glass-card rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="glass-card rounded-2xl p-6 space-y-6">
+          <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold">Latest Battle</h3>
             <span className="text-xs text-muted-foreground">
               {latestBattle.results.length} participants • {new Date(latestBattle.created_at).toLocaleDateString()}
             </span>
           </div>
 
+          {/* Podium Display - Show top 3 if available, otherwise just winner */}
+          {latestBattle.results.length >= 3 ? (
+            <div className="relative py-8 mb-4">
+              {/* 3 Circles Podium Layout */}
+              <div className="flex items-end justify-center gap-4 relative">
+                {/* 2nd Place - Left */}
+                <div className="flex flex-col items-center" style={{ marginBottom: '40px' }}>
+                  <div className="text-sm font-bold text-muted-foreground mb-1 flex items-center gap-1">
+                    <span className="text-lg">2</span>
+                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-primary" />
+                  </div>
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full border-4 border-primary overflow-hidden bg-muted">
+                      <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
+                        {latestBattle.results[1]?.name.charAt(0)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium mt-2 text-center max-w-[100px] truncate">
+                    {latestBattle.results[1]?.name}
+                  </p>
+                </div>
+
+                {/* 1st Place - Center (Winner) */}
+                <div className="flex flex-col items-center">
+                  <div className="text-lg font-bold text-primary mb-2">1</div>
+                  <div className="relative mb-2">
+                    <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-primary animate-pulse" />
+                    <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted glow-primary">
+                      <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
+                        {latestBattle.results[0]?.name.charAt(0)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold mt-2 text-center max-w-[120px] truncate text-primary">
+                    {latestBattle.results[0]?.name}
+                  </p>
+                </div>
+
+                {/* 3rd Place - Right */}
+                <div className="flex flex-col items-center" style={{ marginBottom: '40px' }}>
+                  <div className="text-sm font-bold text-muted-foreground mb-1 flex items-center gap-1">
+                    <span className="text-lg">3</span>
+                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-muted-foreground" />
+                  </div>
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full border-4 border-primary overflow-hidden bg-muted">
+                      <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-foreground/60">
+                        {latestBattle.results[2]?.name.charAt(0)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium mt-2 text-center max-w-[100px] truncate">
+                    {latestBattle.results[2]?.name}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Single Winner Display for < 3 participants */
+            <div className="flex flex-col items-center py-6 mb-4">
+              <div className="text-lg font-bold text-primary mb-2">1</div>
+              <div className="relative mb-2">
+                <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-primary animate-pulse" />
+                <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted glow-primary">
+                  <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-foreground/60">
+                    {latestBattle.results[0]?.name.charAt(0)}
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm font-bold mt-2 text-center text-primary">
+                {latestBattle.results[0]?.name}
+              </p>
+            </div>
+          )}
+
           {/* Leaderboard */}
           <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Leaderboard</h4>
             {latestBattle.results.map((result) => (
               <div
                 key={result.name}
@@ -510,13 +587,8 @@ const Battles = () => {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    {result.rank === 1 && (
-                      <Crown className="absolute -top-6 -left-1 w-6 h-6 text-primary animate-pulse" />
-                    )}
-                    <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center text-2xl">
-                      {result.rank === 1 ? "👑" : result.rank === 2 ? "🥈" : "🥉"}
-                    </div>
+                  <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center text-2xl">
+                    {result.rank === 1 ? "👑" : result.rank === 2 ? "🥈" : "🥉"}
                   </div>
                   <div>
                     <p className="font-semibold">{result.name}</p>
