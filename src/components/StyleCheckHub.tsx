@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords, X } from "lucide-react";
+import { Camera, CheckCircle, Share2, Package, AlertCircle, Sparkles, Download, Loader2, History as HistoryIcon, Swords, X, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -988,7 +988,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                          className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm hover:scale-110 transition-transform"
                           onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -998,7 +998,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                           disabled={scanning}
                           title="Retry style check"
                         >
-                          <Loader2 className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`w-5 h-5 ${scanning ? 'animate-spin' : ''}`} />
                         </Button>
                         <Button
                           variant="ghost"
