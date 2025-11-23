@@ -1519,29 +1519,29 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
 
       {/* Enhanced Image Modal */}
       <Dialog open={showEnhancedImageModal} onOpenChange={setShowEnhancedImageModal}>
-        <DialogContent className="max-w-[90vw] sm:max-w-xl md:max-w-2xl p-4 bg-background border-2 border-pink-500">
+        <DialogContent className="max-w-[95vw] w-full sm:max-w-md md:max-w-lg lg:max-w-xl p-2 sm:p-4 bg-background border-2 border-pink-500">
           <div className="relative">
             {/* Top right buttons */}
-            <div className="absolute -top-2 -right-2 z-10 flex gap-2">
+            <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 z-10 flex gap-1 sm:gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm"
+                className="bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm h-8 w-8 sm:h-10 sm:w-10"
                 onClick={() => {
                   if (elevatedImage) {
                     downloadImage(elevatedImage, 'ai-enhanced-outfit.png');
                   }
                 }}
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm"
+                className="bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm h-8 w-8 sm:h-10 sm:w-10"
                 onClick={() => setShowEnhancedImageModal(false)}
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3 sm:w-4 sm:h-4" />
               </Button>
             </div>
             
@@ -1550,7 +1550,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
               <img
                 src={elevatedImage}
                 alt="AI Enhanced Outfit"
-                className="w-full h-auto rounded-lg"
+                className="w-full h-auto rounded-lg max-h-[80vh] object-contain"
               />
             )}
           </div>
