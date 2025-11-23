@@ -12,6 +12,7 @@ import { VibePredictionSheet } from "./VibePredictionSheet";
 import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
 import { motion } from "framer-motion";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
@@ -42,6 +43,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const [elevatedImage, setElevatedImage] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [userFeedback, setUserFeedback] = useState<'like' | 'dislike' | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   // Restore Style Check state from localStorage or database
   useEffect(() => {
@@ -867,6 +869,41 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
+      {/* Image Modal */}
+      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
+        <DialogContent className="max-w-[90vw] w-full sm:max-w-2xl p-0 overflow-hidden">
+          <div className="relative w-full">
+            {/* Header with buttons */}
+            <div className="absolute top-0 right-0 z-10 flex gap-2 p-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm"
+                onClick={() => elevatedImage && downloadImage(elevatedImage, 'ai-enhanced-style.png')}
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm"
+                onClick={() => setShowImageModal(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            {/* Full image */}
+            {elevatedImage && (
+              <img
+                src={elevatedImage}
+                alt="AI enhanced outfit"
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <OutfitCheckOccasionModal
         open={showOccasionModal}
         onSelect={async (occasion) => {
@@ -1153,7 +1190,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                         <img
                           src={elevatedImage}
                           alt="AI enhanced outfit"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setShowImageModal(true)}
                         />
                       ) : null}
                     </div>
