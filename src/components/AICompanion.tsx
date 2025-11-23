@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Camera, X, Sparkles, RotateCcw, AlertCircle } from "lucide-react";
+import { Send, Camera, X, Sparkles, RotateCcw, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
