@@ -11,6 +11,16 @@ import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
 import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 // Image processing imported dynamically when needed
 
 interface WardrobeMyItemsProps {
@@ -22,6 +32,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const { trackCustom } = useAnalytics();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [processingItems, setProcessingItems] = useState<number>(0);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -55,21 +66,23 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     return () => clearInterval(pollInterval);
   }, [invalidateItems]);
 
-  const handleDelete = async (itemId: string, itemName: string) => {
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return;
+    
     try {
       const { error } = await supabase
         .from('wardrobe_items')
         .delete()
-        .eq('id', itemId);
+        .eq('id', itemToDelete.id);
 
       if (error) throw error;
 
-      const item = items.find(i => i.id === itemId);
+      const item = items.find(i => i.id === itemToDelete.id);
       
       // Track item deletion with category context
       trackCustom(ANALYTICS_EVENTS.WARDROBE_ITEM_DELETED, {
-        item_id: itemId,
-        item_name: itemName,
+        item_id: itemToDelete.id,
+        item_name: itemToDelete.name,
         category: item?.category,
         element_id: 'delete-item-button',
         element_text: 'Delete'
@@ -77,7 +90,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       toast({
         title: "Item removed",
-        description: `${itemName} has been removed from your wardrobe.`,
+        description: `${itemToDelete.name} has been removed from your wardrobe.`,
       });
 
       invalidateItems(); // Refresh cache after deletion
@@ -88,6 +101,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         description: "Failed to remove item.",
         variant: "destructive",
       });
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -494,7 +509,10 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => handleDelete(item.id, item.name)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setItemToDelete({ id: item.id, name: item.name });
+                }}
                 className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 flex items-center justify-center shadow-lg z-10"
                 aria-label="Delete item"
               >
@@ -534,6 +552,24 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       >
         <Plus className="w-8 h-8 text-white" />
       </motion.button>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove "{itemToDelete?.name}" from your wardrobe? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-500 hover:bg-red-600">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
