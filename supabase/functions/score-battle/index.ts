@@ -149,15 +149,15 @@ async function analyzeParticipant(participant: any): Promise<any> {
       styleCheck = {
         name: participant.name,
         outfit_name: parsed.outfit_name || 'Stylish Look',
-        overall_score: parsed.scores?.overall_score || 2.5,
-        fit_score: parsed.scores?.fit?.score || 2.5,
-        color_score: parsed.scores?.color?.score || 2.5,
-        styling_score: parsed.scores?.styling?.score || 2.5,
-        material_score: parsed.scores?.material?.score || 2.5,
-        what_works: parsed.feedback?.what_works || [],
-        what_doesnt_work: parsed.feedback?.what_doesnt_work || [],
-        quick_fixes: parsed.feedback?.quick_fixes || [],
-        editorial: parsed.feedback?.editorial || '',
+        overall_score: parsed.overall_score || 2.5,
+        fit_score: parsed.components?.fit?.score || 2.5,
+        color_score: parsed.components?.color?.score || 2.5,
+        styling_score: parsed.components?.styling?.score || 2.5,
+        material_score: parsed.components?.material?.score || 2.5,
+        what_works: parsed.what_works || [],
+        what_doesnt_work: parsed.what_doesnt_work || [],
+        quick_fixes: parsed.quick_fixes || [],
+        editorial: parsed.editorial || '',
         extraction: parsed.extraction || {}
       };
     }
