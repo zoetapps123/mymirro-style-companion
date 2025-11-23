@@ -240,8 +240,11 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
       // Attach images to results and show UI immediately
       const resultsWithImages = data.results.map((result: BattleResult) => {
         const participant = participants.find(p => p.name === result.name);
+        console.log('Matching result:', result.name, 'Found participant:', participant?.name, 'Has image:', !!participant?.imageData);
         return { ...result, imageData: participant?.imageData };
       });
+
+      console.log('Results with images:', resultsWithImages.map(r => ({ name: r.name, hasImage: !!r.imageData })));
 
       setScanning(false);
       setResults({ ...data, results: resultsWithImages });
