@@ -699,182 +699,256 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex-1 overflow-auto space-y-4 pb-24"
+          className="flex-1 overflow-auto space-y-6 pb-24"
         >
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <div className="text-center space-y-6">
-              <div className="space-y-3">
-                {results.results[0].imageData && (
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold text-gradient-primary">Outfit Battle</h2>
+            <p className="text-sm text-muted-foreground">Put outfits head-to-head. Winner gets the crown</p>
+          </div>
+
+          {/* Podium - Show 3 circles if 3+ participants, else just winner */}
+          {results.results.length >= 3 ? (
+            <div className="relative h-[280px] flex items-end justify-center gap-4 px-4">
+              {/* Position 2 - Left */}
+              <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-col items-center"
+              >
+                <span className="text-lg font-bold text-muted-foreground mb-2">2</span>
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-primary/30 overflow-hidden bg-muted">
+                    {results.results[1].imageData && (
+                      <img 
+                        src={results.results[1].imageData} 
+                        alt={results.results[1].name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Position 1 - Center (Winner) */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                className="flex flex-col items-center -mt-8"
+              >
+                <span className="text-xl font-bold text-primary mb-2">1</span>
+                <motion.div
+                  animate={{ 
+                    y: [0, -10, 0],
+                    rotate: [0, 10, -10, 0]
+                  }}
+                  transition={{ 
+                    repeat: Infinity,
+                    duration: 2,
+                    delay: 0.5
+                  }}
+                  className="absolute -top-6 z-10"
+                >
+                  <Crown className="w-12 h-12 text-primary drop-shadow-lg" />
+                </motion.div>
+                <div className="relative">
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ 
-                      opacity: 1, 
-                      scale: 1
+                      boxShadow: [
+                        '0 0 0 0 hsl(var(--primary) / 0)',
+                        '0 0 0 8px hsl(var(--primary) / 0.2)',
+                        '0 0 0 0 hsl(var(--primary) / 0)'
+                      ]
                     }}
-                    transition={{ delay: 0.3 }}
-                    className="relative inline-block"
+                    transition={{ 
+                      repeat: Infinity,
+                      duration: 2,
+                      ease: "easeInOut"
+                    }}
+                    className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted"
                   >
-                    {/* Crown positioned ON TOP of image */}
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-                      className="absolute -top-8 left-1/2 -translate-x-1/2 z-10"
-                    >
-                      <motion.div
-                        animate={{ 
-                          y: [0, -10, 0],
-                          rotate: [0, 10, -10, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ 
-                          repeat: Infinity,
-                          duration: 2,
-                          delay: 0.5
-                        }}
-                      >
-                        <Crown className="w-16 h-16 text-primary drop-shadow-lg" />
-                      </motion.div>
-                    </motion.div>
-                    
-                    {/* Winner's Image */}
-                    <motion.div
-                      animate={{ 
-                        boxShadow: [
-                          '0 0 0 0 rgba(var(--primary-rgb), 0)',
-                          '0 0 0 8px rgba(var(--primary-rgb), 0.2)',
-                          '0 0 0 0 rgba(var(--primary-rgb), 0)'
-                        ]
-                      }}
-                      transition={{ 
-                        repeat: Infinity,
-                        duration: 2,
-                        ease: "easeInOut"
-                      }}
-                      className="rounded-2xl"
-                    >
+                    {results.results[0].imageData && (
                       <img 
                         src={results.results[0].imageData} 
                         alt={results.results[0].name}
-                        className="w-48 h-48 mx-auto rounded-2xl object-cover border-4 border-primary/20"
+                        className="w-full h-full object-cover"
                       />
-                    </motion.div>
+                    )}
                   </motion.div>
-                )}
-                <motion.h3 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-3xl font-bold text-gradient-primary mb-1"
-                >
-                  {results.results[0].name}
-                </motion.h3>
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="text-sm text-accent font-medium mb-2"
-                >
-                  {results.results[0].persona_name}
-                </motion.p>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <Badge variant="secondary" className="text-lg">
-                    {results.results[0].score.toFixed(1)} / 5.0
-                  </Badge>
-                </motion.div>
-              </div>
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="text-sm text-muted-foreground italic"
-              >
-                {results.results[0].roast}
-              </motion.p>
-            </div>
+                </div>
+              </motion.div>
 
-            <div className="pt-4 border-t border-border/50 space-y-3">
-              <motion.h4 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1 }}
-                className="font-semibold"
+              {/* Position 3 - Right */}
+              <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="flex flex-col items-center"
               >
-                Leaderboard
-              </motion.h4>
-              {results.results.map((result, index) => (
+                <span className="text-lg font-bold text-muted-foreground mb-2">3</span>
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-primary/30 overflow-hidden bg-muted">
+                    {results.results[2].imageData && (
+                      <img 
+                        src={results.results[2].imageData} 
+                        alt={results.results[2].name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          ) : (
+            /* Single winner circle for < 3 participants */
+            <div className="flex flex-col items-center py-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                className="relative"
+              >
                 <motion.div
-                  key={result.name}
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ 
-                    delay: 1.2 + index * 0.15,
-                    type: "spring",
-                    stiffness: 200
+                  animate={{ 
+                    y: [0, -10, 0],
+                    rotate: [0, 10, -10, 0]
                   }}
-                  className={`flex items-center gap-3 p-3 rounded-lg ${
-                    result.rank === 1 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/20'
-                  }`}
+                  transition={{ 
+                    repeat: Infinity,
+                    duration: 2,
+                    delay: 0.5
+                  }}
+                  className="absolute -top-10 left-1/2 -translate-x-1/2 z-10"
                 >
-                  {result.imageData && (
+                  <Crown className="w-12 h-12 text-primary drop-shadow-lg" />
+                </motion.div>
+                <motion.div
+                  animate={{ 
+                    boxShadow: [
+                      '0 0 0 0 hsl(var(--primary) / 0)',
+                      '0 0 0 8px hsl(var(--primary) / 0.2)',
+                      '0 0 0 0 hsl(var(--primary) / 0)'
+                    ]
+                  }}
+                  transition={{ 
+                    repeat: Infinity,
+                    duration: 2,
+                    ease: "easeInOut"
+                  }}
+                  className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-muted"
+                >
+                  {results.results[0].imageData && (
                     <img 
-                      src={result.imageData} 
-                      alt={result.name}
-                      className="w-16 h-16 rounded-lg object-cover"
+                      src={results.results[0].imageData} 
+                      alt={results.results[0].name}
+                      className="w-full h-full object-cover"
                     />
                   )}
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className={`text-xl font-bold ${result.rank === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+                </motion.div>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Leaderboard */}
+          <div className="space-y-3 px-4">
+            {results.results.map((result, index) => (
+              <motion.div
+                key={result.name}
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ 
+                  delay: 0.8 + index * 0.15,
+                  type: "spring",
+                  stiffness: 200
+                }}
+                className="relative glass-card rounded-2xl p-4 border border-border/50"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Rank */}
+                  <div className="flex flex-col items-center min-w-[32px]">
+                    <span className={`text-2xl font-bold ${result.rank === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
                       {result.rank}
                     </span>
-                    <div className="flex-1">
-                      <p className="font-medium">{result.name}</p>
-                      <p className="text-xs text-accent">{result.persona_name}</p>
-                      {result.individualScores && (
-                        <div className="flex gap-1 mt-1 flex-wrap">
-                          <Badge variant="outline" className="text-[10px] px-1 py-0">
-                            Fit {result.individualScores.fit.toFixed(1)}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] px-1 py-0">
-                            Color {result.individualScores.color.toFixed(1)}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] px-1 py-0">
-                            Style {result.individualScores.styling.toFixed(1)}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] px-1 py-0">
-                            Material {result.individualScores.material.toFixed(1)}
-                          </Badge>
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">{result.roast}</p>
-                    </div>
+                    {result.rank === 1 && (
+                      <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-primary mt-1"></div>
+                    )}
                   </div>
-                  <Badge variant={index === 0 ? "default" : "outline"}>
-                    {result.score.toFixed(1)}
-                  </Badge>
-                </motion.div>
-              ))}
-            </div>
 
-            <div className="pt-4 border-t border-border/50">
-              <p className="text-sm text-center italic text-muted-foreground mb-4">
+                  {/* Image */}
+                  {result.imageData && (
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                      <img 
+                        src={result.imageData} 
+                        alt={result.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className={`font-bold ${result.rank === 1 ? 'text-primary' : 'text-foreground'}`}>
+                      {result.persona_name || result.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {result.name}
+                    </p>
+                    {result.roast && (
+                      <p className="text-xs text-muted-foreground italic line-clamp-2">
+                        {result.roast}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Score */}
+                  <div className="text-right">
+                    <p className="text-3xl font-bold text-primary">
+                      {result.score.toFixed(1)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Individual Scores */}
+                {result.individualScores && (
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    <Badge variant="outline" className="text-xs">
+                      Fit {result.individualScores.fit.toFixed(1)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Color {result.individualScores.color.toFixed(1)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Style {result.individualScores.styling.toFixed(1)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Material {result.individualScores.material.toFixed(1)}
+                    </Badge>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Winner's Verdict */}
+          <div className="px-4">
+            <div className="glass-card rounded-2xl p-4 border border-primary/20 bg-primary/5">
+              <p className="text-sm text-center italic text-muted-foreground">
                 {results.winner_verdict}
               </p>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={handleShare}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-              <Button onClick={() => { setResults(null); setParticipants([]); }}>
-                Rematch
-              </Button>
-            </div>
+          {/* Actions */}
+          <div className="grid grid-cols-2 gap-3 px-4">
+            <Button variant="outline" onClick={handleShare} className="min-h-[48px]">
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+            <Button onClick={() => { setResults(null); setParticipants([]); }} className="glow-primary min-h-[48px]">
+              Rematch
+            </Button>
           </div>
         </motion.div>
       )}
