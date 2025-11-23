@@ -1152,7 +1152,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                      className="group bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm hover:scale-110 transition-all duration-300 hover:shadow-lg hover:shadow-white/20 relative overflow-hidden"
                       onClick={async () => {
                         setScanning(true);
                         await startStyleCheck();
@@ -1160,7 +1160,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       disabled={scanning}
                       title="Retry style check"
                     >
-                      <Loader2 className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 transition-transform duration-500 ${scanning ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
                     </Button>
                     <Button
                       variant="ghost"
