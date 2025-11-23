@@ -699,65 +699,65 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
           className="flex-1 overflow-auto space-y-4 pb-24"
         >
           <div className="glass-card rounded-2xl p-6 space-y-4">
-            <div className="text-center space-y-4">
-              {results.results[0].imageData && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1
-                  }}
-                  transition={{ delay: 0.3 }}
-                  className="relative inline-block"
-                >
-                  {/* Crown positioned ON TOP of image */}
+            <div className="text-center space-y-6">
+              <div className="space-y-3">
+                {results.results[0].imageData && (
                   <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-                    className="absolute -top-8 left-1/2 -translate-x-1/2 z-10"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ 
+                      opacity: 1, 
+                      scale: 1
+                    }}
+                    transition={{ delay: 0.3 }}
+                    className="relative inline-block"
                   >
+                    {/* Crown positioned ON TOP of image */}
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                      className="absolute -top-8 left-1/2 -translate-x-1/2 z-10"
+                    >
+                      <motion.div
+                        animate={{ 
+                          y: [0, -10, 0],
+                          rotate: [0, 10, -10, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ 
+                          repeat: Infinity,
+                          duration: 2,
+                          delay: 0.5
+                        }}
+                      >
+                        <Crown className="w-16 h-16 text-primary drop-shadow-lg" />
+                      </motion.div>
+                    </motion.div>
+                    
+                    {/* Winner's Image */}
                     <motion.div
                       animate={{ 
-                        y: [0, -10, 0],
-                        rotate: [0, 10, -10, 0],
-                        scale: [1, 1.1, 1]
+                        boxShadow: [
+                          '0 0 0 0 rgba(var(--primary-rgb), 0)',
+                          '0 0 0 8px rgba(var(--primary-rgb), 0.2)',
+                          '0 0 0 0 rgba(var(--primary-rgb), 0)'
+                        ]
                       }}
                       transition={{ 
                         repeat: Infinity,
                         duration: 2,
-                        delay: 0.5
+                        ease: "easeInOut"
                       }}
+                      className="rounded-2xl"
                     >
-                      <Crown className="w-16 h-16 text-primary drop-shadow-lg" />
+                      <img 
+                        src={results.results[0].imageData} 
+                        alt={results.results[0].name}
+                        className="w-48 h-48 mx-auto rounded-2xl object-cover border-4 border-primary/20"
+                      />
                     </motion.div>
                   </motion.div>
-                  
-                  {/* Winner's Image */}
-                  <motion.div
-                    animate={{ 
-                      boxShadow: [
-                        '0 0 0 0 rgba(var(--primary-rgb), 0)',
-                        '0 0 0 8px rgba(var(--primary-rgb), 0.2)',
-                        '0 0 0 0 rgba(var(--primary-rgb), 0)'
-                      ]
-                    }}
-                    transition={{ 
-                      repeat: Infinity,
-                      duration: 2,
-                      ease: "easeInOut"
-                    }}
-                    className="rounded-2xl"
-                  >
-                    <img 
-                      src={results.results[0].imageData} 
-                      alt={results.results[0].name}
-                      className="w-48 h-48 mx-auto rounded-2xl object-cover border-4 border-primary/20"
-                    />
-                  </motion.div>
-                </motion.div>
-              )}
-              <div>
+                )}
                 <motion.h3 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
