@@ -983,25 +983,43 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       
-                      {/* X button to clear and reset */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setUploadedImage(null);
-                          setSelectedOccasion("");
-                          setSelectedStyle("");
-                          setSelectedVibe("");
-                          setPrediction(null);
-                          setShowPredictionSheet(false);
-                          setShowOccasionSelector(false);
-                        }}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                      {/* Retry and X buttons */}
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setScanning(true);
+                            await startStyleCheck();
+                          }}
+                          disabled={scanning}
+                          title="Retry style check"
+                        >
+                          <Loader2 className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setUploadedImage(null);
+                            setSelectedOccasion("");
+                            setSelectedStyle("");
+                            setSelectedVibe("");
+                            setPrediction(null);
+                            setShowPredictionSheet(false);
+                            setShowOccasionSelector(false);
+                          }}
+                          title="Close"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                       
                       <div className="absolute bottom-4 left-4 right-4">
                         <p className="text-white font-semibold text-lg">
