@@ -76,10 +76,11 @@ export const VibePredictionSheet = ({
                       size="icon"
                       onClick={onRetry}
                       disabled={isScanning}
-                      className="hover:scale-110 transition-transform"
+                      className="group relative hover:scale-110 transition-all duration-300 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20"
                       title="Retry prediction"
                     >
-                      <RefreshCw className={`w-5 h-5 ${isScanning ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-5 h-5 transition-transform duration-500 ${isScanning ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
                     </Button>
                   )}
                   <Button

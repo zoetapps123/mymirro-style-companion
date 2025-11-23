@@ -462,6 +462,7 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       <Button
         variant="outline"
         disabled={loading}
+        className="group relative hover:scale-105 transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/20"
         onClick={(e) => {
           trackCustom('outfit_generation_try_another', {
             previous_outfit_count: outfits.length,
@@ -470,8 +471,9 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
           onTryAnother();
         }}
       >
-          <RefreshCw className="w-4 h-4 mr-2" />
+          <RefreshCw className="w-4 h-4 mr-2 transition-transform duration-500 group-hover:rotate-180" />
           Try Another Item
+          <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
         </Button>
         <Button
           variant="outline"
