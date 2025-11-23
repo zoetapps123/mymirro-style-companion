@@ -1,12 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callGeminiAPI } from '../_shared/ai-config.ts';
-import { SCORING_PROMPTS } from '../_shared/prompts.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
-import { MASTER_UNIFIED_STYLECHECK_PROMPT } from '../_shared/fashion/prompt/masterUnifiedStyleCheckPrompt.ts';
-import { VisualSchema } from '../_shared/fashion/schema/visualSchema.ts';
+import { SIMPLIFIED_STYLECHECK_PROMPT } from '../_shared/fashion/prompt/simplifiedStyleCheckPrompt.ts';
+import { GEMINI_RESPONSE_SCHEMA } from '../_shared/fashion/schema/geminiResponseSchema.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -90,11 +89,11 @@ function buildParticipantMetadataContext(name: string, metadata: any): string {
   return parts.join('\n');
 }
 
-// Analyze a single participant using unified style check (extraction + scoring in one call)
+// Analyze a single participant using structured tool output
 async function analyzeParticipant(participant: any): Promise<any> {
   // Check cache first (1-hour TTL for individual analyses)
   const analysisCacheKey = await generateCacheKey({ 
-    type: 'unified_battle_participant',
+    type: 'unified_battle_participant_v2',
     imageData: participant.imageData 
   });
   
@@ -104,65 +103,91 @@ async function analyzeParticipant(participant: any): Promise<any> {
     return cachedAnalysis;
   }
 
-  console.log(`Performing unified style check for ${participant.name}...`);
+  console.log(`Performing structured style check for ${participant.name}...`);
   
-  // Call Gemini with MASTER_UNIFIED_STYLECHECK_PROMPT for complete analysis
+  const unifiedPrompt = SIMPLIFIED_STYLECHECK_PROMPT({
+    occasion: participant.occasion,
+  });
+  
+  // Call Gemini with structured tool output (same as score-outfit)
   const analysisData = await retryWithBackoff(() => callGeminiAPI({
     model: 'google/gemini-2.5-flash',
     messages: [
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: MASTER_UNIFIED_STYLECHECK_PROMPT({ occasion: participant.occasion })
-          },
-          {
-            type: 'image_url',
-            image_url: { url: participant.imageData }
-          }
+          { type: 'text', text: unifiedPrompt },
+          { type: 'image_url', image_url: { url: participant.imageData } }
         ]
       }
-    ]
+    ],
+    tools: [{
+      type: 'function',
+      function: {
+        name: 'analyze_outfit',
+        description: 'Analyze outfit and return detailed style feedback',
+        parameters: GEMINI_RESPONSE_SCHEMA
+      }
+    }],
+    tool_choice: { type: 'function', function: { name: 'analyze_outfit' } },
+    max_tokens: 4096,
+    temperature: 0.3
   }));
 
-  const rawContent = analysisData.choices?.[0]?.message?.content;
-  if (!rawContent) {
-    console.warn(`No analysis data for ${participant.name}, using fallback`);
+  console.log(`Analysis response for ${participant.name}:`, {
+    hasFunctions: !!analysisData.choices?.[0]?.message?.tool_calls,
+    hasContent: !!analysisData.choices?.[0]?.message?.content
+  });
+
+  // Parse from structured tool call
+  const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) {
+    console.warn(`No tool call in response for ${participant.name}, using fallback`);
     return {
       name: participant.name,
-      scores: { overall_score: 2.5, fit: 2.5, color: 2.5, styling: 2.5, material: 2.5 },
+      overall_score: 2.5,
+      fit_score: 2.5,
+      color_score: 2.5,
+      styling_score: 2.5,
+      material_score: 2.5,
       outfit_name: 'Unanalyzed Look',
       what_works: ['Style could not be analyzed'],
       what_doesnt_work: [],
-      quick_fixes: []
+      quick_fixes: [],
+      extraction: {}
     };
   }
 
-  // Parse and validate the unified response
   let styleCheck: any = {};
   try {
-    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      // Extract relevant fields for battle
-      styleCheck = {
-        name: participant.name,
-        outfit_name: parsed.outfit_name || 'Stylish Look',
-        overall_score: parsed.overall_score || 2.5,
-        fit_score: parsed.components?.fit?.score || 2.5,
-        color_score: parsed.components?.color?.score || 2.5,
-        styling_score: parsed.components?.styling?.score || 2.5,
-        material_score: parsed.components?.material?.score || 2.5,
-        what_works: parsed.what_works || [],
-        what_doesnt_work: parsed.what_doesnt_work || [],
-        quick_fixes: parsed.quick_fixes || [],
-        editorial: parsed.editorial || '',
-        extraction: parsed.extraction || {}
-      };
-    }
+    const parsed = JSON.parse(toolCall.function.arguments);
+    console.log(`✅ Successfully parsed structured output for ${participant.name}`);
+    
+    // Map structured fields to battle format
+    styleCheck = {
+      name: participant.name,
+      outfit_name: parsed.outfit_name || 'Stylish Look',
+      overall_score: parsed.overall_score ?? 2.5,
+      fit_score: parsed.components?.fit?.score ?? 2.5,
+      color_score: parsed.components?.color?.score ?? 2.5,
+      styling_score: parsed.components?.styling?.score ?? 2.5,
+      material_score: parsed.components?.material?.score ?? 2.5,
+      what_works: parsed.what_works || [],
+      what_doesnt_work: parsed.what_doesnt_work || [],
+      quick_fixes: parsed.quick_fixes || [],
+      editorial: parsed.editorial || '',
+      extraction: {
+        fit: parsed.fit,
+        fabric: parsed.fabric,
+        color: parsed.color,
+        styling: parsed.styling,
+        body_visibility: parsed.body_visibility,
+        aesthetics: parsed.aesthetics,
+      }
+    };
   } catch (error) {
-    console.warn(`Failed to parse unified analysis for ${participant.name}:`, error);
+    console.error(`❌ Failed to parse tool call for ${participant.name}:`, error);
+    // True fallback - only when JSON parsing actually fails
     styleCheck = {
       name: participant.name,
       overall_score: 2.5,
@@ -173,7 +198,8 @@ async function analyzeParticipant(participant: any): Promise<any> {
       outfit_name: 'Classic Look',
       what_works: [],
       what_doesnt_work: [],
-      quick_fixes: []
+      quick_fixes: [],
+      extraction: {}
     };
   }
 
