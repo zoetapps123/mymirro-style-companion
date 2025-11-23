@@ -273,6 +273,8 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   const normalizeCategory = (category: string) => {
     if (!category) return '';
+    const lower = category.toLowerCase();
+    if (lower === 'shoes') return 'Footwear';
     return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
   };
 
