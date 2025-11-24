@@ -69,7 +69,11 @@ export const VibePredictionSheet = ({
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  {onRetry}
+                  {onRetry && (
+                    <Button variant="ghost" size="icon" onClick={onRetry}>
+                      <X className="w-5 h-5" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={onClose}>
                     <X className="w-5 h-5" />
                   </Button>
@@ -77,11 +81,18 @@ export const VibePredictionSheet = ({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3">
-                <Button onClick={onConfirm} className="flex-1 h-12 text-base" size="lg">
+              <div className="flex gap-2 sm:gap-3">
+                <Button 
+                  onClick={onConfirm} 
+                  className="flex-1 h-10 sm:h-12 text-xs sm:text-base px-2 sm:px-6 whitespace-normal leading-tight"
+                >
                   Yes, Check My Style ✨
                 </Button>
-                <Button onClick={onEdit} variant="outline" className="flex-1 h-12 text-base" size="lg">
+                <Button 
+                  onClick={onEdit} 
+                  variant="outline" 
+                  className="flex-1 h-10 sm:h-12 text-xs sm:text-base px-2 sm:px-6 whitespace-normal leading-tight"
+                >
                   Change Details
                 </Button>
               </div>
