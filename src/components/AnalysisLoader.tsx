@@ -33,13 +33,13 @@ const AnalysisLoader = ({ isVisible, processingImage, occasion, message }: Analy
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.5 }}
-                className="relative mx-auto w-52 h-72 sm:w-56 sm:h-80"
+                className="relative mx-auto w-full max-w-sm"
               >
-                <div className="absolute inset-0 rounded-3xl overflow-hidden border-4 border-primary/20 shadow-2xl">
+                <div className="relative rounded-3xl overflow-hidden border-4 border-primary/20 shadow-2xl">
                   <img
                     src={processingImage}
                     alt="Processing"
-                    className="w-full h-full object-contain bg-white"
+                    className="w-full h-auto object-contain bg-white"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent pointer-events-none" />
                 </div>
