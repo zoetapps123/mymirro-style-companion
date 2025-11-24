@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, RefreshCw } from "lucide-react";
+import { X } from "lucide-react";
 interface VibePredictionSheetProps {
   isOpen: boolean;
   prediction: {
@@ -69,11 +69,7 @@ export const VibePredictionSheet = ({
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  {onRetry && (
-                    <Button variant="ghost" size="icon" onClick={onRetry}>
-                      <RefreshCw className="w-5 h-5" />
-                    </Button>
-                  )}
+                  {onRetry}
                   <Button variant="ghost" size="icon" onClick={onClose}>
                     <X className="w-5 h-5" />
                   </Button>
