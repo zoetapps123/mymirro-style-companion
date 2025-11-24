@@ -1374,10 +1374,7 @@ const StyleCheckHub = ({
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
-                  <Button variant="outline" className="flex-1 rounded-full" onClick={handleShare}>
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share
-                  </Button>
+                  
                 </div>}
 
               {/* What Works, Doesn't Work, Quick Fixes - ALWAYS VISIBLE */}
