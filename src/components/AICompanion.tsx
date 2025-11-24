@@ -1248,17 +1248,19 @@ const AICompanion = () => {
 
   return (
     <div className="flex flex-col h-full bg-background relative">
-      {/* New Chat Button - Top Right */}
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={resetChat} 
-        className="group absolute top-4 right-2 z-10 gap-2 hover:scale-105 transition-all duration-300 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 relative overflow-hidden"
-      >
-        <RotateCcw className="w-4 h-4 transition-transform duration-500 group-hover:-rotate-180" />
-        New Chat
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
-      </Button>
+      {/* New Chat Button - Right Side */}
+      <div className="absolute top-4 right-4 z-10 flex justify-end w-auto">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={resetChat} 
+          className="group gap-2 hover:scale-105 transition-all duration-300 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 relative overflow-hidden"
+        >
+          <RotateCcw className="w-4 h-4 transition-transform duration-500 group-hover:-rotate-180" />
+          New Chat
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+        </Button>
+      </div>
 
       {/* Chat Messages */}
       <ScrollArea className="flex-1 px-4 py-4 pt-16" ref={scrollRef}>
