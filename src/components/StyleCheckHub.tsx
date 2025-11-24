@@ -12,7 +12,7 @@ import { VibePredictionSheet } from "./VibePredictionSheet";
 import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
 import { motion } from "framer-motion";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
@@ -854,14 +854,27 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
     const blob = await response.blob();
     const file = new File([blob], 'mymirro-style-check.png', { type: 'image/png' });
 
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'MyMirro Style Check' });
-    } else {
-      const link = document.createElement('a');
-      link.href = shareImage;
-      link.download = 'mymirro-style-check.png';
-      link.click();
-      toast({ title: "Image downloaded!", description: "Share on your socials" });
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'MyMirro Style Check' });
+      } else {
+        const link = document.createElement('a');
+        link.href = shareImage;
+        link.download = 'mymirro-style-check.png';
+        link.click();
+        toast({ title: "Image downloaded!", description: "Share on your socials" });
+      }
+    } catch (error: any) {
+      // Ignore if user canceled share
+      if (error?.name !== 'AbortError') {
+        console.error('Share failed:', error);
+        // Fallback to download
+        const link = document.createElement('a');
+        link.href = shareImage;
+        link.download = 'mymirro-style-check.png';
+        link.click();
+        toast({ title: "Image downloaded!", description: "Share on your socials" });
+      }
     }
   };
 
@@ -872,6 +885,10 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
       {/* Image Modal */}
       <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
         <DialogContent className="max-w-[85vw] w-auto sm:max-w-lg p-4 z-[100]">
+          <DialogTitle className="sr-only">AI Enhanced Image</DialogTitle>
+          <DialogDescription className="sr-only">
+            View and download your AI-enhanced outfit image
+          </DialogDescription>
           <div className="relative w-full">
             {/* Header with buttons */}
             <div className="absolute top-2 right-2 z-10 flex gap-2">
