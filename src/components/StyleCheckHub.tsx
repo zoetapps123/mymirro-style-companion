@@ -44,6 +44,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
   const [restored, setRestored] = useState(false);
   const [userFeedback, setUserFeedback] = useState<'like' | 'dislike' | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showOriginalImageModal, setShowOriginalImageModal] = useState(false);
 
   // Restore Style Check state from localStorage or database
   useEffect(() => {
@@ -942,6 +943,66 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
         )}
       </AnimatePresence>
 
+      {/* Original Image Modal */}
+      <AnimatePresence>
+        {showOriginalImageModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+              onClick={() => setShowOriginalImageModal(false)}
+            />
+
+            {/* Modal Container - Centered */}
+            <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="relative w-full max-w-[340px] h-auto max-h-[85vh] sm:max-w-[500px] sm:max-h-[90vh] md:max-w-[600px] lg:max-w-[700px]"
+              >
+                {/* Gradient Border Container */}
+                <div className="relative p-1 rounded-3xl bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 shadow-2xl">
+                  {/* Inner Content */}
+                  <div className="relative bg-background rounded-[22px] overflow-hidden">
+                    {/* Action Buttons */}
+                    <div className="absolute top-4 right-4 z-10 flex gap-3">
+                      <button
+                        onClick={() => result?.image_url && downloadImage(result.image_url, 'original-style.png')}
+                        className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center bg-gray-700/90 hover:bg-gray-600/90 rounded-full transition-colors shadow-lg"
+                        aria-label="Download image"
+                      >
+                        <Download className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </button>
+                      <button
+                        onClick={() => setShowOriginalImageModal(false)}
+                        className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center bg-gray-700/90 hover:bg-gray-600/90 rounded-full transition-colors shadow-lg"
+                        aria-label="Close"
+                      >
+                        <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </button>
+                    </div>
+
+                    {/* Image */}
+                    {result?.image_url && (
+                      <img
+                        src={result.image_url}
+                        alt="Original outfit"
+                        className="w-full h-auto max-h-[514px] sm:max-h-[600px] md:max-h-[700px] lg:max-h-[80vh] object-cover rounded-[22px]"
+                      />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
       <OutfitCheckOccasionModal
         open={showOccasionModal}
         onSelect={async (occasion) => {
@@ -1243,7 +1304,8 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       <img
                         src={result.image_url}
                         alt="Original outfit"
-                        className="w-full aspect-square object-cover rounded-xl border-2 border-border"
+                        className="w-full aspect-square object-cover rounded-xl border-2 border-border cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setShowOriginalImageModal(true)}
                       />
                       <Button
                         variant="default"
