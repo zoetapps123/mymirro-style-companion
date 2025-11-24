@@ -7,26 +7,108 @@ import { getDeviceInfo, getUTMParams, getReferrer, isEntryPoint } from '@/lib/de
 let memorySessionId: string | null = null;
 let sessionStartTime: number = Date.now();
 
-// Generate a session ID that persists during the browser session
+// Generate a new session ID
+const generateSessionId = (): string => {
+  return `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+};
+
+// Store session ID in both storages for persistence
+const storeSessionId = (sessionId: string): void => {
+  try {
+    sessionStorage.setItem('analytics_session_id', sessionId);
+    localStorage.setItem('analytics_session_id', sessionId);
+  } catch {
+    // Private mode - use memory fallback
+    memorySessionId = sessionId;
+  }
+};
+
+// Get or create session ID with fallback hierarchy
 const getSessionId = (): string => {
   try {
+    // 1. Try sessionStorage first (current tab)
     let sessionId = sessionStorage.getItem('analytics_session_id');
-    if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    if (sessionId) return sessionId;
+    
+    // 2. Fall back to localStorage (across page reloads)
+    sessionId = localStorage.getItem('analytics_session_id');
+    if (sessionId) {
+      // Restore to sessionStorage
       try {
         sessionStorage.setItem('analytics_session_id', sessionId);
       } catch {
-        // Private mode - use memory fallback
         memorySessionId = sessionId;
       }
+      return sessionId;
     }
+    
+    // 3. Create new session only if none exists
+    sessionId = generateSessionId();
+    storeSessionId(sessionId);
     return sessionId;
   } catch {
-    // sessionStorage not available - use memory fallback
+    // sessionStorage/localStorage not available - use memory fallback
     if (!memorySessionId) {
-      memorySessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      memorySessionId = generateSessionId();
     }
     return memorySessionId;
+  }
+};
+
+// Async function to get or create session with database validation
+const getOrCreateSessionId = async (userId: string): Promise<string> => {
+  try {
+    // 1. Try sessionStorage first
+    let sessionId = sessionStorage.getItem('analytics_session_id');
+    if (sessionId) return sessionId;
+    
+    // 2. Try localStorage
+    sessionId = localStorage.getItem('analytics_session_id');
+    if (sessionId) {
+      // Validate against database - check if session is still active (< 30 min old)
+      const { data } = await supabase
+        .from('sessions')
+        .select('session_id, started_at')
+        .eq('session_id', sessionId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (data) {
+        const sessionAge = Date.now() - new Date(data.started_at).getTime();
+        const thirtyMinutes = 30 * 60 * 1000;
+        
+        if (sessionAge < thirtyMinutes) {
+          // Session is still valid, restore it
+          storeSessionId(sessionId);
+          return sessionId;
+        }
+      }
+    }
+    
+    // 3. Check database for any recent active session (< 30 min)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: recentSession } = await supabase
+      .from('sessions')
+      .select('session_id, started_at')
+      .eq('user_id', userId)
+      .gte('started_at', thirtyMinutesAgo)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (recentSession) {
+      // Reuse existing active session
+      storeSessionId(recentSession.session_id);
+      return recentSession.session_id;
+    }
+    
+    // 4. Only create new session if no active session exists
+    const newSessionId = generateSessionId();
+    storeSessionId(newSessionId);
+    return newSessionId;
+  } catch (error) {
+    // Fallback to synchronous method on error
+    return getSessionId();
   }
 };
 
@@ -162,24 +244,34 @@ export const useAnalytics = () => {
     if (sessionInitialized.current) return;
     
     try {
-      const deviceInfo = getDeviceInfo();
+      // Get or create session ID with database validation
+      const validSessionId = await getOrCreateSessionId(userId);
+      sessionId.current = validSessionId;
       
-      // Use upsert to handle race conditions gracefully
-      await supabase.from('sessions').upsert({
-        session_id: sessionId.current,
-        user_id: userId,
-        started_at: new Date(sessionStartTime).toISOString(),
-        viewport_width: deviceInfo.viewport_width,
-        viewport_height: deviceInfo.viewport_height,
-        session_metadata: {
-          device_type: deviceInfo.device_type,
-          os_name: deviceInfo.os_name,
-          browser_name: deviceInfo.browser_name
-        }
-      }, {
-        onConflict: 'session_id',
-        ignoreDuplicates: true
-      });
+      // Check if session already exists in database
+      const { data: existingSession } = await supabase
+        .from('sessions')
+        .select('session_id')
+        .eq('session_id', validSessionId)
+        .maybeSingle();
+      
+      if (!existingSession) {
+        // Only insert if session doesn't exist
+        const deviceInfo = getDeviceInfo();
+        
+        await supabase.from('sessions').insert({
+          session_id: validSessionId,
+          user_id: userId,
+          started_at: new Date(sessionStartTime).toISOString(),
+          viewport_width: deviceInfo.viewport_width,
+          viewport_height: deviceInfo.viewport_height,
+          session_metadata: {
+            device_type: deviceInfo.device_type,
+            os_name: deviceInfo.os_name,
+            browser_name: deviceInfo.browser_name
+          }
+        });
+      }
       
       sessionInitialized.current = true;
     } catch (error) {
@@ -679,9 +771,13 @@ export const useAnalytics = () => {
         const hiddenDuration = Date.now() - lastActivityTime.current;
         if (hiddenDuration > 30 * 60 * 1000) { // 30 minutes
           updateSessionEnd();
-          // Generate new session ID for next activity
-          sessionId.current = getSessionId();
-          sessionStartTime = Date.now();
+          // Clear session storage to force new session on next activity
+          try {
+            sessionStorage.removeItem('analytics_session_id');
+            localStorage.removeItem('analytics_session_id');
+          } catch {
+            memorySessionId = null;
+          }
           sessionInitialized.current = false;
         }
       }
