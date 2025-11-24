@@ -168,7 +168,7 @@ export const useAnalytics = () => {
         .from('sessions')
         .select('session_id')
         .eq('session_id', sessionId.current)
-        .single();
+        .maybeSingle();
 
       if (!existing) {
         await supabase.from('sessions').insert({
