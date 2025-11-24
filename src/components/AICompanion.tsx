@@ -1247,7 +1247,7 @@ const AICompanion = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
+    <div className="flex flex-col h-full bg-background relative pb-[180px] sm:pb-[160px]">
       {/* New Chat Button - Right Side */}
       <div className="absolute top-4 right-4 z-10 flex justify-end w-auto">
         <Button 
@@ -1421,7 +1421,7 @@ const AICompanion = () => {
 
       {/* Interactive Query Cards */}
       {showPrompts && messages.length <= 2 && (
-        <div className="px-4 pb-3 pt-[4px] border-t border-border/50">
+        <div className="fixed bottom-[80px] sm:bottom-[70px] left-0 right-0 z-40 px-4 pb-3 pt-[4px] border-t border-border/50 bg-background">
           <div className="grid grid-cols-2 gap-3 max-w-2xl mx-auto">
             {QUERY_CARDS.map((card, index) => (
               <motion.button
@@ -1450,7 +1450,7 @@ const AICompanion = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="px-4 py-3 border-t border-border/50"
+            className="fixed bottom-[80px] sm:bottom-[70px] left-0 right-0 z-40 px-4 py-3 border-t border-border/50 bg-background"
           >
             <div className="max-w-2xl mx-auto">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20">
@@ -1489,7 +1489,7 @@ const AICompanion = () => {
 
       {/* Suggestion Pills */}
       {suggestions.length > 0 && !isLoading && (
-        <div className="px-4 py-2 border-t border-border/50 overflow-x-auto scrollbar-hide">
+        <div className="fixed bottom-[80px] sm:bottom-[70px] left-0 right-0 z-40 px-4 py-2 border-t border-border/50 bg-background overflow-x-auto scrollbar-hide">
           <div className="flex gap-2 max-w-2xl mx-auto">
             {suggestions.map((suggestion, index) => (
               <motion.button
@@ -1508,7 +1508,7 @@ const AICompanion = () => {
       )}
 
       {/* Input Area */}
-      <div className="px-4 pt-3 pb-[6px] border-t border-border bg-background safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pt-3 pb-[6px] border-t border-border bg-background safe-area-bottom">
         <div className="space-y-2 max-w-2xl mx-auto">
           {/* Image Preview */}
           {selectedImages.length > 0 && (
