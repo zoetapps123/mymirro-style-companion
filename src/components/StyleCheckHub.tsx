@@ -1348,11 +1348,22 @@ const StyleCheckHub = ({
                 </div>
               </div>
 
-              {/* Share Result button */}
-              <Button variant="outline" className="w-full rounded-full" onClick={handleShare}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Result
-              </Button>
+              {/* Share Result and Check Another Outfit buttons */}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 rounded-full" onClick={handleShare}>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share Result
+                </Button>
+                <Button variant="outline" className="flex-1 rounded-full" onClick={() => {
+                  setResult(null);
+                  setUploadedImage(null);
+                  setExtractedItems([]);
+                  setExtracted(false);
+                  setElevatedImage(null);
+                }}>
+                  Check Another Outfit
+                </Button>
+              </div>
 
               {/* Elevate Through AI button - RIGHT AFTER SCORES */}
               <Button variant="default" className="w-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700" onClick={elevateWithAI} disabled={elevating || elevatedImage !== null}>
@@ -1447,15 +1458,6 @@ const StyleCheckHub = ({
                   </div>
                 </div>}
 
-              <Button variant="outline" className="w-full rounded-full" onClick={() => {
-            setResult(null);
-            setUploadedImage(null);
-            setExtractedItems([]);
-            setExtracted(false);
-            setElevatedImage(null);
-          }}>
-                Check Another Outfit
-              </Button>
 
               {/* Battle Button CTA - appears after style check */}
               {onNavigateToBattle && <div className="glass-card rounded-2xl p-4 border-2 border-accent/30 bg-gradient-to-r from-accent/10 to-primary/10">
