@@ -37,7 +37,7 @@ export const VibePredictionSheet = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/20 backdrop-blur-md z-[100]"
             onClick={onClose}
           />
 
@@ -51,7 +51,7 @@ export const VibePredictionSheet = ({
               damping: 30,
               stiffness: 300
             }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto mx-auto sm:max-w-lg md:max-w-xl"
+            className="fixed bottom-0 left-0 right-0 z-[101] bg-background rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto mx-auto sm:max-w-lg md:max-w-xl"
           >
             <div className="relative px-4 sm:px-6 pt-[30px] pb-8">
               {/* Close Button */}
