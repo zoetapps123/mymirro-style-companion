@@ -1084,8 +1084,49 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       
-                      {/* X button only */}
-                      <div className="absolute top-2 right-2">
+                      {/* Refresh and X buttons */}
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="group bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm hover:scale-110 transition-all duration-300 hover:shadow-lg hover:shadow-white/20 relative overflow-hidden"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (uploadedImage) {
+                              setPredicting(true);
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const { data, error } = await supabase.functions.invoke('predict-outfit-vibe', {
+                                  body: { imageData: uploadedImage },
+                                  headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+                                });
+
+                                if (error) throw error;
+                                
+                                setPrediction(data);
+                                setSelectedOccasion(data.occasion);
+                                setSelectedStyle(data.style);
+                                setSelectedVibe(data.vibe);
+                                setShowPredictionSheet(true);
+                              } catch (error) {
+                                console.error('Prediction error:', error);
+                                toast({
+                                  title: "Couldn't predict vibe",
+                                  description: "No worries, let's choose manually",
+                                });
+                                setShowOccasionModal(true);
+                              } finally {
+                                setPredicting(false);
+                              }
+                            }
+                          }}
+                          disabled={predicting}
+                          title="Recheck style"
+                        >
+                          <RefreshCw className={`w-4 h-4 transition-transform duration-500 ${predicting ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+                          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
