@@ -109,17 +109,17 @@ export const VibePredictionSheet = ({
               </div>
 
               {/* CTA Buttons */}
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-4">
                 <Button
                   onClick={onConfirm}
-                  className="w-[161px] h-10 rounded font-boston font-bold text-sm bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white"
+                  className="flex-1 max-w-[200px] h-12 rounded-full font-boston font-bold text-sm bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white shadow-sm"
                 >
                   Yes, That's My Vibe!! ✨
                 </Button>
                 <Button
                   onClick={onEdit}
                   variant="outline"
-                  className="w-[161px] h-10 rounded font-boston font-semibold text-sm bg-white border-border/50 hover:bg-muted/10"
+                  className="flex-1 max-w-[200px] h-12 rounded-full font-boston font-semibold text-sm bg-white border-2 border-border/50 hover:bg-muted/10"
                   style={{ color: '#454545' }}
                 >
                   No, Change Details
