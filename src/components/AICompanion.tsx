@@ -1253,7 +1253,7 @@ const AICompanion = () => {
         variant="ghost" 
         size="sm" 
         onClick={resetChat} 
-        className="group fixed top-4 right-4 z-50 gap-2 hover:scale-105 transition-all duration-300 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 overflow-hidden"
+        className="group absolute top-4 right-4 z-10 gap-2 hover:scale-105 transition-all duration-300 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 relative overflow-hidden"
       >
         <RotateCcw className="w-4 h-4 transition-transform duration-500 group-hover:-rotate-180" />
         New Chat
