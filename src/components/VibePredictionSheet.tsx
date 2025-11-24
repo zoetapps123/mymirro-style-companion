@@ -51,9 +51,9 @@ export const VibePredictionSheet = ({
               damping: 30,
               stiffness: 300
             }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-2xl sm:rounded-3xl"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto sm:max-w-2xl sm:left-1/2 sm:-translate-x-1/2"
           >
-            <div className="relative p-5 pb-8">
+            <div className="relative px-5 pt-[30px] pb-8">
               {/* Close Button */}
               <button
                 onClick={onClose}
@@ -74,17 +74,17 @@ export const VibePredictionSheet = ({
               </p>
 
               {/* Dotted Divider */}
-              <div className="border-t border-dashed border-border/40 mb-3" />
+              <div className="border-t border-dashed border-border/40 mb-5" />
 
               {/* Dynamic Vibe Description */}
-              <h3 className="font-boston font-bold text-[22px] leading-tight mb-5 bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
+              <h3 className="font-boston font-bold text-[22px] leading-tight mb-3 bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
                 {prediction.comment}
               </h3>
 
               {/* Pills Container */}
-              <div className="flex flex-col items-center gap-3 mb-[22px]">
+              <div className="flex flex-col gap-3 mb-[22px]">
                 {/* First Row: Vibe + Style */}
-                <div className="flex flex-wrap justify-center gap-3">
+                <div className="flex flex-wrap gap-3">
                   <div className="px-4 py-2.5 rounded-full bg-white border border-border/30 flex items-center gap-2">
                     <span className="text-base">🌀</span>
                     <span className="font-boston font-semibold text-xs text-foreground">
@@ -99,8 +99,8 @@ export const VibePredictionSheet = ({
                   </div>
                 </div>
                 
-                {/* Second Row: Occasion (centered) */}
-                <div className="px-4 py-2.5 rounded-full bg-white border border-border/30 flex items-center gap-2">
+                {/* Second Row: Occasion (left-aligned) */}
+                <div className="px-4 py-2.5 rounded-full bg-white border border-border/30 flex items-center gap-2 w-fit">
                   <span className="text-base">📍</span>
                   <span className="font-boston font-semibold text-xs text-foreground">
                     Occasion: {prediction.occasion}
@@ -109,7 +109,7 @@ export const VibePredictionSheet = ({
               </div>
 
               {/* CTA Buttons */}
-              <div className="flex justify-center gap-3 flex-wrap">
+              <div className="flex gap-3 flex-wrap">
                 <Button
                   onClick={onConfirm}
                   className="w-[161px] h-10 rounded font-boston font-bold text-sm bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white"
