@@ -11,7 +11,7 @@ import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 import { VibePredictionSheet } from "./VibePredictionSheet";
 import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface StyleCheckHubProps {
@@ -882,44 +882,65 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      {/* Image Modal */}
-      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
-        <DialogContent className="max-w-[85vw] w-auto sm:max-w-lg p-4 z-[100]">
-          <DialogTitle className="sr-only">AI Enhanced Image</DialogTitle>
-          <DialogDescription className="sr-only">
-            View and download your AI-enhanced outfit image
-          </DialogDescription>
-          <div className="relative w-full">
-            {/* Header with buttons */}
-            <div className="absolute top-2 right-2 z-10 flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm h-8 w-8"
-                onClick={() => elevatedImage && downloadImage(elevatedImage, 'ai-enhanced-style.png')}
+      {/* AI Enhanced Image Modal */}
+      <AnimatePresence>
+        {showImageModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+              onClick={() => setShowImageModal(false)}
+            />
+
+            {/* Modal Container - Centered */}
+            <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="relative w-full max-w-[395px] h-auto max-h-[90vh] sm:max-w-[500px] md:max-w-[600px] lg:max-w-[700px]"
               >
-                <Download className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-black/70 hover:bg-black/80 text-white rounded-full backdrop-blur-sm h-8 w-8"
-                onClick={() => setShowImageModal(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
+                {/* Gradient Border Container */}
+                <div className="relative p-1 rounded-3xl bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 shadow-2xl">
+                  {/* Inner Content */}
+                  <div className="relative bg-background rounded-[22px] overflow-hidden">
+                    {/* Action Buttons */}
+                    <div className="absolute top-4 right-4 z-10 flex gap-3">
+                      <button
+                        onClick={() => elevatedImage && downloadImage(elevatedImage, 'ai-enhanced-style.png')}
+                        className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center bg-gray-700/90 hover:bg-gray-600/90 rounded-full transition-colors shadow-lg"
+                        aria-label="Download image"
+                      >
+                        <Download className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </button>
+                      <button
+                        onClick={() => setShowImageModal(false)}
+                        className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center bg-gray-700/90 hover:bg-gray-600/90 rounded-full transition-colors shadow-lg"
+                        aria-label="Close"
+                      >
+                        <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </button>
+                    </div>
+
+                    {/* Image */}
+                    {elevatedImage && (
+                      <img
+                        src={elevatedImage}
+                        alt="AI enhanced outfit"
+                        className="w-full h-auto max-h-[514px] sm:max-h-[600px] md:max-h-[700px] lg:max-h-[80vh] object-cover rounded-[22px]"
+                      />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
             </div>
-            {/* Full image */}
-            {elevatedImage && (
-              <img
-                src={elevatedImage}
-                alt="AI enhanced outfit"
-                className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          </>
+        )}
+      </AnimatePresence>
 
       <OutfitCheckOccasionModal
         open={showOccasionModal}
