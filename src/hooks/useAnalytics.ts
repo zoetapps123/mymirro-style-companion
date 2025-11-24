@@ -164,26 +164,22 @@ export const useAnalytics = () => {
     try {
       const deviceInfo = getDeviceInfo();
       
-      const { data: existing } = await supabase
-        .from('sessions')
-        .select('session_id')
-        .eq('session_id', sessionId.current)
-        .maybeSingle();
-
-      if (!existing) {
-        await supabase.from('sessions').insert({
-          session_id: sessionId.current,
-          user_id: userId,
-          started_at: new Date(sessionStartTime).toISOString(),
-          viewport_width: deviceInfo.viewport_width,
-          viewport_height: deviceInfo.viewport_height,
-          session_metadata: {
-            device_type: deviceInfo.device_type,
-            os_name: deviceInfo.os_name,
-            browser_name: deviceInfo.browser_name
-          }
-        });
-      }
+      // Use upsert to handle race conditions gracefully
+      await supabase.from('sessions').upsert({
+        session_id: sessionId.current,
+        user_id: userId,
+        started_at: new Date(sessionStartTime).toISOString(),
+        viewport_width: deviceInfo.viewport_width,
+        viewport_height: deviceInfo.viewport_height,
+        session_metadata: {
+          device_type: deviceInfo.device_type,
+          os_name: deviceInfo.os_name,
+          browser_name: deviceInfo.browser_name
+        }
+      }, {
+        onConflict: 'session_id',
+        ignoreDuplicates: true
+      });
       
       sessionInitialized.current = true;
     } catch (error) {
