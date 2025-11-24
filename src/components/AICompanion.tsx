@@ -1263,7 +1263,7 @@ const AICompanion = () => {
       </div>
 
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 px-4 py-4 pt-16" ref={scrollRef}>
+      <ScrollArea className="flex-1 px-4 py-4 pt-16 pb-6 sm:pb-4" ref={scrollRef}>
         <div className="space-y-3 max-w-2xl mx-auto">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -1422,7 +1422,7 @@ const AICompanion = () => {
       {/* Interactive Query Cards */}
       {showPrompts && messages.length <= 2 && (
         <div className="fixed bottom-[80px] sm:bottom-[70px] left-0 right-0 z-40 px-4 pb-3 pt-[4px] border-t border-border/50 bg-background">
-          <div className="grid grid-cols-2 gap-3 max-w-2xl mx-auto">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-2xl mx-auto">
             {QUERY_CARDS.map((card, index) => (
               <motion.button
                 key={card.id}
@@ -1430,13 +1430,13 @@ const AICompanion = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => handleCardClick(card.query)}
-                className="glass-card p-4 rounded-2xl text-left hover:glow-primary transition-all duration-300 group"
+                className="glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-left hover:glow-primary transition-all duration-300 group"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <span className="text-2xl mb-2 block group-hover:scale-110 transition-transform">{card.icon}</span>
-                <h3 className="font-semibold text-sm mb-1 text-foreground">{card.title}</h3>
-                <p className="text-xs text-muted-foreground line-clamp-2">{card.subtitle}</p>
+                <span className="text-xl sm:text-2xl mb-1.5 sm:mb-2 block group-hover:scale-110 transition-transform">{card.icon}</span>
+                <h3 className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 text-foreground">{card.title}</h3>
+                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-2">{card.subtitle}</p>
               </motion.button>
             ))}
           </div>
