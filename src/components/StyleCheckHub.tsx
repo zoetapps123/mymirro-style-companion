@@ -1350,19 +1350,19 @@ const StyleCheckHub = ({
 
               {/* Share Result and Check Another Outfit buttons */}
               <div className="flex gap-2 w-full">
-                <Button variant="outline" className="flex-1 rounded-full h-10 whitespace-nowrap" onClick={handleShare}>
-                  <Share2 className="w-4 h-4 mr-2 shrink-0" />
-                  Share Result
+                <Button variant="outline" className="flex-1 rounded-full h-10 text-xs sm:text-sm px-2 sm:px-4" onClick={handleShare}>
+                  <Share2 className="w-4 h-4 sm:mr-2 shrink-0" />
+                  <span className="hidden xs:inline sm:inline">Share</span>
                 </Button>
-                <Button variant="outline" className="flex-1 rounded-full h-10 whitespace-nowrap" onClick={() => {
+                <Button variant="outline" className="flex-1 rounded-full h-10 text-xs sm:text-sm px-2 sm:px-4" onClick={() => {
                   setResult(null);
                   setUploadedImage(null);
                   setExtractedItems([]);
                   setExtracted(false);
                   setElevatedImage(null);
                 }}>
-                  <RefreshCw className="w-4 h-4 mr-2 shrink-0" />
-                  Check Another Outfit
+                  <RefreshCw className="w-4 h-4 sm:mr-2 shrink-0" />
+                  <span className="hidden xs:inline sm:inline">Check Another</span>
                 </Button>
               </div>
 
