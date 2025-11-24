@@ -557,16 +557,16 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete item?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <AlertDialogContent className="max-w-[85%] sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 rounded-2xl">
+          <AlertDialogHeader className="space-y-1.5 sm:space-y-2">
+            <AlertDialogTitle className="text-base sm:text-lg">Delete item?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
               Are you sure you want to remove "{itemToDelete?.name}" from your wardrobe? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-500 hover:bg-red-600">
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="h-9 sm:h-10 text-sm rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="h-9 sm:h-10 text-sm rounded-full bg-red-500 hover:bg-red-600">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
