@@ -902,7 +902,7 @@ const StyleCheckHub = ({ onNavigate, onNavigateToBattle }: StyleCheckHubProps) =
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="relative w-full max-w-[395px] h-auto max-h-[90vh] sm:max-w-[500px] md:max-w-[600px] lg:max-w-[700px]"
+                className="relative w-full max-w-[340px] h-auto max-h-[85vh] sm:max-w-[500px] sm:max-h-[90vh] md:max-w-[600px] lg:max-w-[700px]"
               >
                 {/* Gradient Border Container */}
                 <div className="relative p-1 rounded-3xl bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 shadow-2xl">
