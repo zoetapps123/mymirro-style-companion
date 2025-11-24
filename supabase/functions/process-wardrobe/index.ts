@@ -290,7 +290,7 @@ serve(async (req) => {
 
       try {
         const { data: enrichmentData, error: enrichmentError } = await supabase.functions.invoke(
-          'enrich-wardrobe-item',
+          "enrich-wardrobe-item",
           {
             body: {
               originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
@@ -304,10 +304,10 @@ serve(async (req) => {
                 pattern_type: item.pattern_type,
                 style_aesthetic: item.style_aesthetic,
                 formality_level: item.formality_level,
-                suitable_occasions: item.suitable_occasions
-              }
-            }
-          }
+                suitable_occasions: item.suitable_occasions,
+              },
+            },
+          },
         );
 
         if (enrichmentError) {
@@ -323,7 +323,7 @@ serve(async (req) => {
       // Use the processed image URL from Phase 1 for final storage
       itemsWithImages.push({
         ...enrichedItem,
-        imageUrl: item.processedImageUrl
+        imageUrl: item.processedImageUrl,
       });
 
       // Small delay between enrichment calls
@@ -454,91 +454,166 @@ async function validateAndDetectItems(
   reason?: string;
   items: DetectedItem[];
 }> {
-  console.log('PHASE 1: Starting quick detection with model:', model);
+  console.log("PHASE 1: Starting quick detection with model:", model);
 
   const QUICK_DETECTION_PROMPT = `Analyze this clothing image for wardrobe extraction.
 
-VALIDATION: Is this image suitable?
-✅ VALID: Humans wearing clothes OR standalone clothing items
-❌ INVALID: Empty images, non-clothing, blurry, inappropriate
+Your output MUST be strictly based only on what is clearly visible in the image.
+If any detail is not visually confirmed, set the value to "unknown" instead of guessing.
 
-DETECTION: Extract visible items with CORE FIELDS ONLY (detailed metadata comes in Phase 2):
+-----------------------------------------
+VALIDATION (DO NOT SKIP)
+-----------------------------------------
+Determine whether the image is suitable for wardrobe extraction.
 
-REQUIRED CORE FIELDS (10 only):
-1. name: Descriptive 4-6 word name (e.g., "Navy Blue Slim Fit Chinos")
-2. category: Must be one of: Tops | Bottoms | Outerwear | Dresses | Shoes | Accessories
-3. primary_color: Hex code (e.g., "#4A90E2")
-4. primary_color_name: Color name (e.g., "Navy Blue")
-5. color_family: blue | red | green | yellow | orange | purple | pink | brown | earth_tones | neutrals | black | white | grey
-6. fabric_primary: cotton | denim | wool | polyester | silk | leather | linen | synthetic | knit | etc.
-7. pattern_type: solid | striped | plaid | checkered | floral | geometric | abstract | animal_print | polka_dot | etc.
-8. style_aesthetic: Array of styles ["casual", "streetwear", "minimalist", "bohemian", "preppy", "edgy", etc.]
-9. formality_level: casual | business_casual | semi_formal | formal | athletic
-10. suitable_occasions: Array of occasions ["everyday", "work", "date_night", "outdoor", "gym", etc.]
+VALID = 
+- Humans wearing clothes, OR
+- One or more clearly visible standalone clothing items or accessories
 
-LIMITS:
-- Maximum 5 items per image
-- Focus on clear, visible items only
-- Use the return_detection function for structured output`;
+INVALID =
+- Empty image
+- Non-clothing objects
+- Blurry / low-light / unclear items
+- Inappropriate or misleading content
+- Garments too occluded or not identifiable
 
-  console.log('Calling Gemini API for Phase 1 detection...');
+Return reason if invalid.
+
+-----------------------------------------
+DETECTION — EXTRACT ONLY VISIBLE ITEMS
+-----------------------------------------
+Extract visible items with CORE FIELDS ONLY.
+Do NOT infer details that cannot be directly confirmed from the image.
+
+REQUIRED CORE FIELDS (10 fields):
+1. name:
+   - Short, descriptive (3–6 words)
+   - Do NOT invent fit or style unless clearly visible.
+   - Use simple wording: e.g., "Black Slim T-Shirt", "Blue Straight Jeans".
+
+2. category:
+   - One of: Tops | Bottoms | Outerwear | Dresses | Shoes | Accessories
+   - If unclear → "Accessories" only if clearly accessory.
+   - If still unclear → "unknown".
+
+3. primary_color:
+   - Hex code of the dominant visible color.
+   - If lighting/shadow makes it unclear → "unknown".
+
+4. primary_color_name:
+   - Simple color name (e.g., "Black", "Light Blue", "Gray").
+   - Must correspond to the hex value.
+   - If color uncertain → "unknown".
+
+5. color_family:
+   - One of: blue | red | green | yellow | orange | purple | pink | brown | earth_tones | neutrals | black | white | grey
+   - Use the broad family only.
+
+6. fabric_primary:
+   - Only if visually obvious: cotton, denim, knit, wool, polyester, leather, linen, synthetic.
+   - If fabric texture not visible → "unknown".
+
+7. pattern_type:
+   - solid | striped | plaid | checkered | floral | geometric | abstract | animal_print | polka_dot | etc.
+   - If image is plain → "solid".
+   - If pattern unclear → "unknown".
+
+8. style_aesthetic:
+   - Array of clear, visually inferable aesthetics ONLY:
+     ["casual", "streetwear", "minimalist", "bohemian", "preppy", "edgy", etc.]
+   - Do NOT infer based on fashion stereotypes.
+   - If unclear → ["unknown"].
+
+9. formality_level:
+   - casual | business_casual | semi_formal | formal | athletic
+   - Only choose if visible.
+   - If unclear → "casual" **ONLY IF** item is clearly casual (tees, hoodies, jeans).
+   - Else → "unknown".
+
+10. suitable_occasions:
+    - Array like: ["everyday", "work", "date_night", "outdoor", "gym", etc.]
+    - Use ONLY visually appropriate ones.
+    - If unclear → ["unknown"].
+
+-----------------------------------------
+LIMITS
+-----------------------------------------
+- Maximum 5 items per image.
+- Only return items that are CLEARLY visible.
+- NO hallucination of details, patterns, fabrics, or colors.
+- If unsure → respond with "unknown".
+- Use the return_detection function for structured output.
+`;
+
+  console.log("Calling Gemini API for Phase 1 detection...");
 
   // Strict schema for Phase 1
   const tools = [
     {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'return_detection',
-        description: 'Return validation result and detected items with CORE fields only',
+        name: "return_detection",
+        description: "Return validation result and detected items with CORE fields only",
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
             isValid: {
-              type: 'boolean',
-              description: 'Whether the image is suitable for wardrobe extraction'
+              type: "boolean",
+              description: "Whether the image is suitable for wardrobe extraction",
             },
             reason: {
-              type: 'string',
-              description: 'Reason if image is rejected (only if isValid is false)'
+              type: "string",
+              description: "Reason if image is rejected (only if isValid is false)",
             },
             items: {
-              type: 'array',
-              description: 'Array of detected clothing items with core fields',
+              type: "array",
+              description: "Array of detected clothing items with core fields",
               maxItems: 5,
               items: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  name: { type: 'string', description: 'Descriptive 4-6 word name' },
-                  category: { 
-                    type: 'string',
-                    enum: ['Tops', 'Bottoms', 'Outerwear', 'Dresses', 'Shoes', 'Accessories'],
-                    description: 'Item category'
+                  name: { type: "string", description: "Descriptive 4-6 word name" },
+                  category: {
+                    type: "string",
+                    enum: ["Tops", "Bottoms", "Outerwear", "Dresses", "Shoes", "Accessories"],
+                    description: "Item category",
                   },
-                  primary_color: { type: 'string', description: 'Hex color code' },
-                  primary_color_name: { type: 'string', description: 'Human-readable color name' },
-                  color_family: { type: 'string', description: 'Color family group' },
-                  fabric_primary: { type: 'string', description: 'Primary fabric type' },
-                  pattern_type: { type: 'string', description: 'Pattern or print type' },
-                  style_aesthetic: { 
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'Array of style aesthetics'
+                  primary_color: { type: "string", description: "Hex color code" },
+                  primary_color_name: { type: "string", description: "Human-readable color name" },
+                  color_family: { type: "string", description: "Color family group" },
+                  fabric_primary: { type: "string", description: "Primary fabric type" },
+                  pattern_type: { type: "string", description: "Pattern or print type" },
+                  style_aesthetic: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Array of style aesthetics",
                   },
-                  formality_level: { type: 'string', description: 'Formality level' },
+                  formality_level: { type: "string", description: "Formality level" },
                   suitable_occasions: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'Array of suitable occasions'
-                  }
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Array of suitable occasions",
+                  },
                 },
-                required: ['name', 'category', 'primary_color', 'primary_color_name', 'color_family', 'fabric_primary', 'pattern_type', 'style_aesthetic', 'formality_level', 'suitable_occasions']
-              }
-            }
+                required: [
+                  "name",
+                  "category",
+                  "primary_color",
+                  "primary_color_name",
+                  "color_family",
+                  "fabric_primary",
+                  "pattern_type",
+                  "style_aesthetic",
+                  "formality_level",
+                  "suitable_occasions",
+                ],
+              },
+            },
           },
-          required: ['isValid', 'items']
-        }
-      }
-    }
+          required: ["isValid", "items"],
+        },
+      },
+    },
   ];
 
   const data = await callGeminiAPI({
@@ -553,24 +628,26 @@ LIMITS:
       },
     ],
     tools,
-    tool_choice: { type: 'function', function: { name: 'return_detection' } }
+    tool_choice: { type: "function", function: { name: "return_detection" } },
   });
 
   // If function call is returned, use it
   const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (toolCall?.type === 'function' && toolCall.function?.name === 'return_detection') {
+  if (toolCall?.type === "function" && toolCall.function?.name === "return_detection") {
     try {
-      const args = JSON.parse(toolCall.function.arguments || '{}');
-      console.log('Parsed via function call:', {
+      const args = JSON.parse(toolCall.function.arguments || "{}");
+      console.log("Parsed via function call:", {
         isValid: args.isValid,
         itemCount: Array.isArray(args.items) ? args.items.length : 0,
       });
-      console.log('Function call arguments sample:', JSON.stringify(args).substring(0, 500));
-      
+      console.log("Function call arguments sample:", JSON.stringify(args).substring(0, 500));
+
       // Validate that items have required fields
-      const hasValidItems = Array.isArray(args.items) && args.items.length > 0 && 
+      const hasValidItems =
+        Array.isArray(args.items) &&
+        args.items.length > 0 &&
         args.items.every((item: any) => item.name && item.category);
-      
+
       if (hasValidItems) {
         return {
           isValid: !!args.isValid,
@@ -578,100 +655,100 @@ LIMITS:
           items: args.items,
         };
       } else {
-        console.warn('Function call returned items without required fields, falling back to text parsing');
+        console.warn("Function call returned items without required fields, falling back to text parsing");
         // fall through to text parsing below
       }
     } catch (e: any) {
-      console.error('Failed to parse function-call arguments:', e.message);
+      console.error("Failed to parse function-call arguments:", e.message);
       // fall through to text parsing below
     }
   }
 
   const content = data.choices?.[0]?.message?.content || "";
-  console.log('Gemini response length:', content.length);
-  console.log('Gemini response preview (first 300 chars):', content.substring(0, 300));
+  console.log("Gemini response length:", content.length);
+  console.log("Gemini response preview (first 300 chars):", content.substring(0, 300));
 
   // Clean the response - remove markdown code blocks
   let cleanedContent = content.trim();
-  
+
   // Remove markdown code fences from start and end
-  if (cleanedContent.startsWith('```json')) {
-    cleanedContent = cleanedContent.replace(/^```json\n?/, '');
+  if (cleanedContent.startsWith("```json")) {
+    cleanedContent = cleanedContent.replace(/^```json\n?/, "");
   }
-  if (cleanedContent.startsWith('```')) {
-    cleanedContent = cleanedContent.replace(/^```\n?/, '');
+  if (cleanedContent.startsWith("```")) {
+    cleanedContent = cleanedContent.replace(/^```\n?/, "");
   }
-  if (cleanedContent.endsWith('```')) {
-    cleanedContent = cleanedContent.replace(/```$/, '');
+  if (cleanedContent.endsWith("```")) {
+    cleanedContent = cleanedContent.replace(/```$/, "");
   }
   cleanedContent = cleanedContent.trim();
-  
-  console.log('After markdown removal (first 300 chars):', cleanedContent.substring(0, 300));
+
+  console.log("After markdown removal (first 300 chars):", cleanedContent.substring(0, 300));
 
   // Extract JSON from response
   const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error('Failed to extract JSON from response. Full content:', content);
+    console.error("Failed to extract JSON from response. Full content:", content);
     throw new Error("Failed to extract validation+detection result from Gemini response");
   }
 
   let jsonString = jsonMatch[0];
-  
+
   // Fix common JSON issues
   // 1. Remove trailing commas before closing brackets/braces
-  jsonString = jsonString.replace(/,(\s*[\]}])/g, '$1');
-  
-  console.log('After JSON fixes (first 300 chars):', jsonString.substring(0, 300));
+  jsonString = jsonString.replace(/,(\s*[\]}])/g, "$1");
+
+  console.log("After JSON fixes (first 300 chars):", jsonString.substring(0, 300));
 
   // Parse JSON with error handling (with repair attempts)
   let result;
   try {
     result = JSON.parse(jsonString);
   } catch (firstErr: any) {
-    console.error('First JSON parse failed:', firstErr.message);
-    console.error('Failed JSON string (first 2000 chars):', jsonString.substring(0, 2000));
+    console.error("First JSON parse failed:", firstErr.message);
+    console.error("Failed JSON string (first 2000 chars):", jsonString.substring(0, 2000));
 
     // Attempt repairs
     let repaired = jsonString;
     // 1) Remove trailing commas before ] or }
-    repaired = repaired.replace(/,(\s*[\]}])/g, '$1');
+    repaired = repaired.replace(/,(\s*[\]}])/g, "$1");
     // 2) Insert missing commas between objects: `}{` -> `},{`
-    repaired = repaired.replace(/}\s*{/g, '},{');
+    repaired = repaired.replace(/}\s*{/g, "},{");
     // 3) Collapse accidental double commas
-    repaired = repaired.replace(/,\s*,/g, ',');
+    repaired = repaired.replace(/,\s*,/g, ",");
     // 4) Remove stray trailing commas at line ends
-    repaired = repaired.replace(/,\s*\n\s*([\]}])/g, '\n$1');
+    repaired = repaired.replace(/,\s*\n\s*([\]}])/g, "\n$1");
 
-    console.log('Applied JSON repair heuristics. Retrying parse...');
+    console.log("Applied JSON repair heuristics. Retrying parse...");
 
     try {
       result = JSON.parse(repaired);
-      console.log('Second parse attempt succeeded.');
+      console.log("Second parse attempt succeeded.");
       jsonString = repaired; // keep repaired version for further logs if needed
     } catch (secondErr: any) {
-      console.error('Second JSON parse failed:', secondErr.message);
-      console.error('Repaired JSON (first 2000 chars):', repaired.substring(0, 2000));
-      console.error('Repaired JSON length:', repaired.length);
+      console.error("Second JSON parse failed:", secondErr.message);
+      console.error("Repaired JSON (first 2000 chars):", repaired.substring(0, 2000));
+      console.error("Repaired JSON length:", repaired.length);
       // Graceful fallback: mark as invalid instead of throwing 500
-      result = { isValid: false, reason: 'Malformed AI response (JSON parse failed after repair)', items: [] };
+      result = { isValid: false, reason: "Malformed AI response (JSON parse failed after repair)", items: [] };
     }
   }
 
-  console.log('Successfully parsed wardrobe detection:', {
+  console.log("Successfully parsed wardrobe detection:", {
     isValid: result.isValid,
     itemCount: result.items?.length || 0,
-    firstItemName: result.items?.[0]?.name || 'N/A',
-    hasReason: !!result.reason
+    firstItemName: result.items?.[0]?.name || "N/A",
+    hasReason: !!result.reason,
   });
 
   // Validate response structure
-  if (typeof result.isValid !== 'boolean') {
-    console.error('Invalid response structure - missing or invalid isValid field:', result);
+  if (typeof result.isValid !== "boolean") {
+    console.error("Invalid response structure - missing or invalid isValid field:", result);
     throw new Error('Response missing required "isValid" field');
   }
 
   if (result.isValid && !Array.isArray(result.items)) {
-    console.error('Invalid response structure - items is not an array:', result);
+    console.error("Invalid response structure - items is not an array:", result);
     throw new Error('Response missing required "items" array for valid detection');
   }
 
@@ -862,10 +939,10 @@ function hexToRgb(hex: string) {
 async function generateProductImage(item: DetectedItem): Promise<Uint8Array> {
   // Validate item has required fields
   if (!item.name || !item.category) {
-    console.error('generateProductImage called with invalid item:', item);
+    console.error("generateProductImage called with invalid item:", item);
     throw new Error(`Invalid item: missing name or category`);
   }
-  
+
   const detailedPrompt = `Create a professional e-commerce product photo of:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
