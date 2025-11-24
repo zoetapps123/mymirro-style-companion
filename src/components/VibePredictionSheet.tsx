@@ -64,7 +64,7 @@ export const VibePredictionSheet = ({
               </button>
 
               {/* Title */}
-              <h2 className="font-boston font-bold text-[22px] leading-tight mb-3" style={{ color: 'hsl(var(--primary))' }}>
+              <h2 className="font-boston font-bold text-[22px] leading-tight mb-3 text-foreground">
                 Is this your vibe?
               </h2>
 
