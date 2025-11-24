@@ -24,24 +24,24 @@ const AnalysisLoader = ({ isVisible, processingImage, occasion, message }: Analy
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4 overflow-y-auto"
         >
-          <div className="max-w-md w-full space-y-4 sm:space-y-8">
+          <div className="max-w-md w-full space-y-4 sm:space-y-6 py-4">
             {/* Processing Image */}
             {processingImage && (
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.5 }}
-                className="relative mx-auto w-48 h-56 sm:h-64"
+                className="relative mx-auto w-52 h-72 sm:w-56 sm:h-80"
               >
                 <div className="absolute inset-0 rounded-3xl overflow-hidden border-4 border-primary/20 shadow-2xl">
                   <img
                     src={processingImage}
                     alt="Processing"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain bg-white"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent pointer-events-none" />
                 </div>
                 
                 {/* Scanning animation */}
@@ -83,23 +83,23 @@ const AnalysisLoader = ({ isVisible, processingImage, occasion, message }: Analy
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-center space-y-6"
+              className="text-center space-y-3 sm:space-y-6"
             >
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent px-2">
                 {message || "Analyzing Your Style"}
               </h2>
               {occasion && (
-                <p className="text-base text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground px-2">
                   {occasion}
                 </p>
               )}
               
               {/* Rotating use cases */}
-              <div className="h-16 flex items-center justify-center">
+              <div className="h-12 sm:h-16 flex items-center justify-center px-2">
                 {useCases.map((useCase, index) => (
                   <motion.p
                     key={index}
-                    className="text-lg text-gray-600 absolute"
+                    className="text-base sm:text-lg text-gray-600 absolute"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{
                       opacity: [0, 1, 1, 0],
