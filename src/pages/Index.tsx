@@ -164,7 +164,7 @@ const Index = () => {
       <TopAppBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Main Content - Each component manages its own scrolling */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden pt-[140px] sm:pt-[130px]">
         {renderContent()}
       </main>
     </div>

@@ -48,7 +48,7 @@ const TopAppBar = ({ activeTab, onTabChange }: TopAppBarProps) => {
 
   return (
     <header 
-      className="z-[100] backdrop-blur-xl bg-background/80 shadow-sm border-b border-border"
+      className="fixed top-0 left-0 right-0 z-[100] backdrop-blur-xl bg-background/80 shadow-sm border-b border-border"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       {/* Top row: Logo + Profile */}
