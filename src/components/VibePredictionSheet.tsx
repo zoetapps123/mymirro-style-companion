@@ -69,7 +69,11 @@ export const VibePredictionSheet = ({
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  {onRetry}
+                  {onRetry && (
+                    <Button variant="ghost" size="icon" onClick={onRetry}>
+                      <X className="w-5 h-5" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={onClose}>
                     <X className="w-5 h-5" />
                   </Button>
