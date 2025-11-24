@@ -74,7 +74,7 @@ export const VibePredictionSheet = ({
               </p>
 
               {/* Dotted Divider */}
-              <div className="border-t border-dashed border-border/40 mb-5" />
+              <div className="border-t-2 border-dashed border-border/60 my-5" />
 
               {/* Dynamic Vibe Description */}
               <h3 className="font-boston font-bold text-[22px] leading-tight mb-3 bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
