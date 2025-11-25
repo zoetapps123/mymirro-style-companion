@@ -96,6 +96,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       wardrobe_item_count: wardrobeItems.length,
       flow_id: flowId,
     }, `Generate Outfits - Submit (${selectedOccasion})`);
+    
+    // Mixpanel: Track generation started
+    trackEvent('outfit_generation_started', {
+      occasion: selectedOccasion,
+      selected_item_category: selectedItem.category,
+      wardrobe_item_count: wardrobeItems.length
+    });
 
     setLoading(true);
     const generationStartTime = Date.now();
@@ -172,6 +179,14 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         outfit_item_count: Object.keys(data.outfit || {}).length,
         duration_seconds: durationSeconds
       });
+      
+      // Mixpanel: Track generation completed
+      trackEvent('outfit_generation_completed', {
+        occasion: selectedOccasion,
+        has_ai_suggestions: hasAiSuggestions,
+        outfit_item_count: Object.keys(data.outfit || {}).length,
+        duration_seconds: durationSeconds
+      });
 
       toast({
         title: "Outfit generated!",
@@ -201,6 +216,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         occasion: selectedOccasion,
         error_message: error instanceof Error ? error.message : 'Unknown error',
       }, 'Generate Outfits - Error');
+      
+      // Mixpanel: Track generation error
+      trackEvent('outfit_generation_failed', {
+        occasion: selectedOccasion,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        duration_seconds: Math.floor((Date.now() - generationStartTime) / 1000)
+      });
 
       toast({
         title: "Error",
@@ -221,6 +243,12 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       occasion: selectedOccasion,
       item_count: Object.keys(currentOutfit.outfit || {}).length
     }, 'generate_outfits:save_outfit');
+    
+    // Mixpanel: Track save clicked
+    trackEvent('outfit_save_clicked', {
+      occasion: selectedOccasion,
+      item_count: Object.keys(currentOutfit.outfit || {}).length
+    });
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -484,6 +512,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
             previous_outfit_count: outfits.length,
             occasion: selectedOccasion
           }, 'generate_outfits:try_another');
+          
+          // Mixpanel: Track try another clicked
+          trackEvent('outfit_generation_try_another', {
+            previous_outfit_count: outfits.length,
+            occasion: selectedOccasion
+          });
+          
           onTryAnother();
         }}
       >
