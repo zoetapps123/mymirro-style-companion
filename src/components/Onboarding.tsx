@@ -100,7 +100,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
       
       if (user) {
         setUserProperties({
-          name: data.name,
+          $name: data.name,
           gender: data.gender,
           age_range: data.ageRange,
         });
