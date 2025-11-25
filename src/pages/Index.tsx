@@ -11,7 +11,7 @@ import PhoneAuth from "@/components/PhoneAuth";
 import TopAppBar from "@/components/TopAppBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { trackPageView } from "@/lib/mixpanel";
+import { trackPageView, identifyUser } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
@@ -91,10 +91,15 @@ const Index = () => {
 
       const user = session.user;
 
+      // Identify user in Mixpanel when session is restored
+      if (user) {
+        identifyUser(user);
+      }
+
       // Check if user profile has required basic info
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('name, age_range')
+        .select('name, age_range, gender')
         .eq('id', user.id)
         .single();
 

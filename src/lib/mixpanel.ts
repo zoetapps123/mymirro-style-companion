@@ -66,10 +66,10 @@ export function identifyUser(user: any) {
   }
 
   const userData = {
-    email: user.email || "",
-    phone: user.phone || user.user_metadata?.phone || "",
-    created_at: user.created_at || null,
-    name: user.user_metadata?.name || localStorage.getItem("onboard_name") || "",
+    $email: user.email || "",
+    $phone: user.phone || user.user_metadata?.phone || localStorage.getItem("user_phone") || "",
+    $created: user.created_at || null,
+    $name: user.user_metadata?.name || localStorage.getItem("onboard_name") || "",
     gender: user.user_metadata?.gender || localStorage.getItem("onboard_gender") || "",
     age_range: user.user_metadata?.age_range || localStorage.getItem("onboard_age_range") || "",
   };
