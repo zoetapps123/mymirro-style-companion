@@ -424,8 +424,8 @@ categories=${[...new Set((wardrobeItems || []).map((i: any) => i.category))].joi
             properties: {
               category: {
                 type: "string",
-                description: "Category filter: Tops, Bottoms, Shoes, Outerwear, Accessories, Dresses",
-                enum: ["Tops", "Bottoms", "Shoes", "Outerwear", "Accessories", "Dresses", ""]
+                description: "Category filter: Tops, Bottoms, Shoes, Outerwear, Accessories, Dresses, or All for all items",
+                enum: ["Tops", "Bottoms", "Shoes", "Outerwear", "Accessories", "Dresses", "All"]
               }
             }
           }
