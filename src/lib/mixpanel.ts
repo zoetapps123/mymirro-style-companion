@@ -1,3 +1,16 @@
+// Helper to check if Mixpanel SDK is fully loaded (not just the stub)
+function isMixpanelReady(): boolean {
+  return !!(
+    window.mixpanel && 
+    window.mixpanel.track && 
+    window.mixpanel.identify &&
+    window.mixpanel.people &&
+    window.mixpanel.people.set &&
+    typeof window.mixpanel.track === 'function' &&
+    window.__mixpanel_initialized__
+  );
+}
+
 export function trackEvent(name: string, props: Record<string, any> = {}) {
   if (typeof window === "undefined") {
     console.log('[Mixpanel] Window undefined');
@@ -13,13 +26,8 @@ export function trackEvent(name: string, props: Record<string, any> = {}) {
     return;
   }
 
-  if (!window.mixpanel) {
-    console.error('[Mixpanel] window.mixpanel not found');
-    return;
-  }
-  
-  if (!window.mixpanel.track) {
-    console.error('[Mixpanel] window.mixpanel.track not found');
+  if (!isMixpanelReady()) {
+    console.error('[Mixpanel] SDK not ready');
     return;
   }
 
@@ -60,8 +68,14 @@ export function identifyUser(user: any) {
     return;
   }
 
-  if (!window.mixpanel) {
-    console.error('[Mixpanel] window.mixpanel not found (identify)');
+  if (!isMixpanelReady()) {
+    console.error('[Mixpanel] SDK not ready for identify');
+    // Retry after SDK loads
+    setTimeout(() => {
+      if (isMixpanelReady()) {
+        identifyUser(user);
+      }
+    }, 500);
     return;
   }
 
@@ -75,8 +89,23 @@ export function identifyUser(user: any) {
   };
 
   console.log('[Mixpanel] Identifying user:', user.id, userData);
-  window.mixpanel.identify(user.id);
-  window.mixpanel.people.set(userData);
+  
+  try {
+    // First identify the user
+    window.mixpanel.identify(user.id);
+    
+    // Then set profile properties - remove empty values
+    const cleanUserData = Object.fromEntries(
+      Object.entries(userData).filter(([_, v]) => v !== "" && v !== null)
+    );
+    
+    console.log('[Mixpanel] Setting user properties:', cleanUserData);
+    window.mixpanel.people.set(cleanUserData);
+    
+    console.log('[Mixpanel] User identified and properties set successfully');
+  } catch (error) {
+    console.error('[Mixpanel] Error identifying user:', error);
+  }
 }
 
 export function setUserProperties(props: Record<string, any>) {
@@ -92,11 +121,20 @@ export function setUserProperties(props: Record<string, any>) {
     return;
   }
 
-  if (!window.mixpanel || !window.mixpanel.people) {
-    console.error('[Mixpanel] window.mixpanel.people not found');
+  if (!isMixpanelReady()) {
+    console.error('[Mixpanel] SDK not ready for setUserProperties');
     return;
   }
 
-  console.log('[Mixpanel] Setting user properties:', props);
-  window.mixpanel.people.set(props);
+  try {
+    // Remove empty values
+    const cleanProps = Object.fromEntries(
+      Object.entries(props).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
+    );
+    
+    console.log('[Mixpanel] Setting user properties:', cleanProps);
+    window.mixpanel.people.set(cleanProps);
+  } catch (error) {
+    console.error('[Mixpanel] Error setting user properties:', error);
+  }
 }
