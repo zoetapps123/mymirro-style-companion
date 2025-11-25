@@ -180,11 +180,26 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     <div 
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => {
-        console.log('[Mixpanel] auto_generated_outfit_selected:', {
+        const eventName = outfit.type === 'style' 
+          ? 'auto_generated_style_selected' 
+          : 'auto_generated_occasion_selected';
+        
+        console.log(`[Mixpanel] ${eventName}:`, {
           outfit_type: outfit.type,
           outfit_label: outfit.label,
-          item_count: outfit.items.length
+          item_count: outfit.items.length,
+          section: outfit.type === 'style' ? 'Select your Style' : 'Select your occasion'
         });
+
+        // Track specific style or occasion selection
+        trackEvent(eventName, {
+          outfit_type: outfit.type,
+          outfit_label: outfit.label,
+          item_count: outfit.items.length,
+          section: outfit.type === 'style' ? 'Select your Style' : 'Select your occasion'
+        });
+
+        // Also track the generic selection event
         trackEvent('auto_generated_outfit_selected', {
           outfit_type: outfit.type,
           outfit_label: outfit.label,
@@ -198,8 +213,9 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
           outfit_type: outfit.type,
           item_count: outfit.items.length,
           source: 'auto_generate',
+          section: outfit.type === 'style' ? 'Select your Style' : 'Select your occasion',
           element_id: `auto-outfit-card-${outfit.id}`,
-        }, 'Auto Generate Outfits - Selected Template', '/wardrobe/generated-outfits');
+        }, `Auto Generate Outfits - Selected ${outfit.type === 'style' ? 'Style' : 'Occasion'}`, '/wardrobe/generated-outfits');
 
         setEditingOutfit(outfit);
       }}
