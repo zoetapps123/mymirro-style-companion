@@ -67,6 +67,27 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const [userLocation, setUserLocation] = useState<{ temp: number; weather: string; lat: number } | null>(null);
   const [savedOutfitIds, setSavedOutfitIds] = useState<Set<string>>(new Set());
 
+  // Initialize data when component mounts (moved before conditional return)
+  useEffect(() => {
+    if (wardrobeItems.length < 5) return; // Skip if not enough items
+    
+    const initializeData = async () => {
+      await cleanupDuplicates();
+      await checkForNewItems();
+      await getUserLocation();
+    };
+    initializeData();
+  }, [wardrobeItems.length]);
+
+  // Process cached outfits when they load (moved before conditional return)
+  useEffect(() => {
+    if (wardrobeItems.length < 5) return; // Skip if not enough items
+    
+    if (!isLoadingOutfits && cachedOutfits.length > 0) {
+      loadExistingOutfits();
+    }
+  }, [cachedOutfits, isLoadingOutfits, wardrobeItems.length]);
+
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: false },
     { icon: Sparkles, title: "Outfit\nGenerator", view: 'suggestion' as const, active: true },
@@ -136,15 +157,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
     );
   }
 
-  useEffect(() => {
-    const initializeData = async () => {
-      await cleanupDuplicates();
-      await checkForNewItems();
-      await getUserLocation();
-    };
-    initializeData();
-  }, []);
-
   const cleanupDuplicates = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -207,13 +219,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       console.error('Error cleaning up duplicates:', error);
     }
   };
-
-  // Process cached outfits when they load
-  useEffect(() => {
-    if (!isLoadingOutfits && cachedOutfits.length > 0) {
-      loadExistingOutfits();
-    }
-  }, [cachedOutfits, isLoadingOutfits]);
 
   const checkForNewItems = async () => {
     const lastGen = localStorage.getItem('last_outfit_generation');
