@@ -40,7 +40,6 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       { context: 'style_check' },
       '/app/stylecheck/check'
     );
-    trackPageView(SCREEN_NAMES.STYLECHECK_CHECK, SCREEN_PATHS.STYLECHECK_CHECK);
   }, [trackScreenView]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

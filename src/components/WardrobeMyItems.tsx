@@ -48,7 +48,6 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
   useEffect(() => {
     trackScreenView('wardrobe-gallery', {}, '/wardrobe/gallery', '/wardrobe/gallery');
-    trackPageView(SCREEN_NAMES.WARDROBE_GALLERY, SCREEN_PATHS.WARDROBE_GALLERY);
   }, [trackScreenView]);
 
   useEffect(() => {

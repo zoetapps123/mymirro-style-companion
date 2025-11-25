@@ -143,7 +143,6 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       await getUserLocation();
     };
     initializeData();
-    trackPageView(SCREEN_NAMES.WARDROBE_OUTFITS, SCREEN_PATHS.WARDROBE_OUTFITS);
   }, []);
 
   const cleanupDuplicates = async () => {

@@ -137,7 +137,6 @@ const StyleCheckHub = ({
   
   useEffect(() => {
     loadWardrobeItems();
-    trackPageView(SCREEN_NAMES.STYLECHECK_HUB, SCREEN_PATHS.STYLECHECK_HUB);
   }, []);
   // Wardrobe Data Loading
   // Fetches user's wardrobe items from Supabase for quick fix enhancement

@@ -47,7 +47,6 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
 
   useEffect(() => {
     fetchLookbookOutfits();
-    trackPageView(SCREEN_NAMES.WARDROBE_LOOKBOOK, SCREEN_PATHS.WARDROBE_LOOKBOOK);
   }, []);
 
   const fetchLookbookOutfits = async () => {
