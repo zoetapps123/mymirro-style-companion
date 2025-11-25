@@ -7,8 +7,9 @@ export function trackEvent(name: string, props: Record<string, any> = {}) {
   const host = window.location.hostname;
   console.log('[Mixpanel] Host:', host);
   
-  if (host !== "mymirro.in" && host !== "www.mymirro.in") {
-    console.log('[Mixpanel] Not on production domain, skipping');
+  const allowedHosts = ["mymirro.in", "www.mymirro.in", "mymirro-style-companion.lovable.app"];
+  if (!allowedHosts.includes(host)) {
+    console.log('[Mixpanel] Not on allowed domain, skipping');
     return;
   }
 
@@ -37,6 +38,7 @@ export function trackPageView(
   virtual_path: string,
   metadata?: Record<string, any>
 ) {
+  console.log('[Mixpanel] trackPageView called:', { screen_name, virtual_path, metadata });
   trackEvent("page_viewed", {
     screen_name,
     virtual_path,
@@ -52,8 +54,9 @@ export function identifyUser(user: any) {
   }
 
   const host = window.location.hostname;
-  if (host !== "mymirro.in" && host !== "www.mymirro.in") {
-    console.log('[Mixpanel] Not on production domain, skipping identify');
+  const allowedHosts = ["mymirro.in", "www.mymirro.in", "mymirro-style-companion.lovable.app"];
+  if (!allowedHosts.includes(host)) {
+    console.log('[Mixpanel] Not on allowed domain, skipping identify');
     return;
   }
 
@@ -83,7 +86,8 @@ export function setUserProperties(props: Record<string, any>) {
   }
 
   const host = window.location.hostname;
-  if (host !== "mymirro.in" && host !== "www.mymirro.in") {
+  const allowedHosts = ["mymirro.in", "www.mymirro.in", "mymirro-style-companion.lovable.app"];
+  if (!allowedHosts.includes(host)) {
     console.log('[Mixpanel] Not on production domain, skipping setUserProperties');
     return;
   }
