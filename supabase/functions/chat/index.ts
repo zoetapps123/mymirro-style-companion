@@ -212,9 +212,21 @@ serve(async (req) => {
       console.error('Failed to fetch user context:', e);
     }
 
-    // Build the base persona prompt (ONLY the 13 modules)
+    // Build system prompt with anti-spam instructions
+    let antiSpamInstruction = '';
+    if (!canGenerate && (intentDetection.intent === 'explicit_outfit' || intentDetection.intent === 'implicit_outfit')) {
+      const turnsSince = conversationState.current_turn - (conversationState.last_outfit_generation_turn || 0);
+      if (turnsSince < 2) {
+        antiSpamInstruction = `\n\n🚫 DO NOT GENERATE OUTFITS - Cooldown active (${turnsSince}/2 turns). Respond conversationally.`;
+      } else if (emotionalContext?.soft_mode_required) {
+        antiSpamInstruction = `\n\n🚫 DO NOT GENERATE OUTFITS - User needs emotional support. Be empathetic.`;
+      } else if (wardrobeItems.length < 5) {
+        antiSpamInstruction = `\n\n🚫 DO NOT GENERATE OUTFITS - Insufficient wardrobe (${wardrobeItems.length}/5). Suggest uploads.`;
+      }
+    }
+    
     const basePrompt = buildAICompanionPrompt();
-    const systemPrompt = basePrompt;
+    const systemPrompt = basePrompt + antiSpamInstruction;
     
     // CRITICAL VALIDATION: Ensure system prompt is present
     if (!systemPrompt || systemPrompt.trim().length === 0) {
@@ -406,7 +418,24 @@ categories=${[...new Set((wardrobeItems || []).map((i: any) => i.category))].joi
         type: "function",
         function: {
           name: "fetch_wardrobe_items",
-          description: "Retrieve items from the user's wardrobe. Use when user asks about their wardrobe or you need to see what they own.",
+          description: "Fetch and filter wardrobe items by category. Use when user asks to see specific items (e.g., 'show my shoes').",
+          parameters: {
+            type: "object",
+            properties: {
+              category: {
+                type: "string",
+                description: "Category filter: Tops, Bottoms, Shoes, Outerwear, Accessories, Dresses",
+                enum: ["Tops", "Bottoms", "Shoes", "Outerwear", "Accessories", "Dresses", ""]
+              }
+            }
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "show_wardrobe_items",
+          description: "Display wardrobe items (internal use after fetch_wardrobe_items).",
           parameters: {
             type: "object",
             properties: {

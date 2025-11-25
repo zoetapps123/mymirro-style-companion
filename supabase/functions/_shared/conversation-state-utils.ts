@@ -23,13 +23,14 @@ export type ConversationMode =
   | 'CASUAL_CHAT'
   | 'STYLE_DISCOVERY'
   | 'OUTFIT_REQUEST_ACTIVE'
-  | 'SHOPPING_EXPLORATION'
+  | 'SHOPPING_ADVISOR'
   | 'WARDROBE_MANAGEMENT'
-  | 'EMOTIONAL_SUPPORT'
-  | 'PLAYFUL_BANTER'
-  | 'EVENT_PLANNING'
-  | 'FEEDBACK_SESSION'
-  | 'DATA_COLLECTION_LIGHT';
+  | 'WARDROBE_EXPLORATION'
+  | 'VISUAL_SIMULATION'
+  | 'CHALLENGE_MODE'
+  | 'ROAST_MODE'
+  | 'FEEDBACK_MODE'
+  | 'EMOTIONAL_SUPPORT';
 
 export async function getConversationState(
   supabase: SupabaseClient,
@@ -145,71 +146,102 @@ export function determineConversationMode(
   currentIntent: { intent: string; confidence: number; query_type: string },
   emotionalContext?: { emotional_tone: string; soft_mode_required: boolean }
 ): ConversationMode {
-  // EMOTIONAL_SUPPORT overrides everything
+  // Priority 1: Emotional support (HIGHEST - soft mode)
   if (emotionalContext?.soft_mode_required) {
+    console.log('[Conversation State] Mode: EMOTIONAL_SUPPORT (soft mode required)');
     return 'EMOTIONAL_SUPPORT';
   }
 
-  // Check for explicit outfit request
-  if (currentIntent.intent === 'explicit_outfit' && currentIntent.confidence >= 60) {
+  // Priority 2: Visual simulation (when user asks "how will this look?")
+  if (currentIntent.intent === 'visual_simulation') {
+    console.log('[Conversation State] Mode: VISUAL_SIMULATION');
+    return 'VISUAL_SIMULATION';
+  }
+
+  // Priority 3: Wardrobe exploration (when user wants to see items)
+  if (currentIntent.intent === 'item_only' || currentIntent.intent === 'wardrobe-info') {
+    console.log('[Conversation State] Mode: WARDROBE_EXPLORATION');
+    return 'WARDROBE_EXPLORATION';
+  }
+
+  // Priority 4: Active outfit request (explicit)
+  if (currentIntent.intent === 'explicit_outfit' && currentIntent.confidence > 0.8) {
+    console.log('[Conversation State] Mode: OUTFIT_REQUEST_ACTIVE (explicit request)');
     return 'OUTFIT_REQUEST_ACTIVE';
   }
 
-  // Check query type patterns
-  if (currentIntent.query_type === 'shopping') {
-    return 'SHOPPING_EXPLORATION';
+  // Priority 5: Active outfit request (implicit - must be >60% confidence)
+  if (currentIntent.intent === 'implicit_outfit' && currentIntent.confidence >= 0.6) {
+    console.log('[Conversation State] Mode: OUTFIT_REQUEST_ACTIVE (implicit request)');
+    return 'OUTFIT_REQUEST_ACTIVE';
   }
 
-  if (currentIntent.query_type === 'wardrobe-info') {
+  // Priority 6: Shopping advisor
+  if (currentIntent.intent === 'shopping' && currentIntent.confidence > 0.6) {
+    console.log('[Conversation State] Mode: SHOPPING_ADVISOR');
+    return 'SHOPPING_ADVISOR';
+  }
+
+  // Priority 7: Wardrobe management
+  if (currentIntent.query_type === 'wardrobe_query') {
+    console.log('[Conversation State] Mode: WARDROBE_MANAGEMENT');
     return 'WARDROBE_MANAGEMENT';
   }
 
-  // Check for implicit styling intent
-  if (currentIntent.intent === 'implicit_outfit' && currentIntent.confidence >= 70) {
+  // Priority 8: Style discovery (fashion theory questions)
+  if (currentIntent.intent === 'theory' || currentIntent.query_type === 'theory_question') {
+    console.log('[Conversation State] Mode: STYLE_DISCOVERY');
     return 'STYLE_DISCOVERY';
   }
 
-  // Check for playful/casual patterns from intent history
-  const recentIntents = state.last_5_intents || [];
-  const casualCount = recentIntents.filter((i: any) => i.queryType === 'general').length;
-  
-  if (casualCount >= 3) {
-    return 'PLAYFUL_BANTER';
-  }
-
-  // Default based on chat direction
-  if (state.chat_direction === 'styling_mode') {
-    return 'STYLE_DISCOVERY';
-  }
-
+  // Default: Casual chat
+  console.log('[Conversation State] Mode: CASUAL_CHAT (default)');
   return 'CASUAL_CHAT';
 }
 
 export function canGenerateOutfit(
   state: ConversationState,
   intent: { intent: string; confidence: number },
-  wardrobeItemCount: number
+  wardrobeItemCount: number,
+  emotionalContext?: { soft_mode_required: boolean }
 ): boolean {
-  // Check anti-spam rules
-  const turnsSinceLast = state.current_turn - state.last_outfit_generation_turn;
-  if (turnsSinceLast < 2) {
+  // STRICT GUARD 1: Emotional/soft mode - NEVER generate outfits
+  if (emotionalContext?.soft_mode_required) {
+    console.log('[Outfit Generation] BLOCKED: Soft mode active (emotional support needed)');
     return false;
   }
 
-  // Check intent threshold
-  if (intent.confidence < 60) {
-    return false;
-  }
-
-  // Check wardrobe sufficiency
+  // STRICT GUARD 2: Must have at least 5 items in wardrobe
   if (wardrobeItemCount < 5) {
+    console.log('[Outfit Generation] BLOCKED: Insufficient wardrobe items (<5)');
     return false;
   }
 
-  // Check if not in explicit outfit intent
+  // STRICT GUARD 3: Must be outfit intent with sufficient confidence
   if (intent.intent !== 'explicit_outfit' && intent.intent !== 'implicit_outfit') {
+    console.log('[Outfit Generation] BLOCKED: Not an outfit request');
     return false;
   }
 
+  // STRICT GUARD 4: Confidence must be ≥60%
+  if (intent.confidence < 0.6) {
+    console.log('[Outfit Generation] BLOCKED: Confidence too low (<60%)');
+    return false;
+  }
+
+  // STRICT GUARD 5: 2-TURN COOLDOWN - enforce strictly
+  const turnsSinceOutfit = state.current_turn - (state.last_outfit_generation_turn || 0);
+  if (turnsSinceOutfit < 2) {
+    console.log(`[Outfit Generation] BLOCKED: Cooldown active (${turnsSinceOutfit}/2 turns)`);
+    return false;
+  }
+
+  // STRICT GUARD 6: If user has been blocked 3+ times consecutively, they want to chat
+  if (state.consecutive_outfit_blocks && state.consecutive_outfit_blocks >= 3) {
+    console.log('[Outfit Generation] BLOCKED: Too many consecutive blocks (user wants to chat)');
+    return false;
+  }
+
+  console.log('[Outfit Generation] ✅ ALLOWED');
   return true;
 }
