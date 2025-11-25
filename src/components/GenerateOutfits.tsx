@@ -97,6 +97,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       flow_id: flowId,
     }, `Generate Outfits - Submit (${selectedOccasion})`);
 
+    // Mixpanel: Track generation started
+    trackEvent('outfit_generation_started', {
+      occasion: selectedOccasion,
+      selected_item_category: selectedItem.category,
+      wardrobe_item_count: wardrobeItems.length
+    });
+
     setLoading(true);
     const generationStartTime = Date.now();
 
@@ -202,6 +209,12 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         error_message: error instanceof Error ? error.message : 'Unknown error',
       }, 'Generate Outfits - Error');
 
+      // Mixpanel: Track generation error
+      trackEvent('outfit_generation_failed', {
+        occasion: selectedOccasion,
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      });
+
       toast({
         title: "Error",
         description: "Failed to generate outfit. Try again.",
@@ -296,8 +309,18 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
   const navigateOutfit = (direction: 'prev' | 'next') => {
     if (direction === 'prev' && currentOutfitIndex > 0) {
       setCurrentOutfitIndex(prev => prev - 1);
+      trackEvent('outfit_navigation', {
+        direction: 'previous',
+        outfit_index: currentOutfitIndex - 1,
+        total_outfits: outfits.length
+      });
     } else if (direction === 'next' && currentOutfitIndex < outfits.length - 1) {
-      setCurrentOutfitIndex(prev => prev - 1);
+      setCurrentOutfitIndex(prev => prev + 1);
+      trackEvent('outfit_navigation', {
+        direction: 'next',
+        outfit_index: currentOutfitIndex + 1,
+        total_outfits: outfits.length
+      });
     }
   };
 
@@ -484,6 +507,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
             previous_outfit_count: outfits.length,
             occasion: selectedOccasion
           }, 'generate_outfits:try_another');
+          
+          // Mixpanel: Track try another
+          trackEvent('outfit_try_another_item', {
+            previous_outfit_count: outfits.length,
+            occasion: selectedOccasion
+          });
+          
           onTryAnother();
         }}
       >
