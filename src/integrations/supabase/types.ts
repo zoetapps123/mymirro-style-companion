@@ -127,13 +127,18 @@ export type Database = {
       }
       conversation_state: {
         Row: {
+          chat_direction: string | null
+          consecutive_outfit_blocks: number | null
           created_at: string | null
           current_turn: number | null
+          emotional_tone: string | null
           id: string
+          last_5_intents: Json | null
           last_generated_outfit_ids: string[] | null
           last_intent_confidence: number | null
           last_intent_detected: string | null
           last_known_occasion: string | null
+          last_mode_used: string | null
           last_outfit_generation_turn: number | null
           last_user_query_type: string | null
           outstanding_question_flag: boolean | null
@@ -143,13 +148,18 @@ export type Database = {
           wardrobe_validation_state: Json | null
         }
         Insert: {
+          chat_direction?: string | null
+          consecutive_outfit_blocks?: number | null
           created_at?: string | null
           current_turn?: number | null
+          emotional_tone?: string | null
           id?: string
+          last_5_intents?: Json | null
           last_generated_outfit_ids?: string[] | null
           last_intent_confidence?: number | null
           last_intent_detected?: string | null
           last_known_occasion?: string | null
+          last_mode_used?: string | null
           last_outfit_generation_turn?: number | null
           last_user_query_type?: string | null
           outstanding_question_flag?: boolean | null
@@ -159,13 +169,18 @@ export type Database = {
           wardrobe_validation_state?: Json | null
         }
         Update: {
+          chat_direction?: string | null
+          consecutive_outfit_blocks?: number | null
           created_at?: string | null
           current_turn?: number | null
+          emotional_tone?: string | null
           id?: string
+          last_5_intents?: Json | null
           last_generated_outfit_ids?: string[] | null
           last_intent_confidence?: number | null
           last_intent_detected?: string | null
           last_known_occasion?: string | null
+          last_mode_used?: string | null
           last_outfit_generation_turn?: number | null
           last_user_query_type?: string | null
           outstanding_question_flag?: boolean | null
@@ -673,6 +688,42 @@ export type Database = {
             referencedColumns: ["session_id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          preference_key: string
+          preference_type: string
+          preference_value: Json | null
+          source: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          preference_key: string
+          preference_type: string
+          preference_value?: Json | null
+          source?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          preference_key?: string
+          preference_type?: string
+          preference_value?: Json | null
+          source?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_profiles: {
         Row: {

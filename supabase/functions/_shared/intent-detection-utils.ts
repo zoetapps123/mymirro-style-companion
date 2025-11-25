@@ -3,10 +3,41 @@ export interface IntentDetection {
   confidence: number; // 0-100
   occasion?: string;
   query_type: 'shopping' | 'outfit' | 'theory' | 'general' | 'wardrobe-info' | 'item-only';
+  is_continuation?: boolean;
+  context_weight?: number;
 }
 
-export function detectIntent(userMessage: string): IntentDetection {
+export function detectIntent(
+  userMessage: string, 
+  recentIntents?: Array<{ intent: string; queryType: string; confidence: number }>
+): IntentDetection {
   const msg = userMessage.toLowerCase().trim();
+  
+  // Check for outfit request continuation patterns
+  const continuationPatterns = [
+    /^(more|another|different|something else|show me more|other options?)/i,
+    /^(try|give me|suggest) (another|different|more)/i,
+    /what else/i,
+    /any other/i,
+  ];
+  
+  const isContinuation = continuationPatterns.some(p => p.test(msg));
+  
+  // Check if previous context was outfit-related
+  const hasOutfitContext = recentIntents && recentIntents.length > 0 &&
+    recentIntents[0].queryType === 'outfit' &&
+    recentIntents[0].confidence > 60;
+  
+  // If continuation + outfit context, boost outfit intent
+  if (isContinuation && hasOutfitContext) {
+    return {
+      intent: 'explicit_outfit',
+      confidence: 85,
+      query_type: 'outfit',
+      is_continuation: true,
+      context_weight: 40,
+    };
+  }
   
   // SHORT MESSAGE GUARD - Prevent ambiguous 1-2 word messages from triggering outfit generation
   // This fixes the "what?" bug - casual responses should not trigger outfit intent
@@ -119,9 +150,25 @@ export function detectIntent(userMessage: string): IntentDetection {
   }
   
   // GENERAL / LOW CONFIDENCE
+  // Apply context boost if recent intents suggest styling conversation
+  let baseConfidence = 40;
+  let contextWeight = 0;
+  
+  if (recentIntents && recentIntents.length >= 2) {
+    const stylingCount = recentIntents.filter(i => 
+      i.queryType === 'outfit' || i.queryType === 'theory' || i.queryType === 'shopping'
+    ).length;
+    
+    if (stylingCount >= 2) {
+      contextWeight = 20;
+      baseConfidence += contextWeight;
+    }
+  }
+  
   return {
     intent: 'general',
-    confidence: 40,
+    confidence: baseConfidence,
     query_type: 'general',
+    context_weight: contextWeight,
   };
 }
