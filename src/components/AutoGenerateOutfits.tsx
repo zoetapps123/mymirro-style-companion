@@ -38,20 +38,16 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
   useEffect(() => {
     if (wardrobeItems.length >= 6 && styleOutfits.length === 0 && occasionOutfits.length === 0) {
-      const cachedStyleOutfits = localStorage.getItem('auto_generated_style_outfits');
-      const cachedOccasionOutfits = localStorage.getItem('auto_generated_occasion_outfits');
-      
-      if (cachedStyleOutfits && cachedOccasionOutfits) {
+      const cachedOutfits = localStorage.getItem('auto-generated-outfits');
+      if (cachedOutfits) {
         try {
-          setStyleOutfits(JSON.parse(cachedStyleOutfits));
-          setOccasionOutfits(JSON.parse(cachedOccasionOutfits));
-          console.log('[AutoGenerate] Loaded outfits from cache');
+          const { style, occasion } = JSON.parse(cachedOutfits);
+          setStyleOutfits(style || []);
+          setOccasionOutfits(occasion || []);
         } catch (e) {
-          console.error('[AutoGenerate] Failed to parse cached outfits', e);
-          generateAllOutfits();
+          console.error('Failed to parse cached outfits');
         }
       } else {
-        console.log('[AutoGenerate] No cache found, generating outfits');
         generateAllOutfits();
       }
     }
@@ -122,13 +118,11 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     <div 
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => {
-        console.log('[AutoGenerate] Outfit clicked:', outfit.label);
         trackEvent('auto_generated_outfit_selected', {
           outfit_type: outfit.type,
           outfit_label: outfit.label,
           item_count: outfit.items.length
         });
-        console.log('[AutoGenerate] Track event called');
         setEditingOutfit(outfit);
       }}
     >
