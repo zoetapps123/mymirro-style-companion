@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { useWardrobeItems, WardrobeItem } from "@/hooks/useWardrobeItems";
 import { OutfitGridLoadingSkeleton } from "@/components/ui/outfit-loading-skeleton";
 import { trackEvent } from "@/lib/mixpanel";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import {
   Carousel,
   CarouselContent,
@@ -30,6 +32,7 @@ interface AutoGenerateOutfitsProps {
 
 const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const { toast } = useToast();
+  const { trackCustom } = useAnalytics();
   const [loading, setLoading] = useState(false);
   const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
   const [styleOutfits, setStyleOutfits] = useState<Outfit[]>([]);
@@ -61,6 +64,13 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     trackEvent('auto_generate_outfits_started', {
       wardrobe_item_count: wardrobeItems.length
     });
+
+    // Internal analytics: wardrobe generate clicked
+    trackCustom(ANALYTICS_EVENTS.WARDROBE_GENERATE_CLICKED, {
+      wardrobe_item_count: wardrobeItems.length,
+      source: 'auto_generate',
+      wardrobe_view: 'generated_outfits',
+    }, 'wardrobe:auto_generate_started', '/wardrobe/generated-outfits');
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -89,6 +99,17 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
         duration_seconds: Math.floor(duration / 1000)
       });
+
+      // Internal analytics: wardrobe generated success
+      trackCustom(ANALYTICS_EVENTS.WARDROBE_GENERATED_SUCCESS, {
+        wardrobe_item_count: wardrobeItems.length,
+        style_outfit_count: (data.styleOutfits || []).length,
+        occasion_outfit_count: (data.occasionOutfits || []).length,
+        total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
+        duration_seconds: Math.floor(duration / 1000),
+        source: 'auto_generate',
+        wardrobe_view: 'generated_outfits',
+      }, 'wardrobe:auto_generate_success', '/wardrobe/generated-outfits');
       
       // Save to localStorage
       localStorage.setItem('auto_generated_style_outfits', JSON.stringify(data.styleOutfits || []));
@@ -102,6 +123,15 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         error_message: error instanceof Error ? error.message : 'Unknown error',
         duration_seconds: Math.floor((Date.now() - startTime) / 1000)
       });
+
+      // Internal analytics: wardrobe generated failed
+      trackCustom(ANALYTICS_EVENTS.WARDROBE_GENERATED_FAILED, {
+        wardrobe_item_count: wardrobeItems.length,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        duration_seconds: Math.floor((Date.now() - startTime) / 1000),
+        source: 'auto_generate',
+        wardrobe_view: 'generated_outfits',
+      }, 'wardrobe:auto_generate_failed', '/wardrobe/generated-outfits');
       
       toast({
         title: "Error",
@@ -189,6 +219,15 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
                 previous_style_count: styleOutfits.length,
                 previous_occasion_count: occasionOutfits.length
               });
+
+              // Internal analytics: regenerate all outfits
+              trackCustom(ANALYTICS_EVENTS.OUTFIT_REGENERATE_ALL_CLICKED, {
+                previous_outfit_count: styleOutfits.length + occasionOutfits.length,
+                wardrobe_item_count: wardrobeItems.length,
+                source: 'auto_generate',
+                element_id: 'auto-outfits-regenerate-btn',
+              }, 'Auto Generate Outfits - Regenerate All', '/wardrobe/generated-outfits');
+
               generateAllOutfits();
             }}
             variant="outline"
