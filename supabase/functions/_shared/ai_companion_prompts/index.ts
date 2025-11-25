@@ -108,4 +108,4 @@ export function buildAICompanionPrompt(): string {
 }
 
 // Export individual module prompts for direct injection in chat function
-export { TOOL_USAGE_RULES_PROMPT, OUTFIT_ENGINE_PROMPT, WARDROBE_ENGINE_PROMPT };
+export { TOOL_USAGE_RULES_PROMPT, OUTFIT_ENGINE_PROMPT, WARDROBE_ENGINE_PROMPT, BRAND_RECOMMENDER_PROMPT };

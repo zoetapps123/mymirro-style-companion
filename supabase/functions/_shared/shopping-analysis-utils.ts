@@ -1,17 +1,10 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { BrandRecommendation, generateBrandRecommendations } from './brand-recommendation-utils.ts';
 
 export interface WardrobeGap {
   gap_type: 'category' | 'formality' | 'occasion' | 'color' | 'season';
   gap_description: string;
   priority: 'high' | 'medium' | 'low';
-  reasoning: string;
-}
-
-export interface BrandRecommendation {
-  brand_name: string;
-  category: string;
-  budget_tier: 'student_safe' | 'mid_range' | 'premium_non_luxury';
-  style_match: string[];
   reasoning: string;
 }
 
@@ -196,7 +189,9 @@ export function filterBrandsByStyleAndBudget(
       category: itemCategory,
       budget_tier: budgetTier,
       style_match: styleAesthetics,
-      reasoning: `${brand} aligns with your ${styleCategory} aesthetic and ${budgetTier.replace('_', ' ')} budget.`
+      reasoning: `${brand} aligns with your ${styleCategory} aesthetic and ${budgetTier.replace('_', ' ')} budget.`,
+      confidence: 0.7,
+      where_to_buy: 'Available at major retailers and online'
     });
   });
   
@@ -213,8 +208,8 @@ export async function generateShoppingRecommendations(
   const recommendations: ShoppingRecommendation[] = [];
   
   const budgetTier = inferBudgetTier(
-    tasteProfile.wardrobeSize || 0,
-    tasteProfile.styleAesthetics || []
+    tasteProfile.wardrobe_size || 0,
+    tasteProfile.style_aesthetic || []
   );
   
   // Generate recommendations for each high-priority gap
@@ -244,7 +239,7 @@ export async function generateShoppingRecommendations(
   
   // Add occasion-specific recommendations if provided
   if (occasion) {
-    const occasionRec = getOccasionSpecificRecommendation(
+    const occasionRec = await getOccasionSpecificRecommendation(
       occasion,
       tasteProfile,
       budgetTier
@@ -301,33 +296,49 @@ function getStylingOpinion(category: string, tasteProfile: any): string {
   return opinions[category] || 'This will add versatility to your wardrobe.';
 }
 
-function getOccasionSpecificRecommendation(
+async function getOccasionSpecificRecommendation(
   occasion: string,
   tasteProfile: any,
   budgetTier: 'student_safe' | 'mid_range' | 'premium_non_luxury'
-): ShoppingRecommendation | null {
+): Promise<ShoppingRecommendation | null> {
   const occasionLower = occasion.toLowerCase();
   
   if (occasionLower.includes('date') || occasionLower.includes('dinner')) {
+    const brandSuggestions = await generateBrandRecommendations({
+      wardrobeGaps: [],
+      styleAesthetics: tasteProfile.style_aesthetic || [],
+      budgetTier: budgetTier,
+      occasion: 'date',
+      specificRequest: 'Statement pieces for romantic settings'
+    });
+    
     return {
       item_type: 'Outfit Piece',
       description: 'Statement top or well-fitted shirt for romantic settings',
       priority: 'nice_to_have',
       occasion_fit: ['Date', 'Dinner', 'Evening Out'],
       budget_estimate: BUDGET_TIERS[budgetTier].label,
-      brand_suggestions: filterBrandsByStyleAndBudget(budgetTier, tasteProfile.styleAesthetics, 'Tops'),
+      brand_suggestions: brandSuggestions,
       styling_opinion: 'For dates, focus on pieces that make YOU feel confident. That energy matters more than the outfit.'
     };
   }
   
   if (occasionLower.includes('interview') || occasionLower.includes('formal')) {
+    const brandSuggestions = await generateBrandRecommendations({
+      wardrobeGaps: [],
+      styleAesthetics: ['minimal', 'formal'],
+      budgetTier: budgetTier,
+      occasion: 'formal',
+      specificRequest: 'Professional formal wear'
+    });
+    
     return {
       item_type: 'Formal Wear',
       description: 'Formal shirt and trousers combo for professional settings',
       priority: 'essential',
       occasion_fit: ['Interview', 'Office', 'Formal Event'],
       budget_estimate: BUDGET_TIERS[budgetTier].label,
-      brand_suggestions: filterBrandsByStyleAndBudget(budgetTier, ['minimal', 'formal'], 'Tops'),
+      brand_suggestions: brandSuggestions,
       styling_opinion: 'Formal wear is an investment. Get basics that fit perfectly - tailoring is worth it.'
     };
   }

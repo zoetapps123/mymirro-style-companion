@@ -5,7 +5,8 @@ import {
   buildAICompanionPrompt,
   OUTFIT_ENGINE_PROMPT,
   WARDROBE_ENGINE_PROMPT,
-  TOOL_USAGE_RULES_PROMPT
+  TOOL_USAGE_RULES_PROMPT,
+  BRAND_RECOMMENDER_PROMPT
 } from '../_shared/ai_companion_prompts/index.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
 import { 
@@ -22,6 +23,7 @@ import { inferOccasion } from '../_shared/occasion-inference-utils.ts';
 import { detectEmotionalSubtext } from '../_shared/emo-detection-utils.ts';
 import { getPreferences, getWardrobePersona, savePreference, updateTasteCalibration } from '../_shared/memory-utils.ts';
 import { analyzeWardrobeGaps, generateShoppingRecommendations, inferBudgetTier } from '../_shared/shopping-analysis-utils.ts';
+import { generateBrandRecommendations, getBrandRecommendationsForGap } from '../_shared/brand-recommendation-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -537,6 +539,32 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
       {
         type: "function",
         function: {
+          name: "recommend_brands",
+          description: "Provide specific brand recommendations based on user's style, budget, and wardrobe gaps. Use when user explicitly asks 'where should I shop?', 'which brands?', 'where to buy?'",
+          parameters: {
+            type: "object",
+            properties: {
+              focus: {
+                type: "string",
+                description: "What to focus recommendations on",
+                enum: ["wardrobe_gaps", "specific_occasion", "style_alignment", "general"]
+              },
+              occasion: {
+                type: "string",
+                description: "Specific occasion if mentioned"
+              },
+              item_category: {
+                type: "string",
+                description: "Specific category (Tops, Bottoms, Shoes, etc.) if user asks for specific item type"
+              }
+            },
+            required: ["focus"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
           name: "show_wardrobe_items",
           description: "Display specific wardrobe items visually to the user",
           parameters: {
@@ -721,6 +749,37 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                     console.log('[SHOPPING ANALYSIS v5]', {
                       gaps: wardrobeGaps.length,
                       recommendations: recommendations.length,
+                      budgetTier
+                    });
+                    
+                    await updateConversationState(supabase, userId, {
+                      recommendation_mode: 'general',
+                    });
+                  }
+                  
+                  if (functionCall.functionCall.name === 'recommend_brands') {
+                    // v6 Brand Recommender Integration
+                    const wardrobeGaps = await analyzeWardrobeGaps(supabase, userId);
+                    const budgetTier = inferBudgetTier(
+                      wardrobePersona.wardrobe_size || 0,
+                      wardrobePersona.style_aesthetic || []
+                    );
+                    
+                    const brandRecommendations = await generateBrandRecommendations({
+                      wardrobeGaps: wardrobeGaps,
+                      styleAesthetics: wardrobePersona.style_aesthetic || [],
+                      budgetTier: budgetTier,
+                      occasion: functionCall.functionCall.args.occasion,
+                      specificRequest: functionCall.functionCall.args.item_category || functionCall.functionCall.args.focus
+                    });
+                    
+                    // Inject brand recommendations into tool call
+                    functionCall.functionCall.args.brand_recommendations = brandRecommendations;
+                    functionCall.functionCall.args.budget_tier = budgetTier;
+                    
+                    console.log('[BRAND RECOMMENDATIONS v6]', {
+                      count: brandRecommendations.length,
+                      brands: brandRecommendations.map(b => b.brand_name),
                       budgetTier
                     });
                     
