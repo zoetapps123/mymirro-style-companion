@@ -258,7 +258,18 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
                 mapDetectedItemToDbRecord(item, userId, item.imageUrl, item.imageUrl)
               ]).select('*');
 
-              addedCount++;
+              if (!error && insertedRows && insertedRows.length > 0) {
+                addedCount++;
+                
+                // Mixpanel: Track wardrobe item added
+                trackEvent('wardrobe_item_added', {
+                  item_id: insertedRows[0].id,
+                  item_name: item.name,
+                  category: item.category,
+                  source: 'wardrobe_upload',
+                  processing_method: 'background'
+                });
+              }
             });
 
             Promise.all(insertPromises).then(() => {

@@ -16,7 +16,7 @@ import { orderOutfitForDisplay } from '@/lib/utils';
 import lockIcon from '@/assets/lock-icon-outfit.png';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { ANALYTICS_EVENTS } from '@/lib/analyticsEvents';
-import { trackPageView } from '@/lib/mixpanel';
+import { trackPageView, trackEvent } from '@/lib/mixpanel';
 import { SCREEN_NAMES, SCREEN_PATHS } from '@/lib/screenRoutes';
 
 interface WardrobeItem {
@@ -595,6 +595,17 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       // Mark outfit as saved
       const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
       setSavedOutfitIds(prev => new Set(prev).add(outfitKey));
+
+      // Mixpanel: Track outfit saved
+      trackEvent('outfit_saved', {
+        outfit_id: savedOutfitId,
+        outfit_name: outfit.name,
+        occasion: outfit.occasion,
+        style_tag: outfit.style_tag,
+        item_count: outfit.items.length,
+        source: 'wardrobe_suggestions',
+        is_update: !!exactMatch
+      });
 
       // Invalidate outfit cache since we saved one
       invalidateOutfits();

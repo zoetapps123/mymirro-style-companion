@@ -516,12 +516,20 @@ const StyleCheckHub = ({
           data: insertedRows,
           error: insertError
         } = await supabase.from('wardrobe_items').insert([mapDetectedItemToDbRecord(item, user.id, publicUrl, publicUrl)]).select('*');
-        if (!insertError) {
+        if (!insertError && insertedRows && insertedRows.length > 0) {
           addedCount++;
           addedItemsPreview.push({
             name: item.name,
             category: item.category,
             image_url: publicUrl
+          });
+          
+          // Mixpanel: Track wardrobe item extracted
+          trackEvent('wardrobe_item_added', {
+            item_id: insertedRows[0].id,
+            item_name: item.name,
+            category: item.category,
+            source: 'style_check_extraction'
           });
         }
       }
