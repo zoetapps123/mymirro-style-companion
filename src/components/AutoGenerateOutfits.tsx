@@ -40,38 +40,18 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const [editingOutfit, setEditingOutfit] = useState<Outfit | null>(null);
 
   useEffect(() => {
-    console.log('[AutoGenerateOutfits] useEffect triggered:', {
+    console.log('[AutoGenerateOutfits] Component mounted:', {
       wardrobeItemCount: wardrobeItems.length,
-      styleOutfitsCount: styleOutfits.length,
-      occasionOutfitsCount: occasionOutfits.length,
-      hasEnoughItems: wardrobeItems.length >= 6,
-      isEmpty: styleOutfits.length === 0 && occasionOutfits.length === 0
+      hasEnoughItems: wardrobeItems.length >= 6
     });
 
-    if (wardrobeItems.length >= 6 && styleOutfits.length === 0 && occasionOutfits.length === 0) {
-      // Check for cached outfits using correct keys
-      const cachedStyle = localStorage.getItem('auto_generated_style_outfits');
-      const cachedOccasion = localStorage.getItem('auto_generated_occasion_outfits');
-      
-      if (cachedStyle && cachedOccasion) {
-        console.log('[AutoGenerateOutfits] Loading from cache');
-        try {
-          const style = JSON.parse(cachedStyle);
-          const occasion = JSON.parse(cachedOccasion);
-          setStyleOutfits(style || []);
-          setOccasionOutfits(occasion || []);
-        } catch (e) {
-          console.error('Failed to parse cached outfits, generating fresh:', e);
-          generateAllOutfits();
-        }
-      } else {
-        console.log('[AutoGenerateOutfits] No cache found, generating outfits');
-        generateAllOutfits();
-      }
+    if (wardrobeItems.length >= 6) {
+      console.log('[AutoGenerateOutfits] Starting outfit generation');
+      generateAllOutfits();
     } else {
-      console.log('[AutoGenerateOutfits] Conditions not met for generation');
+      console.log('[AutoGenerateOutfits] Not enough wardrobe items (need 6+)');
     }
-  }, [wardrobeItems]);
+  }, []); // Only run once on mount
 
   const generateAllOutfits = async () => {
     setLoading(true);
@@ -110,37 +90,6 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
       setOccasionOutfits(data.occasionOutfits || []);
       
       const duration = Date.now() - startTime;
-      
-      // Track successful generation
-      console.log('[Mixpanel] auto_generate_outfits_completed:', {
-        wardrobe_item_count: wardrobeItems.length,
-        style_outfit_count: (data.styleOutfits || []).length,
-        occasion_outfit_count: (data.occasionOutfits || []).length,
-        total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
-        duration_seconds: Math.floor(duration / 1000)
-      });
-      trackEvent('auto_generate_outfits_completed', {
-        wardrobe_item_count: wardrobeItems.length,
-        style_outfit_count: (data.styleOutfits || []).length,
-        occasion_outfit_count: (data.occasionOutfits || []).length,
-        total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
-        duration_seconds: Math.floor(duration / 1000)
-      });
-
-      // Internal analytics: wardrobe generated success
-      trackCustom(ANALYTICS_EVENTS.WARDROBE_GENERATED_SUCCESS, {
-        wardrobe_item_count: wardrobeItems.length,
-        style_outfit_count: (data.styleOutfits || []).length,
-        occasion_outfit_count: (data.occasionOutfits || []).length,
-        total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
-        duration_seconds: Math.floor(duration / 1000),
-        source: 'auto_generate',
-        wardrobe_view: 'generated_outfits',
-      }, 'wardrobe:auto_generate_success', '/wardrobe/generated-outfits');
-      
-      // Save to localStorage
-      localStorage.setItem('auto_generated_style_outfits', JSON.stringify(data.styleOutfits || []));
-      localStorage.setItem('auto_generated_occasion_outfits', JSON.stringify(data.occasionOutfits || []));
     } catch (error) {
       console.error('Error generating outfits:', error);
       
