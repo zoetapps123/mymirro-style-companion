@@ -215,10 +215,10 @@ serve(async (req) => {
     // Build system prompt with anti-spam instructions
     let antiSpamInstruction = '';
     if (!canGenerate && (intentDetection.intent === 'explicit_outfit' || intentDetection.intent === 'implicit_outfit')) {
-      const turnsSince = conversationState.current_turn - (conversationState.last_outfit_generation_turn || 0);
+      const turnsSince = (conversationState?.current_turn || 0) - (conversationState?.last_outfit_generation_turn || 0);
       if (turnsSince < 2) {
         antiSpamInstruction = `\n\n🚫 DO NOT GENERATE OUTFITS - Cooldown active (${turnsSince}/2 turns). Respond conversationally.`;
-      } else if (emotionalContext?.soft_mode_required) {
+      } else if (emotionalDetection?.soft_mode_required) {
         antiSpamInstruction = `\n\n🚫 DO NOT GENERATE OUTFITS - User needs emotional support. Be empathetic.`;
       } else if (wardrobeItems.length < 5) {
         antiSpamInstruction = `\n\n🚫 DO NOT GENERATE OUTFITS - Insufficient wardrobe (${wardrobeItems.length}/5). Suggest uploads.`;
