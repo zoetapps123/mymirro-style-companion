@@ -149,6 +149,10 @@ const AICompanion = () => {
             wardrobeItems: wardrobeItems,
             maxOutfits: Math.min(args.count || 3, 3),
             bypassCache: false,
+            // v4.0 Enhanced context
+            emotionalContext: args.emotionalContext,
+            tasteProfile: args.tasteProfile,
+            conversationMode: args.conversationMode,
           },
         });
 
@@ -163,14 +167,22 @@ const AICompanion = () => {
         if (data?.needsMoreItems && data?.outfits && data.outfits.length > 0) {
           console.log('✓ Generated outfits with wardrobe gaps:', {
             outfitCount: data.outfits.length,
-            missingCategories: data.missingCategories
+            missingCategories: data.missingCategories,
+            hasOpinions: data.outfits.some((o: any) => o.styling_opinion),
+            hasSafeBold: data.safe_outfit_index !== undefined
           });
           
-          // Map outfits to format expected by OutfitSuggestionDisplay
-          const outfitData = data.outfits.map((outfit: any) => ({
+          // Map outfits to format expected by OutfitSuggestionDisplay with v4 fields
+          const outfitData = data.outfits.map((outfit: any, index: number) => ({
             outfit_name: outfit.name || "Styled Look",
             item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
             reasoning: outfit.reasoning || "Complete look from your wardrobe.",
+            // v4 Enhanced fields
+            styling_opinion: outfit.styling_opinion,
+            visual_description: outfit.visual_description,
+            boldness_level: outfit.boldness_level,
+            is_safe: data.safe_outfit_index === index,
+            is_bold: data.bold_outfit_index === index,
           }));
 
           // Create outfit tool call
@@ -181,14 +193,24 @@ const AICompanion = () => {
             },
           };
           
-          // Create upgrade recommendation tool call
+          // Create upgrade recommendation tool call with v4 gaps
+          const upgradeData: any = {
+            missingCategories: data.missingCategories || [],
+            reason: data.upgradeMessage || `To create better ${args.occasion || ''} outfits, consider adding: ${data.missingCategories.join(', ')}`,
+            showAsRecommendation: true
+          };
+          
+          // Add v4 wardrobe gaps and upgrade suggestions if present
+          if (data.wardrobe_gaps && data.wardrobe_gaps.length > 0) {
+            upgradeData.wardrobe_gaps = data.wardrobe_gaps;
+          }
+          if (data.upgrade_suggestions && data.upgrade_suggestions.length > 0) {
+            upgradeData.upgrade_suggestions = data.upgrade_suggestions;
+          }
+          
           const upgradeToolCall: ToolCall = {
             type: "wardrobe_insufficient",
-            data: {
-              missingCategories: data.missingCategories || [],
-              reason: data.upgradeMessage || `To create better ${args.occasion || ''} outfits, consider adding: ${data.missingCategories.join(', ')}`,
-              showAsRecommendation: true
-            },
+            data: upgradeData,
           };
           
           // Update messages with BOTH outfits and upgrade suggestions
@@ -250,14 +272,20 @@ const AICompanion = () => {
         }
 
         if (data?.outfits && data.outfits.length > 0) {
-          // Map outfits to format expected by OutfitSuggestionDisplay
-          const outfitData = data.outfits.map((outfit: any) => ({
+          // Map outfits to format expected by OutfitSuggestionDisplay with v4 fields
+          const outfitData = data.outfits.map((outfit: any, index: number) => ({
             outfit_name: outfit.name || "Styled Look",
             item_ids: (outfit.items || []).map((item: any) => item.id).filter(Boolean),
             reasoning: outfit.reasoning || "Complete look from your wardrobe.",
+            // v4 Enhanced fields
+            styling_opinion: outfit.styling_opinion,
+            visual_description: outfit.visual_description,
+            boldness_level: outfit.boldness_level,
+            is_safe: data.safe_outfit_index === index,
+            is_bold: data.bold_outfit_index === index,
           }));
 
-          console.log("Mapped outfit data:", outfitData);
+          console.log("Mapped outfit data with v4 enhancements:", outfitData);
 
           // Create a single tool call with all outfits
           const outfitToolCall: ToolCall = {

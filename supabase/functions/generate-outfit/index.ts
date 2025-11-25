@@ -33,12 +33,23 @@ serve(async (req) => {
       wardrobeItems, 
       maxOutfits,
       userLocation,
-      bypassCache
+      bypassCache,
+      emotionalContext,
+      tasteProfile,
+      conversationMode
     } = await req.json();
 
     const apiKey = getAIApiKey();
 
-    console.log('Generating outfits:', { generationType, occasion, style, anchorItem: anchorItem?.name, bypassCache });
+    console.log('Generating outfits:', { 
+      generationType, 
+      occasion, 
+      style, 
+      anchorItem: anchorItem?.name, 
+      bypassCache,
+      emotionalContext: emotionalContext?.emotional_tone,
+      conversationMode
+    });
 
     // PHASE 2: Flexible wardrobe validation - allow generation unless impossible
     const validateWardrobe = (items: any[]) => {
@@ -189,10 +200,21 @@ serve(async (req) => {
       console.log('🔄 Cache bypassed - forcing fresh generation');
     }
 
-    // Step 1: Generate outfit combinations
-    const prompt = buildOutfitGenerationPrompt(generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation);
+    // Step 1: Generate outfit combinations with v4 enhancements
+    const prompt = buildOutfitGenerationPrompt(
+      generationType, 
+      occasion, 
+      style, 
+      anchorItem, 
+      wardrobeItems, 
+      maxOutfits, 
+      userLocation,
+      emotionalContext,
+      tasteProfile,
+      conversationMode
+    );
 
-    console.log('Calling Gemini API for outfit generation...');
+    console.log('Calling Gemini API for outfit generation with Outfit Engine v4.0...');
     
     const data = await retryWithBackoff(() => callGeminiAPI({
       model: 'google/gemini-2.5-flash',
@@ -236,6 +258,9 @@ serve(async (req) => {
                     styleTag: { type: 'string' },
                     confidence: { type: 'number' },
                     estimated_formality: { type: 'string' },
+                    boldness_level: { type: 'string', enum: ['safe', 'bold'] },
+                    styling_opinion: { type: 'string' },
+                    visual_description: { type: 'string' },
                     warnings: { 
                       type: 'array',
                       items: { type: 'string' }
@@ -245,6 +270,23 @@ serve(async (req) => {
                 }
               },
               totalGenerated: { type: 'number' },
+              safe_outfit_index: { type: 'number' },
+              bold_outfit_index: { type: 'number' },
+              wardrobe_gaps: {
+                type: 'array',
+                items: { type: 'string' }
+              },
+              upgrade_suggestions: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    category: { type: 'string' },
+                    reason: { type: 'string' },
+                    priority: { type: 'string' }
+                  }
+                }
+              },
               missingCategories: {
                 type: 'array',
                 items: { type: 'string' }
@@ -456,7 +498,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Map outfit items and preserve new metadata
+    // Step 2: Map outfit items and preserve v4 metadata
     const outfitsWithItems = result.outfits.map((outfit: any) => {
       const outfitItems = outfit.pieces.map((piece: any) => 
         wardrobeItems.find((item: any) => item.id === piece.wardrobeItemId)
@@ -469,10 +511,13 @@ serve(async (req) => {
         items: outfitItems,
         occasion: occasion,
         style_tag: outfit.styleTag,
-        // New fields from prompt 2
+        // v4 Enhanced fields
         ...(outfit.outfitId && { outfitId: outfit.outfitId }),
         ...(outfit.confidence !== undefined && { confidence: outfit.confidence }),
         ...(outfit.estimated_formality && { estimated_formality: outfit.estimated_formality }),
+        ...(outfit.boldness_level && { boldness_level: outfit.boldness_level }),
+        ...(outfit.styling_opinion && { styling_opinion: outfit.styling_opinion }),
+        ...(outfit.visual_description && { visual_description: outfit.visual_description }),
         ...(outfit.warnings && { warnings: outfit.warnings })
       };
     });
@@ -499,16 +544,21 @@ serve(async (req) => {
     }
 
 
-    // Build response with new metadata
+    // Build response with v4 metadata
     const response: any = {
       success: true,
       outfits: outfitsWithItems,
       needsMoreItems: validation.needsUpgrade || false,
       missingCategories: validation.missingCategories || [],
-      upgradeMessage: validation.needsUpgrade ? validation.reason : null
+      upgradeMessage: validation.needsUpgrade ? validation.reason : null,
+      // v4 Enhanced fields
+      ...(result.safe_outfit_index !== undefined && { safe_outfit_index: result.safe_outfit_index }),
+      ...(result.bold_outfit_index !== undefined && { bold_outfit_index: result.bold_outfit_index }),
+      ...(result.wardrobe_gaps && { wardrobe_gaps: result.wardrobe_gaps }),
+      ...(result.upgrade_suggestions && { upgrade_suggestions: result.upgrade_suggestions })
     };
 
-    // Add new prompt 2 fields if present
+    // Add legacy fields for backward compatibility
     if (result.missingCategories && result.missingCategories.length > 0) {
       response.missingCategories = result.missingCategories;
     }
@@ -521,6 +571,14 @@ serve(async (req) => {
     if (result.notes) {
       response.notes = result.notes;
     }
+
+    console.log('[OUTFIT ENGINE v4.0 OUTPUT]', {
+      total_outfits: outfitsWithItems.length,
+      safe_index: result.safe_outfit_index,
+      bold_index: result.bold_outfit_index,
+      has_gaps: !!result.wardrobe_gaps?.length,
+      has_opinions: outfitsWithItems.some((o: any) => o.styling_opinion)
+    });
 
     // Cache the result
     await setCachedResult(cacheKey, outfitsWithItems);
@@ -548,8 +606,107 @@ function buildOutfitGenerationPrompt(
   anchorItem?: any,
   wardrobeItems?: any[],
   maxOutfits?: number,
-  userLocation?: { temp: number; weather: string; lat: number } | null
+  userLocation?: { temp: number; weather: string; lat: number } | null,
+  emotionalContext?: { emotional_tone: string; soft_mode_required: boolean; confidence: number },
+  tasteProfile?: { color_palette: string; dominant_colors: string[]; style_aesthetic: string[]; wardrobe_size: number },
+  conversationMode?: string
 ): string {
+  // Build enhanced v4.0 prompt with emotional context and taste profile
+  const contextualEnhancements = `
+<OUTFIT_GENERATION_CONTEXT>
+  ${emotionalContext ? `
+  <EMOTIONAL_CONTEXT>
+    <TONE>${emotionalContext.emotional_tone}</TONE>
+    <SOFT_MODE_REQUIRED>${emotionalContext.soft_mode_required}</SOFT_MODE_REQUIRED>
+    <CONFIDENCE>${emotionalContext.confidence}%</CONFIDENCE>
+    
+    STYLING BEHAVIOR:
+    ${emotionalContext.soft_mode_required ? `
+    - Use reassuring, confidence-building language
+    - Suggest safe, comfortable outfit options first
+    - Avoid experimental or bold suggestions unless user explicitly wants them
+    - Focus on making user feel good about their choices
+    ` : emotionalContext.emotional_tone === 'excitement' ? `
+    - Match the excitement with bold, statement-making outfits
+    - Suggest trend-forward combinations
+    - Use enthusiastic, hype language in styling_opinion
+    ` : `
+    - Balanced approach: provide both safe and bold options
+    - Let outfit speak for itself with clear reasoning
+    `}
+  </EMOTIONAL_CONTEXT>
+  ` : ''}
+  
+  ${tasteProfile ? `
+  <TASTE_PROFILE>
+    <WARDROBE_SIZE>${tasteProfile.wardrobe_size}</WARDROBE_SIZE>
+    <COLOR_PALETTE>${tasteProfile.color_palette}</COLOR_PALETTE>
+    <DOMINANT_COLORS>${tasteProfile.dominant_colors.join(', ')}</DOMINANT_COLORS>
+    <STYLE_AESTHETICS>${tasteProfile.style_aesthetic.join(', ')}</STYLE_AESTHETICS>
+    
+    STYLING LOGIC:
+    - Prioritize colors from user's palette: ${tasteProfile.dominant_colors.join(', ')}
+    - Match aesthetic preferences: ${tasteProfile.style_aesthetic.join(', ')}
+    - ${tasteProfile.wardrobe_size < 10 ? 'Create versatile combinations that maximize outfit variety' : 'Explore diverse styling options'}
+  </TASTE_PROFILE>
+  ` : ''}
+  
+  ${conversationMode ? `
+  <CONVERSATION_MODE>${conversationMode}</CONVERSATION_MODE>
+  ` : ''}
+</OUTFIT_GENERATION_CONTEXT>
+
+<OUTFIT_ENGINE_v4_INSTRUCTIONS>
+  
+  1. SAFE + BOLD DUAL OUTPUT LOGIC:
+     ${!occasion || occasion === 'casual' || !style ? `
+     Since occasion/style is ambiguous or casual:
+     - Generate at LEAST 2 outfits
+     - Mark one as "safe" (classic, proven, comfortable)
+     - Mark one as "bold" (experimental, statement, confident)
+     - Set safe_outfit_index and bold_outfit_index in response
+     - User can choose based on mood
+     ` : `
+     Since occasion/style is specific (${occasion || style}):
+     - Generate outfits optimized for the occasion
+     - Still vary boldness levels across outfits
+     - Mark boldness_level: 'safe' or 'bold' for each outfit
+     `}
+  
+  2. INDIAN CULTURAL STYLING RULES (from Module 10):
+     - For ethnic occasions: Kurta sets, sarees, lehengas are PRIMARY
+     - For fusion: Mix ethnic pieces with western (kurta + jeans, palazzo + crop top)
+     - For casual Indian context: Kurtis, ethnic tops work with jeans/trousers
+     - Festivals/weddings: Prioritize traditional silhouettes with modern touches
+     - Office/formal: Shirts, trousers, blazers OR formal ethnic (formal kurta, dress pants)
+  
+  3. WARDROBE GAP ANALYSIS:
+     After generating outfits, analyze wardrobe and identify:
+     - Missing categories that would unlock 5+ new outfit combinations
+     - Items that would elevate existing outfits (blazer, statement accessory)
+     - Return as wardrobe_gaps: ["category: reason", ...]
+     - Return upgrade_suggestions with priority (high/medium/low)
+  
+  4. STYLING OPINION (from Stylist Opinion Engine):
+     For EACH outfit, include styling_opinion field:
+     - Give honest, fashion-smart opinion
+     - Use warm, opinionated language
+     - Example: "This combo is clean—oversized tee balances the fitted jeans perfectly. Very Gen-Z minimalist."
+     - Example: "Bold move with this pattern mix, but the neutral base grounds it. You'll stand out."
+  
+  5. VISUAL DESCRIPTION (from Visual Simulation Engine):
+     For EACH outfit, include visual_description field:
+     - Use imagination-based language
+     - Example: "Picturing this... the rust-brown kurta against your skin tone? Actually fire."
+     - Example: "Visualizing it—black on black with the white sneakers as the pop. Very editorial."
+  
+  6. POST-OUTFIT RECOMMENDATIONS:
+     Always suggest 1-2 items user could add to multiply outfit possibilities:
+     - Focus on high-impact pieces (blazer, statement shoe, versatile bottom)
+     - Explain how it unlocks X more outfit combinations
+</OUTFIT_ENGINE_v4_INSTRUCTIONS>
+`;
+
   // Build the base prompt from existing logic
   const basePrompt = OUTFIT_GENERATION_PROMPTS.BUILD_PROMPT({
     generationType,
@@ -566,5 +723,15 @@ function buildOutfitGenerationPrompt(
 
 ${OUTFIT_ENGINE_PROMPT}
 
-${basePrompt}`;
+${contextualEnhancements}
+
+${basePrompt}
+
+CRITICAL REMINDERS:
+- Include styling_opinion and visual_description for EVERY outfit
+- Mark safe_outfit_index and bold_outfit_index if dual output applies
+- Analyze wardrobe_gaps and provide upgrade_suggestions
+- Respect emotional context in tone and outfit selection
+- Follow Indian cultural styling rules when relevant
+- Return ALL data using the generate_outfit_combinations function tool`;
 }

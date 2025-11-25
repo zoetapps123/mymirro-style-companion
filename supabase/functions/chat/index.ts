@@ -651,11 +651,25 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                 if (functionCall) {
                   // Track outfit generation in conversation state
                   if (functionCall.functionCall.name === 'generate_outfits') {
+                    // Inject emotional context and taste profile into args
+                    functionCall.functionCall.args = {
+                      ...functionCall.functionCall.args,
+                      emotionalContext: emotionalDetection,
+                      tasteProfile: wardrobePersona,
+                      conversationMode: conversationMode,
+                    };
+                    
                     await updateConversationState(supabase, userId, {
                       last_outfit_generation_turn: currentTurn,
                       recommendation_mode: 'outfit',
                       outstanding_question_flag: false,
                       consecutive_outfit_blocks: 0, // Reset block counter on successful generation
+                    });
+                    
+                    console.log('[OUTFIT GENERATION] Injected context:', {
+                      emotional_tone: emotionalDetection.emotional_tone,
+                      conversation_mode: conversationMode,
+                      color_palette: wardrobePersona.color_palette
                     });
                   }
                   
