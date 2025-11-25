@@ -363,6 +363,13 @@ const AICompanion = () => {
         description: errorMsg.includes('timed out') ? 'Request took too long. Try again with fewer items.' : errorMsg,
         variant: "destructive",
       });
+      trackEvent('chat_error', {
+        error_type: 'outfit_generation_failed',
+        error_message: errorMsg,
+        is_timeout: errorMsg.includes('timed out'),
+        wardrobe_item_count: wardrobeItems.length
+      });
+      console.log('[Mixpanel] chat_error:', { error_type: 'outfit_generation_failed' });
     }
   };
 
@@ -611,11 +618,18 @@ const AICompanion = () => {
       console.log(`Compressed ${fileArray.length} image(s) successfully`);
     } catch (error) {
       console.error("Image compression failed:", error);
+      const errorMsg = error instanceof Error ? error.message : "Could not compress images. Please try again.";
       toast({
         title: "Compression Failed",
-        description: error instanceof Error ? error.message : "Could not compress images. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
+      trackEvent('chat_error', {
+        error_type: 'image_compression_failed',
+        error_message: errorMsg,
+        image_count: fileArray.length
+      });
+      console.log('[Mixpanel] chat_error:', { error_type: 'image_compression_failed' });
     } finally {
       setIsLoading(false);
     }
@@ -641,6 +655,11 @@ const AICompanion = () => {
       console.warn("Chat: missing session token");
       setChatError(authMsg);
       toast({ title: "Authentication Required", description: authMsg, variant: "destructive" });
+      trackEvent('chat_error', {
+        error_type: 'auth_session_missing',
+        error_message: authMsg
+      });
+      console.log('[Mixpanel] chat_error:', { error_type: 'auth_session_missing' });
       return;
     }
 
@@ -721,11 +740,17 @@ const AICompanion = () => {
           if (res.status === 402) {
             errorMessage = "Service unavailable. Please contact support.";
             trackCustom("payment_required_error", {}, "system:error");
+            trackEvent('chat_error', { error_type: 'payment_required', status_code: 402, error_message: errorMessage });
+            console.log('[Mixpanel] chat_error:', { error_type: 'payment_required', status_code: 402 });
           } else if (res.status === 401) {
             errorMessage = "Authentication error. Please sign in again.";
             trackCustom("auth_error", {}, "system:error");
+            trackEvent('chat_error', { error_type: 'auth_error', status_code: 401, error_message: errorMessage });
+            console.log('[Mixpanel] chat_error:', { error_type: 'auth_error', status_code: 401 });
           } else {
             trackCustom("chat_api_error", { status: res.status }, "system:error");
+            trackEvent('chat_error', { error_type: 'api_error', status_code: res.status, error_message: errorMessage });
+            console.log('[Mixpanel] chat_error:', { error_type: 'api_error', status_code: res.status });
           }
 
           setChatError(errorMessage);
@@ -1203,16 +1228,25 @@ const AICompanion = () => {
       console.error("Chat error:", error);
 
       let errorMessage = "Failed to get response. Please try again.";
+      let errorType = 'unknown_error';
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           errorMessage = "Request cancelled. Please try again.";
+          errorType = 'request_cancelled';
         } else if (error.message.includes("Failed to fetch")) {
           errorMessage = "Network error. Please check your connection and try again.";
+          errorType = 'network_error';
         }
       }
 
       setChatError(errorMessage);
       trackCustom("chat_error", { error: error instanceof Error ? error.message : "Unknown" }, "system:error");
+      trackEvent('chat_error', {
+        error_type: errorType,
+        error_message: errorMessage,
+        error_details: error instanceof Error ? error.message : 'Unknown'
+      });
+      console.log('[Mixpanel] chat_error:', { error_type: errorType, error_message: errorMessage });
 
       // Log error to backend for customer visibility
       try {
