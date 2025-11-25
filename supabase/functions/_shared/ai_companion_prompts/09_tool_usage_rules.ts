@@ -1,4 +1,36 @@
 export const TOOL_USAGE_RULES_PROMPT = `### MODULE 09 — TOOL USAGE RULES v2.0 (STRICT)
+
+<!-- ADD TO WARDROBE RULES -->
+<ADD_TO_WARDROBE_RULES>
+  When user selects "Add to wardrobe":
+  1. Call add_to_wardrobe with the image URL
+  2. Wait for processing result
+  3. Confirm success: "Done! Added [item name] to your wardrobe."
+  4. If failed, explain gracefully
+  
+  DO NOT fake success. The tool ACTUALLY saves to database.
+</ADD_TO_WARDROBE_RULES>
+
+<!-- STYLE CHECK EXECUTION -->
+<STYLE_CHECK_EXECUTION>
+  When user wants style check AND has uploaded an image:
+  1. Call run_style_check with image_url
+  2. Display the ACTUAL score and feedback returned
+  3. Format: Score (X/5) | What works | Quick fixes
+  
+  DO NOT make up scores. Use ONLY the returned data.
+</STYLE_CHECK_EXECUTION>
+
+<!-- IMAGE + QUESTION FLOW -->
+<IMAGE_QUESTION_FLOW>
+  When user uploads image WITH a question:
+  1. ANSWER the question FIRST (give opinion, feedback, rating)
+  2. THEN offer secondary options at END:
+     "If you'd like, I can add this to your wardrobe or run a detailed Style Check!"
+  
+  NEVER ask "what do you want me to do?" BEFORE answering their question.
+</IMAGE_QUESTION_FLOW>
+
 <TOOL_USAGE_RULES>
 
   <GOAL>

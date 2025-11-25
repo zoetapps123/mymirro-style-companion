@@ -16,7 +16,7 @@ import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
-  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient" | "show_single_item" | "recommend_general_item" | "fetch_wardrobe_items" | "run_style_check";
+  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient" | "show_single_item" | "recommend_general_item" | "fetch_wardrobe_items" | "run_style_check" | "add_to_wardrobe";
   data: any;
   showAsRecommendation?: boolean;
 }
@@ -927,12 +927,22 @@ const AICompanion = () => {
                           });
                           return; // Skip the default push below
                         } else if (name === "run_style_check") {
-                          // PHASE 2: Handle style check redirect
+                          // PHASE 2: Handle style check with results
                           collectedToolCalls.push({
                             type: "run_style_check",
                             data: {
-                              message: args.context || "Head over to the Style Check feature for a detailed analysis of your outfit!",
-                              image_url: args.image_url || null
+                              image_url: args.image_url,
+                              style_result: args.style_result
+                            }
+                          });
+                          return; // Skip the default push below
+                        } else if (name === "add_to_wardrobe") {
+                          // PHASE 1: Handle add to wardrobe
+                          collectedToolCalls.push({
+                            type: "add_to_wardrobe",
+                            data: {
+                              image_url: args.image_url,
+                              processing_result: args.processing_result
                             }
                           });
                           return; // Skip the default push below
@@ -1393,8 +1403,12 @@ const AICompanion = () => {
                     )}
                     {message.toolCalls?.map((tc, tcIdx) => (
                       <div key={tcIdx}>
-                        {tc.type === "show_wardrobe_items" && (
-                          <WardrobeItemsDisplay itemIds={tc.data.item_ids} context={tc.data.context} />
+                        {(tc.type === "show_wardrobe_items" || tc.type === "fetch_wardrobe_items") && (
+                          <WardrobeItemsDisplay 
+                            itemIds={tc.data.item_ids || []} 
+                            items={tc.data.items}
+                            context={tc.data.context} 
+                          />
                         )}
                         {tc.type === "show_single_item" && (
                           <div className="my-3">
@@ -1446,22 +1460,61 @@ const AICompanion = () => {
                         )}
                         
                         {/* PHASE 2: Style Check Tool Call Display */}
-                        {tc.type === "run_style_check" && (
+                        {tc.type === "run_style_check" && tc.data.style_result && (
                           <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                            <p className="text-sm font-medium mb-2">✨ Style Check Feature</p>
-                            <p className="text-sm text-muted-foreground">{tc.data.message}</p>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="mt-3 w-full"
-                              onClick={() => {
-                                // Navigate to Style Check feature
-                                const event = new CustomEvent('navigate-to-tab', { detail: 'style-check' });
-                                window.dispatchEvent(event);
-                              }}
-                            >
-                              Go to Style Check →
-                            </Button>
+                            {tc.data.style_result.error ? (
+                              <div className="flex items-center gap-2 text-destructive">
+                                <AlertCircle className="w-4 h-4" />
+                                <p className="text-sm">{tc.data.style_result.error}</p>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="text-3xl font-bold">{tc.data.style_result.overall_score?.toFixed(1)}</div>
+                                  <div className="text-sm text-muted-foreground">/ 5.0</div>
+                                </div>
+                                
+                                {tc.data.style_result.verdict_positive && (
+                                  <div className="mb-2">
+                                    <p className="text-sm font-medium text-green-500 mb-1">✓ What's working:</p>
+                                    <p className="text-sm text-foreground/80">{tc.data.style_result.verdict_positive}</p>
+                                  </div>
+                                )}
+                                
+                                {tc.data.style_result.verdict_improvements && (
+                                  <div className="mb-2">
+                                    <p className="text-sm font-medium text-orange-500 mb-1">→ Room for improvement:</p>
+                                    <p className="text-sm text-foreground/80">{tc.data.style_result.verdict_improvements}</p>
+                                  </div>
+                                )}
+                                
+                                {tc.data.style_result.quick_fix && (
+                                  <div>
+                                    <p className="text-sm font-medium text-blue-500 mb-1">⚡ Quick fixes:</p>
+                                    <p className="text-sm text-foreground/80">{tc.data.style_result.quick_fix}</p>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* PHASE 1: Add to Wardrobe Tool Call Display */}
+                        {tc.type === "add_to_wardrobe" && (
+                          <div className="mt-2 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                            {tc.data.processing_result?.success ? (
+                              <>
+                                <p className="text-sm font-medium mb-2 text-green-500">✅ Added to wardrobe!</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {tc.data.processing_result.items?.length || 0} item(s) detected and added
+                                </p>
+                              </>
+                            ) : (
+                              <div className="flex items-center gap-2 text-destructive">
+                                <AlertCircle className="w-4 h-4" />
+                                <p className="text-sm">{tc.data.processing_result?.error || "Failed to process image"}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

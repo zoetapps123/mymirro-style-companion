@@ -17,6 +17,11 @@ export interface ConversationState {
   last_mode_used: string | null;
   consecutive_outfit_blocks: number;
   last_5_intents: any[];
+  session_preferences: {
+    boldness_level: 'safe' | 'medium' | 'bold';
+    color_intensity: 'neutral' | 'colorful';
+    formality_bias: 'casual' | 'smart_casual' | 'formal';
+  } | null;
 }
 
 export type ConversationMode = 

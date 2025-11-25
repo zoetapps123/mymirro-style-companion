@@ -728,20 +728,86 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
     const hasImages = messages.some((m: any) => m.images && m.images.length > 0);
     const lastMessageHasImages = lastUserMessage?.images?.length > 0;
     
-    // Block generate_outfits if confidence too low or wrong intent
-    if (intentDetection.confidence < 0.6 || intentDetection.intent === 'general' || intentDetection.intent === 'theory' || intentDetection.intent === 'shopping') {
+    // PHASE 6: Stricter tool blocking for implicit intent
+    const shouldBlockOutfitGeneration = 
+      intentDetection.confidence < 0.6 || 
+      ['general', 'theory', 'shopping', 'wardrobe-info', 'item_only'].includes(intentDetection.intent) ||
+      intentDetection.intent === 'implicit_outfit'; // Block implicit - requires confirmation
+    
+    if (shouldBlockOutfitGeneration) {
       availableTools = tools.filter(t => t.function.name !== 'generate_outfits');
-      console.log('[TOOL BLOCK] generate_outfits removed - confidence below 60% or wrong intent');
+      console.log('[TOOL BLOCK] generate_outfits removed - ', {
+        reason: intentDetection.intent === 'implicit_outfit' ? 'implicit intent requires confirmation' : 'confidence/intent check failed',
+        intent: intentDetection.intent,
+        confidence: intentDetection.confidence
+      });
     }
     
-    // Image upload detection - inject prompt to ask user intent
+    // PHASE 3: Image upload detection - ANSWER FIRST, then offer options
     if (lastMessageHasImages) {
-      antiSpamInstruction += `\n\n📸 IMAGE DETECTED - DO NOT auto-process. Ask user:
-"I see you've uploaded an image! What would you like me to do?
-1. Add this to your wardrobe
-2. Run a style check on this outfit
+      // Check if user asked a question
+      const hasQuestion = /\?|how|what|rate|check|does this|is this|would this|good|bad|work/i.test(lastUserMessage?.content || '');
+      
+      if (hasQuestion) {
+        // User asked a question - instruct AI to answer FIRST
+        antiSpamInstruction += `\n\n📸 IMAGE WITH QUESTION DETECTED:
+1. FIRST: Answer the user's question about the outfit (give style feedback, rating, or opinion)
+2. THEN at the END of your response, offer secondary options:
+   "If you'd like, I can also:
+   • Add pieces from this to your wardrobe
+   • Run a detailed Style Check
+   Or we can just keep chatting!"
+DO NOT ask what they want to do BEFORE answering their question.`;
+      } else {
+        // No question - just uploaded an image, ask what they want
+        antiSpamInstruction += `\n\n📸 IMAGE UPLOADED (no question):
+Ask user: "Nice! What would you like me to do with this?
+1. Add to wardrobe
+2. Run a style check  
 3. Just want your opinion"
 WAIT for user response before taking any action.`;
+      }
+    }
+    
+    // PHASE 5: Session preference detection
+    const preferencePatterns = {
+      boldness: {
+        bolder: /\b(not bold enough|too safe|more adventurous|push me|experiment)\b/i,
+        safer: /\b(too bold|too much|tone it down|more classic|safer)\b/i
+      },
+      color: {
+        colorful: /\b(more color|colorful|vibrant|pop of color|brighter)\b/i,
+        neutral: /\b(too colorful|more neutral|toned down|muted)\b/i
+      }
+    };
+    
+    // Update session preferences based on feedback
+    if (lastUserMessage?.content) {
+      const currentPrefs = conversationState?.session_preferences || {
+        boldness_level: 'medium',
+        color_intensity: 'neutral',
+        formality_bias: 'casual'
+      };
+      
+      if (preferencePatterns.boldness.bolder.test(lastUserMessage.content)) {
+        await updateConversationState(supabase, userId, {
+          session_preferences: { ...currentPrefs, boldness_level: 'bold' }
+        });
+      } else if (preferencePatterns.boldness.safer.test(lastUserMessage.content)) {
+        await updateConversationState(supabase, userId, {
+          session_preferences: { ...currentPrefs, boldness_level: 'safe' }
+        });
+      }
+      
+      if (preferencePatterns.color.colorful.test(lastUserMessage.content)) {
+        await updateConversationState(supabase, userId, {
+          session_preferences: { ...currentPrefs, color_intensity: 'colorful' }
+        });
+      } else if (preferencePatterns.color.neutral.test(lastUserMessage.content)) {
+        await updateConversationState(supabase, userId, {
+          session_preferences: { ...currentPrefs, color_intensity: 'neutral' }
+        });
+      }
     }
 
     console.log('Chat: calling Gemini API', {
@@ -824,6 +890,82 @@ WAIT for user response before taking any action.`;
                 // Handle function calls
                 const functionCall = candidate.content?.parts?.find((p: any) => p.functionCall);
                 if (functionCall) {
+                  // PHASE 2: run_style_check handler - call score-outfit
+                  if (functionCall.functionCall.name === 'run_style_check') {
+                    const imageUrl = functionCall.functionCall.args.image_url;
+                    
+                    if (imageUrl) {
+                      try {
+                        console.log('[RUN_STYLE_CHECK] Calling score-outfit:', { imageUrl });
+                        
+                        const scoreResponse = await fetch(`${supabaseUrl}/functions/v1/score-outfit`, {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': authHeader,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ 
+                            imageData: imageUrl,
+                            occasion: functionCall.functionCall.args.occasion,
+                            style: functionCall.functionCall.args.style
+                          })
+                        });
+                        
+                        if (scoreResponse.ok) {
+                          const styleResult = await scoreResponse.json();
+                          functionCall.functionCall.args.style_result = styleResult;
+                          console.log('[RUN_STYLE_CHECK] Success:', styleResult);
+                        } else {
+                          const errorText = await scoreResponse.text();
+                          console.error('[RUN_STYLE_CHECK] Failed:', errorText);
+                          functionCall.functionCall.args.style_result = { error: 'Failed to analyze outfit' };
+                        }
+                      } catch (error) {
+                        console.error('[RUN_STYLE_CHECK] Error:', error);
+                        functionCall.functionCall.args.style_result = { error: 'Failed to analyze outfit' };
+                      }
+                    }
+                  }
+                  
+                  // PHASE 1: add_to_wardrobe handler - call process-wardrobe
+                  if (functionCall.functionCall.name === 'add_to_wardrobe') {
+                    const imageUrl = functionCall.functionCall.args.image_url;
+                    
+                    if (imageUrl) {
+                      try {
+                        console.log('[ADD_TO_WARDROBE] Calling process-wardrobe:', { imageUrl });
+                        
+                        const processResponse = await fetch(`${supabaseUrl}/functions/v1/process-wardrobe`, {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': authHeader,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ imageUrl })
+                        });
+                        
+                        if (processResponse.ok) {
+                          const result = await processResponse.json();
+                          functionCall.functionCall.args.processing_result = result;
+                          console.log('[ADD_TO_WARDROBE] Success:', result);
+                        } else {
+                          const errorText = await processResponse.text();
+                          console.error('[ADD_TO_WARDROBE] Failed:', errorText);
+                          functionCall.functionCall.args.processing_result = { 
+                            success: false, 
+                            error: 'Failed to process image' 
+                          };
+                        }
+                      } catch (error) {
+                        console.error('[ADD_TO_WARDROBE] Error:', error);
+                        functionCall.functionCall.args.processing_result = { 
+                          success: false, 
+                          error: 'Failed to process image' 
+                        };
+                      }
+                    }
+                  }
+                  
                   // PHASE 2: fetch_wardrobe_items handler - filter and convert to show_wardrobe_items
                   if (functionCall.functionCall.name === 'fetch_wardrobe_items') {
                     const category = functionCall.functionCall.args.category;
@@ -852,9 +994,10 @@ WAIT for user response before taking any action.`;
                   
                   // Track outfit generation in conversation state
                   if (functionCall.functionCall.name === 'generate_outfits') {
-                    // Inject emotional context and taste profile into args
+                    // PHASE 5: Inject emotional context, taste profile, and session preferences into args
                     functionCall.functionCall.args = {
                       ...functionCall.functionCall.args,
+                      session_preferences: conversationState?.session_preferences,
                       emotionalContext: emotionalDetection,
                       tasteProfile: wardrobePersona,
                       conversationMode: conversationMode,
