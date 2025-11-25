@@ -652,6 +652,18 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               transition={{ duration: 0.3, delay: idx * 0.05 }}
               className="flex-shrink-0 w-[280px] cursor-pointer"
               onClick={() => {
+                console.log('[Mixpanel] outfit_card_clicked:', { 
+                  outfit_name: outfit.name,
+                  source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor'
+                });
+                
+                trackEvent('outfit_card_clicked', {
+                  outfit_id: outfit.id,
+                  outfit_name: outfit.name,
+                  source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                  section: selectedOccasion ? 'Select your occasion' : selectedStyle ? 'Select your Style' : 'From My Items'
+                });
+                
                 // TRACK EVENT
                 trackCustom('outfit_card_clicked', {
                   outfit_id: outfit.id,
@@ -695,6 +707,14 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                           className="flex-1"
                           onClick={(e) => {
                             e.stopPropagation();
+                            
+                            console.log('[Mixpanel] outfit_view_clicked:', { outfit_name: outfit.name });
+                            
+                            trackEvent('outfit_view_clicked', {
+                              outfit_id: outfit.id,
+                              outfit_name: outfit.name
+                            });
+                            
                             trackCustom('outfit_view_clicked', {
                               outfit_id: outfit.id,
                               outfit_name: outfit.name,
@@ -717,6 +737,19 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!isSaved) {
+                              console.log('[Mixpanel] outfit_saved_to_lookbook:', { 
+                                outfit_name: outfit.name,
+                                occasion: outfit.occasion,
+                                style_tag: outfit.style_tag
+                              });
+                              
+                              trackEvent('outfit_saved_to_lookbook', {
+                                outfit_id: outfit.id,
+                                outfit_name: outfit.name,
+                                occasion: outfit.occasion,
+                                style_tag: outfit.style_tag
+                              });
+                              
                               trackCustom('outfit_saved_to_lookbook', {
                                 outfit_id: outfit.id,
                                 outfit_name: outfit.name,
@@ -828,12 +861,24 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
             </div>
             <Button
               onClick={() => {
+                const totalOutfits = [
+                  ...Object.values(occasionOutfits).flat(),
+                  ...Object.values(styleOutfits).flat(),
+                  ...anchorOutfits
+                ].length;
+                
+                console.log('[Mixpanel] outfit_regenerate_clicked:', {
+                  previous_outfit_count: totalOutfits,
+                  wardrobe_item_count: wardrobeItems.length
+                });
+                
+                trackEvent('outfit_regenerate_clicked', {
+                  previous_outfit_count: totalOutfits,
+                  wardrobe_item_count: wardrobeItems.length
+                });
+                
                 trackCustom('outfit_regenerate_all_clicked', {
-                  previous_outfit_count: [
-                    ...Object.values(occasionOutfits).flat(),
-                    ...Object.values(styleOutfits).flat(),
-                    ...anchorOutfits
-                  ].length,
+                  previous_outfit_count: totalOutfits,
                   wardrobe_item_count: wardrobeItems.length,
                   has_new_items: hasNewItems,
                   element_id: 'regenerate-all-btn',
@@ -867,6 +912,20 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 onClick={() => {
                   setSelectedOccasion(occasion);
                   localStorage.setItem('last_selected_occasion', occasion);
+                  
+                  console.log('[Mixpanel] occasion_selected:', { 
+                    occasion, 
+                    section: 'Select your occasion',
+                    has_existing_outfits: !!occasionOutfits[occasion]?.length,
+                    outfit_count: occasionOutfits[occasion]?.length || 0
+                  });
+                  
+                  trackEvent('occasion_selected', {
+                    occasion,
+                    section: 'Select your occasion',
+                    has_existing_outfits: !!occasionOutfits[occasion]?.length,
+                    outfit_count: occasionOutfits[occasion]?.length || 0
+                  });
                   
                   // TRACK EVENT
                   trackCustom('outfit_generation_occasion_selected', {
@@ -910,6 +969,20 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                 onClick={() => {
                   setSelectedStyle(style);
                   localStorage.setItem('last_selected_style', style);
+                  
+                  console.log('[Mixpanel] style_selected:', { 
+                    style, 
+                    section: 'Select your Style',
+                    has_existing_outfits: !!styleOutfits[style]?.length,
+                    outfit_count: styleOutfits[style]?.length || 0
+                  });
+                  
+                  trackEvent('style_selected', {
+                    style,
+                    section: 'Select your Style',
+                    has_existing_outfits: !!styleOutfits[style]?.length,
+                    outfit_count: styleOutfits[style]?.length || 0
+                  });
                   
                   // TRACK EVENT
                   trackCustom('outfit_generation_style_selected', {
@@ -975,6 +1048,19 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                     if (selectedAnchorItem?.id !== item.id) {
                       setAnchorOutfits([]);
                     }
+                    
+                    console.log('[Mixpanel] anchor_item_selected:', { 
+                      item_name: item.name, 
+                      item_category: item.category,
+                      section: 'From My Items'
+                    });
+                    
+                    trackEvent('anchor_item_selected', {
+                      item_id: item.id,
+                      item_name: item.name,
+                      item_category: item.category,
+                      section: 'From My Items'
+                    });
                     
                     // TRACK EVENT
                     trackCustom('outfit_generation_anchor_selected', {
