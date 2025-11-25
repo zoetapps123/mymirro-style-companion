@@ -17,7 +17,7 @@ const safeLocalStorage = {
 };
 
 const Wardrobe = () => {
-  const { trackScreenView } = useAnalytics();
+  // const { trackScreenView } = useAnalytics();
   
   // Restore last view from localStorage
   const getInitialView = (): WardrobeView => {
@@ -32,7 +32,7 @@ const Wardrobe = () => {
     safeLocalStorage.set('wardrobe_current_view', currentView);
   }, [currentView]);
   
-  // Track virtual page views for wardrobe sub-views with consistent route naming
+  // Track virtual page views for wardrobe sub-views (Mixpanel only here to avoid duplicate backend analytics)
   useEffect(() => {
     const routeMap: Record<WardrobeView, string> = {
       'items': WARDROBE_ROUTES.GALLERY,
@@ -44,18 +44,7 @@ const Wardrobe = () => {
     const route = routeMap[currentView];
     const title = WARDROBE_PAGE_TITLES[route];
     
-    // Supabase analytics
-    trackScreenView(
-      `wardrobe-${currentView}`,
-      { 
-        wardrobe_view: currentView,
-        page_title: title
-      },
-      route,
-      route
-    );
-
-    // Mixpanel analytics
+    // Mixpanel analytics only (backend analytics auto-track route already)
     const mixpanelScreenMap: Record<WardrobeView, { name: string; path: string }> = {
       'items': { name: SCREEN_NAMES.WARDROBE_GALLERY, path: SCREEN_PATHS.WARDROBE_GALLERY },
       'suggestion': { name: SCREEN_NAMES.WARDROBE_OUTFITS, path: SCREEN_PATHS.WARDROBE_OUTFITS },
@@ -63,8 +52,8 @@ const Wardrobe = () => {
       'lookbook': { name: SCREEN_NAMES.WARDROBE_LOOKBOOK, path: SCREEN_PATHS.WARDROBE_LOOKBOOK }
     };
     const screenInfo = mixpanelScreenMap[currentView];
-    trackPageView(screenInfo.name, screenInfo.path, { wardrobe_view: currentView });
-  }, [currentView, trackScreenView]);
+    trackPageView(screenInfo.name, screenInfo.path, { wardrobe_view: currentView, page_title: title });
+  }, [currentView]);
 
   const renderView = () => {
     switch (currentView) {
