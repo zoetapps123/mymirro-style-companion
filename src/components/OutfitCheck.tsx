@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { trackPageView } from "@/lib/mixpanel";
+import { trackPageView, trackEvent } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 interface OutfitCheckProps {
@@ -179,12 +179,20 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
             mapDetectedItemToDbRecord(item, user.id, publicUrl, publicUrl)
           ]).select('*');
 
-          if (!insertError) {
+          if (!insertError && insertedRows && insertedRows.length > 0) {
             addedCount++;
             addedItemsPreview.push({
               name: item.name,
               category: item.category,
               image_url: publicUrl,
+            });
+            
+            // Mixpanel: Track wardrobe item extracted
+            trackEvent('wardrobe_item_added', {
+              item_id: insertedRows[0].id,
+              item_name: item.name,
+              category: item.category,
+              source: 'style_check_extraction'
             });
           }
         }

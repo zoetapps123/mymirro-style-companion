@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generateOutfitComposite, dataUrlToBlob } from '@/lib/outfitImageGenerator';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { trackEvent } from '@/lib/mixpanel';
 
 interface WardrobeItem {
   id: string;
@@ -313,6 +314,15 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
           item_count: selectedItems.length,
         }, 'Outfit Detail - Saved to Lookbook');
 
+        // Mixpanel: Track outfit saved
+        trackEvent('outfit_saved', {
+          outfit_id: outfit.id,
+          outfit_name: outfit.name,
+          occasion: outfit.occasion,
+          item_count: selectedItems.length,
+          source: 'outfit_detail'
+        });
+
         toast({
           title: "Saved!",
           description: "Outfit added to your lookbook"
@@ -356,6 +366,15 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
         console.error('Items insert error:', itemsError);
         throw itemsError;
       }
+
+      // Mixpanel: Track new outfit saved
+      trackEvent('outfit_saved', {
+        outfit_id: newOutfit.id,
+        outfit_name: outfit.name,
+        occasion: outfit.occasion,
+        item_count: selectedItems.length,
+        source: 'outfit_detail'
+      });
 
       toast({
         title: "Saved!",
