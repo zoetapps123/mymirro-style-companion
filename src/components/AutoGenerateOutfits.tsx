@@ -58,6 +58,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     const startTime = Date.now();
     
     // Track auto-generate started
+    console.log('[AutoGenerate] Starting outfit generation', { wardrobeItems: wardrobeItems.length });
     trackEvent('auto_generate_outfits_started', {
       wardrobe_item_count: wardrobeItems.length
     });
@@ -82,6 +83,10 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
       const duration = Date.now() - startTime;
       
       // Track successful generation
+      console.log('[AutoGenerate] Generation completed', { 
+        styleCount: (data.styleOutfits || []).length,
+        occasionCount: (data.occasionOutfits || []).length 
+      });
       trackEvent('auto_generate_outfits_completed', {
         wardrobe_item_count: wardrobeItems.length,
         style_outfit_count: (data.styleOutfits || []).length,
@@ -118,6 +123,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     <div 
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => {
+        console.log('[AutoGenerate] Outfit selected', { type: outfit.type, label: outfit.label });
         trackEvent('auto_generated_outfit_selected', {
           outfit_type: outfit.type,
           outfit_label: outfit.label,
@@ -185,6 +191,7 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         {!loading && (styleOutfits.length > 0 || occasionOutfits.length > 0) && (
           <Button 
             onClick={() => {
+              console.log('[AutoGenerate] Regenerate clicked');
               trackEvent('auto_generate_outfits_regenerate_clicked', {
                 previous_style_count: styleOutfits.length,
                 previous_occasion_count: occasionOutfits.length
