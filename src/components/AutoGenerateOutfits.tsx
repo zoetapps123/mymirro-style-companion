@@ -122,11 +122,13 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     <div 
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => {
+        console.log('[AutoGenerate] Outfit clicked:', outfit.label);
         trackEvent('auto_generated_outfit_selected', {
           outfit_type: outfit.type,
           outfit_label: outfit.label,
           item_count: outfit.items.length
         });
+        console.log('[AutoGenerate] Track event called');
         setEditingOutfit(outfit);
       }}
     >
