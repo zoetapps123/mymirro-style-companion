@@ -212,6 +212,30 @@ serve(async (req) => {
       console.error('Failed to fetch user context:', e);
     }
 
+    // PHASE 7: Add Explicit Confirmation System
+    const confirmationInstruction = `
+<CONFIRMATION_RULES>
+  BEFORE calling ANY tool, you MUST:
+  
+  1. For outfits:
+     - If user EXPLICITLY says "create/generate/suggest outfits" → proceed
+     - If UNCLEAR → ask "Would you like me to create some outfit suggestions?"
+     
+  2. For images:
+     - ALWAYS ask: "What would you like me to do with this image?"
+     - Options: Add to wardrobe / Get feedback / Just chatting
+     
+  3. For wardrobe:
+     - If user asks to SEE items → show items (no outfits)
+     - If user asks to STYLE with items → ask occasion first
+     
+  4. For shopping:
+     - Only when user explicitly asks "what should I buy"
+     
+  NEVER auto-trigger features. ALWAYS confirm intent first.
+</CONFIRMATION_RULES>
+`;
+
     // Build system prompt with anti-spam instructions
     let antiSpamInstruction = '';
     if (!canGenerate && (intentDetection.intent === 'explicit_outfit' || intentDetection.intent === 'implicit_outfit')) {
@@ -226,7 +250,7 @@ serve(async (req) => {
     }
     
     const basePrompt = buildAICompanionPrompt();
-    const systemPrompt = basePrompt + antiSpamInstruction;
+    const systemPrompt = basePrompt + confirmationInstruction + antiSpamInstruction;
     
     // CRITICAL VALIDATION: Ensure system prompt is present
     if (!systemPrompt || systemPrompt.trim().length === 0) {
@@ -640,10 +664,34 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
       }
     ];
 
+    // PHASE 2: Tool blocking - Remove generate_outfits if confidence < 60% or wrong intent
+    let availableTools = [...tools];
+    const hasImages = messages.some((m: any) => m.images && m.images.length > 0);
+    const lastMessageHasImages = lastUserMessage?.images?.length > 0;
+    
+    // Block generate_outfits if confidence too low or wrong intent
+    if (intentDetection.confidence < 0.6 || intentDetection.intent === 'general' || intentDetection.intent === 'theory' || intentDetection.intent === 'shopping') {
+      availableTools = tools.filter(t => t.function.name !== 'generate_outfits');
+      console.log('[TOOL BLOCK] generate_outfits removed - confidence below 60% or wrong intent');
+    }
+    
+    // Image upload detection - inject prompt to ask user intent
+    if (lastMessageHasImages) {
+      antiSpamInstruction += `\n\n📸 IMAGE DETECTED - DO NOT auto-process. Ask user:
+"I see you've uploaded an image! What would you like me to do?
+1. Add this to your wardrobe
+2. Run a style check on this outfit
+3. Just want your opinion"
+WAIT for user response before taking any action.`;
+    }
+
     console.log('Chat: calling Gemini API', {
       model: 'google/gemini-2.5-flash',
       messageCount: processedMessages.length,
-      toolsCount: tools.length
+      toolsCount: availableTools.length,
+      toolsBlocked: tools.length - availableTools.length,
+      hasImages: hasImages,
+      lastMessageHasImages: lastMessageHasImages
     });
 
     // FINAL VALIDATION: Ensure systemPrompt hasn't been corrupted
@@ -665,7 +713,7 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
         { role: "system", content: `${wardrobeSummary}\n\n${wardrobeJSON}\n\n${battlesJSON}\n\n${styleChecksJSON}` },
         ...processedMessages
       ],
-      tools,
+      tools: availableTools,
       temperature: 0.7,
       max_tokens: 2048
     }));
@@ -717,6 +765,32 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                 // Handle function calls
                 const functionCall = candidate.content?.parts?.find((p: any) => p.functionCall);
                 if (functionCall) {
+                  // PHASE 2: fetch_wardrobe_items handler - filter and convert to show_wardrobe_items
+                  if (functionCall.functionCall.name === 'fetch_wardrobe_items') {
+                    const category = functionCall.functionCall.args.category;
+                    let filteredItems = wardrobeItems || [];
+                    
+                    if (category && category !== 'All') {
+                      filteredItems = wardrobeItems.filter((item: any) => 
+                        item.category?.toLowerCase() === category.toLowerCase()
+                      );
+                    }
+                    
+                    console.log('[FETCH_WARDROBE_ITEMS]', {
+                      category,
+                      totalItems: wardrobeItems.length,
+                      filteredCount: filteredItems.length
+                    });
+                    
+                    // Convert to show_wardrobe_items format
+                    functionCall.functionCall.name = 'show_wardrobe_items';
+                    functionCall.functionCall.args = {
+                      item_ids: filteredItems.map((i: any) => i.id),
+                      context: category && category !== 'All' ? `Your ${category}` : 'Your wardrobe items',
+                      items: filteredItems // Include full item data
+                    };
+                  }
+                  
                   // Track outfit generation in conversation state
                   if (functionCall.functionCall.name === 'generate_outfits') {
                     // Inject emotional context and taste profile into args

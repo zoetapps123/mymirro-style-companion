@@ -1,11 +1,12 @@
 export interface IntentDetection {
-  intent: 'explicit_outfit' | 'implicit_outfit' | 'item_only' | 'shopping' | 'theory' | 'general' | 'wardrobe-info' | 'visual_simulation';
+  intent: 'explicit_outfit' | 'implicit_outfit' | 'item_only' | 'shopping' | 'theory' | 'general' | 'wardrobe-info' | 'visual_simulation' | 'style_check' | 'image_upload_context';
   confidence: number;
   occasion?: string;
   category?: string; // For item_only requests
-  query_type: 'new_outfit' | 'styling_question' | 'wardrobe_query' | 'shopping_request' | 'general_chat' | 'theory_question' | 'visual_simulation';
+  query_type: 'new_outfit' | 'styling_question' | 'wardrobe_query' | 'shopping_request' | 'general_chat' | 'theory_question' | 'visual_simulation' | 'style_check' | 'confirmation_needed';
   is_continuation: boolean;
   context_weight: number;
+  has_images?: boolean;
 }
 
 export function detectIntent(
@@ -38,6 +39,19 @@ export function detectIntent(
       query_type: 'general_chat',
       is_continuation: isContinuation,
       context_weight: 0.1
+    };
+  }
+
+  // STYLE CHECK DETECTION - "style check", "check my outfit", "rate this fit"
+  const styleCheckPatterns = /\b(style check|check (my |this |the )?(outfit|fit|look)|rate (my |this |the )?(outfit|fit|look)|score (my |this |the )?(outfit|fit|look))\b/i;
+  if (styleCheckPatterns.test(userMessage)) {
+    console.log('[Intent Detection] Style check request detected');
+    return {
+      intent: 'style_check',
+      confidence: 0.95,
+      query_type: 'style_check',
+      is_continuation: isContinuation,
+      context_weight: 0.9
     };
   }
 
@@ -83,11 +97,12 @@ export function detectIntent(
     };
   }
 
-  // EXPLICIT OUTFIT REQUEST - Strong keywords (MUST be high confidence)
-  const explicitOutfitPatterns = /\b(create|build|make|generate|suggest|give me|show me|design|put together|style|plan).*(outfit|look|ensemble|fit|ootd)\b/i;
-  const strongOccasionPatterns = /\bfor (a |an |my |the )?(wedding|party|date|interview|meeting|gym|work|office|casual|formal|dinner|brunch|beach|night out|club|concert|event|trip|vacation)\b/i;
+  // EXPLICIT OUTFIT REQUEST - STRICTER - ONLY these exact patterns trigger outfits
+  const explicitOutfitPatterns = /\b(create|generate|give me|show me|suggest|make me|build me|pick|style me (for)?).*(outfit|outfits|look|looks|fit|fits|ootd)\b/i;
+  const strongOccasionPatterns = /\b(outfit|look|fit) for (a |an |my |the )?(wedding|party|date|interview|meeting|gym|work|office|casual|formal|dinner|brunch|beach|night out|club|concert|event|trip|vacation)\b/i;
+  const directStyleRequests = /\b(what should i wear|what to wear|dress me|pick my outfit|help me (dress|style)|style me)\b/i;
   
-  if (explicitOutfitPatterns.test(userMessage) || strongOccasionPatterns.test(userMessage)) {
+  if (explicitOutfitPatterns.test(userMessage) || strongOccasionPatterns.test(userMessage) || directStyleRequests.test(userMessage)) {
     const occasionMatch = userMessage.match(strongOccasionPatterns);
     console.log('[Intent Detection] Explicit outfit request detected');
     return {
@@ -100,32 +115,21 @@ export function detectIntent(
     };
   }
 
-  // IMPLICIT OUTFIT REQUEST - Weaker signals (STRICTER - must reach 60% confidence)
-  const implicitOutfitPatterns = /\b(what (should|can|could) i wear|help me (dress|style|choose|pick)|outfit (idea|help|advice)|dress me|style me|what to wear|clothing (help|advice))\b/i;
+  // IMPLICIT OUTFIT REQUEST - MUCH STRICTER - Lower confidence to 0.45 (below 60% threshold)
+  const implicitOutfitPatterns = /\b(going (to|for)|have (a|an)|attending|need to look|want to look|dress (for|up for))\b/i;
   
   if (implicitOutfitPatterns.test(userMessage)) {
     console.log('[Intent Detection] Implicit outfit request detected');
-    // Only allow if continuation OR high context weight
-    const baseConfidence = (isContinuation && hasRecentOutfitContext) ? 0.7 : 0.55;
+    // Lower confidence to 0.45 - below 60% threshold to block auto-generation
+    const baseConfidence = 0.45;
     
-    // If confidence is below 60%, downgrade to general
-    if (baseConfidence < 0.6 && !isContinuation) {
-      console.log('[Intent Detection] Implicit confidence too low, downgrading to general');
-      return {
-        intent: 'general',
-        confidence: 0.4,
-        query_type: 'general_chat',
-        is_continuation: isContinuation,
-        context_weight: 0.3
-      };
-    }
-    
+    console.log('[Intent Detection] Implicit confidence below 60% - requires confirmation');
     return {
       intent: 'implicit_outfit',
       confidence: baseConfidence,
-      query_type: 'styling_question',
+      query_type: 'confirmation_needed',
       is_continuation: isContinuation,
-      context_weight: hasRecentOutfitContext ? 0.8 : 0.5
+      context_weight: hasRecentOutfitContext ? 0.5 : 0.3
     };
   }
 

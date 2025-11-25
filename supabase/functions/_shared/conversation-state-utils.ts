@@ -30,7 +30,9 @@ export type ConversationMode =
   | 'CHALLENGE_MODE'
   | 'ROAST_MODE'
   | 'FEEDBACK_MODE'
-  | 'EMOTIONAL_SUPPORT';
+  | 'EMOTIONAL_SUPPORT'
+  | 'CONFIRMATION_PENDING'
+  | 'IMAGE_UPLOAD_PENDING';
 
 export async function getConversationState(
   supabase: SupabaseClient,
@@ -203,40 +205,49 @@ export function canGenerateOutfit(
   state: ConversationState,
   intent: { intent: string; confidence: number },
   wardrobeItemCount: number,
-  emotionalContext?: { soft_mode_required: boolean }
+  emotionalContext?: { soft_mode_required: boolean },
+  hasImages?: boolean
 ): boolean {
-  // STRICT GUARD 1: Emotional/soft mode - NEVER generate outfits
+  // PHASE 4: Enhanced strict guards
+  
+  // STRICT GUARD 1: Block if images uploaded without explicit outfit request
+  if (hasImages && intent.intent !== 'explicit_outfit') {
+    console.log('[Outfit Generation] BLOCKED: Image uploaded - needs user choice');
+    return false;
+  }
+  
+  // STRICT GUARD 2: Emotional/soft mode - NEVER generate outfits
   if (emotionalContext?.soft_mode_required) {
     console.log('[Outfit Generation] BLOCKED: Soft mode active (emotional support needed)');
     return false;
   }
 
-  // STRICT GUARD 2: Must have at least 5 items in wardrobe
+  // STRICT GUARD 3: Must have at least 5 items in wardrobe
   if (wardrobeItemCount < 5) {
     console.log('[Outfit Generation] BLOCKED: Insufficient wardrobe items (<5)');
     return false;
   }
 
-  // STRICT GUARD 3: Must be outfit intent with sufficient confidence
-  if (intent.intent !== 'explicit_outfit' && intent.intent !== 'implicit_outfit') {
-    console.log('[Outfit Generation] BLOCKED: Not an outfit request');
+  // STRICT GUARD 4: Must be explicit outfit intent ONLY
+  if (intent.intent !== 'explicit_outfit') {
+    console.log('[Outfit Generation] BLOCKED: Not an explicit outfit request');
     return false;
   }
 
-  // STRICT GUARD 4: Confidence must be ≥60%
+  // STRICT GUARD 5: Confidence must be ≥60%
   if (intent.confidence < 0.6) {
     console.log('[Outfit Generation] BLOCKED: Confidence too low (<60%)');
     return false;
   }
 
-  // STRICT GUARD 5: 2-TURN COOLDOWN - enforce strictly
+  // STRICT GUARD 6: 2-TURN COOLDOWN - enforce strictly
   const turnsSinceOutfit = state.current_turn - (state.last_outfit_generation_turn || 0);
   if (turnsSinceOutfit < 2) {
     console.log(`[Outfit Generation] BLOCKED: Cooldown active (${turnsSinceOutfit}/2 turns)`);
     return false;
   }
 
-  // STRICT GUARD 6: If user has been blocked 3+ times consecutively, they want to chat
+  // STRICT GUARD 7: If user has been blocked 3+ times consecutively, they want to chat
   if (state.consecutive_outfit_blocks && state.consecutive_outfit_blocks >= 3) {
     console.log('[Outfit Generation] BLOCKED: Too many consecutive blocks (user wants to chat)');
     return false;
