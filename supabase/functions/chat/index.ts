@@ -11,11 +11,16 @@ import { retryWithBackoff } from '../_shared/retry-utils.ts';
 import { 
   getConversationState, 
   updateConversationState, 
-  incrementTurn 
+  incrementTurn,
+  trackIntent,
+  determineConversationMode,
+  canGenerateOutfit
 } from '../_shared/conversation-state-utils.ts';
 import { validateWardrobe } from '../_shared/wardrobe-validation-utils.ts';
 import { detectIntent } from '../_shared/intent-detection-utils.ts';
 import { inferOccasion } from '../_shared/occasion-inference-utils.ts';
+import { detectEmotionalSubtext } from '../_shared/emo-detection-utils.ts';
+import { getPreferences, getWardrobePersona, savePreference, updateTasteCalibration } from '../_shared/memory-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,11 +82,19 @@ serve(async (req) => {
       wardrobe_validation_state: wardrobeValidation,
     });
 
-    // Detect intent from last user message
+    // Get recent intent history for context
+    const recentIntents = conversationState?.last_5_intents || [];
+
+    // Detect intent from last user message WITH CONTEXT
     const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
     const intentDetection = lastUserMessage 
-      ? detectIntent(lastUserMessage.content) 
-      : { intent: 'general', confidence: 0, query_type: 'general' };
+      ? detectIntent(lastUserMessage.content, recentIntents) 
+      : { intent: 'general', confidence: 0, query_type: 'general', is_continuation: false, context_weight: 0 };
+
+    // Detect emotional subtext
+    const emotionalDetection = lastUserMessage
+      ? detectEmotionalSubtext(lastUserMessage.content)
+      : { emotional_tone: 'neutral', confidence: 0, soft_mode_required: false, signals: [] };
 
     // Infer occasion
     const occasionInference = lastUserMessage
@@ -93,16 +106,45 @@ serve(async (req) => {
       intent: intentDetection.intent,
       confidence: intentDetection.confidence,
       query_type: intentDetection.query_type,
-      occasion: occasionInference.inferred_occasion
+      occasion: occasionInference.inferred_occasion,
+      is_continuation: intentDetection.is_continuation,
+      context_weight: intentDetection.context_weight
     });
 
-    // Update conversation state with detected intent
+    console.log('[EMOTIONAL DETECTION]', {
+      tone: emotionalDetection.emotional_tone,
+      confidence: emotionalDetection.confidence,
+      soft_mode: emotionalDetection.soft_mode_required,
+      signals: emotionalDetection.signals
+    });
+
+    // Determine conversation mode using state machine
+    const conversationMode = determineConversationMode(
+      conversationState!,
+      intentDetection,
+      emotionalDetection
+    );
+
+    console.log('[CONVERSATION MODE]', conversationMode);
+
+    // Track intent in history
+    await trackIntent(
+      supabase,
+      userId,
+      intentDetection.intent,
+      intentDetection.confidence,
+      intentDetection.query_type
+    );
+
+    // Update conversation state with detected intent and emotional context
     await updateConversationState(supabase, userId, {
       last_intent_detected: intentDetection.intent,
       last_intent_confidence: intentDetection.confidence / 100,
       last_user_query_type: intentDetection.query_type,
       last_known_occasion: occasionInference.inferred_occasion || conversationState?.last_known_occasion,
       current_turn: currentTurn,
+      emotional_tone: emotionalDetection.emotional_tone,
+      chat_direction: conversationMode.toLowerCase(),
     });
 
     // Refresh state
@@ -113,8 +155,43 @@ serve(async (req) => {
       last_outfit_turn: conversationState?.last_outfit_generation_turn,
       turns_since_outfit: (conversationState?.current_turn || 0) - (conversationState?.last_outfit_generation_turn || 0),
       recommendation_mode: conversationState?.recommendation_mode,
-      outstanding_question: conversationState?.outstanding_question_flag
+      outstanding_question: conversationState?.outstanding_question_flag,
+      emotional_tone: conversationState?.emotional_tone,
+      chat_direction: conversationState?.chat_direction,
+      consecutive_blocks: conversationState?.consecutive_outfit_blocks
     });
+
+    // Fetch user preferences and wardrobe persona for Memory Engine
+    const userPreferences = await getPreferences(supabase, userId);
+    const wardrobePersona = await getWardrobePersona(supabase, userId);
+
+    console.log('[MEMORY CONTEXT]', {
+      preferences_count: userPreferences.length,
+      wardrobe_size: wardrobePersona.wardrobe_size,
+      color_palette: wardrobePersona.color_palette,
+      dominant_colors: wardrobePersona.dominant_colors.slice(0, 2)
+    });
+
+    // Check if outfit generation is allowed (anti-spam + eligibility)
+    const canGenerate = canGenerateOutfit(
+      conversationState!,
+      intentDetection,
+      wardrobeItems?.length || 0
+    );
+
+    console.log('[OUTFIT GENERATION ELIGIBILITY]', {
+      can_generate: canGenerate,
+      reason: !canGenerate ? 'Anti-spam or eligibility check failed' : 'Eligible'
+    });
+
+    // Track if outfit request was blocked (for consecutive block tracking)
+    if (!canGenerate && (intentDetection.intent === 'explicit_outfit' || intentDetection.intent === 'implicit_outfit')) {
+      const currentBlocks = conversationState?.consecutive_outfit_blocks || 0;
+      await updateConversationState(supabase, userId, {
+        consecutive_outfit_blocks: currentBlocks + 1,
+      });
+      console.log('[ANTI-SPAM BLOCK]', { consecutive_blocks: currentBlocks + 1 });
+    }
 
     // Fetch user profile
     let bodyShape: string | null = null;
@@ -151,7 +228,7 @@ serve(async (req) => {
     console.log("AI_COMPANION_PROMPT_HASH:", promptHash);
     console.log("AI_COMPANION_MODULES_LOADED: ✓");
 
-    // User context with enhanced conversation state
+    // User context with enhanced conversation state, emotional context, and memory
     const turnsSinceLastOutfit = (conversationState?.current_turn || 0) - (conversationState?.last_outfit_generation_turn || 0);
     
     const userContextMessage = {
@@ -165,16 +242,39 @@ serve(async (req) => {
   <SKIN_TONE>${skinTone || ''}</SKIN_TONE>
   
   <CONVERSATION_STATE>
+    <CURRENT_MODE>${conversationMode}</CURRENT_MODE>
     <CURRENT_TURN>${conversationState?.current_turn || 0}</CURRENT_TURN>
     <LAST_OUTFIT_GENERATION_TURN>${conversationState?.last_outfit_generation_turn || 0}</LAST_OUTFIT_GENERATION_TURN>
     <TURNS_SINCE_LAST_OUTFIT>${turnsSinceLastOutfit}</TURNS_SINCE_LAST_OUTFIT>
+    <CONSECUTIVE_OUTFIT_BLOCKS>${conversationState?.consecutive_outfit_blocks || 0}</CONSECUTIVE_OUTFIT_BLOCKS>
     <LAST_INTENT_DETECTED>${conversationState?.last_intent_detected || 'none'}</LAST_INTENT_DETECTED>
     <LAST_INTENT_CONFIDENCE>${((conversationState?.last_intent_confidence || 0) * 100).toFixed(0)}%</LAST_INTENT_CONFIDENCE>
     <LAST_KNOWN_OCCASION>${conversationState?.last_known_occasion || 'none'}</LAST_KNOWN_OCCASION>
     <LAST_QUERY_TYPE>${conversationState?.last_user_query_type || 'none'}</LAST_QUERY_TYPE>
     <RECOMMENDATION_MODE>${conversationState?.recommendation_mode || 'outfit'}</RECOMMENDATION_MODE>
     <OUTSTANDING_QUESTION>${conversationState?.outstanding_question_flag || false}</OUTSTANDING_QUESTION>
+    <CHAT_DIRECTION>${conversationState?.chat_direction || 'casual_chat'}</CHAT_DIRECTION>
   </CONVERSATION_STATE>
+  
+  <EMOTIONAL_CONTEXT>
+    <CURRENT_EMOTIONAL_TONE>${emotionalDetection.emotional_tone}</CURRENT_EMOTIONAL_TONE>
+    <EMOTIONAL_CONFIDENCE>${emotionalDetection.confidence}%</EMOTIONAL_CONFIDENCE>
+    <SOFT_MODE_REQUIRED>${emotionalDetection.soft_mode_required}</SOFT_MODE_REQUIRED>
+    <EMOTIONAL_SIGNALS>${emotionalDetection.signals.join('; ')}</EMOTIONAL_SIGNALS>
+  </EMOTIONAL_CONTEXT>
+  
+  <TASTE_PROFILE>
+    <WARDROBE_SIZE>${wardrobePersona.wardrobe_size}</WARDROBE_SIZE>
+    <COLOR_PALETTE>${wardrobePersona.color_palette}</COLOR_PALETTE>
+    <DOMINANT_COLORS>${wardrobePersona.dominant_colors.join(', ')}</DOMINANT_COLORS>
+    <COMMON_PATTERNS>${wardrobePersona.common_patterns.join(', ')}</COMMON_PATTERNS>
+    <STYLE_AESTHETICS>${wardrobePersona.style_aesthetic.join(', ')}</STYLE_AESTHETICS>
+    <FORMALITY_LEVEL>${wardrobePersona.formality_level}</FORMALITY_LEVEL>
+  </TASTE_PROFILE>
+  
+  <USER_PREFERENCES>
+${userPreferences.map(p => `    <PREFERENCE type="${p.preference_type}" key="${p.preference_key}" confidence="${(p.confidence_score * 100).toFixed(0)}%" source="${p.source}">${JSON.stringify(p.preference_value)}</PREFERENCE>`).join('\n')}
+  </USER_PREFERENCES>
   
   <WARDROBE_VALIDATION>
     <TOTAL_ITEMS>${wardrobeValidation.total_items}</TOTAL_ITEMS>
@@ -191,39 +291,72 @@ serve(async (req) => {
   <CURRENT_INTENT_DETECTION>
     <DETECTED_INTENT>${intentDetection.intent}</DETECTED_INTENT>
     <CONFIDENCE>${intentDetection.confidence}%</CONFIDENCE>
+    <IS_CONTINUATION>${intentDetection.is_continuation || false}</IS_CONTINUATION>
+    <CONTEXT_WEIGHT>${intentDetection.context_weight || 0}</CONTEXT_WEIGHT>
     <INFERRED_OCCASION>${occasionInference.inferred_occasion || 'none'}</INFERRED_OCCASION>
     <OCCASION_CONFIDENCE>${occasionInference.confidence}%</OCCASION_CONFIDENCE>
   </CURRENT_INTENT_DETECTION>
 </USER_CONTEXT>
 
 <CRITICAL_RULES>
+CONVERSATION MODE AWARENESS:
+  - Current mode: ${conversationMode}
+  - Emotional tone: ${emotionalDetection.emotional_tone}
+  - Soft mode required: ${emotionalDetection.soft_mode_required}
+  
+  BEHAVIOR BY MODE:
+    • EMOTIONAL_SUPPORT: No outfit suggestions, empathetic tone, supportive
+    • CASUAL_CHAT: No outfit auto-generation, light personality
+    • PLAYFUL_BANTER: Witty, hype, teasing energy - NO outfit generation unless explicitly asked
+    • STYLE_DISCOVERY: Short insights, 1 clarifying question max
+    • OUTFIT_REQUEST_ACTIVE: Generate outfits using Outfit Engine
+    • SHOPPING_EXPLORATION: Brand picks, wardrobe-aware recommendations
+    • WARDROBE_MANAGEMENT: Pairing ideas, organization insights
+
 ANTI-SPAM PROTECTION:
   - Last outfit generation was at turn ${conversationState?.last_outfit_generation_turn || 0}
   - Current turn is ${conversationState?.current_turn || 0}
   - Turns since last outfit: ${turnsSinceLastOutfit}
+  - Consecutive blocks: ${conversationState?.consecutive_outfit_blocks || 0}
+  - Generation eligibility: ${canGenerate ? 'ALLOWED' : 'BLOCKED'}
   - DO NOT generate outfits if turns_since_last_outfit < 2 UNLESS user explicitly asks for "more", "different", "another"
+  - If blocked 3+ times consecutively, user likely wants to chat, not get styled
 
 TIMING INTELLIGENCE:
   - Detected intent: ${intentDetection.intent}
   - Confidence: ${intentDetection.confidence}%
   - Query type: ${intentDetection.query_type}
+  - Is continuation: ${intentDetection.is_continuation || false}
+  - Conversation mode: ${conversationMode}
+  - CAN_GENERATE_OUTFIT: ${canGenerate}
+  
+  ${!canGenerate ? `
+  ⚠️ OUTFIT GENERATION BLOCKED - Respond conversationally instead
+  Reason: Anti-spam check failed or eligibility criteria not met
+  DO NOT call generate_outfits tool
+  ` : ''}
   
   GENERATE OUTFITS IMMEDIATELY when:
+    ✓ canGenerateOutfit validation: ${canGenerate}
     ✓ Intent is 'explicit_outfit' OR 'implicit_outfit'
     ✓ Confidence ≥ 60%
     ✓ Occasion known OR inferred
     ✓ Wardrobe has minimum items OR flexible generation possible
     ✓ Turns since last outfit ≥ 2
+    ✓ Mode is OUTFIT_REQUEST_ACTIVE or STYLE_DISCOVERY with high intent
   
   ASK ONE CLARIFYING QUESTION when:
     • Intent confidence ≥ 60% BUT occasion unclear
     • Example: "What's the occasion?"
   
   DO NOT GENERATE when:
+    ✗ canGenerateOutfit validation: false
+    ✗ Mode is CASUAL_CHAT, PLAYFUL_BANTER, EMOTIONAL_SUPPORT (unless explicit request)
     ✗ Intent is 'theory', 'shopping', 'wardrobe-info', 'general'
     ✗ Confidence < 60%
     ✗ Turns since last outfit < 2 (anti-spam)
     ✗ Wardrobe completely empty (0 items)
+    ✗ Emotional tone requires soft mode and user didn't ask for styling
 
 1-QUESTION RULE:
   - Maximum 1 clarifying question per request
@@ -352,6 +485,41 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                 description: "What to focus on: gaps, versatility, specific_occasion, or general"
               }
             }
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "update_user_preference",
+          description: "Save or update a user's style preference. Use when user explicitly states a preference (e.g., 'I love oversized fits', 'I prefer minimal colors', 'I'm not into bold patterns').",
+          parameters: {
+            type: "object",
+            properties: {
+              preference_type: {
+                type: "string",
+                enum: ["fashion", "vibe", "brand", "emotional", "experiment_level"],
+                description: "Type of preference"
+              },
+              preference_key: {
+                type: "string",
+                description: "Key identifier (e.g., 'preferred_silhouette', 'color_preference', 'brand_affinity')"
+              },
+              preference_value: {
+                type: "string",
+                description: "The preference value (e.g., 'oversized', 'minimal', 'high')"
+              },
+              source: {
+                type: "string",
+                enum: ["explicit", "inferred", "repeated"],
+                description: "How the preference was detected"
+              },
+              confidence: {
+                type: "number",
+                description: "Confidence score 0-1"
+              }
+            },
+            required: ["preference_type", "preference_key", "preference_value"]
           }
         }
       },
@@ -487,6 +655,7 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                       last_outfit_generation_turn: currentTurn,
                       recommendation_mode: 'outfit',
                       outstanding_question_flag: false,
+                      consecutive_outfit_blocks: 0, // Reset block counter on successful generation
                     });
                   }
                   
@@ -500,6 +669,25 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                     await updateConversationState(supabase, userId, {
                       recommendation_mode: 'general',
                     });
+                  }
+                  
+                  // Handle preference updates
+                  if (functionCall.functionCall.name === 'update_user_preference') {
+                    const args = functionCall.functionCall.args;
+                    try {
+                      await savePreference(
+                        supabase,
+                        userId,
+                        args.preference_type,
+                        args.preference_key,
+                        args.preference_value,
+                        args.source || 'explicit',
+                        args.confidence || 0.8
+                      );
+                      console.log('[PREFERENCE SAVED]', args);
+                    } catch (err) {
+                      console.error('[PREFERENCE SAVE FAILED]', err);
+                    }
                   }
                   
                   const openAIFormat = {
