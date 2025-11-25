@@ -9,26 +9,46 @@ import { WardrobeItem } from '@/hooks/useWardrobeItems';
 import { WardrobeInsufficientPrompt } from './WardrobeInsufficientPrompt';
 
 interface WardrobeItemsDisplayProps {
-  itemIds: string[];
+  itemIds?: string[];
+  items?: WardrobeItem[];
   context: string;
 }
 
-export const WardrobeItemsDisplay = ({ itemIds, context }: WardrobeItemsDisplayProps) => {
-  const [items, setItems] = useState<WardrobeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+export const WardrobeItemsDisplay = ({ itemIds, items: preloadedItems, context }: WardrobeItemsDisplayProps) => {
+  const [items, setItems] = useState<WardrobeItem[]>(preloadedItems || []);
+  const [loading, setLoading] = useState(!preloadedItems);
 
   useEffect(() => {
+    // Only fetch if no preloaded items and itemIds provided
+    if (preloadedItems && preloadedItems.length > 0) {
+      setItems(preloadedItems);
+      setLoading(false);
+      return;
+    }
+    
+    if (!itemIds || itemIds.length === 0) {
+      setLoading(false);
+      return;
+    }
+    
     const fetchItems = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('wardrobe_items')
         .select('*')
         .in('id', itemIds);
-      
+
+      if (error) {
+        console.error('Error fetching wardrobe items:', error);
+        setLoading(false);
+        return;
+      }
+
       setItems(data || []);
       setLoading(false);
     };
+
     fetchItems();
-  }, [itemIds]);
+  }, [itemIds, preloadedItems]);
 
   if (loading) {
     return (
