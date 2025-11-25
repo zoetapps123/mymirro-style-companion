@@ -11,6 +11,7 @@ import PhoneAuth from "@/components/PhoneAuth";
 import TopAppBar from "@/components/TopAppBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { trackPageView } from "@/lib/mixpanel";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
@@ -55,6 +56,9 @@ const Index = () => {
       `/app/${activeTab}`,
       `/app/${activeTab}`
     );
+    
+    // Mixpanel: Track page view
+    trackPageView(activeTab, { tab: activeTab });
   }, [activeTab, trackScreenView]);
   const checkAuthAndFlow = async () => {
     try {

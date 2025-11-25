@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { z } from "zod";
+import { identifyUser, trackEvent } from "@/lib/mixpanel";
 import {
   Select,
   SelectContent,
@@ -150,6 +151,15 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           country_code: countryCode,
         }, 'user_action:signup', '/auth/signup');
 
+        // Mixpanel: Identify user and track signup
+        if (data.user) {
+          identifyUser(data.user);
+          trackEvent('auth_signup_success', {
+            method: 'phone',
+            country_code: countryCode,
+          });
+        }
+
         toast({
           title: "Welcome to MyMirro! 🎉",
           description: "Your fashion journey starts now",
@@ -161,7 +171,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
       } else {
         // Sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -180,6 +190,15 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           method: 'phone',
           country_code: countryCode,
         }, 'user_action:signin', '/auth/signin');
+
+        // Mixpanel: Identify user and track signin
+        if (signInData.user) {
+          identifyUser(signInData.user);
+          trackEvent('auth_signin_success', {
+            method: 'phone',
+            country_code: countryCode,
+          });
+        }
 
         toast({
           title: "Welcome back! 👋",

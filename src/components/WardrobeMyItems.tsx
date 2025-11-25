@@ -9,6 +9,7 @@ import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
+import { trackEvent } from "@/lib/mixpanel";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
 import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
 import {
@@ -91,6 +92,12 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
       toast({
         title: "Item removed",
         description: `${itemToDelete.name} has been removed from your wardrobe.`,
+      });
+      
+      // Mixpanel: Track item deletion
+      trackEvent('wardrobe_item_deleted', {
+        item_name: itemToDelete.name,
+        category: item?.category
       });
 
       invalidateItems(); // Refresh cache after deletion
