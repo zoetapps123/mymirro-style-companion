@@ -59,7 +59,8 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
     if (!selectedItem) {
       onTryAnother();
     }
-  }, [selectedItem, onTryAnother]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItem]);
 
   const generateOutfit = async () => {
     if (!selectedOccasion) {
