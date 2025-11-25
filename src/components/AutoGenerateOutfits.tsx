@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { useWardrobeItems, WardrobeItem } from "@/hooks/useWardrobeItems";
 import { OutfitGridLoadingSkeleton } from "@/components/ui/outfit-loading-skeleton";
+import { trackEvent } from "@/lib/mixpanel";
 import {
   Carousel,
   CarouselContent,
@@ -54,6 +55,13 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
   const generateAllOutfits = async () => {
     setLoading(true);
+    const startTime = Date.now();
+    
+    // Track auto-generate started
+    trackEvent('auto_generate_outfits_started', {
+      wardrobe_item_count: wardrobeItems.length
+    });
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -71,11 +79,30 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
       setStyleOutfits(data.styleOutfits || []);
       setOccasionOutfits(data.occasionOutfits || []);
       
+      const duration = Date.now() - startTime;
+      
+      // Track successful generation
+      trackEvent('auto_generate_outfits_completed', {
+        wardrobe_item_count: wardrobeItems.length,
+        style_outfit_count: (data.styleOutfits || []).length,
+        occasion_outfit_count: (data.occasionOutfits || []).length,
+        total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
+        duration_seconds: Math.floor(duration / 1000)
+      });
+      
       // Save to localStorage
       localStorage.setItem('auto_generated_style_outfits', JSON.stringify(data.styleOutfits || []));
       localStorage.setItem('auto_generated_occasion_outfits', JSON.stringify(data.occasionOutfits || []));
     } catch (error) {
       console.error('Error generating outfits:', error);
+      
+      // Track generation error
+      trackEvent('auto_generate_outfits_failed', {
+        wardrobe_item_count: wardrobeItems.length,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        duration_seconds: Math.floor((Date.now() - startTime) / 1000)
+      });
+      
       toast({
         title: "Error",
         description: "Failed to auto-generate outfits.",
@@ -90,7 +117,14 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const renderOutfitTemplate = (outfit: Outfit) => (
     <div 
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
-      onClick={() => setEditingOutfit(outfit)}
+      onClick={() => {
+        trackEvent('auto_generated_outfit_selected', {
+          outfit_type: outfit.type,
+          outfit_label: outfit.label,
+          item_count: outfit.items.length
+        });
+        setEditingOutfit(outfit);
+      }}
     >
       <h4 className="text-base font-semibold text-center mb-3 text-black">{outfit.label}</h4>
       <div className="grid grid-cols-2 gap-2">
@@ -150,7 +184,13 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         </div>
         {!loading && (styleOutfits.length > 0 || occasionOutfits.length > 0) && (
           <Button 
-            onClick={generateAllOutfits}
+            onClick={() => {
+              trackEvent('auto_generate_outfits_regenerate_clicked', {
+                previous_style_count: styleOutfits.length,
+                previous_occasion_count: occasionOutfits.length
+              });
+              generateAllOutfits();
+            }}
             variant="outline"
             size="sm"
             className="gap-2 flex-shrink-0 min-h-[44px] text-sm"
