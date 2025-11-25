@@ -21,6 +21,7 @@ import { detectIntent } from '../_shared/intent-detection-utils.ts';
 import { inferOccasion } from '../_shared/occasion-inference-utils.ts';
 import { detectEmotionalSubtext } from '../_shared/emo-detection-utils.ts';
 import { getPreferences, getWardrobePersona, savePreference, updateTasteCalibration } from '../_shared/memory-utils.ts';
+import { analyzeWardrobeGaps, generateShoppingRecommendations, inferBudgetTier } from '../_shared/shopping-analysis-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -476,15 +477,25 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
         type: "function",
         function: {
           name: "analyze_shopping_needs",
-          description: "Analyze the user's wardrobe and provide shopping recommendations. Use when user asks about shopping, what to buy, or wardrobe gaps.",
+          description: "Detect wardrobe gaps and provide personalized shopping recommendations with budget awareness, brand suggestions, and styling opinions",
           parameters: {
             type: "object",
             properties: {
-              focus: {
+              occasion: {
                 type: "string",
-                description: "What to focus on: gaps, versatility, specific_occasion, or general"
+                description: "Specific occasion user mentioned (if any)"
+              },
+              request_type: {
+                type: "string",
+                description: "Type of shopping request",
+                enum: ["gap_analysis", "occasion_specific", "brand_recommendation", "general_advice"]
+              },
+              style_preference: {
+                type: "string",
+                description: "User style preference if mentioned"
               }
-            }
+            },
+            required: ["request_type"]
           }
         }
       },
@@ -680,6 +691,39 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
                   }
                   
                   if (functionCall.functionCall.name === 'analyze_shopping_needs') {
+                    // Enhance with v5 shopping engine analysis
+                    const wardrobeGaps = await analyzeWardrobeGaps(supabase, userId);
+                    const recommendations = await generateShoppingRecommendations(
+                      supabase,
+                      userId,
+                      wardrobeGaps,
+                      wardrobePersona,
+                      functionCall.functionCall.args.occasion
+                    );
+                    
+                    const budgetTier = inferBudgetTier(
+                      wardrobePersona.wardrobe_size || 0,
+                      wardrobePersona.style_aesthetic || []
+                    );
+                    
+                    // Inject v5 analysis into tool call
+                    functionCall.functionCall.args.shopping_analysis = {
+                      wardrobe_gaps: wardrobeGaps,
+                      recommendations: recommendations,
+                      budget_awareness: {
+                        suggested_tier: budgetTier,
+                        reasoning: `Based on your wardrobe size (${wardrobePersona.wardrobe_size}) and style (${wardrobePersona.style_aesthetic.join(', ')}), I recommend the ${budgetTier.replace('_', ' ')} tier.`
+                      },
+                      immediate_needs: wardrobeGaps.filter(g => g.priority === 'high').map(g => g.gap_description),
+                      long_term_needs: wardrobeGaps.filter(g => g.priority !== 'high').map(g => g.gap_description)
+                    };
+                    
+                    console.log('[SHOPPING ANALYSIS v5]', {
+                      gaps: wardrobeGaps.length,
+                      recommendations: recommendations.length,
+                      budgetTier
+                    });
+                    
                     await updateConversationState(supabase, userId, {
                       recommendation_mode: 'general',
                     });
