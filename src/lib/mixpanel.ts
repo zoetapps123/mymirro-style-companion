@@ -44,3 +44,14 @@ export function identifyUser(user: any) {
     age_range: user.user_metadata?.age_range || localStorage.getItem("onboard_age_range") || "",
   });
 }
+
+export function setUserProperties(props: Record<string, any>) {
+  if (typeof window === "undefined") return;
+
+  const host = window.location.hostname;
+  if (host !== "mymirro.in" && host !== "www.mymirro.in") return;
+
+  if (!window.mixpanel || !window.mixpanel.people) return;
+
+  window.mixpanel.people.set(props);
+}
