@@ -38,16 +38,20 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
 
   useEffect(() => {
     if (wardrobeItems.length >= 6 && styleOutfits.length === 0 && occasionOutfits.length === 0) {
-      const cachedOutfits = localStorage.getItem('auto-generated-outfits');
-      if (cachedOutfits) {
+      const cachedStyleOutfits = localStorage.getItem('auto_generated_style_outfits');
+      const cachedOccasionOutfits = localStorage.getItem('auto_generated_occasion_outfits');
+      
+      if (cachedStyleOutfits && cachedOccasionOutfits) {
         try {
-          const { style, occasion } = JSON.parse(cachedOutfits);
-          setStyleOutfits(style || []);
-          setOccasionOutfits(occasion || []);
+          setStyleOutfits(JSON.parse(cachedStyleOutfits));
+          setOccasionOutfits(JSON.parse(cachedOccasionOutfits));
+          console.log('[AutoGenerate] Loaded outfits from cache');
         } catch (e) {
-          console.error('Failed to parse cached outfits');
+          console.error('[AutoGenerate] Failed to parse cached outfits', e);
+          generateAllOutfits();
         }
       } else {
+        console.log('[AutoGenerate] No cache found, generating outfits');
         generateAllOutfits();
       }
     }
