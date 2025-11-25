@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
-import { trackEvent } from "@/lib/mixpanel";
+import { trackEvent, trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import { VibePredictionSheet } from "./VibePredictionSheet";
 import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
@@ -133,8 +134,10 @@ const StyleCheckHub = ({
       localStorage.setItem('style_check_state', JSON.stringify(state));
     } catch {}
   }, [selectedOccasion, selectedStyle, selectedVibe, uploadedImage, result, extractedItems, extracted, elevatedImage, restored]);
+  
   useEffect(() => {
     loadWardrobeItems();
+    trackPageView(SCREEN_NAMES.STYLECHECK_HUB, SCREEN_PATHS.STYLECHECK_HUB);
   }, []);
   // Wardrobe Data Loading
   // Fetches user's wardrobe items from Supabase for quick fix enhancement

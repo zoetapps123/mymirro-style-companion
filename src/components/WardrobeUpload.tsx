@@ -8,6 +8,8 @@ import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import { trackEvent } from "@/lib/mixpanel";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
@@ -29,7 +31,7 @@ interface WardrobeUploadProps {
 const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { trackClick, trackCustom, startFlow, trackFlowStep, completeFlow } = useAnalytics();
+  const { trackClick, trackCustom, startFlow, trackFlowStep, completeFlow, trackScreenView } = useAnalytics();
   const uploadAttempts = useRef(0);
   const uploadStartTime = useRef(0);
   const [items, setItems] = useState<WardrobeItem[]>([]);
@@ -40,7 +42,9 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
 
   useEffect(() => {
     fetchWardrobeItems();
-  }, []);
+    trackScreenView('wardrobe-upload', {}, '/wardrobe/add-item', '/wardrobe/add-item');
+    trackPageView(SCREEN_NAMES.WARDROBE_UPLOAD, SCREEN_PATHS.WARDROBE_UPLOAD);
+  }, [trackScreenView]);
 
   const fetchWardrobeItems = async () => {
     const { data, error } = await supabase

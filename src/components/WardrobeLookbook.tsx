@@ -6,6 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { orderOutfitForDisplay } from '@/lib/utils';
 import lookbookEmptyImg from '@/assets/lookbook-empty.png';
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 interface WardrobeItem {
   id: string;
@@ -45,6 +47,7 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
 
   useEffect(() => {
     fetchLookbookOutfits();
+    trackPageView(SCREEN_NAMES.WARDROBE_LOOKBOOK, SCREEN_PATHS.WARDROBE_LOOKBOOK);
   }, []);
 
   const fetchLookbookOutfits = async () => {

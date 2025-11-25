@@ -11,7 +11,8 @@ import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisual
 import { WardrobeInsufficientPrompt } from "./chat/WardrobeInsufficientPrompt";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
-import { trackEvent } from "@/lib/mixpanel";
+import { trackEvent, trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
@@ -353,6 +354,7 @@ const AICompanion = () => {
   // Track screen view on mount
   useEffect(() => {
     trackScreenView('chat', { tab: 'chat' }, '/app/chat');
+    trackPageView(SCREEN_NAMES.HOME, SCREEN_PATHS.HOME);
   }, [trackScreenView]);
 
   // Fetch all wardrobe items for chat context

@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 type StyleCheckView = 'hub' | 'outfit-check' | 'outfit-battle';
 
@@ -60,12 +62,23 @@ const StyleCheck = () => {
     };
     
     const { route, title } = routeMap[currentView];
+    
+    // Supabase analytics
     trackScreenView(
       `stylecheck-${currentView}`,
       { stylecheck_view: currentView, page_title: title },
       route,
       route
     );
+
+    // Mixpanel analytics
+    const mixpanelScreenMap: Record<StyleCheckView, { name: string; path: string }> = {
+      'hub': { name: SCREEN_NAMES.STYLECHECK_HUB, path: SCREEN_PATHS.STYLECHECK_HUB },
+      'outfit-check': { name: SCREEN_NAMES.STYLECHECK_CHECK, path: SCREEN_PATHS.STYLECHECK_CHECK },
+      'outfit-battle': { name: SCREEN_NAMES.STYLECHECK_BATTLE, path: SCREEN_PATHS.STYLECHECK_BATTLE }
+    };
+    const screenInfo = mixpanelScreenMap[currentView];
+    trackPageView(screenInfo.name, screenInfo.path, { stylecheck_view: currentView });
   }, [currentView, trackScreenView]);
 
   const handleNavigateToBattle = (outfitData: any) => {

@@ -7,7 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { useUserAnalytics } from "@/hooks/useUserAnalytics";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { formatDistanceToNow } from "date-fns";
-import { trackEvent } from "@/lib/mixpanel";
+import { trackEvent, trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 const Profile = () => {
   const { toast } = useToast();
@@ -20,6 +21,7 @@ const Profile = () => {
   // Track screen view on mount
   useEffect(() => {
     trackScreenView('profile', { context: 'user_profile' }, '/app/profile');
+    trackPageView(SCREEN_NAMES.PROFILE, SCREEN_PATHS.PROFILE);
   }, [trackScreenView]);
 
   useEffect(() => {

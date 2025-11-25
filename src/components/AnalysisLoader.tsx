@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
+import { useEffect } from "react";
 
 interface AnalysisLoaderProps {
   isVisible: boolean;
@@ -17,6 +20,15 @@ const useCases = [
 ];
 
 const AnalysisLoader = ({ isVisible, processingImage, occasion, message }: AnalysisLoaderProps) => {
+  useEffect(() => {
+    if (isVisible) {
+      trackPageView(SCREEN_NAMES.STYLECHECK_ANALYZING, SCREEN_PATHS.STYLECHECK_ANALYZING, {
+        occasion,
+        has_image: !!processingImage
+      });
+    }
+  }, [isVisible, occasion, processingImage]);
+
   return (
     <AnimatePresence>
       {isVisible && (

@@ -16,6 +16,8 @@ import { orderOutfitForDisplay } from '@/lib/utils';
 import lockIcon from '@/assets/lock-icon-outfit.png';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { ANALYTICS_EVENTS } from '@/lib/analyticsEvents';
+import { trackPageView } from '@/lib/mixpanel';
+import { SCREEN_NAMES, SCREEN_PATHS } from '@/lib/screenRoutes';
 
 interface WardrobeItem {
   id: string;
@@ -141,6 +143,7 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
       await getUserLocation();
     };
     initializeData();
+    trackPageView(SCREEN_NAMES.WARDROBE_OUTFITS, SCREEN_PATHS.WARDROBE_OUTFITS);
   }, []);
 
   const cleanupDuplicates = async () => {

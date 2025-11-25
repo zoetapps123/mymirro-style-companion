@@ -12,6 +12,7 @@ import TopAppBar from "@/components/TopAppBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 type Tab = "home" | "wardrobe" | "stylecheck" | "profile";
 
@@ -57,8 +58,15 @@ const Index = () => {
       `/app/${activeTab}`
     );
     
-    // Mixpanel: Track page view
-    trackPageView(activeTab, { tab: activeTab });
+    // Mixpanel: Track page view with virtual paths
+    const tabScreenMap: Record<Tab, { name: string; path: string }> = {
+      home: { name: SCREEN_NAMES.HOME, path: SCREEN_PATHS.HOME },
+      wardrobe: { name: SCREEN_NAMES.WARDROBE, path: SCREEN_PATHS.WARDROBE },
+      stylecheck: { name: SCREEN_NAMES.STYLE_CHECK, path: SCREEN_PATHS.STYLE_CHECK },
+      profile: { name: SCREEN_NAMES.PROFILE, path: SCREEN_PATHS.PROFILE }
+    };
+    const screenInfo = tabScreenMap[activeTab];
+    trackPageView(screenInfo.name, screenInfo.path);
   }, [activeTab, trackScreenView]);
   const checkAuthAndFlow = async () => {
     try {
