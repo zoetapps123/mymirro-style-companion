@@ -40,19 +40,36 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
   const [editingOutfit, setEditingOutfit] = useState<Outfit | null>(null);
 
   useEffect(() => {
+    console.log('[AutoGenerateOutfits] useEffect triggered:', {
+      wardrobeItemCount: wardrobeItems.length,
+      styleOutfitsCount: styleOutfits.length,
+      occasionOutfitsCount: occasionOutfits.length,
+      hasEnoughItems: wardrobeItems.length >= 6,
+      isEmpty: styleOutfits.length === 0 && occasionOutfits.length === 0
+    });
+
     if (wardrobeItems.length >= 6 && styleOutfits.length === 0 && occasionOutfits.length === 0) {
-      const cachedOutfits = localStorage.getItem('auto-generated-outfits');
-      if (cachedOutfits) {
+      // Check for cached outfits using correct keys
+      const cachedStyle = localStorage.getItem('auto_generated_style_outfits');
+      const cachedOccasion = localStorage.getItem('auto_generated_occasion_outfits');
+      
+      if (cachedStyle && cachedOccasion) {
+        console.log('[AutoGenerateOutfits] Loading from cache');
         try {
-          const { style, occasion } = JSON.parse(cachedOutfits);
+          const style = JSON.parse(cachedStyle);
+          const occasion = JSON.parse(cachedOccasion);
           setStyleOutfits(style || []);
           setOccasionOutfits(occasion || []);
         } catch (e) {
-          console.error('Failed to parse cached outfits');
+          console.error('Failed to parse cached outfits, generating fresh:', e);
+          generateAllOutfits();
         }
       } else {
+        console.log('[AutoGenerateOutfits] No cache found, generating outfits');
         generateAllOutfits();
       }
+    } else {
+      console.log('[AutoGenerateOutfits] Conditions not met for generation');
     }
   }, [wardrobeItems]);
 
