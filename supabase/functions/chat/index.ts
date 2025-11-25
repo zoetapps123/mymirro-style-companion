@@ -236,6 +236,44 @@ serve(async (req) => {
 </CONFIRMATION_RULES>
 `;
 
+    // PHASE 4: Enforce Follow-Up Questions
+    const followUpInstruction = `
+<FOLLOW_UP_RULES>
+  You MUST ALWAYS end your response with ONE follow-up question to keep the conversation flowing.
+  
+  Examples:
+    • After outfit suggestion: "Want me to tweak anything?"
+    • After showing items: "What vibe are you going for with these?"
+    • After style advice: "Does that make sense for what you're aiming for?"
+    • After casual chat: "So what's on your mind style-wise today?"
+    
+  NEVER end a response without a question unless user explicitly says goodbye.
+</FOLLOW_UP_RULES>
+`;
+
+    // PHASE 5: Natural Memory References
+    const memoryUsageInstruction = `
+<MEMORY_USAGE_RULES>
+  You have access to user's taste profile and preferences. USE THEM NATURALLY:
+  
+  DON'T:
+    "Based on your stored preference for oversized fits..."
+    "According to my memory, you like..."
+    
+  DO:
+    "Since you're usually into that oversized vibe..."
+    "You love neutrals right? This would fit perfectly."
+    "Knowing your minimal aesthetic..."
+    
+  REMEMBER:
+    - Color preferences: ${wardrobePersona.dominant_colors.join(', ')}
+    - Style vibes: ${wardrobePersona.style_aesthetic.join(', ')}
+    - Formality level: ${wardrobePersona.formality_level}
+    
+  Reference these naturally in conversation without being explicit about "memory".
+</MEMORY_USAGE_RULES>
+`;
+
     // Build system prompt with anti-spam instructions
     let antiSpamInstruction = '';
     if (!canGenerate && (intentDetection.intent === 'explicit_outfit' || intentDetection.intent === 'implicit_outfit')) {
@@ -250,7 +288,7 @@ serve(async (req) => {
     }
     
     const basePrompt = buildAICompanionPrompt();
-    const systemPrompt = basePrompt + confirmationInstruction + antiSpamInstruction;
+    const systemPrompt = basePrompt + confirmationInstruction + followUpInstruction + memoryUsageInstruction + antiSpamInstruction;
     
     // CRITICAL VALIDATION: Ensure system prompt is present
     if (!systemPrompt || systemPrompt.trim().length === 0) {
@@ -586,6 +624,27 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
               }
             },
             required: ["preference_type", "preference_key", "preference_value"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "run_style_check",
+          description: "Redirect user to Style Check feature. Only use when user EXPLICITLY asks to check/rate an outfit they uploaded or described. Chat cannot run style checks directly.",
+          parameters: {
+            type: "object",
+            properties: {
+              image_url: { 
+                type: "string", 
+                description: "URL of the uploaded outfit image (if any)" 
+              },
+              context: { 
+                type: "string", 
+                description: "What the user said about the outfit" 
+              }
+            },
+            required: []
           }
         }
       },

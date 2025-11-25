@@ -16,7 +16,7 @@ import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
-  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient" | "show_single_item" | "recommend_general_item";
+  type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient" | "show_single_item" | "recommend_general_item" | "fetch_wardrobe_items" | "run_style_check";
   data: any;
   showAsRecommendation?: boolean;
 }
@@ -903,6 +903,39 @@ const AICompanion = () => {
                         } else if (name === "create_outfit_suggestion") {
                           // Remove loading placeholders if any
                           collectedToolCalls = collectedToolCalls.filter((c) => c.type !== "outfits_loading");
+                        } else if (name === "show_wardrobe_items" || name === "fetch_wardrobe_items") {
+                          // PHASE 1: Handle wardrobe item display
+                          const category = args.category;
+                          const itemIds = args.item_ids || [];
+                          const context = args.context || `Your ${category || 'wardrobe'} items`;
+                          
+                          // Filter items from local state
+                          const filteredItems = itemIds.length > 0
+                            ? wardrobeItems.filter(item => itemIds.includes(item.id))
+                            : (category && category !== 'All'
+                                ? wardrobeItems.filter(item => item.category?.toLowerCase() === category.toLowerCase())
+                                : wardrobeItems);
+                          
+                          console.log('AICompanion: show_wardrobe_items', { category, itemCount: filteredItems.length });
+                          
+                          collectedToolCalls.push({
+                            type: "show_wardrobe_items",
+                            data: {
+                              items: filteredItems,
+                              context: context
+                            }
+                          });
+                          return; // Skip the default push below
+                        } else if (name === "run_style_check") {
+                          // PHASE 2: Handle style check redirect
+                          collectedToolCalls.push({
+                            type: "run_style_check",
+                            data: {
+                              message: args.context || "Head over to the Style Check feature for a detailed analysis of your outfit!",
+                              image_url: args.image_url || null
+                            }
+                          });
+                          return; // Skip the default push below
                         }
                         collectedToolCalls.push({ type: name as any, data: args });
                     } catch (e) {
@@ -1409,6 +1442,26 @@ const AICompanion = () => {
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+                        
+                        {/* PHASE 2: Style Check Tool Call Display */}
+                        {tc.type === "run_style_check" && (
+                          <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                            <p className="text-sm font-medium mb-2">✨ Style Check Feature</p>
+                            <p className="text-sm text-muted-foreground">{tc.data.message}</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-3 w-full"
+                              onClick={() => {
+                                // Navigate to Style Check feature
+                                const event = new CustomEvent('navigate-to-tab', { detail: 'style-check' });
+                                window.dispatchEvent(event);
+                              }}
+                            >
+                              Go to Style Check →
+                            </Button>
                           </div>
                         )}
                       </div>
