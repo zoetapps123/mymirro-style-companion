@@ -20,7 +20,7 @@ export function trackEvent(name: string, props: Record<string, any> = {}) {
   const host = window.location.hostname;
   console.log('[Mixpanel] Host:', host);
   
-  const allowedHosts = ["mymirro.in", "www.mymirro.in", "mymirro-style-companion.lovable.app"];
+  const allowedHosts = ["mymirro.in", "www.mymirro.in"];
   if (!allowedHosts.includes(host)) {
     console.log('[Mixpanel] Not on allowed domain, skipping');
     return;
@@ -62,7 +62,7 @@ export function identifyUser(user: any) {
   }
 
   const host = window.location.hostname;
-  const allowedHosts = ["mymirro.in", "www.mymirro.in", "mymirro-style-companion.lovable.app"];
+  const allowedHosts = ["mymirro.in", "www.mymirro.in"];
   if (!allowedHosts.includes(host)) {
     console.log('[Mixpanel] Not on allowed domain, skipping identify');
     return;
