@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
+import { trackEvent } from "@/lib/mixpanel";
 import { VibePredictionSheet } from "./VibePredictionSheet";
 import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
@@ -165,6 +166,12 @@ const StyleCheckHub = ({
         file_size: file.size,
         file_type: file.type
       }, 'stylecheck:image_upload', '/app/stylecheck');
+      
+      // Mixpanel: Track style check started
+      trackEvent('style_check_started', {
+        file_size: file.size,
+        file_type: file.type
+      });
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;
@@ -322,6 +329,13 @@ const StyleCheckHub = ({
       toast({
         title: 'Score complete!',
         description: `${data.outfit_name}: ${data.overall_score.toFixed(1)}/5.0`
+      });
+      
+      // Mixpanel: Track style check completed
+      trackEvent('style_check_completed', {
+        overall_score: data.overall_score,
+        occasion: occasion,
+        outfit_name: data.outfit_name
       });
 
       // Background persistence

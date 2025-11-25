@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackEvent } from "@/lib/mixpanel";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
 import {
@@ -163,6 +164,14 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
         outfit_item_count: Object.keys(data.outfit || {}).length,
         duration_ms: generationDuration,
       }, `Generate Outfits - Completed (${selectedOccasion})`);
+      
+      // Mixpanel: Track outfit generated
+      trackEvent('outfit_generated', {
+        occasion: selectedOccasion,
+        has_ai_suggestions: hasAiSuggestions,
+        outfit_item_count: Object.keys(data.outfit || {}).length,
+        duration_seconds: durationSeconds
+      });
 
       toast({
         title: "Outfit generated!",
@@ -248,6 +257,13 @@ const GenerateOutfits = ({ selectedItem, onBack, onTryAnother }: GenerateOutfits
       toast({
         title: "Outfit saved!",
         description: `"${outfitName}" is ready in your collection.`,
+      });
+      
+      // Mixpanel: Track look saved
+      trackEvent('look_saved', {
+        outfit_name: outfitName,
+        occasion: selectedOccasion,
+        item_count: Object.keys(currentOutfit.outfit || {}).length
       });
 
       setShowSaveDialog(false);

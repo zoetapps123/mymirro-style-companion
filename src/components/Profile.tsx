@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserAnalytics } from "@/hooks/useUserAnalytics";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { formatDistanceToNow } from "date-fns";
+import { trackEvent } from "@/lib/mixpanel";
 
 const Profile = () => {
   const { toast } = useToast();
@@ -42,6 +43,9 @@ const Profile = () => {
   const handleSignOut = async () => {
     trackCustom('sign_out_clicked', { source: 'profile' }, 'profile:sign_out');
     
+    // Mixpanel: Track sign out
+    trackEvent('sign_out', { source: 'profile' });
+    
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
@@ -67,6 +71,13 @@ const Profile = () => {
       wardrobe_items: analytics.wardrobeItems,
       saved_outfits: analytics.savedOutfits
     }, 'profile:referral');
+    
+    // Mixpanel: Track referral
+    trackEvent('referral_shared', {
+      share_method: navigator.share ? 'native' : 'clipboard',
+      wardrobe_items: analytics.wardrobeItems,
+      saved_outfits: analytics.savedOutfits
+    });
     
     if (navigator.share) {
       navigator.share({

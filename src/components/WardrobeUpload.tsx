@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
+import { trackEvent } from "@/lib/mixpanel";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import { ItemClassificationDialog } from "./ItemClassificationDialog";
 // Image processing functions imported dynamically when needed
@@ -315,6 +316,14 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         total_detected: itemsDetected.length,
         upload_method: 'manual_photo'
       }, 'user_action:add_items');
+      
+      // Mixpanel: Track wardrobe item added
+      trackEvent('wardrobe_item_added', {
+        items_added: successfullyAdded,
+        items_skipped: skippedCount,
+        total_detected: totalDetected,
+        duration_seconds: Math.floor(uploadDuration / 1000)
+      });
 
       setProgress(100);
       fetchWardrobeItems();

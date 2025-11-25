@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/mixpanel";
 
 interface OnboardingData {
   name: string;
@@ -87,6 +88,20 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
         gender: data.gender,
         age_range: data.ageRange,
       }, 'user_action:complete_onboarding');
+
+      // Mixpanel: Track onboarding completion and set user properties
+      trackEvent('onboarding_completed', {
+        gender: data.gender,
+        age_range: data.ageRange,
+      });
+      
+      if (user && window.mixpanel) {
+        window.mixpanel.people.set({
+          name: data.name,
+          gender: data.gender,
+          age_range: data.ageRange,
+        });
+      }
 
       onComplete();
     } catch (error) {

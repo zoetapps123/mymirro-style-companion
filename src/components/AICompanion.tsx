@@ -11,6 +11,7 @@ import { WardrobeItemsDisplay, OutfitSuggestionDisplay } from "./chat/ChatVisual
 import { WardrobeInsufficientPrompt } from "./chat/WardrobeInsufficientPrompt";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
+import { trackEvent } from "@/lib/mixpanel";
 import ReactMarkdown from "react-markdown";
 
 interface ToolCall {
@@ -1179,6 +1180,10 @@ const AICompanion = () => {
   const handleCardClick = (query: string) => {
     setShowPrompts(false);
     trackCustom("query_card_clicked", { query }, "user_action:click_query_card");
+    
+    // Mixpanel: Track chat card clicked
+    trackEvent('chat_card_clicked', { query });
+    
     // Directly send the card query
     handleSend(query);
   };
@@ -1216,6 +1221,14 @@ const AICompanion = () => {
       image_count: selectedImages.length,
       message_length: textToSend.length,
     }, "AI Chat - Message Sent");
+    
+    // Mixpanel: Track chat message sent
+    trackEvent('chat_message_sent', {
+      message_number: messageCountRef.current,
+      has_images: selectedImages.length > 0,
+      image_count: selectedImages.length,
+      message_length: textToSend.length
+    });
 
     const userMessage: Message = {
       id: Date.now().toString(),
