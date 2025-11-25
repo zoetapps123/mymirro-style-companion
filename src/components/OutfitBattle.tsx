@@ -9,6 +9,8 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import Confetti from 'react-confetti';
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 // Image compression helper
 // Image compression utility moved to shared lib
@@ -74,6 +76,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   // Track screen view on mount
   useEffect(() => {
     trackScreenView('stylecheck-battle', { context: 'battle_setup' }, '/app/stylecheck/battle');
+    trackPageView(SCREEN_NAMES.STYLECHECK_BATTLE, SCREEN_PATHS.STYLECHECK_BATTLE, { context: 'battle_setup' });
   }, [trackScreenView]);
 
   const addParticipant = (e: React.ChangeEvent<HTMLInputElement>) => {

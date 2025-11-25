@@ -13,9 +13,14 @@ export function trackEvent(name: string, props: Record<string, any> = {}) {
   });
 }
 
-export function trackPageView(page_name: string, metadata?: Record<string, any>) {
+export function trackPageView(
+  screen_name: string, 
+  virtual_path: string,
+  metadata?: Record<string, any>
+) {
   trackEvent("page_viewed", {
-    page_name,
+    screen_name,
+    virtual_path,
     path: window.location.pathname,
     ...metadata
   });

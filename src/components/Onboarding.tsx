@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/mixpanel";
@@ -34,6 +36,7 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
   useEffect(() => {
     startFlow('onboarding');
     trackCustom('onboarding_started', {}, 'Onboarding - Started');
+    trackPageView(SCREEN_NAMES.ONBOARDING, SCREEN_PATHS.ONBOARDING);
   }, [trackCustom, startFlow]);
 
   const genderOptions = [

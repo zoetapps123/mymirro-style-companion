@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { z } from "zod";
-import { identifyUser, trackEvent } from "@/lib/mixpanel";
+import { identifyUser, trackEvent, trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import {
   Select,
   SelectContent,
@@ -49,7 +50,7 @@ const hashPhoneNumber = async (phone: string): Promise<string> => {
 };
 
 const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const [loading, setLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
@@ -73,6 +74,12 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       image: slide3
     }
   ];
+
+  useEffect(() => {
+    trackScreenView('auth', {}, '/', '/');
+    // Track Mixpanel page view based on auth state
+    trackPageView(SCREEN_NAMES.AUTH_LOGIN, SCREEN_PATHS.AUTH_LOGIN);
+  }, [trackScreenView]);
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 interface OutfitCheckProps {
   onBack: () => void;
@@ -38,6 +40,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       { context: 'style_check' },
       '/app/stylecheck/check'
     );
+    trackPageView(SCREEN_NAMES.STYLECHECK_CHECK, SCREEN_PATHS.STYLECHECK_CHECK);
   }, [trackScreenView]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

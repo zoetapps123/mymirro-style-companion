@@ -5,6 +5,8 @@ import WardrobeLookbook from "./WardrobeLookbook";
 import WardrobeComingSoon from "./WardrobeComingSoon";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { WARDROBE_ROUTES, WARDROBE_PAGE_TITLES } from "@/lib/wardrobeRoutes";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 
 type WardrobeView = 'items' | 'suggestion' | 'calendar' | 'lookbook';
 
@@ -42,6 +44,7 @@ const Wardrobe = () => {
     const route = routeMap[currentView];
     const title = WARDROBE_PAGE_TITLES[route];
     
+    // Supabase analytics
     trackScreenView(
       `wardrobe-${currentView}`,
       { 
@@ -51,6 +54,16 @@ const Wardrobe = () => {
       route,
       route
     );
+
+    // Mixpanel analytics
+    const mixpanelScreenMap: Record<WardrobeView, { name: string; path: string }> = {
+      'items': { name: SCREEN_NAMES.WARDROBE_GALLERY, path: SCREEN_PATHS.WARDROBE_GALLERY },
+      'suggestion': { name: SCREEN_NAMES.WARDROBE_OUTFITS, path: SCREEN_PATHS.WARDROBE_OUTFITS },
+      'calendar': { name: SCREEN_NAMES.WARDROBE_CALENDAR, path: SCREEN_PATHS.WARDROBE_CALENDAR },
+      'lookbook': { name: SCREEN_NAMES.WARDROBE_LOOKBOOK, path: SCREEN_PATHS.WARDROBE_LOOKBOOK }
+    };
+    const screenInfo = mixpanelScreenMap[currentView];
+    trackPageView(screenInfo.name, screenInfo.path, { wardrobe_view: currentView });
   }, [currentView, trackScreenView]);
 
   const renderView = () => {

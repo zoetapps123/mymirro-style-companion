@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { LoadingTile } from "@/components/ui/loading-tile";
 import { useWardrobeItems } from "@/hooks/useWardrobeItems";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { trackPageView } from "@/lib/mixpanel";
+import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import { trackEvent } from "@/lib/mixpanel";
@@ -30,7 +32,7 @@ interface WardrobeMyItemsProps {
 
 const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const { items, isLoading, invalidateItems } = useWardrobeItems();
-  const { trackCustom } = useAnalytics();
+  const { trackCustom, trackScreenView } = useAnalytics();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [processingItems, setProcessingItems] = useState<number>(0);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -43,6 +45,11 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
     { icon: Calendar, title: "Plan Your\nLook", view: 'calendar' as const, active: false },
     { icon: Shirt, title: "Your\nLookbook", view: 'lookbook' as const, active: false },
   ];
+
+  useEffect(() => {
+    trackScreenView('wardrobe-gallery', {}, '/wardrobe/gallery', '/wardrobe/gallery');
+    trackPageView(SCREEN_NAMES.WARDROBE_GALLERY, SCREEN_PATHS.WARDROBE_GALLERY);
+  }, [trackScreenView]);
 
   useEffect(() => {
     // Check for items being processed from onboarding or other sources
