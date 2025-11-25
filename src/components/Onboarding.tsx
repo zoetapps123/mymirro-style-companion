@@ -10,7 +10,7 @@ import { trackPageView } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { trackEvent } from "@/lib/mixpanel";
+import { trackEvent, setUserProperties } from "@/lib/mixpanel";
 
 interface OnboardingData {
   name: string;
@@ -98,8 +98,8 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
         age_range: data.ageRange,
       });
       
-      if (user && window.mixpanel) {
-        window.mixpanel.people.set({
+      if (user) {
+        setUserProperties({
           name: data.name,
           gender: data.gender,
           age_range: data.ageRange,
