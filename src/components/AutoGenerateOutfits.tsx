@@ -61,6 +61,9 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     const startTime = Date.now();
     
     // Track auto-generate started
+    console.log('[Mixpanel] auto_generate_outfits_started:', {
+      wardrobe_item_count: wardrobeItems.length
+    });
     trackEvent('auto_generate_outfits_started', {
       wardrobe_item_count: wardrobeItems.length
     });
@@ -92,6 +95,13 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
       const duration = Date.now() - startTime;
       
       // Track successful generation
+      console.log('[Mixpanel] auto_generate_outfits_completed:', {
+        wardrobe_item_count: wardrobeItems.length,
+        style_outfit_count: (data.styleOutfits || []).length,
+        occasion_outfit_count: (data.occasionOutfits || []).length,
+        total_outfit_count: (data.styleOutfits || []).length + (data.occasionOutfits || []).length,
+        duration_seconds: Math.floor(duration / 1000)
+      });
       trackEvent('auto_generate_outfits_completed', {
         wardrobe_item_count: wardrobeItems.length,
         style_outfit_count: (data.styleOutfits || []).length,
@@ -118,6 +128,11 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
       console.error('Error generating outfits:', error);
       
       // Track generation error
+      console.log('[Mixpanel] auto_generate_outfits_failed:', {
+        wardrobe_item_count: wardrobeItems.length,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        duration_seconds: Math.floor((Date.now() - startTime) / 1000)
+      });
       trackEvent('auto_generate_outfits_failed', {
         wardrobe_item_count: wardrobeItems.length,
         error_message: error instanceof Error ? error.message : 'Unknown error',
@@ -148,11 +163,27 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
     <div 
       className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => {
+        console.log('[Mixpanel] auto_generated_outfit_selected:', {
+          outfit_type: outfit.type,
+          outfit_label: outfit.label,
+          item_count: outfit.items.length
+        });
         trackEvent('auto_generated_outfit_selected', {
           outfit_type: outfit.type,
           outfit_label: outfit.label,
           item_count: outfit.items.length
         });
+
+        // Internal analytics: outfit card clicked
+        trackCustom('outfit_card_clicked', {
+          outfit_id: outfit.id,
+          outfit_name: outfit.label,
+          outfit_type: outfit.type,
+          item_count: outfit.items.length,
+          source: 'auto_generate',
+          element_id: `auto-outfit-card-${outfit.id}`,
+        }, 'Auto Generate Outfits - Selected Template', '/wardrobe/generated-outfits');
+
         setEditingOutfit(outfit);
       }}
     >
@@ -215,6 +246,10 @@ const AutoGenerateOutfits = ({ onBack }: AutoGenerateOutfitsProps) => {
         {!loading && (styleOutfits.length > 0 || occasionOutfits.length > 0) && (
           <Button 
             onClick={() => {
+              console.log('[Mixpanel] auto_generate_outfits_regenerate_clicked:', {
+                previous_style_count: styleOutfits.length,
+                previous_occasion_count: occasionOutfits.length
+              });
               trackEvent('auto_generate_outfits_regenerate_clicked', {
                 previous_style_count: styleOutfits.length,
                 previous_occasion_count: occasionOutfits.length
