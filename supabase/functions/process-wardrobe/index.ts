@@ -601,7 +601,6 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
             items: {
               type: "array",
               description: "Array of detected clothing items with visual metadata",
-              maxItems: 5,
               items: {
                 type: "object",
                 properties: {

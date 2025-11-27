@@ -128,6 +128,51 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
 }
 
 /**
+ * Sanitize JSON Schema for Gemini compatibility
+ * Gemini requires UPPERCASE types and doesn't support certain JSON Schema properties
+ */
+function sanitizeSchemaForGemini(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+  
+  const sanitized: any = {};
+  
+  for (const [key, value] of Object.entries(schema)) {
+    // Skip unsupported JSON Schema properties
+    if ([
+      'maxItems', 'minItems',
+      'minimum', 'maximum',
+      'minLength', 'maxLength',
+      'format', 'pattern',
+      'additionalProperties'
+    ].includes(key)) {
+      continue;
+    }
+    
+    // Convert type to UPPERCASE
+    if (key === 'type' && typeof value === 'string') {
+      sanitized[key] = value.toUpperCase();
+    }
+    // Recursively sanitize nested objects
+    else if (key === 'properties' && value && typeof value === 'object') {
+      sanitized[key] = {};
+      for (const [propKey, propValue] of Object.entries(value as Record<string, any>)) {
+        sanitized[key][propKey] = sanitizeSchemaForGemini(propValue);
+      }
+    }
+    // Recursively sanitize array items
+    else if (key === 'items' && value && typeof value === 'object') {
+      sanitized[key] = sanitizeSchemaForGemini(value);
+    }
+    // Keep other properties as-is
+    else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
  * Convert OpenAI-style tools to Gemini function declarations
  */
 function convertToolsToFunctionDeclarations(tools: any[]): any[] {
@@ -136,7 +181,7 @@ function convertToolsToFunctionDeclarations(tools: any[]): any[] {
   return tools.map(tool => ({
     name: tool.function.name,
     description: tool.function.description,
-    parameters: tool.function.parameters
+    parameters: sanitizeSchemaForGemini(tool.function.parameters)
   }));
 }
 
@@ -264,6 +309,9 @@ export async function callGeminiAPI(options: {
     hasFunctions: !!functionDeclarations?.length,
     hasModalities: !!options.modalities
   });
+  
+  // Log request body for debugging (first 2000 chars)
+  console.log('Gemini request body preview:', JSON.stringify(requestBody).substring(0, 2000));
   
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
