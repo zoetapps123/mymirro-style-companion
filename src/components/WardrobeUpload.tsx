@@ -19,8 +19,10 @@ import { ItemClassificationDialog } from "./ItemClassificationDialog";
 interface WardrobeItem {
   id: string;
   name: string;
+  item_type?: string;
   category: string;
   color: string;
+  primary_color_hex?: string;
   processed_image_url: string | null;
 }
 
