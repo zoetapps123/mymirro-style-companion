@@ -15,64 +15,81 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-interface DetectedItem {
-  name: string;
-  category: string;
-  // Enhanced color fields
-  primary_color: string;
+interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface WardrobeDetectionItem {
+  bbox: BoundingBox;
+  
+  // Core identity
+  item_name: string;
+  category: "Tops" | "Bottoms" | "Outerwear" | "Dresses" | "Shoes" | "Accessories";
+  
+  // Color & pattern (spatial, visually grounded)
+  color_palette: string[];
+  color_distribution: number[];
+  primary_color_hex: string;
   primary_color_name: string;
-  color_family: string;
-  secondary_colors?: string[];
-  color_distribution?: number[];
-  // Fabric & material
-  fabric_primary: string;
-  fabric_weight: string;
-  material_finish: string;
-  texture: string;
-  // Pattern
   pattern_type: string;
+  pattern_geometry: string;
+  pattern_coverage: string;
   pattern_scale: string;
-  pattern_colors?: string[];
-  // Cut & fit
+  color_blocking_layout: string;
+  
+  // Graphics
+  graphic_type: string;
+  graphic_location: string;
+  graphic_size: string;
+  
+  // Shape & structure
   fit_type: string;
   silhouette: string;
   length: string;
-  // Design elements
-  neckline?: string;
+  
+  // Construction & details (category-specific optional)
   sleeve_type?: string;
-  closure_type: string;
-  pocket_details: string;
-  hardware_details: string;
-  embellishments: string;
-  special_features: string[];
-  // Style & aesthetic
-  style_aesthetic: string[];
-  formality_level: string;
-  style_notes_detailed: string;
-  // Occasion & use
-  suitable_occasions: string[];
-  season: string[];
-  weather_suitability: string;
-  // Category-specific
+  neckline?: string;
+  collar_type?: string;
+  closure_type?: string;
+  hem_style?: string;
+  pocket_details?: string;
+  shoulder_style?: string;
+  
+  // Layering context
+  layers_detected: "single_layer" | "double_layer" | "multi_layer";
+  
+  // Visual summary
+  visual_summary: string;
+}
+
+// Legacy interface for compatibility during migration
+type DetectedItem = WardrobeDetectionItem & {
+  name?: string;
+  primary_color?: string;
+  fabric_primary?: string;
+  // Semantic fields (will be added in Phase 2)
+  style_aesthetic?: string[];
+  formality_level?: string;
+  suitable_occasions?: string[];
+  season?: string[];
+  weather_suitability?: string;
+  brand?: string;
+  condition?: string;
+  fabric_weight?: string;
+  material_finish?: string;
+  texture?: string;
+  secondary_colors?: string[];
+  special_features?: string[];
+  style_notes_detailed?: string;
   rise?: string;
   waist_style?: string;
   heel_type?: string;
   toe_style?: string;
-  collar_type?: string;
-  // K-fashion / J-fashion enhanced fit attributes
-  t_shirt_sleeve_length?: string;
-  body_volume_ratio?: string;
-  hemline_placement?: string;
-  pant_stacking?: string;
-  waist_visibility?: string;
-  shoulder_structure?: string;
-  // Enhanced fabric attributes
-  t_shirt_material?: string;
-  denim_type?: string;
-  // Optional
-  brand?: string;
-  condition?: string;
-}
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -97,8 +114,8 @@ serve(async (req) => {
 
     console.log("Processing image with Gemini-only pipeline...");
 
-    // Check cache
-    const cacheKey = await generateCacheKey({ type: "wardrobe_gemini_v4", imageUrl });
+    // Check cache (updated version for visual-semantic split)
+    const cacheKey = await generateCacheKey({ type: "wardrobe_gemini_v5_visual_semantic", imageUrl });
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log("Returning cached result");
@@ -110,7 +127,7 @@ serve(async (req) => {
     // OPTIMIZED: Single API call to validate AND detect items (with stronger retry/backoff + model fallback)
     console.log("Step 1: Validating and detecting items in one call...");
 
-    let validationAndDetection: { isValid: boolean; reason?: string; items: DetectedItem[] } | null = null;
+    let validationAndDetection: { isValid: boolean; reason?: string; items: WardrobeDetectionItem[] } | null = null;
     {
       let attempts = 0;
       const maxAttempts = 5;
@@ -295,16 +312,23 @@ serve(async (req) => {
             body: {
               originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
               category: item.category,
-              coreMetadata: {
-                name: item.name,
-                primary_color: item.primary_color,
+              visualMetadata: {
+                item_name: item.item_name,
+                bbox: item.bbox,
+                primary_color_hex: item.primary_color_hex,
                 primary_color_name: item.primary_color_name,
-                color_family: item.color_family,
-                fabric_primary: item.fabric_primary,
+                color_palette: item.color_palette,
+                color_distribution: item.color_distribution,
                 pattern_type: item.pattern_type,
-                style_aesthetic: item.style_aesthetic,
-                formality_level: item.formality_level,
-                suitable_occasions: item.suitable_occasions,
+                pattern_geometry: item.pattern_geometry,
+                pattern_coverage: item.pattern_coverage,
+                fit_type: item.fit_type,
+                silhouette: item.silhouette,
+                length: item.length,
+                neckline: item.neckline,
+                sleeve_type: item.sleeve_type,
+                closure_type: item.closure_type,
+                visual_summary: item.visual_summary,
               },
             },
           },
@@ -321,8 +345,10 @@ serve(async (req) => {
       }
 
       // Use the processed image URL from Phase 1 for final storage
+      // Map WardrobeDetectionItem + Phase 2 semantic to DetectedItem format for DB
       itemsWithImages.push({
         ...enrichedItem,
+        name: item.item_name, // Legacy field
         imageUrl: item.processedImageUrl,
       });
 
@@ -452,108 +478,115 @@ async function validateAndDetectItems(
 ): Promise<{
   isValid: boolean;
   reason?: string;
-  items: DetectedItem[];
+  items: WardrobeDetectionItem[];
 }> {
-  console.log("PHASE 1: Starting quick detection with model:", model);
+  console.log("PHASE 1: Starting visual detection with model:", model);
 
-  const QUICK_DETECTION_PROMPT = `Analyze this clothing image for wardrobe extraction.
+  const VISUAL_DETECTION_PROMPT = `You are a precise visual clothing analyzer. Analyze this image in TWO STEPS within a single response.
 
-Your output MUST be strictly based only on what is clearly visible in the image.
-If any detail is not visually confirmed, set the value to "unknown" instead of guessing.
+═══════════════════════════════════════════════════════════════════════
+STEP 1A: DETECTION & BOUNDING BOXES
+═══════════════════════════════════════════════════════════════════════
 
------------------------------------------
-VALIDATION (DO NOT SKIP)
------------------------------------------
-Determine whether the image is suitable for wardrobe extraction.
+First, determine if the image is VALID for wardrobe extraction:
 
-VALID = 
-- Humans wearing clothes, OR
-- One or more clearly visible standalone clothing items or accessories
+✅ VALID:
+- Humans wearing clothes (full body or partial)
+- Standalone clothing items clearly visible
+- Multiple clothing items in a flat-lay or hanging arrangement
 
-INVALID =
-- Empty image
-- Non-clothing objects
-- Blurry / low-light / unclear items
-- Inappropriate or misleading content
-- Garments too occluded or not identifiable
+❌ INVALID:
+- Empty/blank images
+- Non-clothing objects only
+- Blurry/low-light/unidentifiable content
+- Inappropriate content
 
-Return reason if invalid.
+If INVALID: Set isValid=false with reason and return empty items array.
 
------------------------------------------
-DETECTION — EXTRACT ONLY VISIBLE ITEMS
------------------------------------------
-Extract visible items with CORE FIELDS ONLY.
-Do NOT infer details that cannot be directly confirmed from the image.
+If VALID: Detect up to 5 distinct clothing items. For each item:
+- Determine a bounding box: {x, y, width, height} as percentages (0-100) of image dimensions
+- x,y = top-left corner; width,height = size
 
-REQUIRED CORE FIELDS (10 fields):
-1. name:
-   - Short, descriptive (3–6 words)
-   - Do NOT invent fit or style unless clearly visible.
-   - Use simple wording: e.g., "Black Slim T-Shirt", "Blue Straight Jeans".
+═══════════════════════════════════════════════════════════════════════
+STEP 1B: VISUAL METADATA PER ITEM (STRICTLY VISUAL)
+═══════════════════════════════════════════════════════════════════════
 
-2. category:
-   - One of: Tops | Bottoms | Outerwear | Dresses | Shoes | Accessories
-   - If unclear → "Accessories" only if clearly accessory.
-   - If still unclear → "unknown".
+For each detected item, analyze ONLY the pixels within its bounding box.
+Extract ONLY visually grounded facts. DO NOT infer:
+- Formality level
+- Suitable occasions  
+- Style aesthetics (streetwear, minimalist, etc.)
+- Season/weather suitability
+- Brand (unless visibly printed)
+- Personality/vibe
 
-3. primary_color:
-   - Hex code of the dominant visible color.
-   - If lighting/shadow makes it unclear → "unknown".
+If something is not clearly visible, use "unknown" or "none".
 
-4. primary_color_name:
-   - Simple color name (e.g., "Black", "Light Blue", "Gray").
-   - Must correspond to the hex value.
-   - If color uncertain → "unknown".
+For each item, extract:
 
-5. color_family:
-   - One of: blue | red | green | yellow | orange | purple | pink | brown | earth_tones | neutrals | black | white | grey
-   - Use the broad family only.
+**IDENTITY:**
+- item_name: Simple 3-5 word name (e.g., "Black Crew Neck T-Shirt", "Blue Slim Jeans")
+- category: One of [Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories]
 
-6. fabric_primary:
-   - Only if visually obvious: cotton, denim, knit, wool, polyester, leather, linen, synthetic.
-   - If fabric texture not visible → "unknown".
+**COLOR ANALYSIS (SPATIAL):**
+- primary_color_hex: Dominant visible color as hex (#RRGGBB)
+- primary_color_name: Human-readable name ("Black", "Navy Blue", "Cream")
+- color_palette: Array of 2-4 hex codes for all visible colors, ordered by coverage
+- color_distribution: Array of percentages matching color_palette (must sum to 100)
+- color_blocking_layout: "none" | "sleeve_contrast" | "top_bottom_split" | "left_right_split" | "shoulder_yoke" | "panel_sides" | "hem_contrast"
 
-7. pattern_type:
-   - solid | striped | plaid | checkered | floral | geometric | abstract | animal_print | polka_dot | etc.
-   - If image is plain → "solid".
-   - If pattern unclear → "unknown".
+**PATTERN ANALYSIS:**
+- pattern_type: "solid" | "striped" | "checkered" | "plaid" | "floral" | "geometric" | "abstract" | "animal_print" | "polka_dot" | "graphic" | "camo" | "tie_dye"
+- pattern_geometry: For stripes: "horizontal" | "vertical" | "diagonal". For florals: "ditsy" | "large_bloom" | "tropical". For graphics: "logo_center" | "all_over_print". Use "none" if solid.
+- pattern_coverage: "all_over" | "chest_center" | "front_full" | "back_full" | "sleeves_only" | "hem_band" | "none"
+- pattern_scale: "micro" | "small" | "medium" | "large" | "oversized" | "none"
 
-8. style_aesthetic:
-   - Array of clear, visually inferable aesthetics ONLY:
-     ["casual", "streetwear", "minimalist", "bohemian", "preppy", "edgy", etc.]
-   - Do NOT infer based on fashion stereotypes.
-   - If unclear → ["unknown"].
+**GRAPHICS (if present):**
+- graphic_type: "none" | "logo" | "illustration" | "text_graphic" | "photo_print" | "brand_logo"
+- graphic_location: "none" | "center_chest" | "left_chest" | "right_chest" | "front_full" | "back_full" | "sleeve_left" | "sleeve_right"
+- graphic_size: "none" | "small" | "medium" | "large" | "oversized"
 
-9. formality_level:
-   - casual | business_casual | semi_formal | formal | athletic
-   - Only choose if visible.
-   - If unclear → "casual" **ONLY IF** item is clearly casual (tees, hoodies, jeans).
-   - Else → "unknown".
+**SHAPE & STRUCTURE:**
+- fit_type: "slim" | "regular" | "relaxed" | "oversized" | "tailored" | "skinny" | "loose"
+- silhouette: "straight" | "tapered" | "boxy" | "a_line" | "fitted" | "flared" | "bodycon"
+- length: 
+  - Tops: "crop" | "waist" | "hip" | "below_hip" | "tunic"
+  - Bottoms: "micro" | "short" | "knee" | "midi" | "ankle" | "floor"
+  - Outerwear: "waist" | "hip" | "thigh" | "knee" | "ankle"
+  - Dresses: "mini" | "knee" | "midi" | "maxi"
 
-10. suitable_occasions:
-    - Array like: ["everyday", "work", "date_night", "outdoor", "gym", etc.]
-    - Use ONLY visually appropriate ones.
-    - If unclear → ["unknown"].
+**CONSTRUCTION DETAILS:**
+- sleeve_type: "sleeveless" | "cap" | "short" | "elbow" | "three_quarter" | "long" | "bell" | "bishop" | "puff" (for Tops/Outerwear/Dresses)
+- neckline: "crew" | "v_neck" | "scoop" | "boat" | "square" | "off_shoulder" | "halter" | "turtleneck" | "mock_neck" | "collar" | "hooded"
+- collar_type: "none" | "standard" | "mandarin" | "peter_pan" | "shawl" | "notched" | "spread" | "button_down"
+- closure_type: "none" | "pullover" | "button_front" | "button_half" | "zipper_front" | "zipper_side" | "zipper_back" | "tie" | "snap" | "velcro" | "lace_up"
+- hem_style: "straight" | "curved" | "ribbed" | "cuffed" | "raw" | "asymmetric" | "split"
+- pocket_details: "none" | "side_seam" | "patch" | "welt" | "cargo" | "kangaroo" | "hidden"
+- shoulder_style: "regular" | "drop_shoulder" | "raglan" | "puff" | "structured" | "cut_out"
 
------------------------------------------
-LIMITS
------------------------------------------
-- Maximum 5 items per image.
-- Only return items that are CLEARLY visible.
-- NO hallucination of details, patterns, fabrics, or colors.
-- If unsure → respond with "unknown".
-- Use the return_detection function for structured output.
-`;
+**LAYERING:**
+- layers_detected: "single_layer" | "double_layer" | "multi_layer"
 
-  console.log("Calling Gemini API for Phase 1 detection...");
+**VISUAL SUMMARY:**
+- visual_summary: A concise 15-25 word description of ONLY what is visible (e.g., "Oversized black cotton t-shirt with white screen-printed graphic on center chest, drop shoulders, crew neck, relaxed fit")
 
-  // Strict schema for Phase 1
+═══════════════════════════════════════════════════════════════════════
+OUTPUT REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════
+
+Use the return_visual_detection function to return structured JSON.
+Be precise. Only describe what you SEE. Unknown details = "unknown".
+
+
+  console.log("Calling Gemini API for Phase 1 visual detection...");
+
+  // Visual-only schema for Phase 1
   const tools = [
     {
       type: "function",
       function: {
-        name: "return_detection",
-        description: "Return validation result and detected items with CORE fields only",
+        name: "return_visual_detection",
+        description: "Return validation result and detected items with VISUAL fields only",
         parameters: {
           type: "object",
           properties: {
@@ -567,45 +600,86 @@ LIMITS
             },
             items: {
               type: "array",
-              description: "Array of detected clothing items with core fields",
+              description: "Array of detected clothing items with visual metadata",
               maxItems: 5,
               items: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Descriptive 4-6 word name" },
+                  bbox: {
+                    type: "object",
+                    description: "Bounding box coordinates",
+                    properties: {
+                      x: { type: "number", description: "X coordinate (0-100)" },
+                      y: { type: "number", description: "Y coordinate (0-100)" },
+                      width: { type: "number", description: "Width (0-100)" },
+                      height: { type: "number", description: "Height (0-100)" },
+                    },
+                    required: ["x", "y", "width", "height"],
+                  },
+                  item_name: { type: "string", description: "Descriptive 3-5 word name" },
                   category: {
                     type: "string",
                     enum: ["Tops", "Bottoms", "Outerwear", "Dresses", "Shoes", "Accessories"],
                     description: "Item category",
                   },
-                  primary_color: { type: "string", description: "Hex color code" },
-                  primary_color_name: { type: "string", description: "Human-readable color name" },
-                  color_family: { type: "string", description: "Color family group" },
-                  fabric_primary: { type: "string", description: "Primary fabric type" },
-                  pattern_type: { type: "string", description: "Pattern or print type" },
-                  style_aesthetic: {
+                  color_palette: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Array of style aesthetics",
+                    description: "Array of hex codes",
                   },
-                  formality_level: { type: "string", description: "Formality level" },
-                  suitable_occasions: {
+                  color_distribution: {
                     type: "array",
-                    items: { type: "string" },
-                    description: "Array of suitable occasions",
+                    items: { type: "number" },
+                    description: "Percentages matching palette",
                   },
+                  primary_color_hex: { type: "string", description: "Primary color hex" },
+                  primary_color_name: { type: "string", description: "Human-readable color" },
+                  pattern_type: { type: "string", description: "Pattern type" },
+                  pattern_geometry: { type: "string", description: "Pattern direction/layout" },
+                  pattern_coverage: { type: "string", description: "Where pattern appears" },
+                  pattern_scale: { type: "string", description: "Pattern scale" },
+                  color_blocking_layout: { type: "string", description: "Color blocking style" },
+                  graphic_type: { type: "string", description: "Graphic type if present" },
+                  graphic_location: { type: "string", description: "Graphic location" },
+                  graphic_size: { type: "string", description: "Graphic size" },
+                  fit_type: { type: "string", description: "Fit style" },
+                  silhouette: { type: "string", description: "Silhouette shape" },
+                  length: { type: "string", description: "Length description" },
+                  sleeve_type: { type: "string", description: "Sleeve type" },
+                  neckline: { type: "string", description: "Neckline style" },
+                  collar_type: { type: "string", description: "Collar style" },
+                  closure_type: { type: "string", description: "Closure type" },
+                  hem_style: { type: "string", description: "Hem style" },
+                  pocket_details: { type: "string", description: "Pocket details" },
+                  shoulder_style: { type: "string", description: "Shoulder construction" },
+                  layers_detected: {
+                    type: "string",
+                    enum: ["single_layer", "double_layer", "multi_layer"],
+                    description: "Layering context",
+                  },
+                  visual_summary: { type: "string", description: "Visual description 15-25 words" },
                 },
                 required: [
-                  "name",
+                  "bbox",
+                  "item_name",
                   "category",
-                  "primary_color",
+                  "color_palette",
+                  "color_distribution",
+                  "primary_color_hex",
                   "primary_color_name",
-                  "color_family",
-                  "fabric_primary",
                   "pattern_type",
-                  "style_aesthetic",
-                  "formality_level",
-                  "suitable_occasions",
+                  "pattern_geometry",
+                  "pattern_coverage",
+                  "pattern_scale",
+                  "color_blocking_layout",
+                  "graphic_type",
+                  "graphic_location",
+                  "graphic_size",
+                  "fit_type",
+                  "silhouette",
+                  "length",
+                  "layers_detected",
+                  "visual_summary",
                 ],
               },
             },
@@ -622,18 +696,18 @@ LIMITS
       {
         role: "user",
         content: [
-          { type: "text", text: QUICK_DETECTION_PROMPT },
+          { type: "text", text: VISUAL_DETECTION_PROMPT },
           { type: "image_url", image_url: { url: imageUrl } },
         ],
       },
     ],
     tools,
-    tool_choice: { type: "function", function: { name: "return_detection" } },
+    tool_choice: { type: "function", function: { name: "return_visual_detection" } },
   });
 
   // If function call is returned, use it
   const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (toolCall?.type === "function" && toolCall.function?.name === "return_detection") {
+  if (toolCall?.type === "function" && toolCall.function?.name === "return_visual_detection") {
     try {
       const args = JSON.parse(toolCall.function.arguments || "{}");
       console.log("Parsed via function call:", {
@@ -642,11 +716,11 @@ LIMITS
       });
       console.log("Function call arguments sample:", JSON.stringify(args).substring(0, 500));
 
-      // Validate that items have required fields
+      // Validate that items have required visual fields
       const hasValidItems =
         Array.isArray(args.items) &&
         args.items.length > 0 &&
-        args.items.every((item: any) => item.name && item.category);
+        args.items.every((item: any) => item.item_name && item.category && item.bbox);
 
       if (hasValidItems) {
         return {
@@ -737,7 +811,7 @@ LIMITS
   console.log("Successfully parsed wardrobe detection:", {
     isValid: result.isValid,
     itemCount: result.items?.length || 0,
-    firstItemName: result.items?.[0]?.name || "N/A",
+    firstItemName: result.items?.[0]?.item_name || "N/A",
     hasReason: !!result.reason,
   });
 
@@ -760,13 +834,13 @@ LIMITS
 }
 
 interface DuplicateCheckResult {
-  uniqueItems: DetectedItem[];
+  uniqueItems: WardrobeDetectionItem[];
   duplicatesSkipped: number;
   skipReasons: string[];
 }
 
 async function enhancedSmartDeduplication(
-  detectedItems: DetectedItem[],
+  detectedItems: WardrobeDetectionItem[],
   userId: string,
 ): Promise<DuplicateCheckResult> {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -782,113 +856,97 @@ async function enhancedSmartDeduplication(
     };
   }
 
-  const uniqueItems: DetectedItem[] = [];
+  const uniqueItems: WardrobeDetectionItem[] = [];
   const skipReasons: string[] = [];
 
   for (const newItem of detectedItems) {
     let isDuplicate = false;
     let skipReason = "";
 
-    // LEVEL 1: Exact name match
-    // const exactMatch = existingItems.find(
-    //   e => e.name?.toLowerCase().trim() === newItem.name.toLowerCase().trim()
-    // );
+    // LEVEL 1: Enhanced Visual Fingerprint Match (using new visual metadata)
+    const bothExistAndMatch = (a: any, b: any) => {
+      return a != null && a !== "" && a !== "none" && a !== "unknown" && 
+             b != null && b !== "" && b !== "none" && b !== "unknown" && a === b;
+    };
 
-    // if (exactMatch) {
-    //   isDuplicate = true;
-    //   skipReason = `Exact name: "${newItem.name}"`;
-    // }
+    const fingerprintMatch = existingItems.find((existing) => {
+      const sameCategory = bothExistAndMatch(existing.category, newItem.category);
+      if (!sameCategory) return false;
 
-    // LEVEL 2: Enhanced Fingerprint Match (with null checks)
-    //if (!isDuplicate)
-    {
-      const bothExistAndMatch = (a: any, b: any) => {
-        return a != null && a !== "" && b != null && b !== "" && a === b;
-      };
+      const samePatternType = bothExistAndMatch(existing.pattern_type, newItem.pattern_type);
+      const samePatternGeometry = bothExistAndMatch(existing.pattern_geometry, newItem.pattern_geometry);
+      const samePatternCoverage = bothExistAndMatch(existing.pattern_coverage, newItem.pattern_coverage);
+      const sameFit = bothExistAndMatch(existing.fit_type, newItem.fit_type);
+      const sameSilhouette = bothExistAndMatch(existing.silhouette, newItem.silhouette);
+      const sameLength = bothExistAndMatch(existing.length, newItem.length);
+      const sameClosure = bothExistAndMatch(existing.closure_type, newItem.closure_type);
+      const sameNeckline = bothExistAndMatch(existing.neckline, newItem.neckline);
+      const sameColorBlocking = bothExistAndMatch(existing.color_blocking_layout, newItem.color_blocking_layout);
+      const sameGraphicType = bothExistAndMatch(existing.graphic_type, newItem.graphic_type);
 
-      const fingerprintMatch = existingItems.find((existing) => {
-        const sameCategory = bothExistAndMatch(existing.category, newItem.category);
-        if (!sameCategory) return false;
+      const matchingFields = [
+        samePatternType,
+        samePatternGeometry,
+        samePatternCoverage,
+        sameFit,
+        sameSilhouette,
+        sameLength,
+        sameClosure,
+        sameNeckline,
+        sameColorBlocking,
+        sameGraphicType,
+      ].filter(Boolean);
 
-        const sameColorFamily = bothExistAndMatch(existing.color_family, newItem.color_family);
-        const sameFabric = bothExistAndMatch(
-          existing.fabric_primary?.toLowerCase(),
-          newItem.fabric_primary?.toLowerCase(),
-        );
-        const sameFit = bothExistAndMatch(existing.fit_type, newItem.fit_type);
-        const samePattern = bothExistAndMatch(existing.pattern_type, newItem.pattern_type);
-        const sameSilhouette = bothExistAndMatch(existing.silhouette, newItem.silhouette);
-        const sameClosure = bothExistAndMatch(existing.closure_type, newItem.closure_type);
-        const sameLength = bothExistAndMatch(existing.length, newItem.length);
+      const hasEnoughMatches = matchingFields.length >= 5; // 5+ visual attributes match
 
-        const matchingFields = [
-          sameColorFamily,
-          sameFabric,
-          sameFit,
-          samePattern,
-          sameSilhouette,
-          sameClosure,
-          sameLength,
-        ].filter(Boolean);
-
-        const hasEnoughMatches = matchingFields.length >= 4;
-
-        if (hasEnoughMatches) {
-          console.log(`🔍 Fingerprint match found for "${newItem.name}":`, {
-            existing: existing.name,
-            matchingFieldsCount: matchingFields.length,
-            fields: {
-              colorFamily: sameColorFamily,
-              fabric: sameFabric,
-              fit: sameFit,
-              pattern: samePattern,
-              silhouette: sameSilhouette,
-              closure: sameClosure,
-              length: sameLength,
-            },
-          });
-        }
-
-        return hasEnoughMatches;
-      });
-
-      if (fingerprintMatch) {
-        isDuplicate = true;
-        skipReason = `Fingerprint match: "${newItem.name}" = "${fingerprintMatch.name}"`;
+      if (hasEnoughMatches) {
+        console.log(`🔍 Visual fingerprint match for "${newItem.item_name}":`, {
+          existing: existing.name,
+          matchingFieldsCount: matchingFields.length,
+        });
       }
+
+      return hasEnoughMatches;
+    });
+
+    if (fingerprintMatch) {
+      isDuplicate = true;
+      skipReason = `Visual fingerprint: "${newItem.item_name}" = "${fingerprintMatch.name}"`;
     }
 
-    // LEVEL 3: Color Similarity (with null checks)
+    // LEVEL 2: Color Similarity + Pattern + Silhouette
     if (!isDuplicate) {
       const colorSimilarMatch = existingItems.find((existing) => {
         if (existing.category !== newItem.category) return false;
 
-        // Both must have valid primary colors
-        const existingColor = existing.primary_color || existing.color;
-        const newColor = newItem.primary_color;
+        const existingColor = existing.primary_color_hex || existing.primary_color || existing.color;
+        const newColor = newItem.primary_color_hex;
 
         if (!existingColor || !newColor) return false;
 
         const distance = calculateColorDistance(existingColor, newColor);
-
-        // Require category + color + at least 2 other attributes
         const colorMatch = distance < 30;
-        const fabricMatch =
-          existing.fabric_primary && newItem.fabric_primary && existing.fabric_primary === newItem.fabric_primary;
-        const silhouetteMatch = existing.silhouette && newItem.silhouette && existing.silhouette === newItem.silhouette;
-        const fitMatch = existing.fit_type && newItem.fit_type && existing.fit_type === newItem.fit_type;
 
-        const extraMatches = [fabricMatch, silhouetteMatch, fitMatch].filter(Boolean).length;
+        // Require color + pattern + silhouette/fit match
+        const patternMatch = existing.pattern_type && 
+          newItem.pattern_type && 
+          existing.pattern_type === newItem.pattern_type;
+        const silhouetteMatch = existing.silhouette && 
+          newItem.silhouette && 
+          existing.silhouette === newItem.silhouette;
+        const fitMatch = existing.fit_type && 
+          newItem.fit_type && 
+          existing.fit_type === newItem.fit_type;
+
+        const extraMatches = [patternMatch, silhouetteMatch, fitMatch]
+          .filter(Boolean).length;
 
         const isMatch = colorMatch && extraMatches >= 2;
 
         if (isMatch) {
-          console.log(`🎨 Color similarity match for "${newItem.name}":`, {
+          console.log(`🎨 Color+visual match for "${newItem.item_name}":`, {
             existing: existing.name,
             colorDistance: Math.round(distance),
-            fabric: fabricMatch,
-            silhouette: silhouetteMatch,
-            fit: fitMatch,
           });
         }
 
@@ -897,7 +955,7 @@ async function enhancedSmartDeduplication(
 
       if (colorSimilarMatch) {
         isDuplicate = true;
-        skipReason = `Color similarity: "${newItem.name}" ~ "${colorSimilarMatch.name}"`;
+        skipReason = `Color+visual similarity: "${newItem.item_name}" ~ "${colorSimilarMatch.name}"`;
       }
     }
 
@@ -936,48 +994,65 @@ function hexToRgb(hex: string) {
     : null;
 }
 
-async function generateProductImage(item: DetectedItem): Promise<Uint8Array> {
+async function generateProductImage(item: WardrobeDetectionItem): Promise<Uint8Array> {
   // Validate item has required fields
-  if (!item.name || !item.category) {
+  if (!item.item_name || !item.category) {
     console.error("generateProductImage called with invalid item:", item);
-    throw new Error(`Invalid item: missing name or category`);
+    throw new Error(`Invalid item: missing item_name or category`);
   }
 
-  const detailedPrompt = `Create a professional e-commerce product photo of:
+  const visualPrompt = `Create a professional e-commerce product photo.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ITEM: ${item.name}
+ITEM: ${item.item_name}
 CATEGORY: ${item.category}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**COLOR SPECIFICATION:**
-- Primary: ${item.primary_color_name} (${item.primary_color})
-${item.secondary_colors?.length ? `- Accent Colors: ${item.secondary_colors.join(", ")}` : ""}
-${item.color_distribution ? `- Color Distribution: ${item.primary_color_name} ${item.color_distribution[0]}%, accents ${item.color_distribution.slice(1).join("%, ")}%` : ""}
-- Color Family: ${item.color_family}
-
-**FABRIC & MATERIAL:**
-- Primary Fabric: ${item.fabric_primary}
-${item.fabric_weight ? `- Weight: ${item.fabric_weight}` : ""}
-${item.material_finish ? `- Finish: ${item.material_finish}` : ""}
-${item.texture ? `- Texture: ${item.texture}` : ""}
+**EXACT COLOR SPECIFICATION:**
+- Primary Color: ${item.primary_color_name} (${item.primary_color_hex})
+- Full Palette: ${item.color_palette.map((c, i) => `${c} (${item.color_distribution[i]}%)`).join(", ")}
+${item.color_blocking_layout !== "none" ? `- Color Blocking: ${item.color_blocking_layout}` : ""}
 
 **PATTERN:**
 - Type: ${item.pattern_type}
-${item.pattern_scale && item.pattern_scale !== "none" ? `- Scale: ${item.pattern_scale}` : ""}
-${item.pattern_colors?.length ? `- Pattern Colors: ${item.pattern_colors.join(", ")}` : ""}
+${item.pattern_geometry !== "none" ? `- Geometry: ${item.pattern_geometry}` : ""}
+${item.pattern_coverage !== "none" ? `- Coverage: ${item.pattern_coverage}` : ""}
+${item.pattern_scale !== "none" ? `- Scale: ${item.pattern_scale}` : ""}
 
-**CUT & FIT:**
-${item.fit_type ? `- Fit: ${item.fit_type}` : ""}
-${item.silhouette ? `- Silhouette: ${item.silhouette}` : ""}
-${item.length ? `- Length: ${item.length}` : ""}
+${item.graphic_type !== "none" ? `**GRAPHICS:**
+- Type: ${item.graphic_type}
+- Location: ${item.graphic_location}
+- Size: ${item.graphic_size}` : ""}
 
-**DESIGN DETAILS:**
-${item.neckline ? `- Neckline: ${item.neckline}` : ""}
+**SHAPE & STRUCTURE:**
+- Fit: ${item.fit_type}
+- Silhouette: ${item.silhouette}
+- Length: ${item.length}
+
+**CONSTRUCTION:**
 ${item.sleeve_type ? `- Sleeves: ${item.sleeve_type}` : ""}
-${item.closure_type ? `- Closure: ${item.closure_type}` : ""}
-${item.pocket_details ? `- Pockets: ${item.pocket_details}` : ""}
-${item.hardware_details ? `- Hardware: ${item.hardware_details}` : ""}
+${item.neckline ? `- Neckline: ${item.neckline}` : ""}
+${item.collar_type && item.collar_type !== "none" ? `- Collar: ${item.collar_type}` : ""}
+${item.closure_type && item.closure_type !== "none" ? `- Closure: ${item.closure_type}` : ""}
+${item.hem_style ? `- Hem: ${item.hem_style}` : ""}
+${item.pocket_details && item.pocket_details !== "none" ? `- Pockets: ${item.pocket_details}` : ""}
+${item.shoulder_style ? `- Shoulders: ${item.shoulder_style}` : ""}
+
+**VISUAL REFERENCE:**
+${item.visual_summary}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GENERATION REQUIREMENTS (STRICT):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Pure white background (#FFFFFF)
+2. Front-facing, centered, full garment visible
+3. Item laid flat or on invisible mannequin (NO human body parts)
+4. Professional lighting, no shadows
+5. Follow EXACT colors, patterns, and construction details above
+6. Do NOT invent details not specified
+7. Ultra-sharp, e-commerce quality
+
+Generate this exact item with precision.`;
 ${item.embellishments ? `- Embellishments: ${item.embellishments}` : ""}
 ${item.special_features?.length ? `- Special Features: ${item.special_features.join(", ")}` : ""}
 
