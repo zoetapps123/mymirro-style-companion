@@ -1,11 +1,24 @@
 /**
  * Centralized wardrobe item deduplication logic
- * Ensures consistent duplicate detection across all wardrobe upload flows
+ * Updated for 12-field visual metadata system
  */
 
-interface WardrobeItemForDedup {
+export interface WardrobeItemForDedup {
   name?: string | null;
   category?: string | null;
+  
+  // New 12-field system
+  item_type?: string | null;
+  primary_color_hex?: string | null;
+  secondary_palette?: string[] | null;
+  pattern_type?: string | null;
+  pattern_geometry?: string | null;
+  fit_silhouette?: string | null;
+  length?: string | null;
+  fabric_family?: string | null;
+  fabric_behavior?: string | null;
+  
+  // Legacy fields for backward compatibility
   color?: string | null;
   primary_color?: string | null;
   brand?: string | null;
@@ -19,87 +32,51 @@ function normalizeString(str: string | null | undefined): string {
   return str
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s]/g, '') // Remove punctuation
-    .replace(/\s+/g, ' '); // Normalize whitespace
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ');
 }
 
 /**
- * Check if two names are strongly similar
- * Returns true if:
- * - Exact match after normalization
- * - One contains the other (bidirectional substring match)
+ * Calculate color distance between two hex colors
  */
-function areNamesStronglySimilar(name1: string, name2: string): boolean {
-  const n1 = normalizeString(name1);
-  const n2 = normalizeString(name2);
+function calculateColorDistance(hex1: string, hex2: string): number {
+  if (!hex1 || !hex2) return 999;
   
-  if (!n1 || !n2) return false;
+  // Remove # prefix if present
+  const h1 = hex1.replace('#', '');
+  const h2 = hex2.replace('#', '');
   
-  // Exact match
-  if (n1 === n2) return true;
+  const r1 = parseInt(h1.slice(0, 2), 16);
+  const g1 = parseInt(h1.slice(2, 4), 16);
+  const b1 = parseInt(h1.slice(4, 6), 16);
   
-  // Bidirectional substring (one contains the other)
-  if (n1.includes(n2) || n2.includes(n1)) return true;
+  const r2 = parseInt(h2.slice(0, 2), 16);
+  const g2 = parseInt(h2.slice(2, 4), 16);
+  const b2 = parseInt(h2.slice(4, 6), 16);
   
-  return false;
+  return Math.sqrt(
+    Math.pow(r2 - r1, 2) +
+    Math.pow(g2 - g1, 2) +
+    Math.pow(b2 - b1, 2)
+  );
 }
 
 /**
- * Check if two names are moderately similar
- * More lenient than strong similarity
- */
-function areNamesModeratelySimilar(name1: string, name2: string): boolean {
-  const n1 = normalizeString(name1);
-  const n2 = normalizeString(name2);
-  
-  if (!n1 || !n2) return false;
-  
-  // Use strong similarity as base
-  if (areNamesStronglySimilar(name1, name2)) return true;
-  
-  // Check if names have significant word overlap
-  const words1 = n1.split(' ').filter(w => w.length > 2);
-  const words2 = n2.split(' ').filter(w => w.length > 2);
-  
-  if (words1.length === 0 || words2.length === 0) return false;
-  
-  const commonWords = words1.filter(w => words2.includes(w));
-  const overlapRatio = commonWords.length / Math.min(words1.length, words2.length);
-  
-  return overlapRatio >= 0.5; // At least 50% word overlap
-}
-
-/**
- * Get the effective color for an item (prefer primary_color, fallback to color)
- */
-function getEffectiveColor(item: WardrobeItemForDedup): string {
-  return normalizeString(item.primary_color || item.color);
-}
-
-/**
- * Check if two colors match (only when both are present)
+ * Check if two colors match using hex comparison
  */
 function doColorsMatch(item1: WardrobeItemForDedup, item2: WardrobeItemForDedup): boolean {
-  const color1 = getEffectiveColor(item1);
-  const color2 = getEffectiveColor(item2);
+  const hex1 = item1.primary_color_hex;
+  const hex2 = item2.primary_color_hex;
   
-  // Only match if BOTH colors are present
-  if (!color1 || !color2) return false;
+  if (!hex1 || !hex2) {
+    // Fallback to legacy color matching
+    const color1 = normalizeString(item1.primary_color || item1.color);
+    const color2 = normalizeString(item2.primary_color || item2.color);
+    if (!color1 || !color2) return false;
+    return color1 === color2;
+  }
   
-  return color1 === color2;
-}
-
-/**
- * Check if two brands match (only when both are present)
- */
-function doBrandsMatch(item1: WardrobeItemForDedup, item2: WardrobeItemForDedup): boolean {
-  const brand1 = normalizeString(item1.brand);
-  const brand2 = normalizeString(item2.brand);
-  
-  // Only match if BOTH brands are present
-  if (!brand1 || !brand2) return false;
-  
-  return brand1 === brand2;
+  return calculateColorDistance(hex1, hex2) < 30; // Within 30 RGB distance
 }
 
 export interface DuplicateCheckResult {
@@ -108,24 +85,13 @@ export interface DuplicateCheckResult {
 }
 
 /**
- * Determine if a candidate item is likely a duplicate of an existing item
- * 
- * Logic:
- * 1. Category must match (normalized)
- * 2. Then one of:
- *    - Names are strongly similar (exact or substring match)
- *    - Names are moderately similar AND colors match (both present)
- *    - Names are moderately similar AND brands match (both present)
- * 
- * @param existing - Item already in wardrobe
- * @param candidate - New item being checked
- * @returns Object with isDuplicate flag and reason string
+ * Determine if a candidate item is likely a duplicate using 12-field system
  */
 export function isLikelyDuplicateWardrobeItem(
   existing: WardrobeItemForDedup,
   candidate: WardrobeItemForDedup
 ): DuplicateCheckResult {
-  // Category must match
+  // Must be same category
   const existingCategory = normalizeString(existing.category);
   const candidateCategory = normalizeString(candidate.category);
   
@@ -137,31 +103,52 @@ export function isLikelyDuplicateWardrobeItem(
     return { isDuplicate: false };
   }
   
-  const existingName = existing.name || '';
-  const candidateName = candidate.name || '';
+  // Count matching fields from 12-field system
+  const matchingFields = [
+    existing.item_type && candidate.item_type && 
+      normalizeString(existing.item_type) === normalizeString(candidate.item_type),
+    
+    existing.fit_silhouette && candidate.fit_silhouette &&
+      normalizeString(existing.fit_silhouette) === normalizeString(candidate.fit_silhouette),
+    
+    existing.length && candidate.length &&
+      normalizeString(existing.length) === normalizeString(candidate.length),
+    
+    existing.pattern_type && candidate.pattern_type &&
+      normalizeString(existing.pattern_type) === normalizeString(candidate.pattern_type),
+    
+    existing.pattern_geometry && candidate.pattern_geometry &&
+      normalizeString(existing.pattern_geometry) === normalizeString(candidate.pattern_geometry),
+    
+    existing.fabric_family && candidate.fabric_family &&
+      normalizeString(existing.fabric_family) === normalizeString(candidate.fabric_family),
+    
+    existing.fabric_behavior && candidate.fabric_behavior &&
+      normalizeString(existing.fabric_behavior) === normalizeString(candidate.fabric_behavior),
+    
+    doColorsMatch(existing, candidate)
+  ].filter(Boolean);
   
-  // Check strong name similarity first
-  if (areNamesStronglySimilar(existingName, candidateName)) {
+  // Need at least 5 matching fields to consider duplicate
+  if (matchingFields.length >= 5) {
     return {
       isDuplicate: true,
-      reason: 'dup[name-exact]'
+      reason: `Similar ${existing.category} with ${matchingFields.length}/8 matching attributes`
     };
   }
   
-  // Check moderate name similarity with color match
-  if (areNamesModeratelySimilar(existingName, candidateName)) {
-    if (doColorsMatch(existing, candidate)) {
-      return {
-        isDuplicate: true,
-        reason: 'dup[name+color]'
-      };
-    }
+  // Fallback to legacy name matching if insufficient new field data
+  if (!existing.item_type && !candidate.item_type) {
+    const name1 = normalizeString(existing.name || '');
+    const name2 = normalizeString(candidate.name || '');
     
-    if (doBrandsMatch(existing, candidate)) {
-      return {
-        isDuplicate: true,
-        reason: 'dup[name+brand]'
-      };
+    if (name1 && name2 && (name1 === name2 || name1.includes(name2) || name2.includes(name1))) {
+      if (doColorsMatch(existing, candidate)) {
+        return {
+          isDuplicate: true,
+          reason: `Similar name and color in ${existing.category}`
+        };
+      }
     }
   }
   
@@ -170,10 +157,6 @@ export function isLikelyDuplicateWardrobeItem(
 
 /**
  * Filter out duplicate items from a list based on existing wardrobe items
- * 
- * @param candidates - New items to check
- * @param existingItems - Items already in wardrobe
- * @returns Object with unique items and skipped items with reasons
  */
 export function filterDuplicateWardrobeItems(
   candidates: WardrobeItemForDedup[],
