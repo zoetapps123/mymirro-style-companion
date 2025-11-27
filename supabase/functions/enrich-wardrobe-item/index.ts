@@ -12,135 +12,127 @@ serve(async (req) => {
   }
 
   try {
-    const { originalImageUrl, category, coreMetadata } = await req.json();
+    const { originalImageUrl, category, visualMetadata } = await req.json();
     
-    console.log(`PHASE 2 ENRICHMENT: Starting for ${coreMetadata.name} (${category})`);
+    console.log(`PHASE 2 SEMANTIC ENRICHMENT: ${visualMetadata.item_name} (${category})`);
 
-    const ENRICHMENT_PROMPT = `Analyze this ${category} item for DETAILED METADATA ONLY.
+    const SEMANTIC_ENRICHMENT_PROMPT = `You are analyzing a ${category} item to add SEMANTIC and CONTEXTUAL metadata.
 
-You already have this CORE info from Phase 1:
-- Name: ${coreMetadata.name}
+═══════════════════════════════════════════════════════════════════════
+PHASE 1 VISUAL METADATA (AUTHORITATIVE - DO NOT CONTRADICT)
+═══════════════════════════════════════════════════════════════════════
+The following visual facts have been extracted and are AUTHORITATIVE:
+- Name: ${visualMetadata.item_name}
 - Category: ${category}
-- Primary Color: ${coreMetadata.primary_color_name} (${coreMetadata.primary_color})
-- Color Family: ${coreMetadata.color_family}
-- Fabric: ${coreMetadata.fabric_primary}
-- Pattern: ${coreMetadata.pattern_type}
-- Style: ${coreMetadata.style_aesthetic?.join(', ')}
-- Formality: ${coreMetadata.formality_level}
-- Occasions: ${coreMetadata.suitable_occasions?.join(', ')}
+- Primary Color: ${visualMetadata.primary_color_name} (${visualMetadata.primary_color_hex})
+- Color Palette: ${visualMetadata.color_palette?.join(", ")}
+- Pattern: ${visualMetadata.pattern_type}
+- Pattern Geometry: ${visualMetadata.pattern_geometry}
+- Fit: ${visualMetadata.fit_type}
+- Silhouette: ${visualMetadata.silhouette}
+- Length: ${visualMetadata.length}
+${visualMetadata.neckline ? `- Neckline: ${visualMetadata.neckline}` : ""}
+${visualMetadata.sleeve_type ? `- Sleeves: ${visualMetadata.sleeve_type}` : ""}
+${visualMetadata.closure_type ? `- Closure: ${visualMetadata.closure_type}` : ""}
+- Visual Summary: ${visualMetadata.visual_summary}
 
-Now extract ALL DETAILED ATTRIBUTES (37 fields):
+═══════════════════════════════════════════════════════════════════════
+YOUR TASK: SEMANTIC ENRICHMENT ONLY
+═══════════════════════════════════════════════════════════════════════
 
-COLOR DETAILS:
-- secondary_colors: Array of hex codes for accent colors
-- color_distribution: Array of percentages [primary%, secondary%, tertiary%]
-- pattern_colors: Array of hex codes if patterned
+Using BOTH the image and the visual metadata above, infer SEMANTIC properties.
+You may refine fabric details but DO NOT contradict the visual facts above.
 
-FABRIC DETAILS:
+**FABRIC REFINEMENT (can add detail):**
+- fabric_primary: cotton | polyester | linen | wool | denim | silk | leather | synthetic | knit | jersey | fleece | velvet | satin
 - fabric_weight: lightweight | medium | heavy
-- material_finish: matte | glossy | textured | distressed
-- texture: smooth | rough | soft | stiff | stretchy
+- material_finish: matte | glossy | textured | distressed | washed | faded
+- texture: smooth | rough | soft | stiff | stretchy | ribbed | fuzzy
 
-FIT & SILHOUETTE:
-- fit_type: slim | regular | relaxed | oversized | tailored
-- silhouette: fitted | straight | A-line | flowy | structured
-- length: ${category === 'Tops' ? 'crop | hip | below_hip | tunic' : category === 'Bottoms' ? 'shorts | knee | midi | ankle | floor' : category === 'Outerwear' ? 'waist | hip | thigh | knee | ankle' : category === 'Dresses' ? 'mini | knee | midi | maxi' : 'N/A'}
+**SEMANTIC INFERENCE (this is what we need from you):**
+- style_aesthetic: Array of 1-3 aesthetics that this item embodies
+  Options: ["casual", "streetwear", "minimalist", "bohemian", "preppy", "edgy", "classic", "sporty", "elegant", "vintage", "modern", "artsy", "grunge", "romantic"]
+  
+- formality_level: Where would this be appropriate?
+  Options: casual | smart_casual | business_casual | semi_formal | formal | athletic | loungewear
+  
+- suitable_occasions: Array of 2-5 occasions
+  Options: ["everyday", "work", "office", "date_night", "party", "formal_event", "outdoor", "gym", "sports", "beach", "travel", "brunch", "evening_out", "casual_dinner", "wedding_guest"]
+  
+- season: Array of applicable seasons
+  Options: ["spring", "summer", "fall", "winter"]
+  
+- weather_suitability: What weather is this suited for?
+  Options: hot | warm | mild | cool | cold | all_weather
+  
+- brand: If a brand logo/name is visible, name it. Otherwise "unknown"
+  
+- condition: Based on visible wear/tear
+  Options: excellent | good | fair | worn
+  
+- special_features: Array of special characteristics
+  Options: ["water_resistant", "reversible", "convertible", "quick_dry", "stretch", "lined", "breathable", "insulated", "wrinkle_resistant", "stain_resistant"]
+  
+- style_notes_detailed: A 50-100 character styling suggestion (e.g., "Pairs well with slim dark jeans and white sneakers for a clean casual look")
 
-${category === 'Tops' || category === 'Dresses' || category === 'Outerwear' ? `TOPS/DRESSES/OUTERWEAR SPECIFIC:
-- neckline: crew | v_neck | scoop | boat | off_shoulder | halter | turtleneck | collar
-- sleeve_type: sleeveless | short | three_quarter | long | cap | bell | bishop
-- collar_type: none | standard | mandarin | peter_pan | shawl | notched | spread` : ''}
+═══════════════════════════════════════════════════════════════════════
+RULES
+═══════════════════════════════════════════════════════════════════════
+1. Do NOT change category, colors, pattern, fit, silhouette, or length from Phase 1
+2. Only infer semantics that logically follow from visible design
+3. Do NOT use stereotypes - base on actual visual elements
+4. If uncertain, use more general/neutral values
 
-${category === 'Bottoms' ? `BOTTOMS SPECIFIC:
-- rise: low | mid | high
-- waist_style: elastic | button | zipper | drawstring | belted` : ''}
-
-${category === 'Shoes' ? `SHOES SPECIFIC:
-- heel_type: flat | low | mid | high | platform | wedge | stiletto
-- toe_style: round | pointed | square | open | peep` : ''}
-
-CONSTRUCTION DETAILS:
-- closure_type: button | zipper | pullover | tie | snap | hook | velcro | lace_up
-- pocket_details: none | side | patch | welt | cargo | hidden | kangaroo
-- hardware_details: none | buttons | zippers | buckles | studs | grommets | chains
-- embellishments: none | embroidery | sequins | beads | lace | ruffles | fringe
-
-ADDITIONAL METADATA:
-- special_features: Array ["water_resistant", "reversible", "convertible", etc.]
-- style_notes_detailed: Detailed styling description (50-100 chars)
-- season: Array of seasons ["spring", "summer", "fall", "winter"]
-- weather_suitability: hot | warm | mild | cool | cold | all_weather
-- brand: Brand name if visible, otherwise "unknown"
-- condition: excellent | good | fair | worn
-
-Use the return_detailed_metadata function to return structured output.`;
+Use the return_semantic_metadata function to return structured output.`;
 
     const tools = [
       {
         type: 'function',
         function: {
-          name: 'return_detailed_metadata',
-          description: 'Return detailed metadata for wardrobe item',
+          name: 'return_semantic_metadata',
+          description: 'Return semantic/contextual metadata for wardrobe item',
           parameters: {
             type: 'object',
             properties: {
-              // Color details
-              secondary_colors: { type: 'array', items: { type: 'string' }, description: 'Hex codes for secondary colors' },
-              color_distribution: { type: 'array', items: { type: 'number' }, description: 'Percentage distribution' },
-              pattern_colors: { type: 'array', items: { type: 'string' }, description: 'Pattern color hex codes' },
+              // Fabric refinement (can add detail to visual)
+              fabric_primary: { type: 'string' },
+              fabric_weight: { type: 'string' },
+              material_finish: { type: 'string' },
+              texture: { type: 'string' },
               
-              // Fabric details
-              fabric_weight: { type: 'string', description: 'Fabric weight' },
-              material_finish: { type: 'string', description: 'Material finish type' },
-              texture: { type: 'string', description: 'Texture description' },
+              // Pure semantic fields
+              style_aesthetic: { type: 'array', items: { type: 'string' } },
+              formality_level: { type: 'string' },
+              suitable_occasions: { type: 'array', items: { type: 'string' } },
+              season: { type: 'array', items: { type: 'string' } },
+              weather_suitability: { type: 'string' },
+              brand: { type: 'string' },
+              condition: { type: 'string' },
+              special_features: { type: 'array', items: { type: 'string' } },
+              style_notes_detailed: { type: 'string' },
               
-              // Fit details
-              fit_type: { type: 'string', description: 'Fit style' },
-              silhouette: { type: 'string', description: 'Overall silhouette' },
-              length: { type: 'string', description: 'Length description' },
-              
-              // Category-specific
-              neckline: { type: 'string', description: 'Neckline style (tops/dresses)' },
-              sleeve_type: { type: 'string', description: 'Sleeve type (tops/dresses/outerwear)' },
-              collar_type: { type: 'string', description: 'Collar style' },
-              rise: { type: 'string', description: 'Rise level (bottoms)' },
-              waist_style: { type: 'string', description: 'Waist closure (bottoms)' },
-              heel_type: { type: 'string', description: 'Heel style (shoes)' },
-              toe_style: { type: 'string', description: 'Toe style (shoes)' },
-              
-              // Construction
-              closure_type: { type: 'string', description: 'Closure mechanism' },
-              pocket_details: { type: 'string', description: 'Pocket description' },
-              hardware_details: { type: 'string', description: 'Hardware details' },
-              embellishments: { type: 'string', description: 'Embellishment details' },
-              
-              // Additional
-              special_features: { type: 'array', items: { type: 'string' }, description: 'Special features' },
-              style_notes_detailed: { type: 'string', description: 'Detailed styling notes' },
-              season: { type: 'array', items: { type: 'string' }, description: 'Suitable seasons' },
-              weather_suitability: { type: 'string', description: 'Weather appropriateness' },
-              brand: { type: 'string', description: 'Brand name' },
-              condition: { type: 'string', description: 'Item condition' }
+              // Additional color details (optional)
+              secondary_colors: { type: 'array', items: { type: 'string' } },
             },
-            required: ['fabric_weight', 'material_finish', 'texture', 'fit_type', 'silhouette', 'closure_type', 'season', 'weather_suitability', 'condition']
+            required: ['style_aesthetic', 'formality_level', 'suitable_occasions', 'season', 'weather_suitability', 'condition']
           }
         }
       }
     ];
 
     const data = await callGeminiAPI({
-      model: 'gemini-2.0-flash-exp',
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
           content: [
-            { type: 'text', text: ENRICHMENT_PROMPT },
+            { type: 'text', text: SEMANTIC_ENRICHMENT_PROMPT },
             { type: 'image_url', image_url: { url: originalImageUrl } }
           ]
         }
       ],
       tools,
-      tool_choice: { type: 'function', function: { name: 'return_detailed_metadata' } }
+      tool_choice: { type: 'function', function: { name: 'return_semantic_metadata' } }
     });
 
     const functionCall = data.choices?.[0]?.message?.tool_calls?.[0]?.function;
@@ -153,7 +145,7 @@ Use the return_detailed_metadata function to return structured output.`;
     }
 
     const detailedMetadata = JSON.parse(functionCall.arguments);
-    console.log(`PHASE 2 SUCCESS: Extracted ${Object.keys(detailedMetadata).length} detailed fields`);
+    console.log(`PHASE 2 SUCCESS: Extracted ${Object.keys(detailedMetadata).length} semantic fields`);
 
     return new Response(
       JSON.stringify({ detailedMetadata }),

@@ -763,13 +763,16 @@ export type Database = {
       }
       wardrobe_items: {
         Row: {
+          bbox: Json | null
           brand: string | null
           category: string
           closure_type: string | null
           collar_type: string | null
           color: string | null
+          color_blocking_layout: string | null
           color_distribution: number[] | null
           color_family: string | null
+          color_palette: string[] | null
           composite_image_url: string | null
           condition: string | null
           created_at: string
@@ -779,25 +782,34 @@ export type Database = {
           fabric_weight: string | null
           fit_type: string | null
           formality_level: string | null
+          graphic_location: string | null
+          graphic_size: string | null
+          graphic_type: string | null
           hardware_details: string | null
           heel_type: string | null
+          hem_style: string | null
           id: string
           image_url: string
+          layers_detected: string | null
           length: string | null
           material_finish: string | null
           name: string
           neckline: string | null
           pattern: string | null
           pattern_colors: string[] | null
+          pattern_coverage: string | null
+          pattern_geometry: string | null
           pattern_scale: string | null
           pattern_type: string | null
           pocket_details: string | null
           primary_color: string | null
+          primary_color_hex: string | null
           primary_color_name: string | null
           processed_image_url: string | null
           rise: string | null
           season: string[] | null
           secondary_colors: string[] | null
+          shoulder_style: string | null
           silhouette: string | null
           sleeve_type: string | null
           special_features: string[] | null
@@ -809,17 +821,21 @@ export type Database = {
           toe_style: string | null
           updated_at: string
           user_id: string
+          visual_summary: string | null
           waist_style: string | null
           weather_suitability: string | null
         }
         Insert: {
+          bbox?: Json | null
           brand?: string | null
           category: string
           closure_type?: string | null
           collar_type?: string | null
           color?: string | null
+          color_blocking_layout?: string | null
           color_distribution?: number[] | null
           color_family?: string | null
+          color_palette?: string[] | null
           composite_image_url?: string | null
           condition?: string | null
           created_at?: string
@@ -829,25 +845,34 @@ export type Database = {
           fabric_weight?: string | null
           fit_type?: string | null
           formality_level?: string | null
+          graphic_location?: string | null
+          graphic_size?: string | null
+          graphic_type?: string | null
           hardware_details?: string | null
           heel_type?: string | null
+          hem_style?: string | null
           id?: string
           image_url: string
+          layers_detected?: string | null
           length?: string | null
           material_finish?: string | null
           name: string
           neckline?: string | null
           pattern?: string | null
           pattern_colors?: string[] | null
+          pattern_coverage?: string | null
+          pattern_geometry?: string | null
           pattern_scale?: string | null
           pattern_type?: string | null
           pocket_details?: string | null
           primary_color?: string | null
+          primary_color_hex?: string | null
           primary_color_name?: string | null
           processed_image_url?: string | null
           rise?: string | null
           season?: string[] | null
           secondary_colors?: string[] | null
+          shoulder_style?: string | null
           silhouette?: string | null
           sleeve_type?: string | null
           special_features?: string[] | null
@@ -859,17 +884,21 @@ export type Database = {
           toe_style?: string | null
           updated_at?: string
           user_id: string
+          visual_summary?: string | null
           waist_style?: string | null
           weather_suitability?: string | null
         }
         Update: {
+          bbox?: Json | null
           brand?: string | null
           category?: string
           closure_type?: string | null
           collar_type?: string | null
           color?: string | null
+          color_blocking_layout?: string | null
           color_distribution?: number[] | null
           color_family?: string | null
+          color_palette?: string[] | null
           composite_image_url?: string | null
           condition?: string | null
           created_at?: string
@@ -879,25 +908,34 @@ export type Database = {
           fabric_weight?: string | null
           fit_type?: string | null
           formality_level?: string | null
+          graphic_location?: string | null
+          graphic_size?: string | null
+          graphic_type?: string | null
           hardware_details?: string | null
           heel_type?: string | null
+          hem_style?: string | null
           id?: string
           image_url?: string
+          layers_detected?: string | null
           length?: string | null
           material_finish?: string | null
           name?: string
           neckline?: string | null
           pattern?: string | null
           pattern_colors?: string[] | null
+          pattern_coverage?: string | null
+          pattern_geometry?: string | null
           pattern_scale?: string | null
           pattern_type?: string | null
           pocket_details?: string | null
           primary_color?: string | null
+          primary_color_hex?: string | null
           primary_color_name?: string | null
           processed_image_url?: string | null
           rise?: string | null
           season?: string[] | null
           secondary_colors?: string[] | null
+          shoulder_style?: string | null
           silhouette?: string | null
           sleeve_type?: string | null
           special_features?: string[] | null
@@ -909,6 +947,7 @@ export type Database = {
           toe_style?: string | null
           updated_at?: string
           user_id?: string
+          visual_summary?: string | null
           waist_style?: string | null
           weather_suitability?: string | null
         }
