@@ -238,12 +238,18 @@ export async function callGeminiAPI(options: {
     
     // Handle tool_choice to force function calling
     if (options.tool_choice) {
-      // Gemini uses toolConfig.functionCallingConfig.mode
-      requestBody.toolConfig = {
+      const toolConfig: any = {
         functionCallingConfig: {
-          mode: 'ANY' // Force the model to use one of the provided functions
+          mode: 'ANY'
         }
       };
+      
+      // If a specific function is specified, restrict to that function
+      if (options.tool_choice.type === 'function' && options.tool_choice.function?.name) {
+        toolConfig.functionCallingConfig.allowedFunctionNames = [options.tool_choice.function.name];
+      }
+      
+      requestBody.toolConfig = toolConfig;
     }
   }
   
