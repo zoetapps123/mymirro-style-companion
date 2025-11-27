@@ -323,18 +323,18 @@ DO NOT detect: Rings, Necklaces, Glasses, Belts, Earrings, Beads, Scarves, any o
 
 **For each detected item (max 5), extract EXACTLY these 12 fields:**
 
-1. category: Tops | Bottoms | Outerwear | Dresses | Shoes | Bags | Watches
-2. item_type: Specific type (e.g., "t-shirt", "jeans", "sneakers", "tote bag")
-3. fit_silhouette: Combined fit+silhouette (e.g., "slim-straight", "relaxed-boxy", "fitted-tapered")
-4. length: Category-specific (e.g., "hip", "ankle", "mini", "knee")
+1. category: Tops | Bottoms | Outerwear | Dresses | Shoes | Accessories
+2. item_type: Specific type using underscore format (e.g., "t_shirt", "hoodie", "jeans", "joggers", "sneakers", "tote_bag", "watch")
+3. fit_silhouette: Combined fit+silhouette (e.g., "regular-straight", "oversized-boxy", "slim-tapered", "relaxed-flowy")
+4. length: Category-specific (crop | hip | knee | ankle | floor | mini | midi | maxi)
 5. primary_color_hex: Dominant color as #RRGGBB
 6. secondary_palette: Array of 0-3 additional hex colors
-7. pattern_type: solid | striped | checkered | floral | graphic | etc.
-8. pattern_geometry: horizontal | vertical | ditsy | all-over | none
-9. graphic_summary: "none" OR brief description (e.g., "center-chest logo small")
-10. sleeve_neck_summary: Combined (e.g., "short-sleeve crew-neck") OR "n/a" for non-tops
-11. fabric_family: cotton | denim | wool | leather | knit | synthetic | etc.
-12. fabric_behavior: structured | flowing | stretchy | stiff | soft | etc.
+7. pattern_type: solid | striped | plaid | floral | geometric | graphic | etc.
+8. pattern_geometry: none | horizontal_stripes | vertical_stripes | logo_center | logo_left_chest | all_over_print | ditsy_floral | checkered_small | checkered_large
+9. graphic_summary: "none" OR brief description (e.g., "yellow center chest graphic", "white mini logo left chest", "large back print")
+10. sleeve_neck_summary: Combined (e.g., "short sleeves crew neck", "long sleeves hoodie", "sleeveless v-neck") OR "n/a" for non-tops
+11. fabric_family: cotton | denim | knit | leather | wool | polyester | satin | chiffon | fleece | synthetic | linen
+12. fabric_behavior: flowy | structured | stiff | stretchy | drapey | crisp | soft
 
 Also provide:
 - bbox: {x, y, width, height} as 0-100 percentages
@@ -432,9 +432,23 @@ Use return_visual_detection function to return structured output.`;
  */
 function filterByVisibility(items: Phase1Item[]): Phase1Item[] {
   return items.filter(item => {
-    if (item.category === "Bags") return item.visible_area_ratio >= 0.60;
-    if (item.category === "Watches") return item.visible_area_ratio >= 0.50;
-    return item.visible_area_ratio >= 0.80; // Garments
+    if (item.category === "Accessories") {
+      // Bags require 60% visibility
+      if (item.item_type.includes("bag") || item.item_type.includes("tote") || 
+          item.item_type.includes("clutch") || item.item_type.includes("backpack") || 
+          item.item_type.includes("crossbody") || item.item_type.includes("handbag") ||
+          item.item_type.includes("satchel")) {
+        return item.visible_area_ratio >= 0.60;
+      }
+      // Watches require 50% visibility
+      if (item.item_type.includes("watch")) {
+        return item.visible_area_ratio >= 0.50;
+      }
+      // Default for other accessories
+      return item.visible_area_ratio >= 0.60;
+    }
+    // Garments require 80% visibility
+    return item.visible_area_ratio >= 0.80;
   });
 }
 
@@ -525,7 +539,7 @@ function calculateColorDistance(hex1: string | null | undefined, hex2: string | 
 async function generateProductImage(item: Phase1Item): Promise<Uint8Array> {
   const prompt = `Create a professional e-commerce product photo.
 
-ITEM: ${item.item_type} (${item.category})
+ITEM: ${item.item_type.replace(/_/g, ' ')} (${item.category})
 
 **COLOR:**
 - Primary: ${item.primary_color_hex}
@@ -549,7 +563,7 @@ REQUIREMENTS:
 - Pure white background (#FFFFFF)
 - Front-facing, centered, full garment visible
 - Invisible mannequin or clean flat lay
-- True-to-material rendering
+- True-to-material rendering (${item.fabric_behavior} ${item.fabric_family})
 - Do NOT hallucinate features
 - Match exact specifications above`;
 

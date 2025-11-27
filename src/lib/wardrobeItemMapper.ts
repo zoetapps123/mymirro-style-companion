@@ -37,8 +37,8 @@ export function mapDetectedItemToDbRecord(
   return {
     user_id: userId,
     
-    // Name derived from item_type
-    name: item.item_type,
+    // Name derived from item_type (convert underscores to spaces for display)
+    name: item.item_type.replace(/_/g, ' '),
     
     // 12 Visual Fields
     category: item.category,
