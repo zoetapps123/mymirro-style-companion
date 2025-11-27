@@ -233,7 +233,7 @@ serve(async (req) => {
 
     for (let i = 0; i < uniqueDetectedItems.length; i++) {
       const item = uniqueDetectedItems[i];
-      console.log(`Generating image ${i + 1}/${uniqueDetectedItems.length}: ${item.name}`);
+      console.log(`Generating image ${i + 1}/${uniqueDetectedItems.length}: ${item.item_name}`);
 
       let attempts = 0;
       const maxAttempts = 3; // 1 try + 2 retries
@@ -244,14 +244,14 @@ serve(async (req) => {
           const imageData = await generateProductImage(item);
 
           // Upload to Storage
-          const fileName = `${user.id}/wardrobe_gen_${Date.now()}_${i}_${item.name.replace(/\s+/g, "-")}.png`;
+          const fileName = `${user.id}/wardrobe_gen_${Date.now()}_${i}_${item.item_name.replace(/\s+/g, "-")}.png`;
           const { error: uploadError } = await supabase.storage.from("outfits").upload(fileName, imageData, {
             contentType: "image/png",
             upsert: false,
           });
 
           if (uploadError) {
-            console.error(`Upload error for ${item.name}:`, uploadError);
+            console.error(`Upload error for ${item.item_name}:`, uploadError);
             break; // don't retry on storage errors
           }
 
@@ -259,7 +259,7 @@ serve(async (req) => {
             data: { publicUrl },
           } = supabase.storage.from("outfits").getPublicUrl(fileName);
 
-          console.log(`✅ Image generated for ${item.name}`);
+          console.log(`✅ Image generated for ${item.item_name}`);
           itemsWithProcessedImages.push({ ...item, processedImageUrl: publicUrl });
           break; // success
         } catch (err) {
@@ -268,13 +268,13 @@ serve(async (req) => {
 
           if (isRate && attempts < maxAttempts - 1) {
             const wait = (attempts + 1) * 3000; // 3s, 6s
-            console.warn(`Rate limited while generating '${item.name}', retrying in ${wait / 1000}s...`);
+            console.warn(`Rate limited while generating '${item.item_name}', retrying in ${wait / 1000}s...`);
             await sleep(wait);
             attempts++;
             continue;
           }
 
-          console.error(`Failed to generate image for ${item.name}:`, err);
+          console.error(`Failed to generate image for ${item.item_name}:`, err);
           break; // non-retryable or maxed out
         }
       }
@@ -576,7 +576,7 @@ OUTPUT REQUIREMENTS
 
 Use the return_visual_detection function to return structured JSON.
 Be precise. Only describe what you SEE. Unknown details = "unknown".
-
+`;
 
   console.log("Calling Gemini API for Phase 1 visual detection...");
 
@@ -1053,44 +1053,15 @@ GENERATION REQUIREMENTS (STRICT):
 7. Ultra-sharp, e-commerce quality
 
 Generate this exact item with precision.`;
-${item.embellishments ? `- Embellishments: ${item.embellishments}` : ""}
-${item.special_features?.length ? `- Special Features: ${item.special_features.join(", ")}` : ""}
 
-${item.rise ? `- Rise: ${item.rise}` : ""}
-${item.waist_style ? `- Waist: ${item.waist_style}` : ""}
-${item.heel_type ? `- Heel: ${item.heel_type}` : ""}
-${item.toe_style ? `- Toe: ${item.toe_style}` : ""}
-${item.collar_type ? `- Collar: ${item.collar_type}` : ""}
-
-**STYLE & VIBE:**
-- Aesthetic: ${item.style_aesthetic?.join(" + ") || "casual"}
-- Formality: ${item.formality_level}
-${item.style_notes_detailed ? `- Detailed Notes: ${item.style_notes_detailed}` : ""}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 GENERATION REQUIREMENTS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-- Pure white background (#FFFFFF)
-- Front-facing, centered, full visibility
-- Professional e-commerce lighting (no shadows)
-- Item laid flat or on invisible mannequin
-- NO person/body parts visible
-- Maintain ALL specified colors, textures, and details
-- Show ALL mentioned hardware, pockets, and features
-- Capture the exact silhouette and fit described
-- Ultra-high clarity and sharpness
-
-Generate this exact item with precision.`;
-
-  console.log(`Generating image with prompt: ${detailedPrompt.substring(0, 100)}...`);
+  console.log(`Generating image with prompt: ${visualPrompt.substring(0, 100)}...`);
 
   const data = await callGeminiAPI({
     model: "google/gemini-2.5-flash-image-preview",
     messages: [
       {
         role: "user",
-        content: detailedPrompt,
+        content: visualPrompt,
       },
     ],
     modalities: ["image", "text"],
