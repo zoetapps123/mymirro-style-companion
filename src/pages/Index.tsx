@@ -91,17 +91,25 @@ const Index = () => {
 
       const user = session.user;
 
-      // Identify user in Mixpanel when session is restored
-      if (user) {
-        identifyUser(user);
-      }
-
       // Check if user profile has required basic info
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('name, age_range, gender')
         .eq('id', user.id)
         .single();
+
+      // Identify user in Mixpanel with profile data from database
+      if (user) {
+        identifyUser({
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            name: profile?.name || user.user_metadata?.name,
+            gender: profile?.gender || user.user_metadata?.gender,
+            age_range: profile?.age_range || user.user_metadata?.age_range,
+          }
+        });
+      }
 
       const hasBasicInfo = profile?.name && profile?.age_range;
 

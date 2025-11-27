@@ -10,7 +10,7 @@ import { trackPageView } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { trackEvent, setUserProperties } from "@/lib/mixpanel";
+import { trackEvent, setUserProperties, identifyUser } from "@/lib/mixpanel";
 
 interface OnboardingData {
   name: string;
@@ -103,6 +103,17 @@ const Onboarding = ({ onComplete, onBack }: OnboardingProps) => {
           $name: data.name,
           gender: data.gender,
           age_range: data.ageRange,
+        });
+        
+        // Re-identify user with complete profile to ensure all properties are synced
+        identifyUser({
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            name: data.name,
+            gender: data.gender,
+            age_range: data.ageRange,
+          }
         });
       }
 
