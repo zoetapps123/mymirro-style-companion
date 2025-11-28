@@ -1348,6 +1348,8 @@ Default to broader categories if uncertain. Never invent specific event names.`,
 export const PRODUCT_IMAGE_PROMPTS = {
   UNIVERSAL: `Transform this item into a professional e-commerce product image.
 
+⚠️ SINGLE ITEM ONLY: Extract and display ONE garment. Remove all other garments/layers.
+
 REQUIREMENTS:
 - Front-facing view (0° angle) - directly facing the camera
 - 3D product visualization with natural form
