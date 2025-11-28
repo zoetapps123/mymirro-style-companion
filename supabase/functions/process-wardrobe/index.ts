@@ -516,6 +516,20 @@ async function validateAndDetectItems(
 
 const VISUAL_DETECTION_PROMPT = `You are a precise visual clothing analyzer. Analyze this image in TWO STEPS within a single response.
 
+⚠️ DETECTION CONFIDENCE RULE:
+Only detect items where you can CONFIDENTLY see the complete item. Do NOT detect items that are:
+- Partially cut off by image edges
+- Mostly hidden behind other objects or body parts  
+- Where you cannot see at least 70% of the item clearly
+If you're unsure about an item's complete appearance, skip it.
+
+⚠️ DETECTION CONFIDENCE RULE:
+Only detect items where you can CONFIDENTLY see the complete item. Do NOT detect items that are:
+- Partially cut off by image edges
+- Mostly hidden behind other objects or body parts  
+- Where you cannot see at least 70% of the item clearly
+If you're unsure about an item's complete appearance, skip it.
+
 ═══════════════════════════════════════════════════════════════════════
 ⚠️ VISIBILITY REQUIREMENTS (CRITICAL - READ FIRST) ⚠️
 ═══════════════════════════════════════════════════════════════════════
@@ -1082,38 +1096,6 @@ function hexToRgb(hex: string) {
     : null;
 }
 
-// Helper function to select category-specific prompt for professional product images
-function getProductImagePrompt(item: WardrobeDetectionItem): string {
-  const parentCategory = item.parent_category || '';
-  const itemType = (item.item_type || '').toLowerCase();
-  const legacyCategory = (item.category || '').toLowerCase();
-  
-  // Check for Footwear
-  if (parentCategory === 'Footwear' || legacyCategory === 'shoes' ||
-      ['shoe', 'boot', 'sneaker', 'sandal', 'heel', 'loafer', 'oxford', 'flat', 'slipper', 'mule'].some(t => itemType.includes(t))) {
-    return PRODUCT_IMAGE_PROMPTS.FOOTWEAR({ item_name: item.item_name, item_type: item.item_type });
-  }
-  
-  // Check for Accessories
-  if (parentCategory === 'Accessories' || legacyCategory === 'accessories' ||
-      ['bag', 'belt', 'scarf', 'watch', 'jewelry', 'necklace', 'bracelet', 'ring', 'earring', 'hat', 'cap', 'sunglasses', 'wallet', 'clutch', 'purse'].some(t => itemType.includes(t))) {
-    return PRODUCT_IMAGE_PROMPTS.BAGS_ACCESSORIES({ item_name: item.item_name, item_type: item.item_type });
-  }
-  
-  // Check for Ethnic/Traditional wear
-  if (['kurta', 'kurti', 'saree', 'sari', 'dupatta', 'lehenga', 'salwar', 'sherwani', 'dhoti', 'churidar', 'palazzo', 'anarkali', 'sharara', 'gharara'].some(t => itemType.includes(t))) {
-    return PRODUCT_IMAGE_PROMPTS.ETHNIC_TRADITIONAL({ item_name: item.item_name, item_type: item.item_type });
-  }
-  
-  // Check for Bottoms
-  if (legacyCategory === 'bottoms' ||
-      ['pant', 'jean', 'trouser', 'short', 'skirt', 'chino', 'jogger', 'legging', 'capri', 'cargo'].some(t => itemType.includes(t))) {
-    return PRODUCT_IMAGE_PROMPTS.BOTTOMS({ item_name: item.item_name, item_type: item.item_type });
-  }
-  
-  // Default to Tops/Outerwear (most common)
-  return PRODUCT_IMAGE_PROMPTS.TOPS_OUTERWEAR({ item_name: item.item_name, item_type: item.item_type });
-}
 
 async function generateProductImage(item: WardrobeDetectionItem, originalImageUrl: string): Promise<Uint8Array> {
   // Validate item has required fields
@@ -1121,58 +1103,24 @@ async function generateProductImage(item: WardrobeDetectionItem, originalImageUr
     console.error("generateProductImage called with invalid item:", item);
     throw new Error(`Invalid item: missing item_name or category`);
   }
-
-  // Get category-specific presentation style
-  const categoryPrompt = getProductImagePrompt(item);
   
-  const transformPrompt = `Transform ONLY the specific item located at the bounding box into a PROFESSIONAL E-COMMERCE PRODUCT IMAGE.
+  const transformPrompt = `${PRODUCT_IMAGE_PROMPTS.UNIVERSAL}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 TARGET ITEM LOCATION (Extract ONLY this):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Position: ${item.bbox.x.toFixed(1)}% from left, ${item.bbox.y.toFixed(1)}% from top
-Size: ${item.bbox.width.toFixed(1)}% width × ${item.bbox.height.toFixed(1)}% height
-Item: ${item.item_name}
-Type: ${item.item_type || 'Unknown'}
+🎯 EXTRACT THIS SPECIFIC ITEM:
+The image contains multiple items. Extract ONLY the item at:
+- Bounding Box: ${item.bbox.x.toFixed(1)}%, ${item.bbox.y.toFixed(1)}%, ${item.bbox.width.toFixed(1)}% × ${item.bbox.height.toFixed(1)}%
+- Item: ${item.item_name}
+- Type: ${item.item_type || 'Unknown'}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📸 PROFESSIONAL E-COMMERCE STANDARDS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${PRODUCT_IMAGE_PROMPTS.BASE_SPECS}
+STEPS:
+1. Locate item within bounding box
+2. Extract ONLY that item
+3. Apply professional e-commerce transformation
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👔 CATEGORY-SPECIFIC PRESENTATION:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${categoryPrompt}
+✅ PRESERVE: Exact colors, textures, patterns, details
+🚫 REMOVE: Background, body parts, other items
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ MUST PRESERVE FROM ORIGINAL:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Exact colors as seen (no color shifting)
-• Exact fabric texture and material appearance
-• Exact patterns, prints, graphics, logos
-• Exact design details and construction
-• Exact silhouette and proportions
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚫 MUST REMOVE/TRANSFORM:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Background → Pure white (#FFFFFF)
-• All human body parts, skin, hands, feet
-• All other items NOT within the bounding box
-• Shadows → Remove or keep only subtle ground shadow
-• Wrinkles → Smooth to professional standard
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ CRITICAL RULES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Extract ONLY the single item at the bounding box location
-2. Do NOT include ANY other clothing items in output
-3. Do NOT alter colors, patterns, or textures - preserve exactly
-4. Output should look like a professional Amazon/Zara product listing
-5. Quality: Ultra-sharp, catalog-ready, e-commerce standard
-
-Generate a single, professional product image ready for e-commerce listing.`;
+DO NOT include any other items from the image.`;
 
   console.log(`Generating professional product image for: ${item.item_name} (${item.item_type})`);
 

@@ -1346,79 +1346,19 @@ Default to broader categories if uncertain. Never invent specific event names.`,
 // ============================================
 
 export const PRODUCT_IMAGE_PROMPTS = {
-  // Universal professional specifications for all product categories
-  BASE_SPECS: `
-OUTPUT SPECIFICATIONS:
-- Square aspect ratio (1:1)
-- Pure white background (#FFFFFF) - no gradients, textures, or shadows
-- Item centered with 10-15% margin from all edges
-- Item fills approximately 70-80% of the frame
-- Ultra-sharp, 8K quality rendering
-- Professional studio lighting: soft, diffused, even illumination
-- Only very subtle ground shadow for depth (optional)
-- True-to-life color accuracy - NO color shifting
-`,
+  UNIVERSAL: `Transform this item into a professional e-commerce product image.
 
-  // Tops, shirts, t-shirts, blouses, kurtas, outerwear
-  TOPS_OUTERWEAR: (item: { item_name: string; item_type: string }) => `
-PRESENTATION: GHOST MANNEQUIN STYLE
-- Display as if worn on an invisible mannequin/body form
-- Show natural 3D shape, drape, and structure
-- Slight front-facing angle (5-10° turn for depth perception)
-- Collar/neckline visible and properly shaped
-- Sleeves show natural fall or slight styling
-- Hem clean and complete at bottom
-- All buttons, zippers, pockets clearly visible
-`,
-
-  // Pants, jeans, shorts, skirts, trousers
-  BOTTOMS: (item: { item_name: string; item_type: string }) => `
-PRESENTATION: FLAT LAY OR STRAIGHT FRONT VIEW
-- Full-length display from waistband to hem
-- Waistband clearly visible at top
-- Legs parallel with natural taper if applicable
-- All pocket details, fly, and hardware visible
-- Clean, complete hem/cuff at bottom
-- Show wash patterns, distressing, or stitching details
-`,
-
-  // Shoes, boots, sneakers, sandals, heels
-  FOOTWEAR: (item: { item_name: string; item_type: string }) => `
-PRESENTATION: 3/4 PROFILE VIEW (45° ANGLE)
-- Single shoe displayed (not pair)
-- Side profile AND partial front visible
-- Sole partially visible showing thickness/tread
-- Laces/straps neatly styled
-- Full height shown for boots/high-tops
-- Material texture clearly rendered (leather grain, suede nap, mesh weave)
-`,
-
-  // Bags, belts, scarves, jewelry, watches, hats, sunglasses
-  BAGS_ACCESSORIES: (item: { item_name: string; item_type: string }) => `
-PRESENTATION: STYLED DISPLAY
-- Bags: 3/4 view showing depth and structure, handles/straps styled upward
-- Belts: Coiled elegantly or laid flat showing buckle prominently
-- Scarves: Elegant drape or neat fold showing pattern
-- Jewelry: Clean flat lay with focused composition
-- Watches: Face-forward, strap laid flat or curved naturally
-- Hats: Show structure and form, front-facing or slight angle
-- Sunglasses: Flat lay with arms open
-`,
-
-  // Sarees, kurtas, dupattas, lehengas, ethnic wear
-  ETHNIC_TRADITIONAL: (item: { item_name: string; item_type: string }) => `
-PRESENTATION: ELEGANT DISPLAY
-- Sarees: Show pallu and border detail prominently, elegant drape
-- Kurtas/Kurtis: Ghost mannequin style showing silhouette and length
-- Dupattas: Draped to show full pattern, border, and length
-- Lehengas: Show flare, embroidery, and construction detail
-- Sherwanis/Suits: Full formal presentation on mannequin form
-
-SPECIAL ATTENTION:
-- Embroidery and handwork detail must be crisp
-- Border patterns and traditional motifs clearly visible
-- Fabric sheen and drape characteristics preserved
-`
+REQUIREMENTS:
+- Front-facing view (0° angle) - directly facing the camera
+- 3D product visualization with natural form
+- Pure white background (#FFFFFF)
+- Centered with 10-15% margin from all edges
+- Professional studio lighting: soft, diffused, even
+- Ultra-sharp quality, true-to-life colors
+- Item fills 70-80% of frame
+- Show the COMPLETE item, fully visible
+- Never fold, coil, or drape - show fully extended
+- Square aspect ratio (1:1)`
 };
 
 // ============================================
@@ -1427,30 +1367,20 @@ SPECIAL ATTENTION:
 // ============================================
 
 export const IMAGE_PROMPTS = {
-  COMPLETE_CLOTHING_ITEM: (itemType?: string) =>
-    `Complete this ${itemType || "clothing item"} and transform into a PROFESSIONAL E-COMMERCE PRODUCT IMAGE.
+  COMPLETE_CLOTHING_ITEM: (itemType?: string) => `
+Complete this ${itemType || "clothing item"} into a professional e-commerce product image.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COMPLETION REQUIREMENTS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Extend any cut-off parts (sleeves, hem, collar, length, straps)
-• Show the COMPLETE item with no cropping
-• Only this SINGLE item - no additional clothing or accessories
+REQUIREMENTS:
+- Extend any cut-off parts to show the COMPLETE item
+- Front-facing view (0° angle) with 3D natural form
+- Pure white background (#FFFFFF)
+- Centered with 10-15% margin
+- Professional studio lighting
+- Ultra-sharp quality, true-to-life colors
+- Show fully extended - never fold, drape, or style
+- Single item only
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROFESSIONAL E-COMMERCE STYLE:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Pure white background (#FFFFFF) - no gradients or shadows
-• Centered with 10-15% margin from all edges
-• Professional studio lighting: soft, diffused, even
-• Ghost mannequin style (as if worn on invisible form)
-• Ultra-sharp, 8K catalog quality
-• True-to-life colors - no shifting
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OUTPUT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-A single, complete, professional product image ready for e-commerce listing.`,
+Output a complete, professional product image ready for e-commerce.`,
 
   VALIDATE_TRYON_IMAGE: `Analyze this image for virtual try-on suitability:
 1. Is it a clear, full-length photo?
