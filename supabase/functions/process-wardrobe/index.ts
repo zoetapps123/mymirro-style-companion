@@ -483,6 +483,80 @@ async function validateAndDetectItems(
 const VISUAL_DETECTION_PROMPT = `You are a fashion item detector. Analyze this image and extract MINIMAL information for each visible item.
 
 ═══════════════════════════════════════════════════════════════════════
+⚠️ CRITICAL: MULTI-LAYER GARMENT DETECTION
+═══════════════════════════════════════════════════════════════════════
+
+Detect EACH garment INDEPENDENTLY even if they overlap or cover each other.
+Multi-layer outfits MUST be split into their BASE GARMENTS.
+
+LAYERED OUTFIT EXAMPLES (detect ALL items separately):
+• Kurta + salwar + dupatta → 3 separate items
+• T-shirt + hoodie → 2 separate items  
+• Shirt + blazer → 2 separate items
+• Dress + shrug → 2 separate items
+• Sweater + scarf → 2 separate items
+• Coat covering pants → 2 separate items
+• Dupatta covering kurta → 2 separate items (kurta is still visible beneath)
+• Jacket partially covering t-shirt → 2 separate items
+
+❌ WRONG: Treating an entire outfit as ONE garment
+✅ CORRECT: Splitting into individual garment pieces
+
+═══════════════════════════════════════════════════════════════════════
+HOW TO SEPARATE OVERLAPPING ITEMS
+═══════════════════════════════════════════════════════════════════════
+
+Use these visual cues to identify separate garments:
+• TEXTURE DIFFERENCES: Different fabric textures = different items
+• COLOR DIFFERENCES: Distinct color boundaries = separate garments
+• EDGE CONTOURS: Visible seams, hems, or edge lines = garment boundaries
+• FABRIC TRANSPARENCY: If you can see through one item to another beneath, BOTH are separate items
+• LAYER BOUNDARIES: Where one garment ends and another begins
+
+If a dupatta/scarf is TRANSPARENT → the garment beneath is STILL VISIBLE → detect BOTH.
+If salwar/pants are not completely hidden → detect them SEPARATELY from the top.
+
+═══════════════════════════════════════════════════════════════════════
+INDIAN ETHNIC WEAR RULES (MANDATORY)
+═══════════════════════════════════════════════════════════════════════
+
+When detecting Indian ethnic outfits, ALWAYS split into components:
+
+| Garment | item_type | parent_category |
+|---------|-----------|-----------------|
+| Kurta / Kameez | "Kurta" | "Clothing" |
+| Salwar / Churidar / Palazzo / Patiala | "Salwar" / "Churidar" etc. | "Clothing" |
+| Dupatta | "Dupatta" | "Accessories" |
+| Lehenga (skirt) | "Lehenga" | "Clothing" |
+| Choli (blouse) | "Choli" | "Clothing" |
+| Saree (drape) | "Saree" | "Clothing" |
+| Sherwani | "Sherwani" | "Clothing" |
+
+EXAMPLE: A salwar-kameez-dupatta outfit = 3 SEPARATE items:
+1. Kameez/Kurta (top) → item_type: "Kurta", parent_category: "Clothing"
+2. Salwar (bottom) → item_type: "Salwar", parent_category: "Clothing"  
+3. Dupatta (scarf) → item_type: "Dupatta", parent_category: "Accessories"
+
+═══════════════════════════════════════════════════════════════════════
+TRANSPARENCY & VISIBILITY RULES
+═══════════════════════════════════════════════════════════════════════
+
+• If dupatta is transparent/sheer → kurta beneath is CONSIDERED VISIBLE → detect BOTH
+• If scarf is see-through → shirt beneath is VISIBLE → detect BOTH
+• If outer layer is open (unbuttoned jacket) → inner layer is VISIBLE → detect BOTH
+• Even if bottom garment is PARTIALLY visible (legs visible below kurta) → detect it
+
+DO NOT:
+❌ Treat the entire outfit as one garment
+❌ Skip items because they're "mostly covered"
+❌ Merge overlapping fabrics into a single item
+
+DO:
+✅ Detect each layer/garment independently
+✅ Assign SEPARATE bounding boxes to each garment
+✅ Give each garment its own visibility_score
+
+═══════════════════════════════════════════════════════════════════════
 ⚠️ VISIBILITY REQUIREMENTS (CRITICAL)
 ═══════════════════════════════════════════════════════════════════════
 
@@ -891,21 +965,24 @@ async function generateProductImage(item: WardrobeDetectionItem, originalImageUr
   
   const transformPrompt = `${PRODUCT_IMAGE_PROMPTS.UNIVERSAL}
 
-🎯 EXTRACT THIS SPECIFIC ITEM:
-The image contains multiple items. Extract ONLY the item at:
-- Bounding Box: ${item.bbox.x.toFixed(1)}%, ${item.bbox.y.toFixed(1)}%, ${item.bbox.width.toFixed(1)}% × ${item.bbox.height.toFixed(1)}%
-- Item: ${item.item_name}
-- Type: ${item.item_type || 'Unknown'}
+🎯 EXTRACT THIS SINGLE GARMENT ONLY:
+The image contains MULTIPLE items. You MUST extract ONLY ONE specific garment:
 
-STEPS:
-1. Locate item within bounding box
-2. Extract ONLY that item
-3. Apply professional e-commerce transformation
+- Target Bounding Box: ${item.bbox.x.toFixed(1)}%, ${item.bbox.y.toFixed(1)}%, ${item.bbox.width.toFixed(1)}% × ${item.bbox.height.toFixed(1)}%
+- Target Item: ${item.item_name}
+- Target Type: ${item.item_type || 'Unknown'}
 
-✅ PRESERVE: Exact colors, textures, patterns, details
-🚫 REMOVE: Background, body parts, other items
+⚠️ CRITICAL ISOLATION RULES:
+1. Extract ONLY the specified garment - nothing else
+2. REMOVE ALL OTHER GARMENTS inside the bounding box
+3. If multiple layers exist (dupatta over kurta, jacket over shirt), extract ONLY the target item
+4. Remove any overlapping fabrics that are NOT the target item
+5. The result should show ONE ISOLATED GARMENT on white background
 
-DO NOT include any other items from the image.`;
+✅ PRESERVE: Exact colors, textures, patterns, details of TARGET ITEM ONLY
+🚫 REMOVE: Background, body parts, ALL OTHER GARMENTS (even if overlapping)
+
+OUTPUT: A single, isolated product image of ONLY "${item.item_name}"`;
 
   console.log(`Generating professional product image for: ${item.item_name} (${item.item_type})`);
 
