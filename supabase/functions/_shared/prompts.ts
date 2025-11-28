@@ -129,6 +129,33 @@ export const compactItemForAI = (item: any) => ({
   ...(item.style_aesthetic?.length && { style: item.style_aesthetic }),
 });
 
+/**
+ * Helper: Normalize category to short codes for v3.0 ultra-compact format
+ */
+const normalizeCategory = (cat: string): string => {
+  const c = (cat || '').toLowerCase();
+  if (['shirt','top','tee','blouse','kurta','polo','tank'].some(k => c.includes(k))) return 'top';
+  if (['jean','trouser','pant','skirt','short','bottom'].some(k => c.includes(k))) return 'btm';
+  if (['shoe','sneaker','boot','heel','sandal','slipper'].some(k => c.includes(k))) return 'sho';
+  if (['jacket','blazer','coat','hoodie','cardigan','sweater'].some(k => c.includes(k))) return 'out';
+  if (['dress','gown','jumpsuit'].some(k => c.includes(k))) return 'drs';
+  if (['kurta set','saree','lehenga','sherwani','salwar'].some(k => c.includes(k))) return 'eth';
+  return 'acc';
+};
+
+/**
+ * Ultra-compact item format for v3.0 Outfit Generation Engine (Phase 4)
+ * Reduces per-item tokens from ~100 to ~40 (60% reduction) for massive prompt savings
+ */
+export const ultraCompactItemForAI = (item: any) => ({
+  id: item.id,
+  n: (item.name || '').slice(0, 20),
+  c: normalizeCategory(item.category),
+  col: (item.color || '').slice(0, 8),
+  fit: (item.fit_type || 'reg').slice(0, 6),
+  f: (item.formality_level || 'cas').slice(0, 4),
+});
+
 // ============================================
 // PROMPT TYPE ENUMS
 // ============================================
@@ -341,6 +368,78 @@ export const OUTFIT_ENGINE_PROMPT = `### MODULE 10 — OUTFIT ENGINE v2.0 (MyMir
 
 </OUTFIT_ENGINE>`;
 
+// ============================================
+// OUTFIT ENGINE v3.0 — ULTRA-COMPACT PROMPTS
+// ============================================
+
+export const WARDROBE_ENGINE_V3 = `<WARDROBE_ENGINE_V3>
+PURPOSE: Parse wardrobe items into styling-ready entities. Never hallucinate items.
+
+CATEGORY_NORMALIZATION:
+top|btm|out|drs|eth|sho|acc
+
+STYLING_RULES:
+• Color: Match undertones (warm/cool/neutral), prefer monochrome or complementary
+• Fabric: heavy+light=balanced, texture+smooth=depth, denim anchors all
+• Silhouette: oversized_top→slim_btm, fitted_top→relaxed_btm, cropped→high-rise
+• Pattern: max 2 if different scales, balance with solids
+• Formality: Never cross dress codes (casual≠formal)
+
+ITEM_SCHEMA:
+{id,n,c,col,fit,f} — use ONLY these fields
+
+GAP_DETECTION:
+Men: white_tee, jeans, sneakers, blazer
+Women: basic_top, trousers, denim, neutral_layer
+
+SAFETY: Use ONLY provided item IDs. Never invent items/colors/categories.
+</WARDROBE_ENGINE_V3>`;
+
+export const OUTFIT_ENGINE_V3 = `<OUTFIT_ENGINE_V3>
+PURPOSE: Generate stylish, diverse, wearable outfits from wardrobe.
+
+OUTFIT_STRUCTURE:
+• Separates: upperwear + lowerwear + footwear (required) + layer? + accessories?
+• Dress: dress/jumpsuit + footwear + accessories?
+• Max 1 layer, 0-2 accessories
+
+ANCHOR_LOGIC:
+If anchor_item provided → MUST appear in EVERY outfit. Non-negotiable.
+
+SAFE_OUTFIT:
+• Neutral/tonal palette
+• Clean silhouette
+• Low pattern contrast
+• High wearability
+
+BOLD_OUTFIT (must have 2+):
+• Non-neutral hero color OR color blocking
+• Statement proportions OR unconventional layers
+• Pattern mix OR statement texture
+• Unexpected category fusion OR statement footwear
+
+DIVERSITY_RULES (ENFORCE):
+✓ Different shoes per outfit (unless <2 shoes)
+✓ Different bottoms per outfit (unless <2 btms)
+✓ Vary silhouettes (fitted/relaxed mix)
+✓ Vary color families
+✓ Safe≠Bold (meaningful difference)
+
+PENALTY:
+-0.25 conf if same shoe reused
+-0.20 conf if same btm reused
+-0.15 conf if same silhouette
+
+OUTPUT_REQUIRED:
+• styling_opinion: warm, opinionated fashion comment
+• visual_description: imagination-based visualization
+• boldness_level: 'safe' or 'bold'
+• confidence: 0.0-1.0
+
+FALLBACK: If occasion specific but no valid combos → outfits:[], missingCategories populated
+</OUTFIT_ENGINE_V3>`;
+
+// Legacy prompts (deprecated in v3.0, kept for backward compatibility)
 export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (MyMirro)
 <WARDROBE_ENGINE>
 
@@ -497,7 +596,7 @@ export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (M
   <!-- FALLBACK -->
   <FALLBACK>
     If wardrobe weak:
-      • ask for uploads  
+      • ask for uploads
       • give simple safe advice  
     Avoid full outfits unless asked.
   </FALLBACK>
