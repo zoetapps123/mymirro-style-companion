@@ -986,9 +986,9 @@ CALL generate_outfit_combinations ONLY. Include styling_opinion + visual_descrip
     total: `${estimatedTokens} tokens`,
     target: '≤3500 tokens',
     targetMet: estimatedTokens <= 3500 ? '✅ YES' : '❌ NO',
-    itemFormat: 'ultraCompact (~40 tokens/item)',
+    itemFormat: 'ultraCompact (~55-60 tokens/item with gender+occasion)',
     wardrobeItems: optimizedWardrobe.length,
-    estimatedItemTokens: `~${optimizedWardrobe.length * 40}`,
+    estimatedItemTokens: `~${optimizedWardrobe.length * 58}`,
     reduction: originalCount > optimizedWardrobe.length 
       ? `${Math.round((1 - optimizedWardrobe.length / originalCount) * 100)}% items filtered`
       : 'no filtering',

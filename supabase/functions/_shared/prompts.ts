@@ -144,16 +144,74 @@ const normalizeCategory = (cat: string): string => {
 };
 
 /**
- * Ultra-compact item format for v3.0 Outfit Generation Engine (Phase 4)
- * Reduces per-item tokens from ~100 to ~40 (60% reduction) for massive prompt savings
+ * Helper: Infer gender from item name and category for v3.0
+ * Returns: 'm' (male), 'f' (female), 'u' (unisex)
+ */
+const inferGender = (name: string, category: string): string => {
+  const n = (name || '').toLowerCase();
+  const c = (category || '').toLowerCase();
+  
+  // Female-specific items
+  if (['saree','salwar','lehenga','kurti','dupatta','bra','blouse'].some(k => n.includes(k) || c.includes(k))) return 'f';
+  
+  // Male-specific items
+  if (['sherwani','nehru'].some(k => n.includes(k) || c.includes(k))) return 'm';
+  
+  // Kurta can be male or female - check for additional context
+  if (n.includes('kurta')) {
+    if (n.includes('set') || n.includes('pajama')) return 'm';
+    return 'u'; // Standalone kurta could be either
+  }
+  
+  // Everything else is unisex
+  return 'u';
+};
+
+/**
+ * Helper: Map formality level to compact codes for v3.0
+ */
+const mapFormality = (formality: string | null | undefined): string => {
+  const f = (formality || 'casual').toLowerCase();
+  if (f.includes('form')) return 'frm';
+  if (f.includes('business') || f.includes('smart')) return 'smc';
+  if (f.includes('semi')) return 'bsc';
+  return 'cas';
+};
+
+/**
+ * Helper: Compact occasions to short codes for v3.0
+ * Takes first 2-3 key occasions and shortens them
+ */
+const compactOccasions = (occasions: string[] | null | undefined): string => {
+  if (!occasions || occasions.length === 0) return '';
+  return occasions.slice(0, 3).map(o => {
+    const occ = o.toLowerCase();
+    if (occ.includes('wed')) return 'wed';
+    if (occ.includes('work') || occ.includes('office')) return 'work';
+    if (occ.includes('party')) return 'prty';
+    if (occ.includes('casual')) return 'cas';
+    if (occ.includes('formal')) return 'frm';
+    if (occ.includes('fest')) return 'fest';
+    if (occ.includes('date')) return 'date';
+    return o.slice(0, 4);
+  }).join(',');
+};
+
+/**
+ * Ultra-compact item format for v3.0 Outfit Generation Engine (Phase 4 Enhanced)
+ * Reduces per-item tokens from ~100 to ~55-60 (45% reduction) while preserving fashion intelligence
+ * Added: gender inference, occasion matching, style tags for context-aware outfit generation
  */
 export const ultraCompactItemForAI = (item: any) => ({
   id: item.id,
-  n: (item.name || '').slice(0, 20),
+  n: (item.name || '').slice(0, 25),
   c: normalizeCategory(item.category),
-  col: (item.color || '').slice(0, 8),
-  fit: (item.fit_type || 'reg').slice(0, 6),
-  f: (item.formality_level || 'cas').slice(0, 4),
+  col: (item.color || '').slice(0, 10),
+  fit: (item.fit_type || 'reg').slice(0, 8),
+  f: mapFormality(item.formality_level),
+  gen: inferGender(item.name, item.category),
+  occ: compactOccasions(item.suitable_occasions),
+  sty: (item.style_aesthetic?.[0] || '').slice(0, 8),
 });
 
 // ============================================
@@ -385,8 +443,18 @@ STYLING_RULES:
 • Pattern: max 2 if different scales, balance with solids
 • Formality: Never cross dress codes (casual≠formal)
 
+GENDER_RULES:
+• gen:m items → male-appropriate (kurta sets, sherwanis, structured fits)
+• gen:f items → female-appropriate (sarees, salwars, lehengas, kurtis)
+• gen:u items → unisex (jeans, tees, sneakers, blazers)
+• NEVER mix gender categories (salwar ≠ male user, sherwani ≠ female user)
+
 ITEM_SCHEMA:
-{id,n,c,col,fit,f} — use ONLY these fields
+{id,n,c,col,fit,f,gen,occ,sty} — use ONLY these fields
+• f: cas|smc|bsc|frm (formality)
+• gen: m|f|u (gender)
+• occ: wed,work,cas,prty,frm,fest,date (occasions)
+• sty: first style tag
 
 GAP_DETECTION:
 Men: white_tee, jeans, sneakers, blazer
@@ -398,13 +466,28 @@ SAFETY: Use ONLY provided item IDs. Never invent items/colors/categories.
 export const OUTFIT_ENGINE_V3 = `<OUTFIT_ENGINE_V3>
 PURPOSE: Generate stylish, diverse, wearable outfits from wardrobe.
 
-OUTFIT_STRUCTURE:
-• Separates: upperwear + lowerwear + footwear (required) + layer? + accessories?
-• Dress: dress/jumpsuit + footwear + accessories?
-• Max 1 layer, 0-2 accessories
+OUTFIT_STRUCTURE (STRICT):
+• Separates: upperwear + lowerwear + footwear + (layer OR accessory) REQUIRED
+• Dress: dress/jumpsuit + footwear + (layer OR accessory) REQUIRED
+• Every outfit MUST have 4+ pieces minimum (3 core + 1 accent)
+• Max 1 layer, 1-2 accessories per outfit
 
 ANCHOR_LOGIC:
 If anchor_item provided → MUST appear in EVERY outfit. Non-negotiable.
+
+GENDER_ENFORCEMENT (CRITICAL):
+• If user.gender=male → ONLY use items where gen=m OR gen=u
+• If user.gender=female → ONLY use items where gen=f OR gen=u
+• NEVER pair male user with gen:f items (salwar, saree, lehenga, kurti)
+• NEVER pair female user with gen:m items (sherwani, nehru jacket)
+
+OCCASION_RULES (STRICT):
+• Wedding/Formal → MUST use items where f=frm OR f=smc
+• Wedding India + male → PRIORITIZE eth (kurta sets, sherwanis) OR blazers
+• Wedding India + female → PRIORITIZE eth (sarees, lehengas) OR formal dresses
+• Casual occasion → f=cas OK, but f=frm items acceptable too
+• If no suitable formality items exist → return outfits:[], missingCategories populated
+• NEVER use f=cas items for wedding/formal occasions
 
 SAFE_OUTFIT:
 • Neutral/tonal palette
@@ -429,6 +512,8 @@ PENALTY:
 -0.25 conf if same shoe reused
 -0.20 conf if same btm reused
 -0.15 conf if same silhouette
+-0.30 conf if gender mismatch
+-0.40 conf if occasion-formality mismatch
 
 OUTPUT_REQUIRED:
 • styling_opinion: warm, opinionated fashion comment
@@ -712,27 +797,39 @@ VERIFICATION CHECKLIST (before returning response):
 If ANY answer is NO, reject that outfit and regenerate.
 ` : ''}
 
-A. Minimum outfit structure:
-• For outfits using separates: Must include 3 core pieces: 1 Upperwear OR Dress, 1 Lowerwear (if not Dress), 1 Footwear.
-• Exception: Dress/jumpsuit can be 1 garment + footwear (2 items).
+A. Minimum outfit structure (STRICT - v3.0 ENHANCED):
+• For outfits using separates: Must include 4+ pieces: 1 Upperwear OR Dress, 1 Lowerwear (if not Dress), 1 Footwear, AND 1 accent piece (layer OR accessory).
+• Exception: Dress/jumpsuit requires: dress + footwear + (layer OR accessory) = 3+ items minimum.
 • Layers allowed: max 1 layer (Outerwear) per outfit.
-• Accessories: include 0–2 accessories if they match style/formality.
+• Accessories: REQUIRED - include 1-2 accessories OR 1 layer per outfit to add styling depth.
+• NEVER generate incomplete 3-piece outfits without an accent piece.
 
-B. Occasion & Formality:
+B. Occasion & Formality (STRICT - v3.0 ENHANCED):
 • Do not generate outfits that violate common dress codes for the requested occasion.
-• If occasion implies formal (wedding, formal_event, interview, business), require at least one wardrobe item where formality_level is "formal" or "business_casual" depending on occasion.
-• If wardrobe contains no items that satisfy the minimum formality for the occasion, return outfits: [] and set missingCategories (e.g., ["formal_shoes","formal_top"]).
+• Wedding/Formal events: Require items where f=frm OR f=smc (mapped formality codes). f=cas items are BLOCKED.
+• Wedding (India context) + male user: PRIORITIZE ethnic wear (kurta sets, sherwanis with c=eth, gen=m) OR blazers (c=out, f=frm).
+• Wedding (India context) + female user: PRIORITIZE ethnic wear (sarees, lehengas with c=eth, gen=f) OR formal dresses (c=drs, f=frm).
+• Casual occasions: f=cas OK, but f=smc and f=frm also acceptable.
+• If wardrobe contains NO items matching required formality for occasion, return outfits: [] and set missingCategories (e.g., ["formal_shoes","formal_ethnic_top"]).
 
-C. Gender & Age Styling:
-• Use gender context to influence silhouette preferences and category selection.
-• For female: prioritize feminine cuts, consider ethnic wear (kurtis, sarees, lehengas)
-• For male: prioritize structured fits, consider ethnic wear (kurtas, sherwanis)
-• For other/unspecified: use gender-neutral approach, focus on style over gendered categories
+C. Gender & Age Styling (STRICT - v3.0 ENHANCED):
+• GENDER ENFORCEMENT (CRITICAL - NON-NEGOTIABLE):
+  - If user.gender=male: ONLY use items where gen=m OR gen=u. BLOCK all gen=f items.
+  - If user.gender=female: ONLY use items where gen=f OR gen=u. BLOCK all gen=m items.
+  - NEVER include salwar, saree, lehenga, kurti (gen=f) in male user outfits.
+  - NEVER include sherwani, nehru jackets (gen=m) in female user outfits.
+  - Ethnic wear classification:
+    * Male ethnic (gen=m): kurta sets, sherwanis, nehru jackets, bandhgalas
+    * Female ethnic (gen=f): sarees, salwars, lehengas, kurtis (standalone)
+    * Unisex (gen=u): jeans, tees, blazers, sneakers, most western wear
+• For female: prioritize feminine cuts, consider ethnic wear (c=eth, gen=f)
+• For male: prioritize structured fits, consider ethnic wear (c=eth, gen=m)
+• For other/unspecified: use gender-neutral approach (gen=u), focus on style over gendered categories
 • Age influences trend-level and formality comfort:
   - Under 21: embrace current trends, bold choices
   - 22-30: balance trendy with professional/elevated
   - Over 30: lean timeless, quality-focused
-• NEVER refuse to style based on gender - always provide appropriate options
+• NEVER refuse to style based on gender - always provide gender-appropriate options
 
 D. DIVERSITY REQUIREMENTS (MANDATORY - ENFORCE STRICTLY):
 
