@@ -1084,7 +1084,7 @@ function hexToRgb(hex: string) {
 
 async function generateProductImage(item: WardrobeDetectionItem, originalImageUrl: string): Promise<Uint8Array> {
   // Validate item has required fields
-  if (!item.item_name || !item.category) {
+  if (!item.item_name || (!item.parent_category && !item.category)) {
     console.error("generateProductImage called with invalid item:", item);
     throw new Error(`Invalid item: missing item_name or category`);
   }
@@ -1097,8 +1097,9 @@ TARGET ITEM LOCATION (Bounding Box):
 Position: ${item.bbox.x.toFixed(1)}% from left, ${item.bbox.y.toFixed(1)}% from top
 Size: ${item.bbox.width.toFixed(1)}% width, ${item.bbox.height.toFixed(1)}% height
 
-ITEM: ${item.item_name}
-CATEGORY: ${item.category}
+      ITEM: ${item.item_name}
+      TYPE: ${item.item_type || 'Unknown'}
+      CATEGORY: ${item.parent_category || item.category || 'Unknown'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️ CRITICAL: ONLY extract and transform the item within the bounding box coordinates above.
