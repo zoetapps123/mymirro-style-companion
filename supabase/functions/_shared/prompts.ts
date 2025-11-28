@@ -254,10 +254,35 @@ export const OUTFIT_ENGINE_PROMPT = `### MODULE 10 — OUTFIT ENGINE v2.0 (MyMir
     </SAFE_OUTFIT>
 
     <BOLD_OUTFIT>
-      - expressive contrast
-      - strong silhouette shaping
-      - pattern mixing (safe rules)
-      - experimental layering
+      A BOLD outfit MUST include at least 2 of:
+      
+      1. COLOR BOLDNESS:
+         • Non-neutral hero color (not black/white/grey/beige)
+         • Color blocking (2+ distinct colors)
+         • Unexpected color combination
+      
+      2. SILHOUETTE BOLDNESS:
+         • Statement proportions (very oversized OR very fitted)
+         • Unconventional layering
+         • Cropped or exaggerated lengths
+      
+      3. TEXTURE/PATTERN BOLDNESS:
+         • Pattern mixing (if tasteful)
+         • Statement texture (leather, velvet, metallic)
+         • Visible texture contrast between pieces
+      
+      4. STYLING BOLDNESS:
+         • Unexpected category usage (ethnic + streetwear fusion)
+         • Statement footwear (not plain sneakers)
+         • Intentional accessory styling
+      
+      BOLD IS NOT:
+         • Same outfit as safe with one minor change
+         • Just adding an accessory
+         • Slightly different shade of same neutral
+         
+      If bold_outfit cannot achieve 2+ boldness factors, 
+      set confidence lower and note why in warnings.
     </BOLD_OUTFIT>
 
     <DUAL_OPTION_MODE>
@@ -610,12 +635,58 @@ C. Gender & Age Styling:
   - Over 30: lean timeless, quality-focused
 • NEVER refuse to style based on gender - always provide appropriate options
 
-D. Deduplication & Variety:
-${anchorItem 
-  ? `• The anchor item (ID=${anchorItem.id}) MUST appear in EVERY outfit - this is the ONLY exception to the no-reuse rule.
-• All OTHER items should not be reused across outfits unless wardrobe is extremely small (<5 items).`
-  : `• Do not reuse the same item ID across multiple generated outfits in the same response unless wardrobe is extremely small (<5 items) AND requested count exceeds possible unique combinations. If reuse is unavoidable, mark those outfits with lower confidence.`}
-• Ensure visual distinction between outfits: vary color palettes, key items (except anchor), or silhouettes.
+D. DIVERSITY REQUIREMENTS (MANDATORY - ENFORCE STRICTLY):
+
+<DIVERSITY_MATRIX>
+  For each batch of outfits generated, you MUST maximize variety across:
+  
+  1. ITEM DIVERSITY (Highest Priority):
+     ${anchorItem 
+       ? `• The anchor item (ID=${anchorItem.id}) MUST appear in EVERY outfit - this is the ONLY exception to the no-reuse rule.
+     • FOOTWEAR: Each outfit (except anchor-based) MUST use a DIFFERENT shoe. If only 2 shoes exist, alternate them.
+     • BOTTOMS: Each outfit MUST use a DIFFERENT bottom (unless anchor is bottom). If only 2 bottoms exist, alternate them.`
+       : `• FOOTWEAR: Each outfit MUST use a DIFFERENT shoe. If only 2 shoes exist, alternate them.
+     • BOTTOMS: Each outfit MUST use a DIFFERENT bottom. If only 2 bottoms exist, alternate them.`}
+     • TOPS: Vary tops across outfits. Reuse ONLY if wardrobe has fewer tops than requested outfits.
+     • OUTERWEAR: If multiple layers exist, vary them across outfits.
+     
+  2. SILHOUETTE DIVERSITY:
+     • If outfit #1 uses oversized_top + slim_bottom, outfit #2 should NOT use same silhouette.
+     • Target distribution: at least 2 different silhouette combinations across 3 outfits.
+     • Silhouette options: fitted/fitted, fitted/relaxed, relaxed/fitted, oversized/slim, cropped/high-rise
+     
+  3. COLOR PALETTE DIVERSITY:
+     • Each outfit should have a visually distinct dominant color story.
+     • If outfit #1 is neutral-dominant (black, white, beige), outfit #2 should include color.
+     • Avoid same color_family appearing as hero color in consecutive outfits.
+     
+  4. FORMALITY SPECTRUM:
+     • If generating 3+ outfits for flexible occasion, include range: 1 casual-leaning + 1 elevated + 1 middle.
+     • Never generate 3 outfits that all read as "safe casual".
+     
+  5. VIBE DIVERSITY:
+     • safe_outfit_index and bold_outfit_index should be DIFFERENT outfits.
+     • If generating 3 outfits: 1 safe, 1 bold, 1 balanced (middle ground).
+</DIVERSITY_MATRIX>
+
+<DIVERSITY_ENFORCEMENT_CHECKLIST>
+  Before returning response, VERIFY:
+  ☐ Shoes: Are different shoes used? If not, is wardrobe < 2 shoes?
+  ☐ Bottoms: Are different bottoms used? If not, is wardrobe < 2 bottoms?
+  ☐ Silhouettes: Do outfits have different volume combinations?
+  ☐ Colors: Do outfits have different dominant color families?
+  ☐ Safe vs Bold: Is there meaningful styling difference between safe and bold options?
+  
+  If ANY check fails without valid wardrobe constraint, REGENERATE that outfit.
+</DIVERSITY_ENFORCEMENT_CHECKLIST>
+
+<ITEM_REUSE_PENALTY>
+  • Reusing same shoe in 2+ outfits: confidence -= 0.25
+  • Reusing same bottom in 2+ outfits: confidence -= 0.20
+  • Reusing same top in 2+ outfits: confidence -= 0.15
+  • Identical silhouette in 2+ outfits: confidence -= 0.15
+  • Same color family dominant in 2+ outfits: confidence -= 0.10
+</ITEM_REUSE_PENALTY>
 
 E. Color Harmony:
 • Use color_family and primary_color hex to enforce visually pleasing combos.

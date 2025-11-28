@@ -6,6 +6,8 @@ import { OUTFIT_GENERATION_PROMPTS, OUTFIT_ENGINE_PROMPT, WARDROBE_ENGINE_PROMPT
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
+import { validateOutfitDiversity, enhanceOutfitDiversity } from './diversity-validator.ts';
+import { generateDiverseFallbackOutfits, shuffleWardrobeInput } from './fallback-generator.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -468,30 +470,13 @@ serve(async (req) => {
 
       if (tops.length && bottoms.length && shoes.length) {
         const want = Math.min(maxOutfits || 3, 3);
-        const combos: any[] = [];
-        for (let i = 0; i < want; i++) {
-          const top = tops[i % tops.length];
-          const bottom = bottoms[(i + 1) % bottoms.length];
-          const shoe = shoes[(i + 2) % shoes.length];
-          const layer = (userLocation && userLocation.temp !== undefined && userLocation.temp < 20 && layers.length)
-            ? layers[i % layers.length]
-            : undefined;
-          const accessory = accessories.length ? accessories[i % accessories.length] : undefined;
-
-          const pieces: any[] = [
-            { wardrobeItemId: top.id, category: top.category, role: 'upperwear' },
-            { wardrobeItemId: bottom.id, category: bottom.category, role: 'lowerwear' },
-            { wardrobeItemId: shoe.id, category: shoe.category, role: 'footwear' },
-          ];
-          if (layer) pieces.push({ wardrobeItemId: layer.id, category: layer.category, role: 'layer' });
-          if (accessory) pieces.push({ wardrobeItemId: accessory.id, category: accessory.category, role: 'accessory' });
-
-          combos.push({
-            pieces,
-            reasoning: `Complete ${occasion || style || 'styled'} look using your wardrobe: balanced top, bottom, and footwear${layer ? ', plus a weather-appropriate layer' : ''}.`,
-            styleTag: style || 'versatile'
-          });
-        }
+        const combos = generateDiverseFallbackOutfits(
+          wardrobeItems,
+          want,
+          occasion,
+          style,
+          userLocation
+        );
 
         result = { outfits: combos, totalGenerated: combos.length };
         console.log(`Fallback generated ${combos.length} complete looks`);
@@ -508,7 +493,21 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Map outfit items and preserve v4 metadata
+    // Step 2: Validate and enhance diversity
+    const diversityReport = validateOutfitDiversity(result.outfits, wardrobeItems);
+    console.log('📊 DIVERSITY METRICS:', {
+      score: diversityReport.score,
+      isValid: diversityReport.isValid,
+      issues: diversityReport.issues.length > 0 ? diversityReport.issues : 'none'
+    });
+
+    if (!diversityReport.isValid && result.outfits.length > 1) {
+      console.warn('⚠️ Low diversity detected, applying post-hoc fixes...');
+      result.outfits = enhanceOutfitDiversity(result.outfits, wardrobeItems, diversityReport);
+      console.log('✅ Diversity enhanced');
+    }
+
+    // Step 3: Map outfit items and preserve v4 metadata
     const outfitsWithItems = result.outfits.map((outfit: any) => {
       const outfitItems = outfit.pieces.map((piece: any) => 
         wardrobeItems.find((item: any) => item.id === piece.wardrobeItemId)
@@ -554,7 +553,12 @@ serve(async (req) => {
     }
 
 
-    // Build response with v4 metadata
+    // Build response with v4 metadata + diversity metrics
+    const norm = (s: any) => (s || '').toString().toLowerCase();
+    const isShoe = (c: string) => ['shoe','sneaker','boot','loafer','heel','sandal'].some(k => c.includes(k));
+    const isBottom = (c: string) => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => c.includes(k));
+    const isTop = (c: string) => ['shirt','top','tee','blouse','kurta'].some(k => c.includes(k));
+    
     const response: any = {
       success: true,
       outfits: outfitsWithItems,
@@ -565,7 +569,18 @@ serve(async (req) => {
       ...(result.safe_outfit_index !== undefined && { safe_outfit_index: result.safe_outfit_index }),
       ...(result.bold_outfit_index !== undefined && { bold_outfit_index: result.bold_outfit_index }),
       ...(result.wardrobe_gaps && { wardrobe_gaps: result.wardrobe_gaps }),
-      ...(result.upgrade_suggestions && { upgrade_suggestions: result.upgrade_suggestions })
+      ...(result.upgrade_suggestions && { upgrade_suggestions: result.upgrade_suggestions }),
+      // Diversity metadata
+      diversity_metrics: {
+        score: diversityReport.score,
+        unique_shoes: new Set(outfitsWithItems.flatMap((o: any) => o.items.filter((i: any) => isShoe(norm(i.category))).map((i: any) => i.id))).size,
+        unique_bottoms: new Set(outfitsWithItems.flatMap((o: any) => o.items.filter((i: any) => isBottom(norm(i.category))).map((i: any) => i.id))).size,
+        unique_tops: new Set(outfitsWithItems.flatMap((o: any) => o.items.filter((i: any) => isTop(norm(i.category))).map((i: any) => i.id))).size,
+        silhouette_variety: diversityReport.silhouetteVariety,
+        color_variety: diversityReport.colorVariety,
+        issues: diversityReport.issues,
+        enhancement_applied: !diversityReport.isValid
+      }
     };
 
     // Add legacy fields for backward compatibility
@@ -587,7 +602,10 @@ serve(async (req) => {
       safe_index: result.safe_outfit_index,
       bold_index: result.bold_outfit_index,
       has_gaps: !!result.wardrobe_gaps?.length,
-      has_opinions: outfitsWithItems.some((o: any) => o.styling_opinion)
+      has_opinions: outfitsWithItems.some((o: any) => o.styling_opinion),
+      diversity_score: diversityReport.score,
+      silhouette_variety: diversityReport.silhouetteVariety ? '✅' : '❌',
+      color_variety: diversityReport.colorVariety ? '✅' : '❌'
     });
 
     // Cache the result
@@ -774,6 +792,9 @@ function buildOutfitGenerationPrompt(
   } else {
     optimizedWardrobe = filterRelevantItems(optimizedWardrobe, occasion, style);
   }
+  
+  // Shuffle within categories to prevent positional bias
+  optimizedWardrobe = shuffleWardrobeInput(optimizedWardrobe);
   
   console.log(`📊 Wardrobe optimization: ${originalCount} → ${optimizedWardrobe.length} items`);
   if (optimizedWardrobe.length < originalCount) {
