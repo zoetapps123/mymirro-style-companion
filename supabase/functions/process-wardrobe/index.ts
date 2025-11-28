@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { verifyAuth, unauthorizedResponse } from "../_shared/auth-utils.ts";
 import { generateCacheKey, getCachedResult, setCachedResult } from "../_shared/cache-utils.ts";
-import { WARDROBE_PROMPTS } from "../_shared/prompts.ts";
+import { WARDROBE_PROMPTS, PRODUCT_IMAGE_PROMPTS } from "../_shared/prompts.ts";
 import { callGeminiAPI } from "../_shared/ai-config.ts";
 import { retryWithBackoff } from "../_shared/retry-utils.ts";
 
@@ -1082,6 +1082,39 @@ function hexToRgb(hex: string) {
     : null;
 }
 
+// Helper function to select category-specific prompt for professional product images
+function getProductImagePrompt(item: WardrobeDetectionItem): string {
+  const parentCategory = item.parent_category || '';
+  const itemType = (item.item_type || '').toLowerCase();
+  const legacyCategory = (item.category || '').toLowerCase();
+  
+  // Check for Footwear
+  if (parentCategory === 'Footwear' || legacyCategory === 'shoes' ||
+      ['shoe', 'boot', 'sneaker', 'sandal', 'heel', 'loafer', 'oxford', 'flat', 'slipper', 'mule'].some(t => itemType.includes(t))) {
+    return PRODUCT_IMAGE_PROMPTS.FOOTWEAR({ item_name: item.item_name, item_type: item.item_type });
+  }
+  
+  // Check for Accessories
+  if (parentCategory === 'Accessories' || legacyCategory === 'accessories' ||
+      ['bag', 'belt', 'scarf', 'watch', 'jewelry', 'necklace', 'bracelet', 'ring', 'earring', 'hat', 'cap', 'sunglasses', 'wallet', 'clutch', 'purse'].some(t => itemType.includes(t))) {
+    return PRODUCT_IMAGE_PROMPTS.BAGS_ACCESSORIES({ item_name: item.item_name, item_type: item.item_type });
+  }
+  
+  // Check for Ethnic/Traditional wear
+  if (['kurta', 'kurti', 'saree', 'sari', 'dupatta', 'lehenga', 'salwar', 'sherwani', 'dhoti', 'churidar', 'palazzo', 'anarkali', 'sharara', 'gharara'].some(t => itemType.includes(t))) {
+    return PRODUCT_IMAGE_PROMPTS.ETHNIC_TRADITIONAL({ item_name: item.item_name, item_type: item.item_type });
+  }
+  
+  // Check for Bottoms
+  if (legacyCategory === 'bottoms' ||
+      ['pant', 'jean', 'trouser', 'short', 'skirt', 'chino', 'jogger', 'legging', 'capri', 'cargo'].some(t => itemType.includes(t))) {
+    return PRODUCT_IMAGE_PROMPTS.BOTTOMS({ item_name: item.item_name, item_type: item.item_type });
+  }
+  
+  // Default to Tops/Outerwear (most common)
+  return PRODUCT_IMAGE_PROMPTS.TOPS_OUTERWEAR({ item_name: item.item_name, item_type: item.item_type });
+}
+
 async function generateProductImage(item: WardrobeDetectionItem, originalImageUrl: string): Promise<Uint8Array> {
   // Validate item has required fields
   if (!item.item_name || (!item.parent_category && !item.category)) {
@@ -1089,53 +1122,59 @@ async function generateProductImage(item: WardrobeDetectionItem, originalImageUr
     throw new Error(`Invalid item: missing item_name or category`);
   }
 
-  const transformPrompt = `Transform ONLY the specific clothing item located in this image into a professional e-commerce product image.
+  // Get category-specific presentation style
+  const categoryPrompt = getProductImagePrompt(item);
+  
+  const transformPrompt = `Transform ONLY the specific item located at the bounding box into a PROFESSIONAL E-COMMERCE PRODUCT IMAGE.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TARGET ITEM LOCATION (Bounding Box):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 TARGET ITEM LOCATION (Extract ONLY this):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Position: ${item.bbox.x.toFixed(1)}% from left, ${item.bbox.y.toFixed(1)}% from top
-Size: ${item.bbox.width.toFixed(1)}% width, ${item.bbox.height.toFixed(1)}% height
+Size: ${item.bbox.width.toFixed(1)}% width × ${item.bbox.height.toFixed(1)}% height
+Item: ${item.item_name}
+Type: ${item.item_type || 'Unknown'}
 
-      ITEM: ${item.item_name}
-      TYPE: ${item.item_type || 'Unknown'}
-      CATEGORY: ${item.parent_category || item.category || 'Unknown'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📸 PROFESSIONAL E-COMMERCE STANDARDS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${PRODUCT_IMAGE_PROMPTS.BASE_SPECS}
 
-⚠️ CRITICAL: ONLY extract and transform the item within the bounding box coordinates above.
-⚠️ IGNORE all other clothing items, accessories, or objects in the image.
-⚠️ Extract ONLY the specified item at the given location.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👔 CATEGORY-SPECIFIC PRESENTATION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${categoryPrompt}
 
-KEEP EXACTLY FROM THE ORIGINAL IMAGE:
-✓ The exact colors you see in the target item
-✓ The exact fabric texture and appearance
-✓ The exact pattern/graphic/print as shown
-✓ The exact item shape and silhouette
-✓ All visual details exactly as they appear
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ MUST PRESERVE FROM ORIGINAL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Exact colors as seen (no color shifting)
+• Exact fabric texture and material appearance
+• Exact patterns, prints, graphics, logos
+• Exact design details and construction
+• Exact silhouette and proportions
 
-TRANSFORM ONLY:
-✗ Background → pure white (#FFFFFF)
-✗ Remove any human body parts, hands, or skin
-✗ Remove all other items not within the bounding box
-✗ Center the extracted item, front-facing
-✗ Professional e-commerce lighting (no shadows)
-✗ Item laid flat or on invisible mannequin
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚫 MUST REMOVE/TRANSFORM:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Background → Pure white (#FFFFFF)
+• All human body parts, skin, hands, feet
+• All other items NOT within the bounding box
+• Shadows → Remove or keep only subtle ground shadow
+• Wrinkles → Smooth to professional standard
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL INSTRUCTIONS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Extract ONLY the single item at the bounding box location
-- Do NOT include multiple items in the output
-- Do NOT change, reinterpret, or recreate the colors
-- Do NOT change the fabric appearance or texture
-- Do NOT change patterns, graphics, or prints
-- Use EXACTLY what you see in the original image
-- Only remove background, body parts, and other items
-- Ultra-sharp, e-commerce quality output
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL RULES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Extract ONLY the single item at the bounding box location
+2. Do NOT include ANY other clothing items in output
+3. Do NOT alter colors, patterns, or textures - preserve exactly
+4. Output should look like a professional Amazon/Zara product listing
+5. Quality: Ultra-sharp, catalog-ready, e-commerce standard
 
-Transform ONLY this specific item while preserving its exact visual characteristics.`;
+Generate a single, professional product image ready for e-commerce listing.`;
 
-  console.log(`Transforming image with prompt: ${transformPrompt.substring(0, 100)}...`);
+  console.log(`Generating professional product image for: ${item.item_name} (${item.item_type})`);
 
   const data = await callGeminiAPI({
     model: "google/gemini-2.5-flash-image-preview",
