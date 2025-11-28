@@ -24,52 +24,11 @@ interface BoundingBox {
 
 interface WardrobeDetectionItem {
   bbox: BoundingBox;
-  
-  // Core identity
-  item_name: string;
-  item_type: string; // Dynamic type (e.g., "Kurta", "Watch", "Sneakers")
+  item_name: string; // Descriptive 3-5 word name with color and material if visible
+  item_type: string; // Exact type (e.g., "Kurta", "Watch", "Sneakers")
   parent_category: "Clothing" | "Footwear" | "Accessories";
-  category?: "Tops" | "Bottoms" | "Outerwear" | "Dresses" | "Shoes" | "Accessories"; // Optional legacy field
-  
-  // Visibility confidence
-  visibility_score: number; // 0-100 percentage
+  visibility_score: number; // 0-100 percentage of item that is clearly visible
   visibility_notes?: string; // Optional visibility limitations
-  
-  // Color & pattern (spatial, visually grounded)
-  color_palette: string[];
-  color_distribution: number[];
-  primary_color_hex: string;
-  primary_color_name: string;
-  pattern_type: string;
-  pattern_geometry: string;
-  pattern_coverage: string;
-  pattern_scale: string;
-  color_blocking_layout: string;
-  
-  // Graphics
-  graphic_type: string;
-  graphic_location: string;
-  graphic_size: string;
-  
-  // Shape & structure
-  fit_type: string;
-  silhouette: string;
-  length: string;
-  
-  // Construction & details (category-specific optional)
-  sleeve_type?: string;
-  neckline?: string;
-  collar_type?: string;
-  closure_type?: string;
-  hem_style?: string;
-  pocket_details?: string;
-  shoulder_style?: string;
-  
-  // Layering context
-  layers_detected: "single_layer" | "double_layer" | "multi_layer";
-  
-  // Visual summary
-  visual_summary: string;
 }
 
 // Simplified interface for 15-field system
@@ -526,168 +485,87 @@ async function validateAndDetectItems(
 }> {
   console.log("PHASE 1: Starting visual detection with model:", model);
 
-const VISUAL_DETECTION_PROMPT = `You are a precise visual clothing analyzer. Analyze this image in TWO STEPS within a single response.
-
-⚠️ DETECTION CONFIDENCE RULE:
-Only detect items where you can CONFIDENTLY see the complete item. Do NOT detect items that are:
-- Partially cut off by image edges
-- Mostly hidden behind other objects or body parts  
-- Where you cannot see at least 70% of the item clearly
-If you're unsure about an item's complete appearance, skip it.
-
-⚠️ DETECTION CONFIDENCE RULE:
-Only detect items where you can CONFIDENTLY see the complete item. Do NOT detect items that are:
-- Partially cut off by image edges
-- Mostly hidden behind other objects or body parts  
-- Where you cannot see at least 70% of the item clearly
-If you're unsure about an item's complete appearance, skip it.
+const VISUAL_DETECTION_PROMPT = `You are a fashion item detector. Analyze this image and extract MINIMAL information for each visible item.
 
 ═══════════════════════════════════════════════════════════════════════
-⚠️ VISIBILITY REQUIREMENTS (CRITICAL - READ FIRST) ⚠️
+⚠️ VISIBILITY REQUIREMENTS (CRITICAL)
 ═══════════════════════════════════════════════════════════════════════
 
-Before extracting ANY item, verify ALL of these are clearly visible:
-✓ Overall shape/silhouette of the entire item
+Before extracting ANY item, verify:
 ✓ At least 60% of the item's surface area is visible
-✓ Primary color is clearly identifiable
-✓ Pattern (if any) is distinguishable
+✓ Overall shape/silhouette is clearly identifiable
 ✓ You can confidently describe what the full item looks like
 
 ❌ DO NOT EXTRACT items where:
-- Only straps/handles are visible (e.g., backpack straps without seeing the bag itself)
-- Item is mostly hidden behind another person, object, or body part
-- Item is too blurry, dark, or overexposed to identify colors accurately
-- Only a small corner, edge, or fragment is visible
-- The item is folded/bunched up hiding its true form
-- You would need to guess what the rest of the item looks like
-
-EXAMPLE: If a person wears a backpack but only the shoulder straps are visible (bag is behind them), DO NOT extract it. You cannot see the bag's color, pattern, or design.
+- Only straps/handles/fragments are visible
+- Item is mostly hidden behind another person or object
+- Item is too blurry, dark, or overexposed to identify
+- You would need to guess what the rest looks like
 
 ═══════════════════════════════════════════════════════════════════════
-STEP 1A: DETECTION & BOUNDING BOXES
+STEP 1: VALIDATE IMAGE
 ═══════════════════════════════════════════════════════════════════════
 
-First, determine if the image is VALID for wardrobe extraction:
-
-✅ VALID:
-- Humans wearing clothes (full body or partial)
-- Standalone clothing items clearly visible
-- Multiple clothing items in a flat-lay or hanging arrangement
-
-❌ INVALID:
-- Empty/blank images
-- Non-clothing objects only
-- Blurry/low-light/unidentifiable content
-- Inappropriate content
+✅ VALID: Humans wearing clothes, standalone clothing items, flat-lay arrangements
+❌ INVALID: Empty/blank images, non-clothing objects only, blurry/unidentifiable content
 
 If INVALID: Set isValid=false with reason and return empty items array.
 
-If VALID: Detect up to 8 distinct items (but ONLY if they meet visibility requirements above):
-- Clothing: tops, bottoms, dresses, outerwear (including Indian wear like kurtas, salwars, lehengas, sarees, sherwanis)
-- Footwear: any visible shoes, sandals, boots, heels, sneakers, juttis, kolhapuris
-- Accessories: watches (on wrist), bags (handbags, backpacks, clutches), hats/caps, belts, jewelry (necklaces, bracelets, earrings), sunglasses, scarves, dupattas
-
-For each item:
-- Determine a bounding box: {x, y, width, height} as percentages (0-100) of image dimensions
-- x,y = top-left corner; width,height = size
-
 ═══════════════════════════════════════════════════════════════════════
-STEP 1B: VISUAL METADATA PER ITEM (STRICTLY VISUAL)
+STEP 2: DETECT ITEMS (MINIMAL EXTRACTION)
 ═══════════════════════════════════════════════════════════════════════
 
-For each detected item, analyze ONLY the pixels within its bounding box.
-Extract ONLY visually grounded facts. DO NOT infer:
-- Formality level
-- Suitable occasions  
-- Style aesthetics (streetwear, minimalist, etc.)
-- Season/weather suitability
-- Brand (unless visibly printed)
-- Personality/vibe
+If VALID: Detect up to 8 distinct items that meet visibility requirements:
+- Clothing: tops, bottoms, dresses, outerwear (including kurtas, salwars, lehengas, sarees, sherwanis)
+- Footwear: shoes, sandals, boots, heels, sneakers, juttis, kolhapuris
+- Accessories: watches, bags, hats, belts, jewelry, sunglasses, scarves, dupattas
 
-If something is not clearly visible, use "unknown" or "none".
+For each item, extract ONLY these 5 fields:
 
-For each item, extract:
+1. **bbox**: {x, y, width, height} as percentages (0-100) of image dimensions
+   - x,y = top-left corner; width,height = size
 
-**IDENTITY:**
-- item_name: Specific 3-5 word name with color and material if visible
-  Examples: "Black Silk Kurta", "White Canvas Sneakers", "Gold Analog Watch", "Brown Leather Backpack", "Navy Denim Jeans", "Red Floral Dupatta"
-  
-- item_type: The exact type of clothing/accessory. Be specific and culturally accurate:
-  Examples: "Kurta", "T-Shirt", "Lehenga", "Salwar", "Jeans", "Blazer", "Sneakers", "Juttis", "Watch", "Backpack", "Dupatta", "Sherwani", "Belt", "Sunglasses", "Earrings"
-  DO NOT generalize - if it's a Kurta, say "Kurta" not "Top". If it's Juttis, say "Juttis" not "Shoes"
-  
-- parent_category: High-level grouping for organization. One of:
-  • "Clothing" - All wearable garments (tops, bottoms, dresses, outerwear, traditional wear like kurtas, salwars, lehengas, sherwanis, sarees)
-  • "Footwear" - All shoes, sandals, boots, heels, sneakers, juttis, kolhapuris, mojaris
-  • "Accessories" - Watches, bags, belts, jewelry, hats, sunglasses, scarves, dupattas, stoles
+2. **item_name**: Descriptive 3-5 word name with color and material if visible
+   Examples: "Black Cotton T-Shirt", "White Canvas Sneakers", "Gold Analog Watch", "Navy Denim Jeans"
 
-- visibility_score: Rate from 0-100 how much of the item is clearly visible and identifiable. Must be at least 60 to extract.
-  • 100 = Entire item is perfectly visible with all details clear
-  • 80-99 = Most of item visible, minor parts hidden (e.g., back not visible)
-  • 60-79 = Majority visible but some key features obscured
-  • Below 60 = DO NOT EXTRACT (too much hidden, can't confidently identify)
+3. **item_type**: Exact type - be specific and culturally accurate
+   Examples: "Kurta", "T-Shirt", "Lehenga", "Jeans", "Blazer", "Sneakers", "Juttis", "Watch"
+   DO NOT generalize - if it's a Kurta, say "Kurta" not "Top"
 
-- visibility_notes: Brief note on any visibility limitations (e.g., "back not visible", "bottom hem cropped out", "partially hidden by arm"). Leave empty if fully visible.
+4. **parent_category**: One of:
+   • "Clothing" - All garments (tops, bottoms, dresses, outerwear, traditional wear)
+   • "Footwear" - All shoes, sandals, boots
+   • "Accessories" - Watches, bags, belts, jewelry, hats, sunglasses, scarves
 
-**COLOR ANALYSIS (SPATIAL):**
-- primary_color_hex: Dominant visible color as hex (#RRGGBB)
-- primary_color_name: Human-readable name ("Black", "Navy Blue", "Cream")
-- color_palette: Array of 2-4 hex codes for all visible colors, ordered by coverage
-- color_distribution: Array of percentages matching color_palette (must sum to 100)
-- color_blocking_layout: "none" | "sleeve_contrast" | "top_bottom_split" | "left_right_split" | "shoulder_yoke" | "panel_sides" | "hem_contrast"
+5. **visibility_score**: 0-100 rating (must be >= 60 to extract)
+   • 100 = Entire item perfectly visible
+   • 80-99 = Most visible, minor parts hidden
+   • 60-79 = Majority visible but some features obscured
+   • Below 60 = DO NOT EXTRACT
 
-**PATTERN ANALYSIS:**
-- pattern_type: "solid" | "striped" | "checkered" | "plaid" | "floral" | "geometric" | "abstract" | "animal_print" | "polka_dot" | "graphic" | "camo" | "tie_dye"
-- pattern_geometry: For stripes: "horizontal" | "vertical" | "diagonal". For florals: "ditsy" | "large_bloom" | "tropical". For graphics: "logo_center" | "all_over_print". Use "none" if solid.
-- pattern_coverage: "all_over" | "chest_center" | "front_full" | "back_full" | "sleeves_only" | "hem_band" | "none"
-- pattern_scale: "micro" | "small" | "medium" | "large" | "oversized" | "none"
+6. **visibility_notes** (optional): Brief note on limitations if any
+   Examples: "back not visible", "bottom hem cropped out", "partially hidden by arm"
+   Leave empty if fully visible.
 
-**GRAPHICS (if present):**
-- graphic_type: "none" | "logo" | "illustration" | "text_graphic" | "photo_print" | "brand_logo"
-- graphic_location: "none" | "center_chest" | "left_chest" | "right_chest" | "front_full" | "back_full" | "sleeve_left" | "sleeve_right"
-- graphic_size: "none" | "small" | "medium" | "large" | "oversized"
-
-**SHAPE & STRUCTURE:**
-- fit_type: "slim" | "regular" | "relaxed" | "oversized" | "tailored" | "skinny" | "loose"
-- silhouette: "straight" | "tapered" | "boxy" | "a_line" | "fitted" | "flared" | "bodycon"
-- length: 
-  - Tops: "crop" | "waist" | "hip" | "below_hip" | "tunic"
-  - Bottoms: "micro" | "short" | "knee" | "midi" | "ankle" | "floor"
-  - Outerwear: "waist" | "hip" | "thigh" | "knee" | "ankle"
-  - Dresses: "mini" | "knee" | "midi" | "maxi"
-
-**CONSTRUCTION DETAILS:**
-- sleeve_type: "sleeveless" | "cap" | "short" | "elbow" | "three_quarter" | "long" | "bell" | "bishop" | "puff" (for Tops/Outerwear/Dresses)
-- neckline: "crew" | "v_neck" | "scoop" | "boat" | "square" | "off_shoulder" | "halter" | "turtleneck" | "mock_neck" | "collar" | "hooded"
-- collar_type: "none" | "standard" | "mandarin" | "peter_pan" | "shawl" | "notched" | "spread" | "button_down"
-- closure_type: "none" | "pullover" | "button_front" | "button_half" | "zipper_front" | "zipper_side" | "zipper_back" | "tie" | "snap" | "velcro" | "lace_up"
-- hem_style: "straight" | "curved" | "ribbed" | "cuffed" | "raw" | "asymmetric" | "split"
-- pocket_details: "none" | "side_seam" | "patch" | "welt" | "cargo" | "kangaroo" | "hidden"
-- shoulder_style: "regular" | "drop_shoulder" | "raglan" | "puff" | "structured" | "cut_out"
-
-**LAYERING:**
-- layers_detected: "single_layer" | "double_layer" | "multi_layer"
-
-**VISUAL SUMMARY:**
-- visual_summary: A concise 15-25 word description of ONLY what is visible (e.g., "Oversized black cotton t-shirt with white screen-printed graphic on center chest, drop shoulders, crew neck, relaxed fit")
+DO NOT extract: colors, patterns, fabrics, fit details, or any styling metadata.
+That will be extracted in a separate phase from the original image.
 
 ═══════════════════════════════════════════════════════════════════════
 OUTPUT REQUIREMENTS
 ═══════════════════════════════════════════════════════════════════════
 
-Use the return_visual_detection function to return structured JSON.
-Be precise. Only describe what you SEE. Unknown details = "unknown".
+Use the return_visual_detection function to return structured JSON with ONLY the 5-6 fields above per item.
 `;
 
   console.log("Calling Gemini API for Phase 1 visual detection...");
 
-  // Visual-only schema for Phase 1
+  // Minimal schema for Phase 0 detection (only 5 essential fields)
   const tools = [
     {
       type: "function",
       function: {
         name: "return_visual_detection",
-        description: "Return validation result and detected items with VISUAL fields only",
+        description: "Return validation result and detected items with MINIMAL fields for image generation",
         parameters: {
           type: "object",
           properties: {
@@ -701,13 +579,13 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
             },
             items: {
               type: "array",
-              description: "Array of detected clothing items with visual metadata",
+              description: "Array of detected items with minimal metadata (just 5 fields needed for image generation)",
               items: {
                 type: "object",
                 properties: {
                   bbox: {
                     type: "object",
-                    description: "Bounding box coordinates",
+                    description: "Bounding box coordinates as percentages",
                     properties: {
                       x: { type: "number", description: "X coordinate (0-100)" },
                       y: { type: "number", description: "Y coordinate (0-100)" },
@@ -716,7 +594,10 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
                     },
                     required: ["x", "y", "width", "height"],
                   },
-                  item_name: { type: "string", description: "Descriptive 3-5 word name" },
+                  item_name: { 
+                    type: "string", 
+                    description: "Descriptive 3-5 word name with color and material (e.g., 'Black Cotton T-Shirt')" 
+                  },
                   item_type: { 
                     type: "string", 
                     description: "Exact item type - be specific (e.g., 'Kurta' not 'Top', 'Sneakers' not 'Shoes')" 
@@ -724,52 +605,16 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
                   parent_category: {
                     type: "string",
                     enum: ["Clothing", "Footwear", "Accessories"],
-                    description: "High-level category for UI grouping"
+                    description: "High-level category: Clothing (all garments), Footwear (shoes), or Accessories (watches, bags, jewelry)"
                   },
                   visibility_score: {
                     type: "number",
-                    description: "0-100 percentage of item that is clearly visible. Must be >= 60 to include item."
+                    description: "0-100 rating of how clearly visible the item is. Must be >= 60 to include."
                   },
                   visibility_notes: {
                     type: "string",
-                    description: "Any visibility limitations (e.g., 'back not visible', 'sleeves cropped out'). Empty if fully visible."
+                    description: "Brief note on any visibility limitations (e.g., 'back not visible'). Empty if fully visible."
                   },
-                  color_palette: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Array of hex codes",
-                  },
-                  color_distribution: {
-                    type: "array",
-                    items: { type: "number" },
-                    description: "Percentages matching palette",
-                  },
-                  primary_color_hex: { type: "string", description: "Primary color hex" },
-                  primary_color_name: { type: "string", description: "Human-readable color" },
-                  pattern_type: { type: "string", description: "Pattern type" },
-                  pattern_geometry: { type: "string", description: "Pattern direction/layout" },
-                  pattern_coverage: { type: "string", description: "Where pattern appears" },
-                  pattern_scale: { type: "string", description: "Pattern scale" },
-                  color_blocking_layout: { type: "string", description: "Color blocking style" },
-                  graphic_type: { type: "string", description: "Graphic type if present" },
-                  graphic_location: { type: "string", description: "Graphic location" },
-                  graphic_size: { type: "string", description: "Graphic size" },
-                  fit_type: { type: "string", description: "Fit style" },
-                  silhouette: { type: "string", description: "Silhouette shape" },
-                  length: { type: "string", description: "Length description" },
-                  sleeve_type: { type: "string", description: "Sleeve type" },
-                  neckline: { type: "string", description: "Neckline style" },
-                  collar_type: { type: "string", description: "Collar style" },
-                  closure_type: { type: "string", description: "Closure type" },
-                  hem_style: { type: "string", description: "Hem style" },
-                  pocket_details: { type: "string", description: "Pocket details" },
-                  shoulder_style: { type: "string", description: "Shoulder construction" },
-                  layers_detected: {
-                    type: "string",
-                    enum: ["single_layer", "double_layer", "multi_layer"],
-                    description: "Layering context",
-                  },
-                  visual_summary: { type: "string", description: "Visual description 15-25 words" },
                 },
                 required: [
                   "bbox",
@@ -777,23 +622,6 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
                   "item_type",
                   "parent_category",
                   "visibility_score",
-                  "color_palette",
-                  "color_distribution",
-                  "primary_color_hex",
-                  "primary_color_name",
-                  "pattern_type",
-                  "pattern_geometry",
-                  "pattern_coverage",
-                  "pattern_scale",
-                  "color_blocking_layout",
-                  "graphic_type",
-                  "graphic_location",
-                  "graphic_size",
-                  "fit_type",
-                  "silhouette",
-                  "length",
-                  "layers_detected",
-                  "visual_summary",
                 ],
               },
             },
@@ -973,104 +801,54 @@ async function enhancedSmartDeduplication(
   const uniqueItems: WardrobeDetectionItem[] = [];
   const skipReasons: string[] = [];
 
+  // Simplified deduplication: match on item_name similarity and item_type
   for (const newItem of detectedItems) {
     let isDuplicate = false;
     let skipReason = "";
 
-    // LEVEL 1: Enhanced Visual Fingerprint Match (using new visual metadata)
-    const bothExistAndMatch = (a: any, b: any) => {
-      return a != null && a !== "" && a !== "none" && a !== "unknown" && 
-             b != null && b !== "" && b !== "none" && b !== "unknown" && a === b;
-    };
+    // Find items with matching item_type in same parent_category
+    const similarItems = existingItems.filter((existing) => {
+      // Map existing item's category to parent_category for comparison
+      let existingParent = "Clothing";
+      if (existing.category === "Shoes") existingParent = "Footwear";
+      else if (existing.category === "Accessories") existingParent = "Accessories";
 
-    const fingerprintMatch = existingItems.find((existing) => {
-      const sameCategory = bothExistAndMatch(existing.category, newItem.category);
-      if (!sameCategory) return false;
-
-      const samePatternType = bothExistAndMatch(existing.pattern_type, newItem.pattern_type);
-      const samePatternGeometry = bothExistAndMatch(existing.pattern_geometry, newItem.pattern_geometry);
-      const samePatternCoverage = bothExistAndMatch(existing.pattern_coverage, newItem.pattern_coverage);
-      const sameFit = bothExistAndMatch(existing.fit_type, newItem.fit_type);
-      const sameSilhouette = bothExistAndMatch(existing.silhouette, newItem.silhouette);
-      const sameLength = bothExistAndMatch(existing.length, newItem.length);
-      const sameClosure = bothExistAndMatch(existing.closure_type, newItem.closure_type);
-      const sameNeckline = bothExistAndMatch(existing.neckline, newItem.neckline);
-      const sameColorBlocking = bothExistAndMatch(existing.color_blocking_layout, newItem.color_blocking_layout);
-      const sameGraphicType = bothExistAndMatch(existing.graphic_type, newItem.graphic_type);
-
-      const matchingFields = [
-        samePatternType,
-        samePatternGeometry,
-        samePatternCoverage,
-        sameFit,
-        sameSilhouette,
-        sameLength,
-        sameClosure,
-        sameNeckline,
-        sameColorBlocking,
-        sameGraphicType,
-      ].filter(Boolean);
-
-      const hasEnoughMatches = matchingFields.length >= 5; // 5+ visual attributes match
-
-      if (hasEnoughMatches) {
-        console.log(`🔍 Visual fingerprint match for "${newItem.item_name}":`, {
-          existing: existing.name,
-          matchingFieldsCount: matchingFields.length,
-        });
-      }
-
-      return hasEnoughMatches;
+      return existingParent === newItem.parent_category;
     });
 
-    if (fingerprintMatch) {
-      isDuplicate = true;
-      skipReason = `Visual fingerprint: "${newItem.item_name}" = "${fingerprintMatch.name}"`;
-    }
-
-    // LEVEL 2: Color Similarity + Pattern + Silhouette
-    if (!isDuplicate) {
-      const colorSimilarMatch = existingItems.find((existing) => {
-        if (existing.category !== newItem.category) return false;
-
-        const existingColor = existing.primary_color_hex || existing.primary_color || existing.color;
-        const newColor = newItem.primary_color_hex;
-
-        if (!existingColor || !newColor) return false;
-
-        const distance = calculateColorDistance(existingColor, newColor);
-        const colorMatch = distance < 30;
-
-        // Require color + pattern + silhouette/fit match
-        const patternMatch = existing.pattern_type && 
-          newItem.pattern_type && 
-          existing.pattern_type === newItem.pattern_type;
-        const silhouetteMatch = existing.silhouette && 
-          newItem.silhouette && 
-          existing.silhouette === newItem.silhouette;
-        const fitMatch = existing.fit_type && 
-          newItem.fit_type && 
-          existing.fit_type === newItem.fit_type;
-
-        const extraMatches = [patternMatch, silhouetteMatch, fitMatch]
-          .filter(Boolean).length;
-
-        const isMatch = colorMatch && extraMatches >= 2;
-
-        if (isMatch) {
-          console.log(`🎨 Color+visual match for "${newItem.item_name}":`, {
-            existing: existing.name,
-            colorDistance: Math.round(distance),
-          });
-        }
-
-        return isMatch;
-      });
-
-      if (colorSimilarMatch) {
-        isDuplicate = true;
-        skipReason = `Color+visual similarity: "${newItem.item_name}" ~ "${colorSimilarMatch.name}"`;
+    // Check for name similarity (using simple string matching)
+    const nameMatch = similarItems.find((existing) => {
+      const newName = newItem.item_name.toLowerCase();
+      const existingName = existing.name.toLowerCase();
+      
+      // Check if item_type matches (if we have it in existing item)
+      const typeMatch = existing.item_type && newItem.item_type && 
+        existing.item_type.toLowerCase() === newItem.item_type.toLowerCase();
+      
+      // Check if names are very similar (contain same words)
+      const newWords = new Set(newName.split(/\s+/));
+      const existingWords = new Set(existingName.split(/\s+/));
+      
+      // Calculate word overlap
+      const commonWords = [...newWords].filter(word => existingWords.has(word));
+      const overlapRatio = commonWords.length / Math.min(newWords.size, existingWords.size);
+      
+      // Consider duplicate if type matches AND high name overlap
+      const isMatch = typeMatch && overlapRatio > 0.6;
+      
+      if (isMatch) {
+        console.log(`🔍 Name+type match for "${newItem.item_name}":`, {
+          existing: existing.name,
+          overlapRatio: Math.round(overlapRatio * 100) + "%",
+        });
       }
+      
+      return isMatch;
+    });
+
+    if (nameMatch) {
+      isDuplicate = true;
+      skipReason = `Similar item exists: "${newItem.item_name}" ~ "${nameMatch.name}"`;
     }
 
     if (isDuplicate) {
@@ -1111,9 +889,9 @@ function hexToRgb(hex: string) {
 
 async function generateProductImage(item: WardrobeDetectionItem, originalImageUrl: string): Promise<Uint8Array> {
   // Validate item has required fields
-  if (!item.item_name || (!item.parent_category && !item.category)) {
+  if (!item.item_name || !item.parent_category) {
     console.error("generateProductImage called with invalid item:", item);
-    throw new Error(`Invalid item: missing item_name or category`);
+    throw new Error(`Invalid item: missing item_name or parent_category`);
   }
   
   const transformPrompt = `${PRODUCT_IMAGE_PROMPTS.UNIVERSAL}
