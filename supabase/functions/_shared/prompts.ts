@@ -11,6 +11,7 @@ import { buildAICompanionPrompt } from './ai_companion_prompts/index.ts';
 
 /**
  * Formats a wardrobe item with comprehensive metadata for AI consumption
+ * @deprecated Legacy verbose format - use compactItemForAI for token efficiency
  */
 export const formatItemForAI = (item: any): string => {
   const parts = [`ID:${item.id}`, `"${item.name}"`, `[${item.category}]`];
@@ -109,6 +110,24 @@ export const formatItemForAI = (item: any): string => {
 
   return parts.join(" | ");
 };
+
+/**
+ * Compact item format for token-efficient AI prompts (Phase 3)
+ * Reduces per-item tokens from ~400 to ~100 by including only essential styling fields
+ */
+export const compactItemForAI = (item: any) => ({
+  id: item.id,
+  name: item.name,
+  cat: item.category,
+  // Core styling (only if present)
+  ...(item.color && { col: item.color }),
+  ...(item.fabric_primary && { fab: item.fabric_primary }),
+  ...(item.pattern_type && item.pattern_type !== 'solid' && { pat: item.pattern_type }),
+  ...(item.fit_type && { fit: item.fit_type }),
+  ...(item.formality_level && { form: item.formality_level }),
+  ...(item.suitable_occasions?.length && { occ: item.suitable_occasions }),
+  ...(item.style_aesthetic?.length && { style: item.style_aesthetic }),
+});
 
 // ============================================
 // PROMPT TYPE ENUMS
@@ -492,33 +511,32 @@ export const OUTFIT_GENERATION_PROMPTS = {
   }) => {
     const { generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation } = params;
 
-    // Format wardrobe data for the prompt
-    const wardrobeData = wardrobeItems.map((item: any) => ({
-      id: item.id,
-      category: item.category || "Other",
-      primary_color: item.primary_color || "#000000",
-      color_family: item.color_family || "neutrals",
-      secondary_colors: item.secondary_colors || [],
-      fabric_primary: item.fabric_primary || "unknown",
-      fabric_weight: item.fabric_weight || "medium",
-      pattern_type: item.pattern_type || "solid",
-      fit_type: item.fit_type || "regular_fit",
-      silhouette: item.silhouette || "straight",
-      suitable_occasions: item.suitable_occasions || [],
-      style_aesthetic: item.style_aesthetic || [],
-      formality_level: item.formality_level || "casual",
-      season: item.season || [],
-      length: item.length || "regular",
-      design_details: {
-        neckline: item.neckline,
-        sleeve_type: item.sleeve_type,
-        closure_type: item.closure_type,
-        pocket_details: item.pocket_details,
-        hardware_details: item.hardware_details,
-        embellishments: item.embellishments,
-      },
-      availability_flag: true,
-    }));
+    // PHASE 2: Group items by category for better AI comprehension
+    const groupedWardrobe = {
+      tops: wardrobeItems.filter(i => ['tops', 'shirt', 'tee', 'blouse', 'kurta'].some(k => i.category?.toLowerCase().includes(k))),
+      bottoms: wardrobeItems.filter(i => ['bottom', 'jeans', 'trouser', 'pants', 'skirt'].some(k => i.category?.toLowerCase().includes(k))),
+      shoes: wardrobeItems.filter(i => ['shoe', 'sneaker', 'heel', 'boot', 'sandal'].some(k => i.category?.toLowerCase().includes(k))),
+      outerwear: wardrobeItems.filter(i => ['jacket', 'blazer', 'coat', 'hoodie', 'cardigan'].some(k => i.category?.toLowerCase().includes(k))),
+      dresses: wardrobeItems.filter(i => ['dress', 'gown', 'jumpsuit'].some(k => i.category?.toLowerCase().includes(k))),
+      ethnic: wardrobeItems.filter(i => ['kurta set', 'saree', 'lehenga', 'sherwani'].some(k => i.category?.toLowerCase().includes(k))),
+      accessories: wardrobeItems.filter(i => ['accessory', 'watch', 'bag', 'belt'].some(k => i.category?.toLowerCase().includes(k))),
+    };
+
+    // PHASE 3: Use compact item format (reduces tokens by 75%)
+    const compactWardrobe = Object.entries(groupedWardrobe).reduce((acc, [category, items]) => {
+      if (items.length > 0) {
+        acc[category] = items.map(compactItemForAI);
+      }
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // PHASE 1: Compact JSON serialization (no pretty-printing)
+    const wardrobeSummary = {
+      totalItems: wardrobeItems.length,
+      categories: Object.entries(groupedWardrobe).map(([cat, items]) => `${cat}(${items.length})`).join(', '),
+      dominantColors: [...new Set(wardrobeItems.map(i => i.color).filter(Boolean))].slice(0, 5).join(', '),
+      dominantStyles: [...new Set(wardrobeItems.flatMap(i => i.style_aesthetic || []))].slice(0, 3).join(', ')
+    };
 
     const requestContext = {
       occasion: occasion || null,
@@ -532,10 +550,18 @@ export const OUTFIT_GENERATION_PROMPTS = {
 
     return `You are a professional fashion stylist engine. You must only return valid JSON in the exact schema specified below. Do not produce any plain text. Function-calling only. Follow every rule precisely.
 
-INPUT CONTEXT (available as variables):
-• wardrobe: ${JSON.stringify(wardrobeData, null, 2)}
-• request: ${JSON.stringify(requestContext, null, 2)}
-${anchorItem ? `• anchorItem: ${JSON.stringify({ id: anchorItem.id, name: anchorItem.name, category: anchorItem.category }, null, 2)}` : ''}
+<WARDROBE_SUMMARY>
+${JSON.stringify(wardrobeSummary)}
+</WARDROBE_SUMMARY>
+
+<WARDROBE_BY_CATEGORY>
+${JSON.stringify(compactWardrobe)}
+</WARDROBE_BY_CATEGORY>
+
+<REQUEST>
+${JSON.stringify(requestContext)}
+${anchorItem ? `\nANCHOR_ITEM: ${JSON.stringify({ id: anchorItem.id, name: anchorItem.name, category: anchorItem.category })}` : ''}
+</REQUEST>
 
 GOALS
 1. Generate up to ${requestContext.count} high-quality, wearable outfits drawn from the wardrobe.
