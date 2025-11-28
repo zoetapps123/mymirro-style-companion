@@ -609,6 +609,149 @@ serve(async (req) => {
   }
 });
 
+// ============================================
+// PHASE 8: Token estimation for monitoring
+// ============================================
+function estimateTokens(text: string): number {
+  // Rough estimate: ~4 characters per token
+  return Math.ceil(text.length / 4);
+}
+
+// ============================================
+// PHASE 5: Smart sampling for large wardrobes
+// ============================================
+function countNonNullFields(item: any): number {
+  const importantFields = ['color', 'fabric_primary', 'formality_level', 'suitable_occasions', 'style_aesthetic'];
+  return importantFields.filter(f => item[f] && item[f] !== null).length;
+}
+
+function sampleWardrobe(items: any[], maxItems: number = 35) {
+  // If small wardrobe, use all
+  if (items.length <= maxItems) return items;
+  
+  const norm = (s: any) => (s || '').toString().toLowerCase();
+  
+  // Group by category
+  const grouped: Record<string, any[]> = {
+    tops: items.filter(i => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => norm(i.category).includes(k))),
+    bottoms: items.filter(i => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => norm(i.category).includes(k))),
+    shoes: items.filter(i => ['shoe','sneaker','boot','loafer','heel','sandal','flip flop','flip-flop','slipper'].some(k => norm(i.category).includes(k))),
+    outerwear: items.filter(i => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear'].some(k => norm(i.category).includes(k))),
+    dresses: items.filter(i => ['dress','gown','jumpsuit','romper'].some(k => norm(i.category).includes(k))),
+    ethnic: items.filter(i => ['kurta set','saree','lehenga','sherwani','salwar kameez'].some(k => norm(i.category).includes(k) || norm(i.name).includes(k))),
+    accessories: items.filter(i => ['accessory','watch','belt','bag','handbag','sunglass','hat','scarf','jewelry'].some(k => norm(i.category).includes(k)))
+  };
+  
+  const result: any[] = [];
+  
+  // Ensure minimum per category
+  const minPerCategory: Record<string, number> = {
+    tops: 8,
+    bottoms: 6,
+    shoes: 5,
+    outerwear: 4,
+    dresses: 3,
+    ethnic: 4,
+    accessories: 3,
+  };
+  
+  // First pass: ensure minimums
+  for (const [category, min] of Object.entries(minPerCategory)) {
+    const categoryItems = grouped[category] || [];
+    // Prioritize items with richer metadata
+    const sorted = categoryItems.sort((a, b) => 
+      countNonNullFields(b) - countNonNullFields(a)
+    );
+    result.push(...sorted.slice(0, Math.min(min, categoryItems.length)));
+  }
+  
+  // Second pass: fill remaining slots with best items
+  const remaining = maxItems - result.length;
+  if (remaining > 0) {
+    const usedIds = new Set(result.map(i => i.id));
+    const unused = items
+      .filter(i => !usedIds.has(i.id))
+      .sort((a, b) => countNonNullFields(b) - countNonNullFields(a));
+    result.push(...unused.slice(0, remaining));
+  }
+  
+  return result;
+}
+
+// ============================================
+// PHASE 4: Pre-filter by relevance
+// ============================================
+function filterRelevantItems(items: any[], occasion?: string, style?: string) {
+  // If no filters, return sampled
+  if (!occasion && !style) {
+    return sampleWardrobe(items, 40); // Hard max for safety
+  }
+  
+  // Score items by relevance
+  const scored = items.map(item => {
+    let score = 1; // Base score
+    
+    // Occasion match
+    if (occasion && item.suitable_occasions?.includes(occasion)) {
+      score += 3;
+    }
+    
+    // Formality match
+    if (occasion === 'formal' && ['formal', 'business_casual'].includes(item.formality_level)) {
+      score += 2;
+    }
+    if (occasion === 'casual' && ['casual', 'smart_casual'].includes(item.formality_level)) {
+      score += 2;
+    }
+    
+    // Style match
+    if (style && item.style_aesthetic?.includes(style)) {
+      score += 2;
+    }
+    
+    return { item, score };
+  });
+  
+  // Sort by relevance, keep top items
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30) // Top 30 most relevant
+    .map(s => s.item);
+}
+
+// ============================================
+// PHASE 6: Anchor item prioritization
+// ============================================
+function prepareWardrobeWithAnchor(items: any[], anchorItem?: any, maxItems: number = 35) {
+  if (!anchorItem) return filterRelevantItems(items);
+  
+  // Always include anchor first
+  const result = [anchorItem];
+  
+  // Sample complementary items (items that pair well with anchor)
+  const complementary = items
+    .filter(i => i.id !== anchorItem.id)
+    .filter(i => i.category !== anchorItem.category); // Different categories
+  
+  // Score by complementary potential
+  const scored = complementary.map(item => {
+    let score = countNonNullFields(item);
+    
+    // Bonus for items that work with anchor's formality
+    if (item.formality_level === anchorItem.formality_level) score += 2;
+    
+    // Bonus for complementary style
+    if (item.style_aesthetic?.some((s: string) => anchorItem.style_aesthetic?.includes(s))) score += 2;
+    
+    return { item, score };
+  });
+  
+  const sorted = scored.sort((a, b) => b.score - a.score);
+  result.push(...sorted.slice(0, maxItems - 1).map(s => s.item));
+  
+  return result;
+}
+
 function buildOutfitGenerationPrompt(
   generationType: string,
   occasion?: string,
@@ -622,6 +765,20 @@ function buildOutfitGenerationPrompt(
   conversationMode?: string,
   userProfile?: { gender?: string; ageRange?: string; bodyShape?: string; skinTone?: string }
 ): string {
+  // PHASE 4, 5, 6: Pre-filter, sample, and prioritize wardrobe
+  const originalCount = wardrobeItems?.length || 0;
+  let optimizedWardrobe = wardrobeItems || [];
+  
+  if (anchorItem) {
+    optimizedWardrobe = prepareWardrobeWithAnchor(optimizedWardrobe, anchorItem, 35);
+  } else {
+    optimizedWardrobe = filterRelevantItems(optimizedWardrobe, occasion, style);
+  }
+  
+  console.log(`📊 Wardrobe optimization: ${originalCount} → ${optimizedWardrobe.length} items`);
+  if (optimizedWardrobe.length < originalCount) {
+    console.log(`✂️ Filtered ${originalCount - optimizedWardrobe.length} items for relevance`);
+  }
   // Build enhanced v4.0 prompt with emotional context and taste profile
   const contextualEnhancements = `
 <OUTFIT_GENERATION_CONTEXT>
@@ -767,19 +924,21 @@ function buildOutfitGenerationPrompt(
 </OUTFIT_ENGINE_v4_INSTRUCTIONS>
 `;
 
-  // Build the base prompt from existing logic
+  // Build the base prompt with optimized wardrobe
   const basePrompt = OUTFIT_GENERATION_PROMPTS.BUILD_PROMPT({
     generationType,
     occasion,
     style,
     anchorItem,
-    wardrobeItems: wardrobeItems || [],
+    wardrobeItems: optimizedWardrobe, // Use filtered/sampled wardrobe
     maxOutfits,
-    userLocation: userLocation ? { temp: userLocation.temp, weather: userLocation.weather } : undefined
+    userLocation: userLocation ? { temp: userLocation.temp, weather: userLocation.weather } : undefined,
+    gender: userProfile?.gender,
+    ageRange: userProfile?.ageRange
   });
 
-  // Integrate the advanced engine prompts for enhanced outfit generation
-  return `${WARDROBE_ENGINE_PROMPT}
+  // PHASE 7: Condensed prompt structure
+  const finalPrompt = `${WARDROBE_ENGINE_PROMPT}
 
 ${OUTFIT_ENGINE_PROMPT}
 
@@ -794,4 +953,17 @@ CRITICAL REMINDERS:
 - Respect emotional context in tone and outfit selection
 - Follow Indian cultural styling rules when relevant
 - Return ALL data using the generate_outfit_combinations function tool`;
+
+  // PHASE 8: Token estimation logging
+  const estimatedTokens = estimateTokens(finalPrompt);
+  console.log('📊 Prompt token estimate:', {
+    total: estimatedTokens,
+    wardrobeItems: optimizedWardrobe.length,
+    threshold: estimatedTokens > 8000 ? '⚠️ HIGH' : '✅ OK',
+    reduction: originalCount > optimizedWardrobe.length 
+      ? `${Math.round((1 - optimizedWardrobe.length / originalCount) * 100)}% items filtered`
+      : 'no filtering'
+  });
+
+  return finalPrompt;
 }
