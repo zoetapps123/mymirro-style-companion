@@ -487,6 +487,8 @@ export const OUTFIT_GENERATION_PROMPTS = {
     wardrobeItems: any[];
     maxOutfits?: number;
     userLocation?: { temp: number; weather: string };
+    gender?: string;
+    ageRange?: string;
   }) => {
     const { generationType, occasion, style, anchorItem, wardrobeItems, maxOutfits, userLocation } = params;
 
@@ -521,7 +523,8 @@ export const OUTFIT_GENERATION_PROMPTS = {
     const requestContext = {
       occasion: occasion || null,
       style: style || null,
-      genderTone: null,
+      gender: params.gender || null,
+      ageRange: params.ageRange || null,
       location: null,
       temperatureC: userLocation?.temp || null,
       count: maxOutfits || 3,
@@ -570,8 +573,16 @@ B. Occasion & Formality:
 • If occasion implies formal (wedding, formal_event, interview, business), require at least one wardrobe item where formality_level is "formal" or "business_casual" depending on occasion.
 • If wardrobe contains no items that satisfy the minimum formality for the occasion, return outfits: [] and set missingCategories (e.g., ["formal_shoes","formal_top"]).
 
-C. GenderTone-aware suggestions:
-• Use genderTone to suggest culturally appropriate silhouettes if both options exist in wardrobe. But do not invent category types. GenderTone only influences styleTag wording, not item selection.
+C. Gender & Age Styling:
+• Use gender context to influence silhouette preferences and category selection.
+• For female: prioritize feminine cuts, consider ethnic wear (kurtis, sarees, lehengas)
+• For male: prioritize structured fits, consider ethnic wear (kurtas, sherwanis)
+• For other/unspecified: use gender-neutral approach, focus on style over gendered categories
+• Age influences trend-level and formality comfort:
+  - Under 21: embrace current trends, bold choices
+  - 22-30: balance trendy with professional/elevated
+  - Over 30: lean timeless, quality-focused
+• NEVER refuse to style based on gender - always provide appropriate options
 
 D. Deduplication & Variety:
 ${anchorItem 

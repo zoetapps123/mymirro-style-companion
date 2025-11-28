@@ -36,7 +36,12 @@ serve(async (req) => {
       bypassCache,
       emotionalContext,
       tasteProfile,
-      conversationMode
+      conversationMode,
+      // User profile fields
+      gender,
+      ageRange,
+      bodyShape,
+      skinTone
     } = await req.json();
 
     const apiKey = getAIApiKey();
@@ -48,7 +53,10 @@ serve(async (req) => {
       anchorItem: anchorItem?.name, 
       bypassCache,
       emotionalContext: emotionalContext?.emotional_tone,
-      conversationMode
+      conversationMode,
+      // User context
+      gender,
+      ageRange
     });
 
     // PHASE 2: Flexible wardrobe validation - allow generation unless impossible
@@ -211,7 +219,9 @@ serve(async (req) => {
       userLocation,
       emotionalContext,
       tasteProfile,
-      conversationMode
+      conversationMode,
+      // User profile
+      { gender, ageRange, bodyShape, skinTone }
     );
 
     console.log('Calling Gemini API for outfit generation with Outfit Engine v4.0...');
@@ -609,7 +619,8 @@ function buildOutfitGenerationPrompt(
   userLocation?: { temp: number; weather: string; lat: number } | null,
   emotionalContext?: { emotional_tone: string; soft_mode_required: boolean; confidence: number },
   tasteProfile?: { color_palette: string; dominant_colors: string[]; style_aesthetic: string[]; wardrobe_size: number },
-  conversationMode?: string
+  conversationMode?: string,
+  userProfile?: { gender?: string; ageRange?: string; bodyShape?: string; skinTone?: string }
 ): string {
   // Build enhanced v4.0 prompt with emotional context and taste profile
   const contextualEnhancements = `
@@ -653,6 +664,55 @@ function buildOutfitGenerationPrompt(
   
   ${conversationMode ? `
   <CONVERSATION_MODE>${conversationMode}</CONVERSATION_MODE>
+  ` : ''}
+  
+  ${userProfile?.gender || userProfile?.ageRange ? `
+  <USER_PROFILE>
+    ${userProfile.gender ? `<GENDER>${userProfile.gender}</GENDER>` : ''}
+    ${userProfile.ageRange ? `<AGE_RANGE>${userProfile.ageRange}</AGE_RANGE>` : ''}
+    ${userProfile.bodyShape ? `<BODY_SHAPE>${userProfile.bodyShape}</BODY_SHAPE>` : ''}
+    ${userProfile.skinTone ? `<SKIN_TONE>${userProfile.skinTone}</SKIN_TONE>` : ''}
+    
+    GENDER-AWARE STYLING RULES:
+    ${userProfile.gender === 'female' ? `
+    - Prioritize feminine silhouettes when available (A-line, fit-and-flare)
+    - Include options for dresses, skirts, ethnic wear (kurtis, sarees)
+    - Consider jewelry and accessory pairings
+    - For formal: saree, lehenga, formal dresses, tailored suits
+    ` : userProfile.gender === 'male' ? `
+    - Prioritize masculine silhouettes (structured, relaxed, athletic fits)
+    - Include options for kurtas, sherwanis for ethnic occasions
+    - Consider watch, belt, pocket square pairings
+    - For formal: suits, formal kurta sets, blazer combinations
+    ` : `
+    - Use gender-neutral styling approach
+    - Focus on silhouette and color rather than gendered categories
+    - Mix traditionally masculine and feminine pieces freely
+    `}
+    
+    AGE-APPROPRIATE STYLING:
+    ${userProfile.ageRange === '<18' ? `
+    - Fun, expressive, trend-forward styles
+    - Avoid overly formal or mature looks
+    - Embrace bold colors and patterns
+    ` : userProfile.ageRange === '18-21' ? `
+    - Gen-Z trends: oversized, streetwear, Y2K influences
+    - Balance trendy with practical
+    - Statement pieces welcome
+    ` : userProfile.ageRange === '22-26' ? `
+    - Young professional vibes
+    - Mix casual and smart-casual
+    - Versatile pieces that work day-to-night
+    ` : userProfile.ageRange === '27-30' ? `
+    - Elevated basics, quality over quantity
+    - Sophisticated casual and business looks
+    - Timeless pieces with modern touches
+    ` : userProfile.ageRange === '>30' ? `
+    - Classic, refined aesthetics
+    - Focus on fit and quality
+    - Elegant and polished combinations
+    ` : ''}
+  </USER_PROFILE>
   ` : ''}
 </OUTFIT_GENERATION_CONTEXT>
 

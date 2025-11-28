@@ -49,6 +49,13 @@ interface WardrobeOutfitSuggestionProps {
 const OCCASIONS = ['Wedding', 'Casual', 'Date Night', 'Office', 'Party'];
 const STYLES = ['Minimalist', 'Boho', 'Streetwear', 'Elegant', 'Sporty'];
 
+interface UserProfile {
+  gender?: string;
+  ageRange?: string;
+  bodyShape?: string;
+  skinTone?: string;
+}
+
 const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggestionProps) => {
   // Use cached data from hooks
   const { items: wardrobeItems, isLoading: isLoadingWardrobe } = useWardrobeItems();
@@ -66,6 +73,40 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
   const [selectedOutfit, setSelectedOutfit] = useState<GeneratedOutfit | null>(null);
   const [userLocation, setUserLocation] = useState<{ temp: number; weather: string; lat: number } | null>(null);
   const [savedOutfitIds, setSavedOutfitIds] = useState<Set<string>>(new Set());
+  const [userProfile, setUserProfile] = useState<UserProfile>({});
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      // Fast path: localStorage
+      const gender = localStorage.getItem("onboard_gender");
+      const ageRange = localStorage.getItem("onboard_age_range");
+      
+      if (gender || ageRange) {
+        setUserProfile({ gender: gender || undefined, ageRange: ageRange || undefined });
+      }
+      
+      // Authoritative: database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('gender, age_range, body_shape, skin_tone')
+          .eq('id', user.id)
+          .single();
+        
+        if (data) {
+          setUserProfile({
+            gender: data.gender || gender || undefined,
+            ageRange: data.age_range || ageRange || undefined,
+            bodyShape: data.body_shape || undefined,
+            skinTone: data.skin_tone || undefined,
+          });
+        }
+      }
+    };
+    fetchUserProfile();
+  }, []);
 
   // Initialize data when component mounts (moved before conditional return)
   useEffect(() => {
@@ -388,7 +429,12 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           wardrobeItems,
           maxOutfits: 5,
           userLocation,
-          bypassCache: true
+          bypassCache: true,
+          // User profile context
+          gender: userProfile.gender,
+          ageRange: userProfile.ageRange,
+          bodyShape: userProfile.bodyShape,
+          skinTone: userProfile.skinTone,
         },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
