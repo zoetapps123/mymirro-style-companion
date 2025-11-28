@@ -973,17 +973,26 @@ ${basePrompt}
 
 CALL generate_outfit_combinations ONLY. Include styling_opinion + visual_description for EVERY outfit.`;
 
-  // PHASE 8: Token estimation logging (v3.0 metrics)
+  // PHASE 8: Token estimation logging (v3.0 metrics with detailed breakdown)
+  const wardrobeEngineTokens = estimateTokens(WARDROBE_ENGINE_V3);
+  const outfitEngineTokens = estimateTokens(OUTFIT_ENGINE_V3);
+  const buildPromptTokens = estimateTokens(basePrompt);
   const estimatedTokens = estimateTokens(finalPrompt);
-  console.log('📊 v3.0 Prompt Metrics:', {
-    total: estimatedTokens,
-    target: '≤3000',
-    status: estimatedTokens <= 3000 ? '✅ OPTIMIZED' : estimatedTokens <= 5000 ? '⚠️ ACCEPTABLE' : '❌ HIGH',
+  
+  console.log('📊 v3.0 Token Breakdown:', {
+    wardrobeEngineV3: `${wardrobeEngineTokens} tokens`,
+    outfitEngineV3: `${outfitEngineTokens} tokens`,
+    buildPrompt: `${buildPromptTokens} tokens`,
+    total: `${estimatedTokens} tokens`,
+    target: '≤3500 tokens',
+    targetMet: estimatedTokens <= 3500 ? '✅ YES' : '❌ NO',
+    itemFormat: 'ultraCompact (~40 tokens/item)',
     wardrobeItems: optimizedWardrobe.length,
-    compressionUsed: 'ultraCompact (60% per-item reduction)',
+    estimatedItemTokens: `~${optimizedWardrobe.length * 40}`,
     reduction: originalCount > optimizedWardrobe.length 
       ? `${Math.round((1 - optimizedWardrobe.length / originalCount) * 100)}% items filtered`
-      : 'no filtering'
+      : 'no filtering',
+    anchorEnforced: anchorItem ? '🔒 YES' : 'N/A'
   });
 
   return finalPrompt;

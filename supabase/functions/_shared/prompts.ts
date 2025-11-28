@@ -646,10 +646,10 @@ export const OUTFIT_GENERATION_PROMPTS = {
       accessories: wardrobeItems.filter(i => ['accessory', 'watch', 'bag', 'belt'].some(k => i.category?.toLowerCase().includes(k))),
     };
 
-    // PHASE 3: Use compact item format (reduces tokens by 75%)
+    // PHASE 3: Use ultra-compact item format (reduces tokens by 60% per item)
     const compactWardrobe = Object.entries(groupedWardrobe).reduce((acc, [category, items]) => {
       if (items.length > 0) {
-        acc[category] = items.map(compactItemForAI);
+        acc[category] = items.map(ultraCompactItemForAI);
       }
       return acc;
     }, {} as Record<string, any[]>);
