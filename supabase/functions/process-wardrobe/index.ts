@@ -503,7 +503,12 @@ First, determine if the image is VALID for wardrobe extraction:
 
 If INVALID: Set isValid=false with reason and return empty items array.
 
-If VALID: Detect up to 5 distinct clothing items. For each item:
+If VALID: Detect up to 8 distinct items including:
+- Clothing: tops, bottoms, dresses, outerwear (including Indian wear like kurtas, salwars, lehengas, sarees, sherwanis)
+- Footwear: any visible shoes, sandals, boots, heels, sneakers, juttis, kolhapuris
+- Accessories: watches (on wrist), bags (handbags, backpacks, clutches), hats/caps, belts, jewelry (necklaces, bracelets, earrings), sunglasses, scarves, dupattas
+
+For each item:
 - Determine a bounding box: {x, y, width, height} as percentages (0-100) of image dimensions
 - x,y = top-left corner; width,height = size
 
@@ -525,8 +530,20 @@ If something is not clearly visible, use "unknown" or "none".
 For each item, extract:
 
 **IDENTITY:**
-- item_name: Simple 3-5 word name (e.g., "Black Crew Neck T-Shirt", "Blue Slim Jeans")
+- item_name: Specific 3-5 word name. Use proper terminology:
+  • Indian wear: "Black Silk Kurta", "Beige Cotton Salwar", "Red Bridal Lehenga", "Gold Dupatta", "Navy Nehru Jacket", "White Sherwani", "Pink Churidar", "Green Palazzo Pants"
+  • Western wear: "Black Crew Neck T-Shirt", "Blue Slim Jeans", "Navy Blazer", "White Button-Down Shirt"
+  • Footwear: "White Leather Sneakers", "Brown Chelsea Boots", "Black Kolhapuri Sandals", "Beige Juttis"
+  • Accessories: "Gold Analog Watch", "Brown Leather Belt", "Black Crossbody Bag", "Silver Drop Earrings", "Ray-Ban Sunglasses"
 - category: One of [Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories]
+  
+  Category Guidelines:
+  • Tops: T-shirts, shirts, blouses, kurtas, crop tops, tank tops, tunics, cholis
+  • Bottoms: Jeans, trousers, pants, salwars, churidars, palazzos, dhoti pants, shorts, skirts, leggings
+  • Outerwear: Jackets, coats, blazers, cardigans, hoodies, sherwanis, nehru jackets, sweaters, waistcoats
+  • Dresses: Dresses, gowns, jumpsuits, lehengas (full sets), sarees, full-length kurtis, anarkalis, rompers
+  • Shoes: Sneakers, heels, boots, sandals, loafers, juttis, kolhapuris, flip-flops, oxfords, mojaris
+  • Accessories: Watches, bags, handbags, backpacks, clutches, hats, caps, belts, jewelry (necklaces, bracelets, earrings, rings), sunglasses, scarves, dupattas, stoles
 
 **COLOR ANALYSIS (SPATIAL):**
 - primary_color_hex: Dominant visible color as hex (#RRGGBB)
@@ -1000,15 +1017,24 @@ async function generateProductImage(item: WardrobeDetectionItem, originalImageUr
     throw new Error(`Invalid item: missing item_name or category`);
   }
 
-  const transformPrompt = `Transform this clothing item into a professional e-commerce product image.
+  const transformPrompt = `Transform ONLY the specific clothing item located in this image into a professional e-commerce product image.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TARGET ITEM LOCATION (Bounding Box):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Position: ${item.bbox.x.toFixed(1)}% from left, ${item.bbox.y.toFixed(1)}% from top
+Size: ${item.bbox.width.toFixed(1)}% width, ${item.bbox.height.toFixed(1)}% height
+
 ITEM: ${item.item_name}
 CATEGORY: ${item.category}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+⚠️ CRITICAL: ONLY extract and transform the item within the bounding box coordinates above.
+⚠️ IGNORE all other clothing items, accessories, or objects in the image.
+⚠️ Extract ONLY the specified item at the given location.
+
 KEEP EXACTLY FROM THE ORIGINAL IMAGE:
-✓ The exact colors you see in the image
+✓ The exact colors you see in the target item
 ✓ The exact fabric texture and appearance
 ✓ The exact pattern/graphic/print as shown
 ✓ The exact item shape and silhouette
@@ -1017,21 +1043,24 @@ KEEP EXACTLY FROM THE ORIGINAL IMAGE:
 TRANSFORM ONLY:
 ✗ Background → pure white (#FFFFFF)
 ✗ Remove any human body parts, hands, or skin
-✗ Center the item, front-facing
+✗ Remove all other items not within the bounding box
+✗ Center the extracted item, front-facing
 ✗ Professional e-commerce lighting (no shadows)
 ✗ Item laid flat or on invisible mannequin
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CRITICAL INSTRUCTIONS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Extract ONLY the single item at the bounding box location
+- Do NOT include multiple items in the output
 - Do NOT change, reinterpret, or recreate the colors
 - Do NOT change the fabric appearance or texture
 - Do NOT change patterns, graphics, or prints
 - Use EXACTLY what you see in the original image
-- Only remove background and body parts
+- Only remove background, body parts, and other items
 - Ultra-sharp, e-commerce quality output
 
-Transform this image while preserving its exact visual characteristics.`;
+Transform ONLY this specific item while preserving its exact visual characteristics.`;
 
   console.log(`Transforming image with prompt: ${transformPrompt.substring(0, 100)}...`);
 
