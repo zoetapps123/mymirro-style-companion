@@ -337,9 +337,14 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       // Reset attempts on success
       uploadAttempts.current = 0;
 
+      // Check if enrichment is still pending
+      const enrichmentNote = invokeData?.enrichmentPending 
+        ? ' (styling details loading in background)' 
+        : '';
+
       toast({
         title: 'Items added!',
-        description: `${successfullyAdded} new item${successfullyAdded > 1 ? 's' : ''} in your wardrobe`,
+        description: `${successfullyAdded} new item${successfullyAdded > 1 ? 's' : ''} in your wardrobe${enrichmentNote}`,
       });
 
       // Track wardrobe item additions
@@ -428,8 +433,8 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
                 {progress < 20 && "Compressing image..."}
                 {progress >= 20 && progress < 40 && "Uploading..."}
                 {progress >= 40 && progress < 60 && "Detecting items..."}
-                {progress >= 60 && progress < 90 && "Processing items..."}
-                {progress >= 90 && "Almost done..."}
+                {progress >= 60 && progress < 90 && "Generating product images..."}
+                {progress >= 90 && "Finishing up..."}
               </p>
             </div>
 
