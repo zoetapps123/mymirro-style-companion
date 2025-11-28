@@ -280,7 +280,7 @@ serve(async (req) => {
 
       // Small pacing delay between items to reduce rate limiting
       if (i < uniqueDetectedItems.length - 1) {
-        await sleep(2000);
+        await sleep(500); // Reduced from 2000ms to 500ms
       }
     }
 
@@ -307,123 +307,30 @@ serve(async (req) => {
       return "Tops"; // fallback for unknown clothing types
     };
 
-    // ========== PHASE 2: Enrich Metadata Only ==========
-    console.log("Phase 2: Enriching metadata for all items...");
-
-    const itemsWithImages: Array<DetectedItem & { imageUrl: string }> = [];
-
-    for (let i = 0; i < itemsWithProcessedImages.length; i++) {
-      const item = itemsWithProcessedImages[i];
-      console.log(`Enriching item ${i + 1}/${itemsWithProcessedImages.length}: ${item.name}`);
-
-      let enrichedItem = { ...item };
-
-      try {
-        const { data: enrichmentData, error: enrichmentError } = await supabase.functions.invoke(
-          "enrich-wardrobe-item",
-          {
-            body: {
-              originalImageUrl: imageUrl, // Use original uploaded image
-              category: item.parent_category === "Clothing" 
-                ? mapParentToLegacyCategory(item.item_type || "")
-                : item.parent_category === "Footwear" ? "Shoes" : "Accessories",
-              itemName: item.item_name || "Unknown Item",
-              userContext: userContext
-            },
-          },
-        );
-
-        if (enrichmentError) {
-          console.error(`Enrichment error for ${item.item_name} (non-fatal):`, enrichmentError);
-        } else if (enrichmentData?.enrichedMetadata) {
-          console.log(`✅ Enriched ${item.item_name}: extracted 15 styling fields`);
-          enrichedItem = { ...enrichedItem, ...enrichmentData.enrichedMetadata };
-        }
-      } catch (enrichErr) {
-        console.error(`Enrichment exception for ${item.item_name} (non-fatal):`, enrichErr);
-      }
-
-      // Use the processed image URL from Phase 1 for final storage
-      // Map WardrobeDetectionItem + Phase 2 semantic to DetectedItem format for DB
-      itemsWithImages.push({
-        ...enrichedItem,
-        name: item.item_name || enrichedItem.name, // Ensure name is set
-        imageUrl: item.processedImageUrl,
-      });
-
-      // Small delay between enrichment calls
-      if (i < itemsWithProcessedImages.length - 1) {
-        await sleep(1000);
-      }
-    }
-
-    console.log(`✅ Phase 2 complete: ${itemsWithImages.length} fully enriched items`);
-
-    // Normalize categories using the same logic as the database trigger (as fallback)
-    const normalizeCategory = (category: string): string => {
-      if (!category) return category;
-
-      const lowerCat = category.toLowerCase();
-
-      // Footwear → Shoes
-      if (["footwear", "foot wear", "foot-wear"].includes(lowerCat)) return "Shoes";
-
-      // Various top variations → Tops
-      if (
-        ["upper wear", "upperwear", "upper-wear", "top", "shirt", "tshirt", "t-shirt", "blouse", "tee"].includes(
-          lowerCat,
-        )
-      )
-        return "Tops";
-
-      // Various bottom variations → Bottoms
-      if (
-        [
-          "lower wear",
-          "lowerwear",
-          "lower-wear",
-          "bottom",
-          "pants",
-          "trouser",
-          "trousers",
-          "jean",
-          "chinos",
-          "shorts",
-        ].includes(lowerCat)
-      )
-        return "Bottoms";
-
-      // Various outer wear variations → Outerwear
-      if (
-        ["outer wear", "outerwear", "outer-wear", "jacket", "coat", "blazer", "cardigan", "sweater", "hoodie"].includes(
-          lowerCat,
-        )
-      )
-        return "Outerwear";
-
-      // Accessories variations → Accessories
-      if (["accessory", "accessorie"].includes(lowerCat)) return "Accessories";
-
-      // Dresses variations → Dresses
-      if (["dress", "gown"].includes(lowerCat)) return "Dresses";
-
-    // Keep as-is if already standard or unknown
-    return category;
-  };
-
-  const normalizedItems = itemsWithImages.map((item) => ({
-      ...item,
-      category: item.category || (
-        item.parent_category === "Clothing" 
-          ? mapParentToLegacyCategory(item.item_type || "")
-          : item.parent_category === "Footwear" ? "Shoes" : "Accessories"
-      ),
+    // Prepare items to return immediately (with basic info, no enrichment yet)
+    const itemsToReturn = itemsWithProcessedImages.map(item => ({
+      name: item.item_name,
+      category: item.parent_category === "Clothing" 
+        ? mapParentToLegacyCategory(item.item_type || "")
+        : item.parent_category === "Footwear" ? "Shoes" : "Accessories",
+      imageUrl: item.processedImageUrl,
+      processedImageUrl: item.processedImageUrl,
+      parent_category: item.parent_category,
+      item_type: item.item_type,
     }));
 
-    const result = { items: normalizedItems };
+    const result = { items: itemsToReturn, enrichmentPending: true };
 
-    // Cache result
+    // ========== BACKGROUND: PHASE 2 Enrichment ==========
+    // Run metadata enrichment in the background without blocking response
     const er = (globalThis as any).EdgeRuntime;
+    if (er?.waitUntil) {
+      er.waitUntil(backgroundEnrichment(itemsWithProcessedImages, imageUrl, userContext, user.id, supabase));
+    }
+
+    console.log(`✅ Returning ${itemsToReturn.length} items immediately (enrichment running in background)`);
+
+    // Cache result (basic items, no enrichment yet)
     if (er?.waitUntil) {
       er.waitUntil(setCachedResult(cacheKey, result));
     } else {
@@ -470,6 +377,94 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Background enrichment function
+ * Runs Phase 2 metadata extraction without blocking the main response
+ */
+async function backgroundEnrichment(
+  items: Array<DetectedItem & { processedImageUrl: string }>,
+  originalImageUrl: string,
+  userContext: { gender: string | null; age_range: string | null },
+  userId: string,
+  supabase: any
+) {
+  console.log(`🔄 Background enrichment starting for ${items.length} items...`);
+
+  const mapParentToLegacyCategory = (itemType: string): string => {
+    const lowerType = itemType.toLowerCase();
+    if (["kurta", "t-shirt", "shirt", "blouse", "crop top", "tank top", "tunic", "choli", "top"].includes(lowerType)) return "Tops";
+    if (["jeans", "trousers", "pants", "salwar", "churidar", "palazzo", "dhoti", "shorts", "skirt", "leggings", "bottom"].includes(lowerType)) return "Bottoms";
+    if (["jacket", "coat", "blazer", "cardigan", "hoodie", "sherwani", "nehru jacket", "sweater", "waistcoat"].includes(lowerType)) return "Outerwear";
+    if (["dress", "gown", "jumpsuit", "lehenga", "saree", "kurti", "anarkali", "romper"].includes(lowerType)) return "Dresses";
+    return "Tops";
+  };
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    
+    try {
+      console.log(`📊 Enriching ${i + 1}/${items.length}: ${item.item_name}`);
+
+      const { data: enrichmentData, error: enrichmentError } = await supabase.functions.invoke(
+        "enrich-wardrobe-item",
+        {
+          body: {
+            originalImageUrl,
+            category: item.parent_category === "Clothing" 
+              ? mapParentToLegacyCategory(item.item_type || "")
+              : item.parent_category === "Footwear" ? "Shoes" : "Accessories",
+            itemName: item.item_name || "Unknown Item",
+            userContext
+          },
+        },
+      );
+
+      if (enrichmentError) {
+        console.error(`❌ Background enrichment error for ${item.item_name}:`, enrichmentError);
+        continue;
+      }
+
+      if (enrichmentData?.enrichedMetadata) {
+        const metadata = enrichmentData.enrichedMetadata;
+        console.log(`✅ Enriched ${item.item_name}, updating DB...`);
+
+        // Update the wardrobe_items record with enriched metadata
+        const { error: updateError } = await supabase
+          .from("wardrobe_items")
+          .update({
+            color: metadata.color,
+            pattern_type: metadata.pattern_type,
+            pattern_description: metadata.pattern_description,
+            fabric_primary: metadata.fabric_primary,
+            texture: metadata.texture,
+            fit_type: metadata.fit_type,
+            length: metadata.length,
+            formality_level: metadata.formality_level,
+            suitable_occasions: metadata.suitable_occasions,
+            style_aesthetic: metadata.style_aesthetic,
+            season: metadata.season,
+            weather_suitability: metadata.weather_suitability,
+            style_notes_detailed: metadata.style_notes_detailed,
+            item_type: metadata.item_type,
+            primary_color: metadata.color,
+          })
+          .eq("user_id", userId)
+          .eq("processed_image_url", item.processedImageUrl);
+
+        if (updateError) {
+          console.error(`❌ DB update failed for ${item.item_name}:`, updateError);
+        } else {
+          console.log(`✅ DB updated with enriched data for ${item.item_name}`);
+        }
+      }
+    } catch (err) {
+      console.error(`❌ Background enrichment exception for ${item.item_name}:`, err);
+    }
+  }
+
+  console.log(`✅ Background enrichment complete for ${items.length} items`);
+}
 
 /**
  * OPTIMIZED: Single API call that validates AND detects items
