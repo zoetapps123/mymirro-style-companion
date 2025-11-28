@@ -168,10 +168,10 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   // Background processing function with rate limit handling
   const processImagesInBackground = async (urls: string[], userId: string) => {
     try {
-      // Get existing wardrobe items for duplicate checking (include primary_color and brand)
+      // Get existing wardrobe items for duplicate checking
       const { data: existingItems } = await supabase
         .from("wardrobe_items")
-        .select("name, category, color, primary_color, brand")
+        .select("name, category, color, item_type, pattern_type, fabric_primary, fit_type, length, texture")
         .eq("user_id", userId);
 
       let totalAdded = 0;

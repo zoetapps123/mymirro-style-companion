@@ -1,0 +1,60 @@
+-- Drop redundant columns from wardrobe_items table (keeping only 15 core styling fields)
+ALTER TABLE wardrobe_items 
+DROP COLUMN IF EXISTS primary_color_hex,
+DROP COLUMN IF EXISTS primary_color_name,
+DROP COLUMN IF EXISTS color_family,
+DROP COLUMN IF EXISTS secondary_colors,
+DROP COLUMN IF EXISTS color_palette,
+DROP COLUMN IF EXISTS color_distribution,
+DROP COLUMN IF EXISTS pattern_colors,
+DROP COLUMN IF EXISTS pattern_scale,
+DROP COLUMN IF EXISTS pattern_geometry,
+DROP COLUMN IF EXISTS pattern_coverage,
+DROP COLUMN IF EXISTS color_blocking_layout,
+DROP COLUMN IF EXISTS graphic_type,
+DROP COLUMN IF EXISTS graphic_location,
+DROP COLUMN IF EXISTS graphic_size,
+DROP COLUMN IF EXISTS graphic_summary,
+DROP COLUMN IF EXISTS hem_style,
+DROP COLUMN IF EXISTS shoulder_style,
+DROP COLUMN IF EXISTS layers_detected,
+DROP COLUMN IF EXISTS sleeve_type,
+DROP COLUMN IF EXISTS sleeve_neck_summary,
+DROP COLUMN IF EXISTS neckline,
+DROP COLUMN IF EXISTS collar_type,
+DROP COLUMN IF EXISTS closure_type,
+DROP COLUMN IF EXISTS pocket_details,
+DROP COLUMN IF EXISTS hardware_details,
+DROP COLUMN IF EXISTS embellishments,
+DROP COLUMN IF EXISTS special_features,
+DROP COLUMN IF EXISTS waist_style,
+DROP COLUMN IF EXISTS rise,
+DROP COLUMN IF EXISTS heel_type,
+DROP COLUMN IF EXISTS toe_style,
+DROP COLUMN IF EXISTS brand,
+DROP COLUMN IF EXISTS condition,
+DROP COLUMN IF EXISTS bbox,
+DROP COLUMN IF EXISTS visible_area_ratio,
+DROP COLUMN IF EXISTS confidence,
+DROP COLUMN IF EXISTS composite_image_url,
+DROP COLUMN IF EXISTS fabric_weight,
+DROP COLUMN IF EXISTS material_finish,
+DROP COLUMN IF EXISTS silhouette,
+DROP COLUMN IF EXISTS fit_silhouette,
+DROP COLUMN IF EXISTS secondary_palette,
+DROP COLUMN IF EXISTS fabric_family,
+DROP COLUMN IF EXISTS fabric_behavior,
+DROP COLUMN IF EXISTS visual_summary,
+DROP COLUMN IF EXISTS style_notes,
+DROP COLUMN IF EXISTS fabric,
+DROP COLUMN IF EXISTS pattern;
+
+-- Add pattern_description column for detailed pattern information
+ALTER TABLE wardrobe_items 
+ADD COLUMN IF NOT EXISTS pattern_description text;
+
+-- The final schema will have approximately 20 columns:
+-- Core 15 styling fields: category, item_type, color, pattern_type, pattern_description,
+--   fabric_primary, texture, fit_type, length, formality_level, 
+--   suitable_occasions, style_aesthetic, season, weather_suitability, style_notes_detailed
+-- Plus: id, user_id, name, image_url, processed_image_url, original_image_url, created_at, updated_at
