@@ -12,38 +12,45 @@ serve(async (req) => {
   }
 
   try {
-    const { originalImageUrl, visualMetadata } = await req.json();
+    const { originalImageUrl, category, visualMetadata } = await req.json();
     
-    console.log(`PHASE 2 SEMANTIC ENRICHMENT: ${visualMetadata.item_type} (${visualMetadata.category})`);
+    console.log(`PHASE 2 SEMANTIC ENRICHMENT: ${visualMetadata.item_name} (${category})`);
 
-    const PROMPT = `You are analyzing a ${visualMetadata.category} item to add SEMANTIC and CONTEXTUAL metadata.
+    const SEMANTIC_ENRICHMENT_PROMPT = `You are analyzing a ${category} item to add SEMANTIC and CONTEXTUAL metadata.
 
 ═══════════════════════════════════════════════════════════════════════
 PHASE 1 VISUAL METADATA (AUTHORITATIVE - DO NOT CONTRADICT)
 ═══════════════════════════════════════════════════════════════════════
-The following visual facts are AUTHORITATIVE:
-- Category: ${visualMetadata.category}
-- Item Type: ${visualMetadata.item_type}
-- Fit/Silhouette: ${visualMetadata.fit_silhouette}
-- Length: ${visualMetadata.length}
-- Primary Color: ${visualMetadata.primary_color_hex}
-- Secondary Palette: ${visualMetadata.secondary_palette?.join(', ') || 'none'}
-- Pattern Type: ${visualMetadata.pattern_type}
+The following visual facts have been extracted and are AUTHORITATIVE:
+- Name: ${visualMetadata.item_name}
+- Category: ${category}
+- Primary Color: ${visualMetadata.primary_color_name} (${visualMetadata.primary_color_hex})
+- Color Palette: ${visualMetadata.color_palette?.join(", ")}
+- Pattern: ${visualMetadata.pattern_type}
 - Pattern Geometry: ${visualMetadata.pattern_geometry}
-- Graphic: ${visualMetadata.graphic_summary}
-- Sleeve/Neck: ${visualMetadata.sleeve_neck_summary}
-- Fabric Family: ${visualMetadata.fabric_family}
-- Fabric Behavior: ${visualMetadata.fabric_behavior}
+- Fit: ${visualMetadata.fit_type}
+- Silhouette: ${visualMetadata.silhouette}
+- Length: ${visualMetadata.length}
+${visualMetadata.neckline ? `- Neckline: ${visualMetadata.neckline}` : ""}
+${visualMetadata.sleeve_type ? `- Sleeves: ${visualMetadata.sleeve_type}` : ""}
+${visualMetadata.closure_type ? `- Closure: ${visualMetadata.closure_type}` : ""}
+- Visual Summary: ${visualMetadata.visual_summary}
 
 ═══════════════════════════════════════════════════════════════════════
 YOUR TASK: SEMANTIC ENRICHMENT ONLY
 ═══════════════════════════════════════════════════════════════════════
 
 Using BOTH the image and the visual metadata above, infer SEMANTIC properties.
-DO NOT contradict the visual facts above.
+You may refine fabric details but DO NOT contradict the visual facts above.
 
-**SEMANTIC INFERENCE:**
-- style_aesthetic: Array of 1-3 aesthetics
+**FABRIC REFINEMENT (can add detail):**
+- fabric_primary: cotton | polyester | linen | wool | denim | silk | leather | synthetic | knit | jersey | fleece | velvet | satin
+- fabric_weight: lightweight | medium | heavy
+- material_finish: matte | glossy | textured | distressed | washed | faded
+- texture: smooth | rough | soft | stiff | stretchy | ribbed | fuzzy
+
+**SEMANTIC INFERENCE (this is what we need from you):**
+- style_aesthetic: Array of 1-3 aesthetics that this item embodies
   Options: ["casual", "streetwear", "minimalist", "bohemian", "preppy", "edgy", "classic", "sporty", "elegant", "vintage", "modern", "artsy", "grunge", "romantic"]
   
 - formality_level: Where would this be appropriate?
@@ -66,15 +73,17 @@ DO NOT contradict the visual facts above.
 - special_features: Array of special characteristics
   Options: ["water_resistant", "reversible", "convertible", "quick_dry", "stretch", "lined", "breathable", "insulated", "wrinkle_resistant", "stain_resistant"]
   
-- style_notes_detailed: A 50-100 character styling suggestion
+- style_notes_detailed: A 50-100 character styling suggestion (e.g., "Pairs well with slim dark jeans and white sneakers for a clean casual look")
 
-**RULES:**
-1. Do NOT change any of the 12 visual fields
+═══════════════════════════════════════════════════════════════════════
+RULES
+═══════════════════════════════════════════════════════════════════════
+1. Do NOT change category, colors, pattern, fit, silhouette, or length from Phase 1
 2. Only infer semantics that logically follow from visible design
-3. Do NOT use stereotypes
+3. Do NOT use stereotypes - base on actual visual elements
 4. If uncertain, use more general/neutral values
 
-Use return_semantic_metadata function.`;
+Use the return_semantic_metadata function to return structured output.`;
 
     const tools = [
       {
@@ -85,6 +94,13 @@ Use return_semantic_metadata function.`;
           parameters: {
             type: 'object',
             properties: {
+              // Fabric refinement (can add detail to visual)
+              fabric_primary: { type: 'string' },
+              fabric_weight: { type: 'string' },
+              material_finish: { type: 'string' },
+              texture: { type: 'string' },
+              
+              // Pure semantic fields
               style_aesthetic: { type: 'array', items: { type: 'string' } },
               formality_level: { type: 'string' },
               suitable_occasions: { type: 'array', items: { type: 'string' } },
@@ -94,6 +110,9 @@ Use return_semantic_metadata function.`;
               condition: { type: 'string' },
               special_features: { type: 'array', items: { type: 'string' } },
               style_notes_detailed: { type: 'string' },
+              
+              // Additional color details (optional)
+              secondary_colors: { type: 'array', items: { type: 'string' } },
             },
             required: ['style_aesthetic', 'formality_level', 'suitable_occasions', 'season', 'weather_suitability', 'condition']
           }
@@ -101,22 +120,14 @@ Use return_semantic_metadata function.`;
       }
     ];
 
-    // Fetch and convert image to base64
-    console.log("Fetching image URL:", originalImageUrl);
-    const imageResponse = await fetch(originalImageUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-    const imageDataUrl = `data:${imageResponse.headers.get('content-type') || 'image/jpeg'};base64,${base64Image}`;
-    console.log("Successfully converted image, size:", imageBuffer.byteLength, "type:", imageResponse.headers.get('content-type'));
-
     const data = await callGeminiAPI({
       model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
           content: [
-            { type: 'text', text: PROMPT },
-            { type: 'image_url', image_url: { url: imageDataUrl } }
+            { type: 'text', text: SEMANTIC_ENRICHMENT_PROMPT },
+            { type: 'image_url', image_url: { url: originalImageUrl } }
           ]
         }
       ],
@@ -137,17 +148,19 @@ Use return_semantic_metadata function.`;
     console.log(`PHASE 2 SUCCESS: Extracted ${Object.keys(detailedMetadata).length} semantic fields`);
 
     return new Response(
-      JSON.stringify({ success: true, detailedMetadata }),
+      JSON.stringify({ detailedMetadata }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
-    console.error('Error in enrich-wardrobe-item:', error);
+    console.error('Enrichment error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        detailedMetadata: {} 
+        error: errorMessage,
+        detailedMetadata: {} // Return empty metadata on error
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   }
 });

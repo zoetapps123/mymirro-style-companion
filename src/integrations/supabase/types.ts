@@ -775,33 +775,26 @@ export type Database = {
           color_palette: string[] | null
           composite_image_url: string | null
           condition: string | null
-          confidence: number | null
           created_at: string
           embellishments: string | null
           fabric: string | null
-          fabric_behavior: string | null
-          fabric_family: string | null
           fabric_primary: string | null
           fabric_weight: string | null
-          fit_silhouette: string | null
           fit_type: string | null
           formality_level: string | null
           graphic_location: string | null
           graphic_size: string | null
-          graphic_summary: string | null
           graphic_type: string | null
           hardware_details: string | null
           heel_type: string | null
           hem_style: string | null
           id: string
           image_url: string
-          item_type: string | null
           layers_detected: string | null
           length: string | null
           material_finish: string | null
           name: string
           neckline: string | null
-          original_image_url: string | null
           pattern: string | null
           pattern_colors: string[] | null
           pattern_coverage: string | null
@@ -816,10 +809,8 @@ export type Database = {
           rise: string | null
           season: string[] | null
           secondary_colors: string[] | null
-          secondary_palette: string[] | null
           shoulder_style: string | null
           silhouette: string | null
-          sleeve_neck_summary: string | null
           sleeve_type: string | null
           special_features: string[] | null
           style_aesthetic: string[] | null
@@ -830,7 +821,6 @@ export type Database = {
           toe_style: string | null
           updated_at: string
           user_id: string
-          visible_area_ratio: number | null
           visual_summary: string | null
           waist_style: string | null
           weather_suitability: string | null
@@ -848,33 +838,26 @@ export type Database = {
           color_palette?: string[] | null
           composite_image_url?: string | null
           condition?: string | null
-          confidence?: number | null
           created_at?: string
           embellishments?: string | null
           fabric?: string | null
-          fabric_behavior?: string | null
-          fabric_family?: string | null
           fabric_primary?: string | null
           fabric_weight?: string | null
-          fit_silhouette?: string | null
           fit_type?: string | null
           formality_level?: string | null
           graphic_location?: string | null
           graphic_size?: string | null
-          graphic_summary?: string | null
           graphic_type?: string | null
           hardware_details?: string | null
           heel_type?: string | null
           hem_style?: string | null
           id?: string
           image_url: string
-          item_type?: string | null
           layers_detected?: string | null
           length?: string | null
           material_finish?: string | null
           name: string
           neckline?: string | null
-          original_image_url?: string | null
           pattern?: string | null
           pattern_colors?: string[] | null
           pattern_coverage?: string | null
@@ -889,10 +872,8 @@ export type Database = {
           rise?: string | null
           season?: string[] | null
           secondary_colors?: string[] | null
-          secondary_palette?: string[] | null
           shoulder_style?: string | null
           silhouette?: string | null
-          sleeve_neck_summary?: string | null
           sleeve_type?: string | null
           special_features?: string[] | null
           style_aesthetic?: string[] | null
@@ -903,7 +884,6 @@ export type Database = {
           toe_style?: string | null
           updated_at?: string
           user_id: string
-          visible_area_ratio?: number | null
           visual_summary?: string | null
           waist_style?: string | null
           weather_suitability?: string | null
@@ -921,33 +901,26 @@ export type Database = {
           color_palette?: string[] | null
           composite_image_url?: string | null
           condition?: string | null
-          confidence?: number | null
           created_at?: string
           embellishments?: string | null
           fabric?: string | null
-          fabric_behavior?: string | null
-          fabric_family?: string | null
           fabric_primary?: string | null
           fabric_weight?: string | null
-          fit_silhouette?: string | null
           fit_type?: string | null
           formality_level?: string | null
           graphic_location?: string | null
           graphic_size?: string | null
-          graphic_summary?: string | null
           graphic_type?: string | null
           hardware_details?: string | null
           heel_type?: string | null
           hem_style?: string | null
           id?: string
           image_url?: string
-          item_type?: string | null
           layers_detected?: string | null
           length?: string | null
           material_finish?: string | null
           name?: string
           neckline?: string | null
-          original_image_url?: string | null
           pattern?: string | null
           pattern_colors?: string[] | null
           pattern_coverage?: string | null
@@ -962,10 +935,8 @@ export type Database = {
           rise?: string | null
           season?: string[] | null
           secondary_colors?: string[] | null
-          secondary_palette?: string[] | null
           shoulder_style?: string | null
           silhouette?: string | null
-          sleeve_neck_summary?: string | null
           sleeve_type?: string | null
           special_features?: string[] | null
           style_aesthetic?: string[] | null
@@ -976,7 +947,6 @@ export type Database = {
           toe_style?: string | null
           updated_at?: string
           user_id?: string
-          visible_area_ratio?: number | null
           visual_summary?: string | null
           waist_style?: string | null
           weather_suitability?: string | null
