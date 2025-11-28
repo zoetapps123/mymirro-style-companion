@@ -72,29 +72,36 @@ interface WardrobeDetectionItem {
   visual_summary: string;
 }
 
-// Legacy interface for compatibility during migration
-type DetectedItem = WardrobeDetectionItem & {
-  name?: string;
-  primary_color?: string;
+// Simplified interface for 15-field system
+type DetectedItem = {
+  name?: string; // Made optional since Phase 1 uses item_name
+  category?: string;
+  item_type?: string;
+  
+  // Core 15 styling fields
+  color?: string;
+  pattern_type?: string;
+  pattern_description?: string;
   fabric_primary?: string;
-  // Semantic fields (will be added in Phase 2)
-  style_aesthetic?: string[];
+  texture?: string;
+  fit_type?: string;
+  length?: string;
   formality_level?: string;
   suitable_occasions?: string[];
+  style_aesthetic?: string[];
   season?: string[];
   weather_suitability?: string;
-  brand?: string;
-  condition?: string;
-  fabric_weight?: string;
-  material_finish?: string;
-  texture?: string;
-  secondary_colors?: string[];
-  special_features?: string[];
   style_notes_detailed?: string;
-  rise?: string;
-  waist_style?: string;
-  heel_type?: string;
-  toe_style?: string;
+  
+  // Images
+  imageUrl?: string;
+  processedImageUrl?: string;
+  
+  // Temporary fields for Phase 1 detection
+  item_name?: string;
+  parent_category?: string;
+  bbox?: BoundingBox;
+  visibility_score?: number;
 };
 
 serve(async (req) => {
@@ -119,6 +126,21 @@ serve(async (req) => {
     }
 
     console.log("Processing image with Gemini-only pipeline...");
+
+    // Fetch user profile for enrichment context
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: userProfile } = await supabaseClient
+      .from("user_profiles")
+      .select("gender, age_range")
+      .eq("id", user.id)
+      .single();
+
+    const userContext = {
+      gender: userProfile?.gender || null,
+      age_range: userProfile?.age_range || null
+    };
+
+    console.log("User context for enrichment:", userContext);
 
     // Check cache (updated version for visual-semantic split)
     const cacheKey = await generateCacheKey({ type: "wardrobe_gemini_v5_visual_semantic", imageUrl });
@@ -342,45 +364,31 @@ serve(async (req) => {
           "enrich-wardrobe-item",
           {
             body: {
-              originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
-              category: item.parent_category === "Clothing" ? mapParentToLegacyCategory(item.item_type) : item.parent_category === "Footwear" ? "Shoes" : "Accessories",
-              visualMetadata: {
-                item_name: item.item_name,
-                bbox: item.bbox,
-                primary_color_hex: item.primary_color_hex,
-                primary_color_name: item.primary_color_name,
-                color_palette: item.color_palette,
-                color_distribution: item.color_distribution,
-                pattern_type: item.pattern_type,
-                pattern_geometry: item.pattern_geometry,
-                pattern_coverage: item.pattern_coverage,
-                fit_type: item.fit_type,
-                silhouette: item.silhouette,
-                length: item.length,
-                neckline: item.neckline,
-                sleeve_type: item.sleeve_type,
-                closure_type: item.closure_type,
-                visual_summary: item.visual_summary,
-              },
+              originalImageUrl: imageUrl, // Use original uploaded image
+              category: item.parent_category === "Clothing" 
+                ? mapParentToLegacyCategory(item.item_type || "")
+                : item.parent_category === "Footwear" ? "Shoes" : "Accessories",
+              itemName: item.item_name || "Unknown Item",
+              userContext: userContext
             },
           },
         );
 
         if (enrichmentError) {
-          console.error(`Enrichment error for ${item.name} (non-fatal):`, enrichmentError);
-        } else if (enrichmentData?.detailedMetadata) {
-          console.log(`✅ Enriched ${item.name}: merged ${Object.keys(enrichmentData.detailedMetadata).length} fields`);
-          enrichedItem = { ...item, ...enrichmentData.detailedMetadata };
+          console.error(`Enrichment error for ${item.item_name} (non-fatal):`, enrichmentError);
+        } else if (enrichmentData?.enrichedMetadata) {
+          console.log(`✅ Enriched ${item.item_name}: extracted 15 styling fields`);
+          enrichedItem = { ...enrichedItem, ...enrichmentData.enrichedMetadata };
         }
       } catch (enrichErr) {
-        console.error(`Enrichment exception for ${item.name} (non-fatal):`, enrichErr);
+        console.error(`Enrichment exception for ${item.item_name} (non-fatal):`, enrichErr);
       }
 
       // Use the processed image URL from Phase 1 for final storage
       // Map WardrobeDetectionItem + Phase 2 semantic to DetectedItem format for DB
       itemsWithImages.push({
         ...enrichedItem,
-        name: item.item_name, // Legacy field
+        name: item.item_name || enrichedItem.name, // Ensure name is set
         imageUrl: item.processedImageUrl,
       });
 
@@ -446,7 +454,11 @@ serve(async (req) => {
 
   const normalizedItems = itemsWithImages.map((item) => ({
       ...item,
-      category: item.category || (item.parent_category === "Clothing" ? mapParentToLegacyCategory(item.item_type) : item.parent_category === "Footwear" ? "Shoes" : "Accessories"),
+      category: item.category || (
+        item.parent_category === "Clothing" 
+          ? mapParentToLegacyCategory(item.item_type || "")
+          : item.parent_category === "Footwear" ? "Shoes" : "Accessories"
+      ),
     }));
 
     const result = { items: normalizedItems };

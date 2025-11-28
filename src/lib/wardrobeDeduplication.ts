@@ -1,50 +1,28 @@
 /**
- * Wardrobe Item Deduplication - 12-Field Visual Signature System
- * Uses 12 visual fields for accurate duplicate detection
+ * Wardrobe Item Deduplication - Simplified 15-Field System
+ * Uses core styling fields for accurate duplicate detection
  */
 
 // ============================================
-// WARDROBE ITEM INTERFACE (12-FIELD SYSTEM)
+// WARDROBE ITEM INTERFACE (15-FIELD SYSTEM)
 // ============================================
 
-interface WardrobeItemForDedup {
+export interface WardrobeItemForDedup {
   category?: string | null;
   item_type?: string | null;
-  primary_color_hex?: string | null;
-  secondary_palette?: string[] | null;
+  color?: string | null;
   pattern_type?: string | null;
-  pattern_geometry?: string | null;
-  fit_silhouette?: string | null;
+  pattern_description?: string | null;
+  fabric_primary?: string | null;
+  texture?: string | null;
+  fit_type?: string | null;
   length?: string | null;
-  fabric_family?: string | null;
-  fabric_behavior?: string | null;
-  graphic_summary?: string | null;
-  sleeve_neck_summary?: string | null;
-}
-
-// ============================================
-// COLOR UTILITIES
-// ============================================
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null;
-}
-
-function calculateColorDistance(hex1: string, hex2: string): number {
-  const rgb1 = hexToRgb(hex1);
-  const rgb2 = hexToRgb(hex2);
-  if (!rgb1 || !rgb2) return 999;
-  
-  return Math.sqrt(
-    Math.pow(rgb1.r - rgb2.r, 2) +
-    Math.pow(rgb1.g - rgb2.g, 2) +
-    Math.pow(rgb1.b - rgb2.b, 2)
-  );
+  formality_level?: string | null;
+  suitable_occasions?: string[] | null;
+  style_aesthetic?: string[] | null;
+  season?: string[] | null;
+  weather_suitability?: string | null;
+  style_notes_detailed?: string | null;
 }
 
 // ============================================
@@ -67,26 +45,22 @@ export interface DuplicateCheckResult {
 }
 
 // ============================================
-// 12-FIELD DEDUPLICATION LOGIC
+// 15-FIELD DEDUPLICATION LOGIC
 // ============================================
 
 /**
- * Check if two items are duplicates based on 12-field visual signature
+ * Check if two items are duplicates based on 15-field styling signature
  * 
  * Logic:
  * 1. Category must match (exact)
- * 2. Then 5+ of the following must match:
+ * 2. Then 4+ of the following must match:
  *    - item_type
- *    - primary_color_hex (with tolerance)
- *    - secondary_palette (overlap check)
+ *    - color
  *    - pattern_type
- *    - pattern_geometry
- *    - fit_silhouette
+ *    - fabric_primary
+ *    - fit_type
  *    - length
- *    - fabric_family
- *    - fabric_behavior
- *    - graphic_summary
- *    - sleeve_neck_summary
+ *    - texture
  * 
  * @param existing - Item already in wardrobe
  * @param candidate - New item being checked
@@ -108,7 +82,7 @@ export function isLikelyDuplicateWardrobeItem(
     return { isDuplicate: false, matchCount: 0 };
   }
   
-  // Step 2: Count matching fields (need 5+ matches)
+  // Step 2: Count matching fields (need 4+ matches)
   let matchCount = 0;
   const matches: string[] = [];
   
@@ -120,25 +94,11 @@ export function isLikelyDuplicateWardrobeItem(
     }
   }
   
-  // Check primary_color_hex (with color distance tolerance)
-  if (existing.primary_color_hex && candidate.primary_color_hex) {
-    const colorDist = calculateColorDistance(existing.primary_color_hex, candidate.primary_color_hex);
-    if (colorDist < 30) { // Tolerance of 30 RGB units
+  // Check color
+  if (existing.color && candidate.color) {
+    if (normalizeString(existing.color) === normalizeString(candidate.color)) {
       matchCount++;
       matches.push('color');
-    }
-  }
-  
-  // Check secondary_palette (overlap check)
-  const existingPalette = existing.secondary_palette || [];
-  const candidatePalette = candidate.secondary_palette || [];
-  if (existingPalette.length > 0 && candidatePalette.length > 0) {
-    const hasOverlap = existingPalette.some(c1 => 
-      candidatePalette.some(c2 => calculateColorDistance(c1, c2) < 30)
-    );
-    if (hasOverlap) {
-      matchCount++;
-      matches.push('palette');
     }
   }
   
@@ -146,21 +106,21 @@ export function isLikelyDuplicateWardrobeItem(
   if (existing.pattern_type && candidate.pattern_type) {
     if (normalizeString(existing.pattern_type) === normalizeString(candidate.pattern_type)) {
       matchCount++;
-      matches.push('pattern_type');
+      matches.push('pattern');
     }
   }
   
-  // Check pattern_geometry
-  if (existing.pattern_geometry && candidate.pattern_geometry) {
-    if (normalizeString(existing.pattern_geometry) === normalizeString(candidate.pattern_geometry)) {
+  // Check fabric_primary
+  if (existing.fabric_primary && candidate.fabric_primary) {
+    if (normalizeString(existing.fabric_primary) === normalizeString(candidate.fabric_primary)) {
       matchCount++;
-      matches.push('pattern_geometry');
+      matches.push('fabric');
     }
   }
   
-  // Check fit_silhouette
-  if (existing.fit_silhouette && candidate.fit_silhouette) {
-    if (normalizeString(existing.fit_silhouette) === normalizeString(candidate.fit_silhouette)) {
+  // Check fit_type
+  if (existing.fit_type && candidate.fit_type) {
+    if (normalizeString(existing.fit_type) === normalizeString(candidate.fit_type)) {
       matchCount++;
       matches.push('fit');
     }
@@ -174,40 +134,16 @@ export function isLikelyDuplicateWardrobeItem(
     }
   }
   
-  // Check fabric_family
-  if (existing.fabric_family && candidate.fabric_family) {
-    if (normalizeString(existing.fabric_family) === normalizeString(candidate.fabric_family)) {
+  // Check texture
+  if (existing.texture && candidate.texture) {
+    if (normalizeString(existing.texture) === normalizeString(candidate.texture)) {
       matchCount++;
-      matches.push('fabric_family');
+      matches.push('texture');
     }
   }
   
-  // Check fabric_behavior
-  if (existing.fabric_behavior && candidate.fabric_behavior) {
-    if (normalizeString(existing.fabric_behavior) === normalizeString(candidate.fabric_behavior)) {
-      matchCount++;
-      matches.push('fabric_behavior');
-    }
-  }
-  
-  // Check graphic_summary
-  if (existing.graphic_summary && candidate.graphic_summary) {
-    if (normalizeString(existing.graphic_summary) === normalizeString(candidate.graphic_summary)) {
-      matchCount++;
-      matches.push('graphics');
-    }
-  }
-  
-  // Check sleeve_neck_summary
-  if (existing.sleeve_neck_summary && candidate.sleeve_neck_summary) {
-    if (normalizeString(existing.sleeve_neck_summary) === normalizeString(candidate.sleeve_neck_summary)) {
-      matchCount++;
-      matches.push('sleeve_neck');
-    }
-  }
-  
-  // Duplicate if 5+ fields match
-  const isDuplicate = matchCount >= 5;
+  // Duplicate if 4+ fields match
+  const isDuplicate = matchCount >= 4;
   
   return {
     isDuplicate,
@@ -267,19 +203,17 @@ export function filterDuplicateWardrobeItems(
 
 /**
  * Legacy interface for backward compatibility
- * @deprecated Use WardrobeItemForDedup with 12-field system
+ * @deprecated Use WardrobeItemForDedup with 15-field system
  */
 interface LegacyWardrobeItem {
   name?: string | null;
   category?: string | null;
   color?: string | null;
-  primary_color?: string | null;
-  brand?: string | null;
 }
 
 /**
  * Legacy deduplication function - deprecated
- * @deprecated Use isLikelyDuplicateWardrobeItem with 12-field system
+ * @deprecated Use isLikelyDuplicateWardrobeItem with 15-field system
  */
 export function isLikelyDuplicateLegacy(
   existing: LegacyWardrobeItem,

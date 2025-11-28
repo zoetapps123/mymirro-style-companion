@@ -204,10 +204,10 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       console.log('Calling Gemini-only pipeline...');
       
-      // Fetch existing items for duplicate checking (include primary_color and brand)
+      // Fetch existing items for duplicate checking
       supabase
         .from('wardrobe_items')
-        .select('name, category, color, primary_color, brand')
+        .select('name, category, color, item_type, pattern_type, fabric_primary, fit_type, length, texture')
         .eq('user_id', userId)
         .then(({ data: existingItems }) => {
           
