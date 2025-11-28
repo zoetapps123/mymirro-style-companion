@@ -27,7 +27,13 @@ interface WardrobeDetectionItem {
   
   // Core identity
   item_name: string;
-  category: "Tops" | "Bottoms" | "Outerwear" | "Dresses" | "Shoes" | "Accessories";
+  item_type: string; // Dynamic type (e.g., "Kurta", "Watch", "Sneakers")
+  parent_category: "Clothing" | "Footwear" | "Accessories";
+  category?: "Tops" | "Bottoms" | "Outerwear" | "Dresses" | "Shoes" | "Accessories"; // Optional legacy field
+  
+  // Visibility confidence
+  visibility_score: number; // 0-100 percentage
+  visibility_notes?: string; // Optional visibility limitations
   
   // Color & pattern (spatial, visually grounded)
   color_palette: string[];
@@ -177,12 +183,23 @@ serve(async (req) => {
       );
     }
 
-    const detectedItems = validationAndDetection.items;
+    let detectedItems = validationAndDetection.items;
 
-    if (!detectedItems || detectedItems.length === 0) {
+    // Filter items with low visibility score
+    const filteredItems = detectedItems.filter(item => {
+      if (item.visibility_score < 60) {
+        console.log(`⚠️ Skipping ${item.item_name}: visibility too low (${item.visibility_score}%). Reason: ${item.visibility_notes || 'N/A'}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (!filteredItems || filteredItems.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "No clothing items detected in the image",
+          error: detectedItems.length > 0 
+            ? "No items met visibility requirements (need 60%+ visibility)" 
+            : "No clothing items detected in the image",
           items: [],
         }),
         {
@@ -192,7 +209,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`✅ Validated and detected ${detectedItems.length} items from image`);
+    detectedItems = filteredItems;
+    console.log(`✅ Validated and detected ${detectedItems.length} items from image (passed visibility check)`);
     console.log("📊 Sample item metadata:", JSON.stringify(detectedItems[0], null, 2));
 
     // Step 1.5: Enhanced Smart Deduplication
@@ -294,6 +312,20 @@ serve(async (req) => {
 
     console.log(`✅ Phase 1 complete: ${itemsWithProcessedImages.length} items with images`);
 
+    // Helper to map item_type to legacy category for backwards compatibility
+    const mapParentToLegacyCategory = (itemType: string): string => {
+      const lowerType = itemType.toLowerCase();
+      
+      // Map common types to categories
+      if (["kurta", "t-shirt", "shirt", "blouse", "crop top", "tank top", "tunic", "choli", "top"].includes(lowerType)) return "Tops";
+      if (["jeans", "trousers", "pants", "salwar", "churidar", "palazzo", "dhoti", "shorts", "skirt", "leggings", "bottom"].includes(lowerType)) return "Bottoms";
+      if (["jacket", "coat", "blazer", "cardigan", "hoodie", "sherwani", "nehru jacket", "sweater", "waistcoat"].includes(lowerType)) return "Outerwear";
+      if (["dress", "gown", "jumpsuit", "lehenga", "saree", "kurti", "anarkali", "romper"].includes(lowerType)) return "Dresses";
+      
+      // Default to generic category based on parent
+      return "Tops"; // fallback for unknown clothing types
+    };
+
     // ========== PHASE 2: Enrich Metadata Only ==========
     console.log("Phase 2: Enriching metadata for all items...");
 
@@ -311,7 +343,7 @@ serve(async (req) => {
           {
             body: {
               originalImageUrl: imageUrl, // CRITICAL: Use original uploaded image, not generated
-              category: item.category,
+              category: item.parent_category === "Clothing" ? mapParentToLegacyCategory(item.item_type) : item.parent_category === "Footwear" ? "Shoes" : "Accessories",
               visualMetadata: {
                 item_name: item.item_name,
                 bbox: item.bbox,
@@ -408,13 +440,13 @@ serve(async (req) => {
       // Dresses variations → Dresses
       if (["dress", "gown"].includes(lowerCat)) return "Dresses";
 
-      // Keep as-is if already standard or unknown
-      return category;
-    };
+    // Keep as-is if already standard or unknown
+    return category;
+  };
 
-    const normalizedItems = itemsWithImages.map((item) => ({
+  const normalizedItems = itemsWithImages.map((item) => ({
       ...item,
-      category: normalizeCategory(item.category),
+      category: item.category || (item.parent_category === "Clothing" ? mapParentToLegacyCategory(item.item_type) : item.parent_category === "Footwear" ? "Shoes" : "Accessories"),
     }));
 
     const result = { items: normalizedItems };
@@ -482,7 +514,28 @@ async function validateAndDetectItems(
 }> {
   console.log("PHASE 1: Starting visual detection with model:", model);
 
-  const VISUAL_DETECTION_PROMPT = `You are a precise visual clothing analyzer. Analyze this image in TWO STEPS within a single response.
+const VISUAL_DETECTION_PROMPT = `You are a precise visual clothing analyzer. Analyze this image in TWO STEPS within a single response.
+
+═══════════════════════════════════════════════════════════════════════
+⚠️ VISIBILITY REQUIREMENTS (CRITICAL - READ FIRST) ⚠️
+═══════════════════════════════════════════════════════════════════════
+
+Before extracting ANY item, verify ALL of these are clearly visible:
+✓ Overall shape/silhouette of the entire item
+✓ At least 60% of the item's surface area is visible
+✓ Primary color is clearly identifiable
+✓ Pattern (if any) is distinguishable
+✓ You can confidently describe what the full item looks like
+
+❌ DO NOT EXTRACT items where:
+- Only straps/handles are visible (e.g., backpack straps without seeing the bag itself)
+- Item is mostly hidden behind another person, object, or body part
+- Item is too blurry, dark, or overexposed to identify colors accurately
+- Only a small corner, edge, or fragment is visible
+- The item is folded/bunched up hiding its true form
+- You would need to guess what the rest of the item looks like
+
+EXAMPLE: If a person wears a backpack but only the shoulder straps are visible (bag is behind them), DO NOT extract it. You cannot see the bag's color, pattern, or design.
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 1A: DETECTION & BOUNDING BOXES
@@ -503,7 +556,7 @@ First, determine if the image is VALID for wardrobe extraction:
 
 If INVALID: Set isValid=false with reason and return empty items array.
 
-If VALID: Detect up to 8 distinct items including:
+If VALID: Detect up to 8 distinct items (but ONLY if they meet visibility requirements above):
 - Clothing: tops, bottoms, dresses, outerwear (including Indian wear like kurtas, salwars, lehengas, sarees, sherwanis)
 - Footwear: any visible shoes, sandals, boots, heels, sneakers, juttis, kolhapuris
 - Accessories: watches (on wrist), bags (handbags, backpacks, clutches), hats/caps, belts, jewelry (necklaces, bracelets, earrings), sunglasses, scarves, dupattas
@@ -530,20 +583,25 @@ If something is not clearly visible, use "unknown" or "none".
 For each item, extract:
 
 **IDENTITY:**
-- item_name: Specific 3-5 word name. Use proper terminology:
-  • Indian wear: "Black Silk Kurta", "Beige Cotton Salwar", "Red Bridal Lehenga", "Gold Dupatta", "Navy Nehru Jacket", "White Sherwani", "Pink Churidar", "Green Palazzo Pants"
-  • Western wear: "Black Crew Neck T-Shirt", "Blue Slim Jeans", "Navy Blazer", "White Button-Down Shirt"
-  • Footwear: "White Leather Sneakers", "Brown Chelsea Boots", "Black Kolhapuri Sandals", "Beige Juttis"
-  • Accessories: "Gold Analog Watch", "Brown Leather Belt", "Black Crossbody Bag", "Silver Drop Earrings", "Ray-Ban Sunglasses"
-- category: One of [Tops, Bottoms, Outerwear, Dresses, Shoes, Accessories]
+- item_name: Specific 3-5 word name with color and material if visible
+  Examples: "Black Silk Kurta", "White Canvas Sneakers", "Gold Analog Watch", "Brown Leather Backpack", "Navy Denim Jeans", "Red Floral Dupatta"
   
-  Category Guidelines:
-  • Tops: T-shirts, shirts, blouses, kurtas, crop tops, tank tops, tunics, cholis
-  • Bottoms: Jeans, trousers, pants, salwars, churidars, palazzos, dhoti pants, shorts, skirts, leggings
-  • Outerwear: Jackets, coats, blazers, cardigans, hoodies, sherwanis, nehru jackets, sweaters, waistcoats
-  • Dresses: Dresses, gowns, jumpsuits, lehengas (full sets), sarees, full-length kurtis, anarkalis, rompers
-  • Shoes: Sneakers, heels, boots, sandals, loafers, juttis, kolhapuris, flip-flops, oxfords, mojaris
-  • Accessories: Watches, bags, handbags, backpacks, clutches, hats, caps, belts, jewelry (necklaces, bracelets, earrings, rings), sunglasses, scarves, dupattas, stoles
+- item_type: The exact type of clothing/accessory. Be specific and culturally accurate:
+  Examples: "Kurta", "T-Shirt", "Lehenga", "Salwar", "Jeans", "Blazer", "Sneakers", "Juttis", "Watch", "Backpack", "Dupatta", "Sherwani", "Belt", "Sunglasses", "Earrings"
+  DO NOT generalize - if it's a Kurta, say "Kurta" not "Top". If it's Juttis, say "Juttis" not "Shoes"
+  
+- parent_category: High-level grouping for organization. One of:
+  • "Clothing" - All wearable garments (tops, bottoms, dresses, outerwear, traditional wear like kurtas, salwars, lehengas, sherwanis, sarees)
+  • "Footwear" - All shoes, sandals, boots, heels, sneakers, juttis, kolhapuris, mojaris
+  • "Accessories" - Watches, bags, belts, jewelry, hats, sunglasses, scarves, dupattas, stoles
+
+- visibility_score: Rate from 0-100 how much of the item is clearly visible and identifiable. Must be at least 60 to extract.
+  • 100 = Entire item is perfectly visible with all details clear
+  • 80-99 = Most of item visible, minor parts hidden (e.g., back not visible)
+  • 60-79 = Majority visible but some key features obscured
+  • Below 60 = DO NOT EXTRACT (too much hidden, can't confidently identify)
+
+- visibility_notes: Brief note on any visibility limitations (e.g., "back not visible", "bottom hem cropped out", "partially hidden by arm"). Leave empty if fully visible.
 
 **COLOR ANALYSIS (SPATIAL):**
 - primary_color_hex: Dominant visible color as hex (#RRGGBB)
@@ -633,10 +691,22 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
                     required: ["x", "y", "width", "height"],
                   },
                   item_name: { type: "string", description: "Descriptive 3-5 word name" },
-                  category: {
+                  item_type: { 
+                    type: "string", 
+                    description: "Exact item type - be specific (e.g., 'Kurta' not 'Top', 'Sneakers' not 'Shoes')" 
+                  },
+                  parent_category: {
                     type: "string",
-                    enum: ["Tops", "Bottoms", "Outerwear", "Dresses", "Shoes", "Accessories"],
-                    description: "Item category",
+                    enum: ["Clothing", "Footwear", "Accessories"],
+                    description: "High-level category for UI grouping"
+                  },
+                  visibility_score: {
+                    type: "number",
+                    description: "0-100 percentage of item that is clearly visible. Must be >= 60 to include item."
+                  },
+                  visibility_notes: {
+                    type: "string",
+                    description: "Any visibility limitations (e.g., 'back not visible', 'sleeves cropped out'). Empty if fully visible."
                   },
                   color_palette: {
                     type: "array",
@@ -678,7 +748,9 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
                 required: [
                   "bbox",
                   "item_name",
-                  "category",
+                  "item_type",
+                  "parent_category",
+                  "visibility_score",
                   "color_palette",
                   "color_distribution",
                   "primary_color_hex",
@@ -736,7 +808,7 @@ Be precise. Only describe what you SEE. Unknown details = "unknown".
       const hasValidItems =
         Array.isArray(args.items) &&
         args.items.length > 0 &&
-        args.items.every((item: any) => item.item_name && item.category && item.bbox);
+        args.items.every((item: any) => item.item_name && item.item_type && item.parent_category && item.bbox && typeof item.visibility_score === 'number');
 
       if (hasValidItems) {
         return {
