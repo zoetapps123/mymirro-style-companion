@@ -14,6 +14,7 @@ import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import { trackEvent } from "@/lib/mixpanel";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import { ItemClassificationDialog } from "./ItemClassificationDialog";
+import { compressForWardrobe, dataUrlToFile } from "@/lib/imageCompression";
 // Image processing functions imported dynamically when needed
 
 interface WardrobeItem {
@@ -38,6 +39,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState("");
   const [uncertainItem, setUncertainItem] = useState<{ preview: string; item: any; index: number } | null>(null);
 
   useEffect(() => {
@@ -119,18 +121,44 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
         .select('name, category, color')
         .eq('user_id', user.id);
 
-      // Upload the image to storage and call backend with URL (enables caching and smaller payloads)
-      setProgress(20);
-      trackFlowStep('wardrobe_upload', 'file_selected', {
+      // Compress image for wardrobe AI analysis
+      setStatusText("Compressing image...");
+      setProgress(15);
+      
+      const compressedDataUrl = await compressForWardrobe(file);
+      const compressedFile = dataUrlToFile(
+        compressedDataUrl, 
+        file.name.replace(/\.[^.]+$/, '.jpg')
+      );
+
+      console.log(`Image compressed: ${file.size} bytes → ${compressedFile.size} bytes (${((1 - compressedFile.size / file.size) * 100).toFixed(1)}% reduction)`);
+
+      // Track compression metrics
+      trackCustom(ANALYTICS_EVENTS.ADD_ITEM_IMAGE_SELECTED, {
+        attempt_number: uploadAttempts.current,
+        files_count: files.length,
         file_type: file.type,
-        file_size: file.size,
+        file_size_bytes: file.size,
+        compressed_size_bytes: compressedFile.size,
+        compression_ratio: (1 - compressedFile.size / file.size).toFixed(2),
+        element_id: 'file-upload-input',
+        numeric_value: compressedFile.size
+      }, 'user_action:upload_start', WARDROBE_ROUTES.UPLOAD);
+
+      // Upload the compressed image to storage
+      setStatusText("Uploading...");
+      setProgress(25);
+      trackFlowStep('wardrobe_upload', 'file_selected', {
+        file_type: compressedFile.type,
+        file_size: compressedFile.size,
+        original_size: file.size,
       });
 
-      const uploadPath = `${user.id}/wardrobe_uploads/${Date.now()}_${file.name.replace(/\s+/g, '-')}`;
+      const uploadPath = `${user.id}/wardrobe_uploads/${Date.now()}_${compressedFile.name.replace(/\s+/g, '-')}`;
       const { error: uploadError } = await supabase.storage
         .from('outfits')
-        .upload(uploadPath, file, {
-          contentType: file.type || 'image/jpeg',
+        .upload(uploadPath, compressedFile, {
+          contentType: compressedFile.type || 'image/jpeg',
           upsert: false,
         });
 
@@ -149,6 +177,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
       const { data: publicUrlData } = supabase.storage.from('outfits').getPublicUrl(uploadPath);
       const imageUrl = publicUrlData.publicUrl;
 
+      setStatusText("Analyzing...");
       setProgress(40);
 
       // Invoke with exponential backoff on rate limits (429)
@@ -389,15 +418,16 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
                 Extracting Items
               </h3>
               <p className="text-sm text-muted-foreground">
-                AI is analyzing your image and isolating each clothing item...
+                {statusText || "AI is analyzing your image and isolating each clothing item..."}
               </p>
             </div>
 
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
               <p className="text-xs text-center text-muted-foreground">
-                {progress < 30 && "Reading image..."}
-                {progress >= 30 && progress < 60 && "Detecting items..."}
+                {progress < 20 && "Compressing image..."}
+                {progress >= 20 && progress < 40 && "Uploading..."}
+                {progress >= 40 && progress < 60 && "Detecting items..."}
                 {progress >= 60 && progress < 90 && "Processing items..."}
                 {progress >= 90 && "Almost done..."}
               </p>

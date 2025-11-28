@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { LoadingTile } from "@/components/ui/loading-tile";
+import { compressForWardrobe, dataUrlToFile } from "@/lib/imageCompression";
 
 interface OnboardingPhotosProps {
   onComplete: () => void;
@@ -82,13 +83,24 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
 
       const uploadedUrls: string[] = [];
 
-      // Upload all photos
+      // Upload all photos with compression
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
-        const fileExt = photo.name.split(".").pop();
-        const fileName = `${user.id}/onboarding_${Date.now()}_${i}.${fileExt}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage.from("outfits").upload(fileName, photo);
+        
+        // Compress for wardrobe AI analysis
+        setStatusText(`Compressing photo ${i + 1}/${photos.length}...`);
+        const compressedDataUrl = await compressForWardrobe(photo);
+        const compressedFile = dataUrlToFile(
+          compressedDataUrl,
+          `onboarding_${Date.now()}_${i}.jpg`
+        );
+        
+        console.log(`Photo ${i + 1} compressed: ${photo.size} → ${compressedFile.size} bytes (${((1 - compressedFile.size / photo.size) * 100).toFixed(1)}% reduction)`);
+        
+        setStatusText(`Uploading photo ${i + 1}/${photos.length}...`);
+        const fileName = `${user.id}/onboarding_${Date.now()}_${i}.jpg`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage.from("outfits").upload(fileName, compressedFile);
 
         if (uploadError) throw uploadError;
 

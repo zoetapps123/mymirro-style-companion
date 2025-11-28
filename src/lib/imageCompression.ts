@@ -11,6 +11,36 @@ export interface CompressionOptions {
 
 export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
+// Wardrobe-optimized settings for AI analysis
+export const WARDROBE_COMPRESSION_OPTIONS: CompressionOptions = {
+  maxSize: 1536,     // Higher resolution for pattern/texture detection
+  quality: 0.88,     // High quality to preserve color accuracy
+  format: 'image/jpeg'
+};
+
+/**
+ * Compresses an image optimized for wardrobe AI analysis
+ * Maintains enough detail for pattern, texture, and color detection
+ */
+export const compressForWardrobe = (file: File): Promise<string> => {
+  return compressImage(file, WARDROBE_COMPRESSION_OPTIONS);
+};
+
+/**
+ * Converts a data URL back to a File object for upload
+ */
+export const dataUrlToFile = (dataUrl: string, filename: string): File => {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
 /**
  * Compresses an image file to specified dimensions and quality
  * @param file - The image file to compress
