@@ -240,8 +240,8 @@ serve(async (req) => {
 
       while (attempts < maxAttempts) {
         try {
-          // Generate product image
-          const imageData = await generateProductImage(item);
+          // Generate product image from original
+          const imageData = await generateProductImage(item, imageUrl);
 
           // Upload to Storage
           const fileName = `${user.id}/wardrobe_gen_${Date.now()}_${i}_${item.item_name.replace(/\s+/g, "-")}.png`;
@@ -993,74 +993,63 @@ function hexToRgb(hex: string) {
     : null;
 }
 
-async function generateProductImage(item: WardrobeDetectionItem): Promise<Uint8Array> {
+async function generateProductImage(item: WardrobeDetectionItem, originalImageUrl: string): Promise<Uint8Array> {
   // Validate item has required fields
   if (!item.item_name || !item.category) {
     console.error("generateProductImage called with invalid item:", item);
     throw new Error(`Invalid item: missing item_name or category`);
   }
 
-  const visualPrompt = `Create a professional e-commerce product photo.
+  const transformPrompt = `Transform this clothing item into a professional e-commerce product image.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ITEM: ${item.item_name}
 CATEGORY: ${item.category}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**EXACT COLOR SPECIFICATION:**
-- Primary Color: ${item.primary_color_name} (${item.primary_color_hex})
-- Full Palette: ${item.color_palette.map((c, i) => `${c} (${item.color_distribution[i]}%)`).join(", ")}
-${item.color_blocking_layout !== "none" ? `- Color Blocking: ${item.color_blocking_layout}` : ""}
+KEEP EXACTLY FROM THE ORIGINAL IMAGE:
+✓ The exact colors you see in the image
+✓ The exact fabric texture and appearance
+✓ The exact pattern/graphic/print as shown
+✓ The exact item shape and silhouette
+✓ All visual details exactly as they appear
 
-**PATTERN:**
-- Type: ${item.pattern_type}
-${item.pattern_geometry !== "none" ? `- Geometry: ${item.pattern_geometry}` : ""}
-${item.pattern_coverage !== "none" ? `- Coverage: ${item.pattern_coverage}` : ""}
-${item.pattern_scale !== "none" ? `- Scale: ${item.pattern_scale}` : ""}
-
-${item.graphic_type !== "none" ? `**GRAPHICS:**
-- Type: ${item.graphic_type}
-- Location: ${item.graphic_location}
-- Size: ${item.graphic_size}` : ""}
-
-**SHAPE & STRUCTURE:**
-- Fit: ${item.fit_type}
-- Silhouette: ${item.silhouette}
-- Length: ${item.length}
-
-**CONSTRUCTION:**
-${item.sleeve_type ? `- Sleeves: ${item.sleeve_type}` : ""}
-${item.neckline ? `- Neckline: ${item.neckline}` : ""}
-${item.collar_type && item.collar_type !== "none" ? `- Collar: ${item.collar_type}` : ""}
-${item.closure_type && item.closure_type !== "none" ? `- Closure: ${item.closure_type}` : ""}
-${item.hem_style ? `- Hem: ${item.hem_style}` : ""}
-${item.pocket_details && item.pocket_details !== "none" ? `- Pockets: ${item.pocket_details}` : ""}
-${item.shoulder_style ? `- Shoulders: ${item.shoulder_style}` : ""}
-
-**VISUAL REFERENCE:**
-${item.visual_summary}
+TRANSFORM ONLY:
+✗ Background → pure white (#FFFFFF)
+✗ Remove any human body parts, hands, or skin
+✗ Center the item, front-facing
+✗ Professional e-commerce lighting (no shadows)
+✗ Item laid flat or on invisible mannequin
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GENERATION REQUIREMENTS (STRICT):
+CRITICAL INSTRUCTIONS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Pure white background (#FFFFFF)
-2. Front-facing, centered, full garment visible
-3. Item laid flat or on invisible mannequin (NO human body parts)
-4. Professional lighting, no shadows
-5. Follow EXACT colors, patterns, and construction details above
-6. Do NOT invent details not specified
-7. Ultra-sharp, e-commerce quality
+- Do NOT change, reinterpret, or recreate the colors
+- Do NOT change the fabric appearance or texture
+- Do NOT change patterns, graphics, or prints
+- Use EXACTLY what you see in the original image
+- Only remove background and body parts
+- Ultra-sharp, e-commerce quality output
 
-Generate this exact item with precision.`;
+Transform this image while preserving its exact visual characteristics.`;
 
-  console.log(`Generating image with prompt: ${visualPrompt.substring(0, 100)}...`);
+  console.log(`Transforming image with prompt: ${transformPrompt.substring(0, 100)}...`);
 
   const data = await callGeminiAPI({
     model: "google/gemini-2.5-flash-image-preview",
     messages: [
       {
         role: "user",
-        content: visualPrompt,
+        content: [
+          {
+            type: "text",
+            text: transformPrompt,
+          },
+          {
+            type: "image_url",
+            image_url: { url: originalImageUrl },
+          },
+        ],
       },
     ],
     modalities: ["image", "text"],
