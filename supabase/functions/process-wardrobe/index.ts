@@ -166,6 +166,17 @@ serve(async (req) => {
 
     let detectedItems = validationAndDetection.items;
 
+    // ═══════════════════════════════════════════════════════════════
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('📸 STEP 1: INITIAL DETECTION RESULTS');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log(`Total items detected: ${detectedItems.length}`);
+    console.log('Detected items:');
+    detectedItems.forEach((item, i) => {
+      console.log(`  ${i + 1}. ${item.item_name} (${item.item_type}) - ${item.parent_category} - visibility: ${item.visibility_score}%`);
+    });
+    console.log('═══════════════════════════════════════════════════════════════');
+
     // Filter items with low visibility score
     const filteredItems = detectedItems.filter(item => {
       if (item.visibility_score < 60) {
@@ -191,6 +202,27 @@ serve(async (req) => {
     }
 
     detectedItems = filteredItems;
+    
+    // ═══════════════════════════════════════════════════════════════
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('👁️  STEP 2: VISIBILITY FILTER');
+    console.log('═══════════════════════════════════════════════════════════════');
+    const beforeVisibility = validationAndDetection.items.length;
+    const afterVisibility = detectedItems.length;
+    const filteredOut = beforeVisibility - afterVisibility;
+    console.log(`Items before filter: ${beforeVisibility}`);
+    console.log(`Items after filter: ${afterVisibility}`);
+    console.log(`Items filtered out (low visibility): ${filteredOut}`);
+    if (filteredOut > 0) {
+      console.log('Filtered items:');
+      validationAndDetection.items
+        .filter(item => item.visibility_score < 60)
+        .forEach((item) => {
+          console.log(`  ❌ ${item.item_name} - visibility: ${item.visibility_score}% (required: 60%)`);
+        });
+    }
+    console.log('═══════════════════════════════════════════════════════════════');
+    
     console.log(`✅ Validated and detected ${detectedItems.length} items from image (passed visibility check)`);
     console.log("📊 Sample item metadata:", JSON.stringify(detectedItems[0], null, 2));
 
@@ -220,6 +252,20 @@ serve(async (req) => {
     console.log(`⏭️  ${dedupeResult.duplicatesSkipped} duplicates skipped`);
 
     const uniqueDetectedItems = dedupeResult.uniqueItems;
+
+    // ═══════════════════════════════════════════════════════════════
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('📦 STEP 4: ITEMS PASSED TO IMAGE GENERATION');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log(`Total items to generate images for: ${uniqueDetectedItems.length}`);
+    uniqueDetectedItems.forEach((item, i) => {
+      console.log(`  ${i + 1}. ${item.item_name}`);
+      console.log(`     Type: ${item.item_type}`);
+      console.log(`     Category: ${item.parent_category}`);
+      console.log(`     Visibility: ${item.visibility_score}%`);
+      console.log(`     BBox: x=${item.bbox.x.toFixed(1)}%, y=${item.bbox.y.toFixed(1)}%, w=${item.bbox.width.toFixed(1)}%, h=${item.bbox.height.toFixed(1)}%`);
+    });
+    console.log('═══════════════════════════════════════════════════════════════');
 
     // ========== PHASE 1.5: Generate Product Images ==========
     console.log("Phase 1.5: Generating product images for all unique items...");
@@ -329,6 +375,22 @@ serve(async (req) => {
     }
 
     console.log(`✅ Returning ${itemsToReturn.length} items immediately (enrichment running in background)`);
+
+    // ═══════════════════════════════════════════════════════════════
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('✅ WARDROBE PROCESSING COMPLETE - SUMMARY');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log(`📸 Initial detection: ${validationAndDetection.items.length} items`);
+    console.log(`👁️  After visibility filter: ${detectedItems.length} items`);
+    console.log(`🔍 After deduplication: ${uniqueDetectedItems.length} items`);
+    console.log(`🖼️  Images generated: ${itemsWithProcessedImages.length} items`);
+    console.log(`📤 Returned to client: ${itemsToReturn.length} items`);
+    console.log('───────────────────────────────────────────────────────────────');
+    console.log('Items returned:');
+    itemsToReturn.forEach((item, i) => {
+      console.log(`  ${i + 1}. ${item.name} (${item.category}) - ${item.item_type}`);
+    });
+    console.log('═══════════════════════════════════════════════════════════════');
 
     // Cache result (basic items, no enrichment yet)
     if (er?.waitUntil) {
@@ -856,15 +918,30 @@ async function enhancedSmartDeduplication(
 ): Promise<DuplicateCheckResult> {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  // ═══════════════════════════════════════════════════════════════
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('🔍 STEP 3: DEDUPLICATION CHECK');
+  console.log('═══════════════════════════════════════════════════════════════');
+
   const { data: existingItems, error } = await supabase.from("wardrobe_items").select("*").eq("user_id", userId);
+
+  console.log(`Checking ${detectedItems.length} detected items against ${existingItems?.length || 0} existing wardrobe items`);
 
   if (error || !existingItems || existingItems.length === 0) {
     console.log("No existing items, all detected items are unique");
+    console.log('═══════════════════════════════════════════════════════════════');
     return {
       uniqueItems: detectedItems,
       duplicatesSkipped: 0,
       skipReasons: [],
     };
+  }
+
+  if (existingItems && existingItems.length > 0) {
+    console.log('Existing wardrobe items:');
+    existingItems.forEach((item, i) => {
+      console.log(`  ${i + 1}. ${item.name} (${item.item_type || 'unknown type'}) - ${item.category}`);
+    });
   }
 
   const uniqueItems: WardrobeDetectionItem[] = [];
@@ -927,6 +1004,27 @@ async function enhancedSmartDeduplication(
       uniqueItems.push(newItem);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  console.log('───────────────────────────────────────────────────────────────');
+  console.log('DEDUPLICATION RESULTS:');
+  console.log(`  ✅ Unique items: ${uniqueItems.length}`);
+  console.log(`  ❌ Duplicates found: ${skipReasons.length}`);
+
+  if (uniqueItems.length > 0) {
+    console.log('Unique items to process:');
+    uniqueItems.forEach((item, i) => {
+      console.log(`  ✅ ${i + 1}. ${item.item_name} (${item.item_type}) - ${item.parent_category}`);
+    });
+  }
+
+  if (skipReasons.length > 0) {
+    console.log('Duplicates skipped:');
+    skipReasons.forEach((reason, i) => {
+      console.log(`  ❌ ${i + 1}. ${reason}`);
+    });
+  }
+  console.log('═══════════════════════════════════════════════════════════════');
 
   return {
     uniqueItems,
