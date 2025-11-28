@@ -1,172 +1,224 @@
 /**
- * Centralized wardrobe item deduplication logic
- * Ensures consistent duplicate detection across all wardrobe upload flows
+ * Wardrobe Item Deduplication - 12-Field Visual Signature System
+ * Uses 12 visual fields for accurate duplicate detection
  */
+
+// ============================================
+// WARDROBE ITEM INTERFACE (12-FIELD SYSTEM)
+// ============================================
 
 interface WardrobeItemForDedup {
-  name?: string | null;
   category?: string | null;
-  color?: string | null;
-  primary_color?: string | null;
-  brand?: string | null;
+  item_type?: string | null;
+  primary_color_hex?: string | null;
+  secondary_palette?: string[] | null;
+  pattern_type?: string | null;
+  pattern_geometry?: string | null;
+  fit_silhouette?: string | null;
+  length?: string | null;
+  fabric_family?: string | null;
+  fabric_behavior?: string | null;
+  graphic_summary?: string | null;
+  sleeve_neck_summary?: string | null;
 }
 
-/**
- * Normalize a string for comparison (lowercase, trim, strip punctuation)
- */
+// ============================================
+// COLOR UTILITIES
+// ============================================
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+function calculateColorDistance(hex1: string, hex2: string): number {
+  const rgb1 = hexToRgb(hex1);
+  const rgb2 = hexToRgb(hex2);
+  if (!rgb1 || !rgb2) return 999;
+  
+  return Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+    Math.pow(rgb1.g - rgb2.g, 2) +
+    Math.pow(rgb1.b - rgb2.b, 2)
+  );
+}
+
+// ============================================
+// STRING NORMALIZATION
+// ============================================
+
 function normalizeString(str: string | null | undefined): string {
   if (!str) return '';
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s]/g, '') // Remove punctuation
-    .replace(/\s+/g, ' '); // Normalize whitespace
+  return str.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
-/**
- * Check if two names are strongly similar
- * Returns true if:
- * - Exact match after normalization
- * - One contains the other (bidirectional substring match)
- */
-function areNamesStronglySimilar(name1: string, name2: string): boolean {
-  const n1 = normalizeString(name1);
-  const n2 = normalizeString(name2);
-  
-  if (!n1 || !n2) return false;
-  
-  // Exact match
-  if (n1 === n2) return true;
-  
-  // Bidirectional substring (one contains the other)
-  if (n1.includes(n2) || n2.includes(n1)) return true;
-  
-  return false;
-}
-
-/**
- * Check if two names are moderately similar
- * More lenient than strong similarity
- */
-function areNamesModeratelySimilar(name1: string, name2: string): boolean {
-  const n1 = normalizeString(name1);
-  const n2 = normalizeString(name2);
-  
-  if (!n1 || !n2) return false;
-  
-  // Use strong similarity as base
-  if (areNamesStronglySimilar(name1, name2)) return true;
-  
-  // Check if names have significant word overlap
-  const words1 = n1.split(' ').filter(w => w.length > 2);
-  const words2 = n2.split(' ').filter(w => w.length > 2);
-  
-  if (words1.length === 0 || words2.length === 0) return false;
-  
-  const commonWords = words1.filter(w => words2.includes(w));
-  const overlapRatio = commonWords.length / Math.min(words1.length, words2.length);
-  
-  return overlapRatio >= 0.5; // At least 50% word overlap
-}
-
-/**
- * Get the effective color for an item (prefer primary_color, fallback to color)
- */
-function getEffectiveColor(item: WardrobeItemForDedup): string {
-  return normalizeString(item.primary_color || item.color);
-}
-
-/**
- * Check if two colors match (only when both are present)
- */
-function doColorsMatch(item1: WardrobeItemForDedup, item2: WardrobeItemForDedup): boolean {
-  const color1 = getEffectiveColor(item1);
-  const color2 = getEffectiveColor(item2);
-  
-  // Only match if BOTH colors are present
-  if (!color1 || !color2) return false;
-  
-  return color1 === color2;
-}
-
-/**
- * Check if two brands match (only when both are present)
- */
-function doBrandsMatch(item1: WardrobeItemForDedup, item2: WardrobeItemForDedup): boolean {
-  const brand1 = normalizeString(item1.brand);
-  const brand2 = normalizeString(item2.brand);
-  
-  // Only match if BOTH brands are present
-  if (!brand1 || !brand2) return false;
-  
-  return brand1 === brand2;
-}
+// ============================================
+// DUPLICATE CHECK RESULT
+// ============================================
 
 export interface DuplicateCheckResult {
   isDuplicate: boolean;
   reason?: string;
+  matchCount?: number;
 }
 
+// ============================================
+// 12-FIELD DEDUPLICATION LOGIC
+// ============================================
+
 /**
- * Determine if a candidate item is likely a duplicate of an existing item
+ * Check if two items are duplicates based on 12-field visual signature
  * 
  * Logic:
- * 1. Category must match (normalized)
- * 2. Then one of:
- *    - Names are strongly similar (exact or substring match)
- *    - Names are moderately similar AND colors match (both present)
- *    - Names are moderately similar AND brands match (both present)
+ * 1. Category must match (exact)
+ * 2. Then 5+ of the following must match:
+ *    - item_type
+ *    - primary_color_hex (with tolerance)
+ *    - secondary_palette (overlap check)
+ *    - pattern_type
+ *    - pattern_geometry
+ *    - fit_silhouette
+ *    - length
+ *    - fabric_family
+ *    - fabric_behavior
+ *    - graphic_summary
+ *    - sleeve_neck_summary
  * 
  * @param existing - Item already in wardrobe
  * @param candidate - New item being checked
- * @returns Object with isDuplicate flag and reason string
+ * @returns Object with isDuplicate flag, reason, and match count
  */
 export function isLikelyDuplicateWardrobeItem(
   existing: WardrobeItemForDedup,
   candidate: WardrobeItemForDedup
 ): DuplicateCheckResult {
-  // Category must match
+  // Step 1: Category must match
   const existingCategory = normalizeString(existing.category);
   const candidateCategory = normalizeString(candidate.category);
   
   if (!existingCategory || !candidateCategory) {
-    return { isDuplicate: false };
+    return { isDuplicate: false, matchCount: 0 };
   }
   
   if (existingCategory !== candidateCategory) {
-    return { isDuplicate: false };
+    return { isDuplicate: false, matchCount: 0 };
   }
   
-  const existingName = existing.name || '';
-  const candidateName = candidate.name || '';
+  // Step 2: Count matching fields (need 5+ matches)
+  let matchCount = 0;
+  const matches: string[] = [];
   
-  // Check strong name similarity first
-  if (areNamesStronglySimilar(existingName, candidateName)) {
-    return {
-      isDuplicate: true,
-      reason: 'dup[name-exact]'
-    };
-  }
-  
-  // Check moderate name similarity with color match
-  if (areNamesModeratelySimilar(existingName, candidateName)) {
-    if (doColorsMatch(existing, candidate)) {
-      return {
-        isDuplicate: true,
-        reason: 'dup[name+color]'
-      };
-    }
-    
-    if (doBrandsMatch(existing, candidate)) {
-      return {
-        isDuplicate: true,
-        reason: 'dup[name+brand]'
-      };
+  // Check item_type
+  if (existing.item_type && candidate.item_type) {
+    if (normalizeString(existing.item_type) === normalizeString(candidate.item_type)) {
+      matchCount++;
+      matches.push('item_type');
     }
   }
   
-  return { isDuplicate: false };
+  // Check primary_color_hex (with color distance tolerance)
+  if (existing.primary_color_hex && candidate.primary_color_hex) {
+    const colorDist = calculateColorDistance(existing.primary_color_hex, candidate.primary_color_hex);
+    if (colorDist < 30) { // Tolerance of 30 RGB units
+      matchCount++;
+      matches.push('color');
+    }
+  }
+  
+  // Check secondary_palette (overlap check)
+  const existingPalette = existing.secondary_palette || [];
+  const candidatePalette = candidate.secondary_palette || [];
+  if (existingPalette.length > 0 && candidatePalette.length > 0) {
+    const hasOverlap = existingPalette.some(c1 => 
+      candidatePalette.some(c2 => calculateColorDistance(c1, c2) < 30)
+    );
+    if (hasOverlap) {
+      matchCount++;
+      matches.push('palette');
+    }
+  }
+  
+  // Check pattern_type
+  if (existing.pattern_type && candidate.pattern_type) {
+    if (normalizeString(existing.pattern_type) === normalizeString(candidate.pattern_type)) {
+      matchCount++;
+      matches.push('pattern_type');
+    }
+  }
+  
+  // Check pattern_geometry
+  if (existing.pattern_geometry && candidate.pattern_geometry) {
+    if (normalizeString(existing.pattern_geometry) === normalizeString(candidate.pattern_geometry)) {
+      matchCount++;
+      matches.push('pattern_geometry');
+    }
+  }
+  
+  // Check fit_silhouette
+  if (existing.fit_silhouette && candidate.fit_silhouette) {
+    if (normalizeString(existing.fit_silhouette) === normalizeString(candidate.fit_silhouette)) {
+      matchCount++;
+      matches.push('fit');
+    }
+  }
+  
+  // Check length
+  if (existing.length && candidate.length) {
+    if (normalizeString(existing.length) === normalizeString(candidate.length)) {
+      matchCount++;
+      matches.push('length');
+    }
+  }
+  
+  // Check fabric_family
+  if (existing.fabric_family && candidate.fabric_family) {
+    if (normalizeString(existing.fabric_family) === normalizeString(candidate.fabric_family)) {
+      matchCount++;
+      matches.push('fabric_family');
+    }
+  }
+  
+  // Check fabric_behavior
+  if (existing.fabric_behavior && candidate.fabric_behavior) {
+    if (normalizeString(existing.fabric_behavior) === normalizeString(candidate.fabric_behavior)) {
+      matchCount++;
+      matches.push('fabric_behavior');
+    }
+  }
+  
+  // Check graphic_summary
+  if (existing.graphic_summary && candidate.graphic_summary) {
+    if (normalizeString(existing.graphic_summary) === normalizeString(candidate.graphic_summary)) {
+      matchCount++;
+      matches.push('graphics');
+    }
+  }
+  
+  // Check sleeve_neck_summary
+  if (existing.sleeve_neck_summary && candidate.sleeve_neck_summary) {
+    if (normalizeString(existing.sleeve_neck_summary) === normalizeString(candidate.sleeve_neck_summary)) {
+      matchCount++;
+      matches.push('sleeve_neck');
+    }
+  }
+  
+  // Duplicate if 5+ fields match
+  const isDuplicate = matchCount >= 5;
+  
+  return {
+    isDuplicate,
+    matchCount,
+    reason: isDuplicate ? `dup[${matches.join('+')}]` : undefined
+  };
 }
+
+// ============================================
+// BATCH FILTERING
+// ============================================
 
 /**
  * Filter out duplicate items from a list based on existing wardrobe items
@@ -180,10 +232,10 @@ export function filterDuplicateWardrobeItems(
   existingItems: WardrobeItemForDedup[]
 ): {
   uniqueItems: WardrobeItemForDedup[];
-  skippedItems: Array<{ item: WardrobeItemForDedup; reason: string }>;
+  skippedItems: Array<{ item: WardrobeItemForDedup; reason: string; matchCount: number }>;
 } {
   const uniqueItems: WardrobeItemForDedup[] = [];
-  const skippedItems: Array<{ item: WardrobeItemForDedup; reason: string }> = [];
+  const skippedItems: Array<{ item: WardrobeItemForDedup; reason: string; matchCount: number }> = [];
   
   for (const candidate of candidates) {
     let foundDuplicate = false;
@@ -193,7 +245,8 @@ export function filterDuplicateWardrobeItems(
       if (result.isDuplicate) {
         skippedItems.push({
           item: candidate,
-          reason: result.reason || 'duplicate'
+          reason: result.reason || 'duplicate',
+          matchCount: result.matchCount || 0
         });
         foundDuplicate = true;
         break;
@@ -206,4 +259,46 @@ export function filterDuplicateWardrobeItems(
   }
   
   return { uniqueItems, skippedItems };
+}
+
+// ============================================
+// LEGACY SUPPORT (BACKWARD COMPATIBILITY)
+// ============================================
+
+/**
+ * Legacy interface for backward compatibility
+ * @deprecated Use WardrobeItemForDedup with 12-field system
+ */
+interface LegacyWardrobeItem {
+  name?: string | null;
+  category?: string | null;
+  color?: string | null;
+  primary_color?: string | null;
+  brand?: string | null;
+}
+
+/**
+ * Legacy deduplication function - deprecated
+ * @deprecated Use isLikelyDuplicateWardrobeItem with 12-field system
+ */
+export function isLikelyDuplicateLegacy(
+  existing: LegacyWardrobeItem,
+  candidate: LegacyWardrobeItem
+): DuplicateCheckResult {
+  // Simple category + name matching for legacy support
+  const existingCategory = normalizeString(existing.category);
+  const candidateCategory = normalizeString(candidate.category);
+  
+  if (!existingCategory || !candidateCategory || existingCategory !== candidateCategory) {
+    return { isDuplicate: false, matchCount: 0 };
+  }
+  
+  const existingName = normalizeString(existing.name);
+  const candidateName = normalizeString(candidate.name);
+  
+  if (existingName && candidateName && existingName === candidateName) {
+    return { isDuplicate: true, reason: 'dup[name-exact]', matchCount: 2 };
+  }
+  
+  return { isDuplicate: false, matchCount: 1 };
 }
