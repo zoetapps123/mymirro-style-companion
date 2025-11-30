@@ -571,7 +571,7 @@ const AICompanion = () => {
   // Abort any inflight chat request on unmount
   useEffect(() => {
     return () => {
-      abortControllerRef.current?.abort();
+      abortControllerRef.current?.abort('Chat component unmounted');
     };
   }, []);
 
@@ -694,10 +694,11 @@ const AICompanion = () => {
     const isMobileSafari = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
 
     // Abort any previous inflight request and start a new controller
-    abortControllerRef.current?.abort();
+    abortControllerRef.current?.abort('New message sent - cancelling previous request');
     const controller = new AbortController();
     abortControllerRef.current = controller;
     let timeoutId: number | undefined;
+    let warningTimeoutId: number | undefined;
 
     try {
       const response = await retryWithBackoff(async () => {
@@ -765,10 +766,22 @@ const AICompanion = () => {
 
       // Safety timeout to prevent hanging connections on mobile
       if (!timeoutId) {
-        const ms = isMobileSafari ? 30000 : 60000;
+        const ms = isMobileSafari ? 45000 : 90000;
+        
+        // Warn user 5 seconds before timeout
+        warningTimeoutId = window.setTimeout(() => {
+          if (abortControllerRef.current === controller) {
+            toast({
+              title: "Still working...",
+              description: "This is taking longer than usual. Hang tight!",
+              duration: 5000,
+            });
+          }
+        }, ms - 5000);
+        
         timeoutId = window.setTimeout(() => {
           try {
-            controller.abort();
+            controller.abort(`Request timed out after ${ms/1000}s`);
           } catch {}
         }, ms);
       }
@@ -1223,6 +1236,7 @@ const AICompanion = () => {
 
       // Cleanup controller/timeout
       if (timeoutId) clearTimeout(timeoutId);
+      if (warningTimeoutId) clearTimeout(warningTimeoutId);
       abortControllerRef.current = null;
     } catch (error) {
       console.error("Chat error:", error);
@@ -1231,8 +1245,28 @@ const AICompanion = () => {
       let errorType = 'unknown_error';
       if (error instanceof Error) {
         if (error.name === "AbortError") {
-          errorMessage = "Request cancelled. Please try again.";
-          errorType = 'request_cancelled';
+          // Extract reason from DOMException
+          const reason = (error as any).reason || error.message;
+          
+          if (reason?.includes('timed out')) {
+            errorMessage = "Response took too long. Please try again.";
+            errorType = 'timeout';
+          } else if (reason?.includes('unmounted')) {
+            // Don't show error - user navigated away intentionally
+            if (timeoutId) clearTimeout(timeoutId);
+            if (warningTimeoutId) clearTimeout(warningTimeoutId);
+            abortControllerRef.current = null;
+            return; // Exit early, don't set error state
+          } else if (reason?.includes('New message')) {
+            // Don't show error - normal behavior when user sends another message
+            if (timeoutId) clearTimeout(timeoutId);
+            if (warningTimeoutId) clearTimeout(warningTimeoutId);
+            abortControllerRef.current = null;
+            return; // Exit early
+          } else {
+            errorMessage = "Request cancelled. Please try again.";
+            errorType = 'request_cancelled';
+          }
         } else if (error.message.includes("Failed to fetch")) {
           errorMessage = "Network error. Please check your connection and try again.";
           errorType = 'network_error';
@@ -1273,6 +1307,7 @@ const AICompanion = () => {
       // Cleanup on error
       try {
         if (timeoutId) clearTimeout(timeoutId);
+        if (warningTimeoutId) clearTimeout(warningTimeoutId);
       } catch {}
       abortControllerRef.current = null;
     }
