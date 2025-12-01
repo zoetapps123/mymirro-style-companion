@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callGeminiAPI, getAIApiKey } from '../_shared/ai-config.ts';
 import { OUTFIT_GENERATION_PROMPTS, OUTFIT_ENGINE_PROMPT, WARDROBE_ENGINE_PROMPT, WARDROBE_ENGINE_V3, OUTFIT_ENGINE_V3, ultraCompactItemForAI } from '../_shared/prompts.ts';
+import { MASTER_STYLING_ENGINE_V1 } from '../_shared/master_styling_engine.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-utils.ts';
 import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/cache-utils.ts';
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
@@ -643,7 +644,9 @@ function countNonNullFields(item: any): number {
   return importantFields.filter(f => item[f] && item[f] !== null).length;
 }
 
-function sampleWardrobe(items: any[], maxItems: number = 35) {
+const MAX_ITEMS_FOR_MODEL = 35;
+
+function sampleWardrobe(items: any[], maxItems: number = MAX_ITEMS_FOR_MODEL) {
   // If small wardrobe, use all
   if (items.length <= maxItems) return items;
   
@@ -702,7 +705,7 @@ function sampleWardrobe(items: any[], maxItems: number = 35) {
 function filterRelevantItems(items: any[], occasion?: string, style?: string) {
   // If no filters, return sampled
   if (!occasion && !style) {
-    return sampleWardrobe(items, 40); // Hard max for safety
+    return sampleWardrobe(items, MAX_ITEMS_FOR_MODEL);
   }
   
   // Score items by relevance
@@ -740,7 +743,7 @@ function filterRelevantItems(items: any[], occasion?: string, style?: string) {
 // ============================================
 // PHASE 6: Anchor item prioritization
 // ============================================
-function prepareWardrobeWithAnchor(items: any[], anchorItem?: any, maxItems: number = 35) {
+function prepareWardrobeWithAnchor(items: any[], anchorItem?: any, maxItems: number = MAX_ITEMS_FOR_MODEL) {
   if (!anchorItem) return filterRelevantItems(items);
   
   // Always include anchor first
@@ -770,6 +773,87 @@ function prepareWardrobeWithAnchor(items: any[], anchorItem?: any, maxItems: num
   return result;
 }
 
+// ============================================
+// NEW: Context-only prompt builder for v2
+// ============================================
+function buildContextPromptV2(args: {
+  wardrobeSummary: any;
+  wardrobeByCategory: any;
+  request: any;
+  anchorItem?: { id: string; name: string; category: string } | null;
+  emotionalContext?: any;
+  tasteProfile?: any;
+  conversationMode?: string | null;
+  userProfile?: {
+    gender?: string | null;
+    ageRange?: string | null;
+    bodyShape?: string | null;
+    skinTone?: string | null;
+  } | null;
+}) {
+  const {
+    wardrobeSummary,
+    wardrobeByCategory,
+    request,
+    anchorItem,
+    emotionalContext,
+    tasteProfile,
+    conversationMode,
+    userProfile,
+  } = args;
+
+  let parts: string[] = [];
+
+  parts.push('<OUTFIT_GENERATION_CONTEXT>');
+
+  if (emotionalContext) {
+    parts.push('<EMOTIONAL_CONTEXT>');
+    parts.push(JSON.stringify(emotionalContext));
+    parts.push('</EMOTIONAL_CONTEXT>');
+  }
+
+  if (tasteProfile) {
+    parts.push('<TASTE_PROFILE>');
+    parts.push(JSON.stringify(tasteProfile));
+    parts.push('</TASTE_PROFILE>');
+  }
+
+  if (conversationMode) {
+    parts.push(`<CONVERSATION_MODE>${conversationMode}</CONVERSATION_MODE>`);
+  }
+
+  if (userProfile) {
+    parts.push('<USER_PROFILE>');
+    parts.push(JSON.stringify(userProfile));
+    parts.push('</USER_PROFILE>');
+  }
+
+  parts.push('</OUTFIT_GENERATION_CONTEXT>');
+
+  // Wardrobe summary
+  parts.push('<WARDROBE_SUMMARY>');
+  parts.push(JSON.stringify(wardrobeSummary));
+  parts.push('</WARDROBE_SUMMARY>');
+
+  // Wardrobe by category
+  parts.push('<WARDROBE_BY_CATEGORY>');
+  parts.push(JSON.stringify(wardrobeByCategory));
+  parts.push('</WARDROBE_BY_CATEGORY>');
+
+  // Request
+  parts.push('<REQUEST>');
+  parts.push(JSON.stringify(request));
+  parts.push('</REQUEST>');
+
+  if (anchorItem) {
+    parts.push('<ANCHOR_ITEM>');
+    parts.push(JSON.stringify(anchorItem));
+    parts.push('</ANCHOR_ITEM>');
+  }
+
+  return parts.join('\n');
+}
+
 function buildOutfitGenerationPrompt(
   generationType: string,
   occasion?: string,
@@ -788,7 +872,7 @@ function buildOutfitGenerationPrompt(
   let optimizedWardrobe = wardrobeItems || [];
   
   if (anchorItem) {
-    optimizedWardrobe = prepareWardrobeWithAnchor(optimizedWardrobe, anchorItem, 35);
+    optimizedWardrobe = prepareWardrobeWithAnchor(optimizedWardrobe, anchorItem, MAX_ITEMS_FOR_MODEL);
   } else {
     optimizedWardrobe = filterRelevantItems(optimizedWardrobe, occasion, style);
   }
@@ -800,193 +884,80 @@ function buildOutfitGenerationPrompt(
   if (optimizedWardrobe.length < originalCount) {
     console.log(`✂️ Filtered ${originalCount - optimizedWardrobe.length} items for relevance`);
   }
-  // Build enhanced v4.0 prompt with emotional context and taste profile
-  const contextualEnhancements = `
-<OUTFIT_GENERATION_CONTEXT>
-  ${emotionalContext ? `
-  <EMOTIONAL_CONTEXT>
-    <TONE>${emotionalContext.emotional_tone}</TONE>
-    <SOFT_MODE_REQUIRED>${emotionalContext.soft_mode_required}</SOFT_MODE_REQUIRED>
-    <CONFIDENCE>${emotionalContext.confidence}%</CONFIDENCE>
-    
-    STYLING BEHAVIOR:
-    ${emotionalContext.soft_mode_required ? `
-    - Use reassuring, confidence-building language
-    - Suggest safe, comfortable outfit options first
-    - Avoid experimental or bold suggestions unless user explicitly wants them
-    - Focus on making user feel good about their choices
-    ` : emotionalContext.emotional_tone === 'excitement' ? `
-    - Match the excitement with bold, statement-making outfits
-    - Suggest trend-forward combinations
-    - Use enthusiastic, hype language in styling_opinion
-    ` : `
-    - Balanced approach: provide both safe and bold options
-    - Let outfit speak for itself with clear reasoning
-    `}
-  </EMOTIONAL_CONTEXT>
-  ` : ''}
   
-  ${tasteProfile ? `
-  <TASTE_PROFILE>
-    <WARDROBE_SIZE>${tasteProfile.wardrobe_size}</WARDROBE_SIZE>
-    <COLOR_PALETTE>${tasteProfile.color_palette}</COLOR_PALETTE>
-    <DOMINANT_COLORS>${tasteProfile.dominant_colors.join(', ')}</DOMINANT_COLORS>
-    <STYLE_AESTHETICS>${tasteProfile.style_aesthetic.join(', ')}</STYLE_AESTHETICS>
-    
-    STYLING LOGIC:
-    - Prioritize colors from user's palette: ${tasteProfile.dominant_colors.join(', ')}
-    - Match aesthetic preferences: ${tasteProfile.style_aesthetic.join(', ')}
-    - ${tasteProfile.wardrobe_size < 10 ? 'Create versatile combinations that maximize outfit variety' : 'Explore diverse styling options'}
-  </TASTE_PROFILE>
-  ` : ''}
+  // Prepare wardrobe data structures for new context builder
+  const norm = (s: any) => (s || '').toString().toLowerCase();
   
-  ${conversationMode ? `
-  <CONVERSATION_MODE>${conversationMode}</CONVERSATION_MODE>
-  ` : ''}
+  const wardrobeSummary = {
+    totalItems: optimizedWardrobe.length,
+    tops: optimizedWardrobe.filter(i => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => norm(i.category).includes(k))).length,
+    bottoms: optimizedWardrobe.filter(i => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => norm(i.category).includes(k))).length,
+    shoes: optimizedWardrobe.filter(i => ['shoe','sneaker','boot','loafer','heel','sandal'].some(k => norm(i.category).includes(k))).length,
+    outerwear: optimizedWardrobe.filter(i => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear'].some(k => norm(i.category).includes(k))).length,
+    dresses: optimizedWardrobe.filter(i => ['dress','gown','jumpsuit','romper'].some(k => norm(i.category).includes(k))).length,
+    ethnic: optimizedWardrobe.filter(i => ['kurta set','saree','lehenga','sherwani','salwar'].some(k => norm(i.category).includes(k) || norm(i.name).includes(k))).length,
+    accessories: optimizedWardrobe.filter(i => ['accessory','watch','belt','bag','handbag','sunglass','hat','scarf','jewelry'].some(k => norm(i.category).includes(k))).length,
+  };
   
-  ${userProfile?.gender || userProfile?.ageRange ? `
-  <USER_PROFILE>
-    ${userProfile.gender ? `<GENDER>${userProfile.gender}</GENDER>` : ''}
-    ${userProfile.ageRange ? `<AGE_RANGE>${userProfile.ageRange}</AGE_RANGE>` : ''}
-    ${userProfile.bodyShape ? `<BODY_SHAPE>${userProfile.bodyShape}</BODY_SHAPE>` : ''}
-    ${userProfile.skinTone ? `<SKIN_TONE>${userProfile.skinTone}</SKIN_TONE>` : ''}
-    
-    GENDER-AWARE STYLING RULES:
-    ${userProfile.gender === 'female' ? `
-    - Prioritize feminine silhouettes when available (A-line, fit-and-flare)
-    - Include options for dresses, skirts, ethnic wear (kurtis, sarees)
-    - Consider jewelry and accessory pairings
-    - For formal: saree, lehenga, formal dresses, tailored suits
-    ` : userProfile.gender === 'male' ? `
-    - Prioritize masculine silhouettes (structured, relaxed, athletic fits)
-    - Include options for kurtas, sherwanis for ethnic occasions
-    - Consider watch, belt, pocket square pairings
-    - For formal: suits, formal kurta sets, blazer combinations
-    ` : `
-    - Use gender-neutral styling approach
-    - Focus on silhouette and color rather than gendered categories
-    - Mix traditionally masculine and feminine pieces freely
-    `}
-    
-    AGE-APPROPRIATE STYLING:
-    ${userProfile.ageRange === '<18' ? `
-    - Fun, expressive, trend-forward styles
-    - Avoid overly formal or mature looks
-    - Embrace bold colors and patterns
-    ` : userProfile.ageRange === '18-21' ? `
-    - Gen-Z trends: oversized, streetwear, Y2K influences
-    - Balance trendy with practical
-    - Statement pieces welcome
-    ` : userProfile.ageRange === '22-26' ? `
-    - Young professional vibes
-    - Mix casual and smart-casual
-    - Versatile pieces that work day-to-night
-    ` : userProfile.ageRange === '27-30' ? `
-    - Elevated basics, quality over quantity
-    - Sophisticated casual and business looks
-    - Timeless pieces with modern touches
-    ` : userProfile.ageRange === '>30' ? `
-    - Classic, refined aesthetics
-    - Focus on fit and quality
-    - Elegant and polished combinations
-    ` : ''}
-  </USER_PROFILE>
-  ` : ''}
-</OUTFIT_GENERATION_CONTEXT>
-
-<OUTFIT_ENGINE_v4_INSTRUCTIONS>
+  const wardrobeByCategory = optimizedWardrobe.reduce((acc: any, item: any) => {
+    const compactItem = ultraCompactItemForAI(item);
+    const cat = compactItem.c;
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(compactItem);
+    return acc;
+  }, {});
   
-  1. SAFE + BOLD DUAL OUTPUT LOGIC:
-     ${!occasion || occasion === 'casual' || !style ? `
-     Since occasion/style is ambiguous or casual:
-     - Generate at LEAST 2 outfits
-     - Mark one as "safe" (classic, proven, comfortable)
-     - Mark one as "bold" (experimental, statement, confident)
-     - Set safe_outfit_index and bold_outfit_index in response
-     - User can choose based on mood
-     ` : `
-     Since occasion/style is specific (${occasion || style}):
-     - Generate outfits optimized for the occasion
-     - Still vary boldness levels across outfits
-     - Mark boldness_level: 'safe' or 'bold' for each outfit
-     `}
-  
-  2. INDIAN CULTURAL STYLING RULES (from Module 10):
-     - For ethnic occasions: Kurta sets, sarees, lehengas are PRIMARY
-     - For fusion: Mix ethnic pieces with western (kurta + jeans, palazzo + crop top)
-     - For casual Indian context: Kurtis, ethnic tops work with jeans/trousers
-     - Festivals/weddings: Prioritize traditional silhouettes with modern touches
-     - Office/formal: Shirts, trousers, blazers OR formal ethnic (formal kurta, dress pants)
-  
-  3. WARDROBE GAP ANALYSIS:
-     After generating outfits, analyze wardrobe and identify:
-     - Missing categories that would unlock 5+ new outfit combinations
-     - Items that would elevate existing outfits (blazer, statement accessory)
-     - Return as wardrobe_gaps: ["category: reason", ...]
-     - Return upgrade_suggestions with priority (high/medium/low)
-  
-  4. STYLING OPINION (from Stylist Opinion Engine):
-     For EACH outfit, include styling_opinion field:
-     - Give honest, fashion-smart opinion
-     - Use warm, opinionated language
-     - Example: "This combo is clean—oversized tee balances the fitted jeans perfectly. Very Gen-Z minimalist."
-     - Example: "Bold move with this pattern mix, but the neutral base grounds it. You'll stand out."
-  
-  5. VISUAL DESCRIPTION (from Visual Simulation Engine):
-     For EACH outfit, include visual_description field:
-     - Use imagination-based language
-     - Example: "Picturing this... the rust-brown kurta against your skin tone? Actually fire."
-     - Example: "Visualizing it—black on black with the white sneakers as the pop. Very editorial."
-  
-  6. POST-OUTFIT RECOMMENDATIONS:
-     Always suggest 1-2 items user could add to multiply outfit possibilities:
-     - Focus on high-impact pieces (blazer, statement shoe, versatile bottom)
-     - Explain how it unlocks X more outfit combinations
-</OUTFIT_ENGINE_v4_INSTRUCTIONS>
-`;
-
-  // Build the base prompt with optimized wardrobe
-  const basePrompt = OUTFIT_GENERATION_PROMPTS.BUILD_PROMPT({
+  const requestContext = {
     generationType,
     occasion,
     style,
-    anchorItem,
-    wardrobeItems: optimizedWardrobe, // Use filtered/sampled wardrobe
-    maxOutfits,
-    userLocation: userLocation ? { temp: userLocation.temp, weather: userLocation.weather } : undefined,
-    gender: userProfile?.gender,
-    ageRange: userProfile?.ageRange
+    maxOutfits: maxOutfits || 3,
+    temperature: userLocation?.temp,
+    weather: userLocation?.weather,
+  };
+  
+  // Build context-only prompt using new v2 builder
+  const contextPromptV2 = buildContextPromptV2({
+    wardrobeSummary,
+    wardrobeByCategory,
+    request: requestContext,
+    anchorItem: anchorItem ? {
+      id: anchorItem.id,
+      name: anchorItem.name,
+      category: anchorItem.category
+    } : null,
+    emotionalContext,
+    tasteProfile,
+    conversationMode,
+    userProfile,
   });
 
-  // PHASE 7: v3.0 ULTRA-COMPACT PROMPT STRUCTURE (68% token reduction)
-  const finalPrompt = `${WARDROBE_ENGINE_V3}
-
-${OUTFIT_ENGINE_V3}
+  // Build NEW v2 prompt structure with MASTER_STYLING_ENGINE_V1
+  const finalPrompt = `
+${MASTER_STYLING_ENGINE_V1}
 
 <TASK>
-Generate ${maxOutfits || 3} outfits from wardrobe.
-${anchorItem ? `🔒 ANCHOR: ID=${anchorItem.id} "${anchorItem.name}" MUST be in EVERY outfit.` : ''}
-${!occasion || occasion === 'casual' || !style ? 'Include 1 safe + 1 bold outfit with meaningful difference.' : ''}
+Generate ${maxOutfits || 3} outfits using the rules from MASTER_STYLING_ENGINE_V1.
+If an anchor item is provided, it MUST appear in every outfit.
+You MUST only use the generate_outfit_combinations tool.
+You MUST NOT generate plain text responses.
 </TASK>
 
-${basePrompt}
+${contextPromptV2}
+`;
 
-CALL generate_outfit_combinations ONLY. Include styling_opinion + visual_description for EVERY outfit.`;
-
-  // PHASE 8: Token estimation logging (v3.0 metrics with detailed breakdown)
-  const wardrobeEngineTokens = estimateTokens(WARDROBE_ENGINE_V3);
-  const outfitEngineTokens = estimateTokens(OUTFIT_ENGINE_V3);
-  const buildPromptTokens = estimateTokens(basePrompt);
+  // Token estimation logging for new structure
+  const masterEngineTokens = estimateTokens(MASTER_STYLING_ENGINE_V1);
+  const contextTokens = estimateTokens(contextPromptV2);
   const estimatedTokens = estimateTokens(finalPrompt);
   
-  console.log('📊 v3.0 Token Breakdown:', {
-    wardrobeEngineV3: `${wardrobeEngineTokens} tokens`,
-    outfitEngineV3: `${outfitEngineTokens} tokens`,
-    buildPrompt: `${buildPromptTokens} tokens`,
+  console.log('📊 v2.0 Master Engine Token Breakdown:', {
+    masterStylingEngine: `${masterEngineTokens} tokens`,
+    contextPrompt: `${contextTokens} tokens`,
     total: `${estimatedTokens} tokens`,
-    target: '≤3500 tokens',
-    targetMet: estimatedTokens <= 3500 ? '✅ YES' : '❌ NO',
-    itemFormat: 'ultraCompact (~55-60 tokens/item with gender+occasion)',
+    target: '≤1400 tokens',
+    targetMet: estimatedTokens <= 1400 ? '✅ YES' : '❌ NO',
+    itemFormat: 'ultraCompact (~55-60 tokens/item)',
     wardrobeItems: optimizedWardrobe.length,
     estimatedItemTokens: `~${optimizedWardrobe.length * 58}`,
     reduction: originalCount > optimizedWardrobe.length 
