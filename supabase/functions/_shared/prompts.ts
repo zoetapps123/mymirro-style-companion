@@ -4,6 +4,7 @@
  */
 
 import { buildAICompanionPrompt } from './ai_companion_prompts/index.ts';
+import { MASTER_STYLING_ENGINE_V1 } from './master_styling_engine.ts';
 
 // ============================================
 // HELPER FUNCTIONS
@@ -430,99 +431,23 @@ export const OUTFIT_ENGINE_PROMPT = `### MODULE 10 — OUTFIT ENGINE v2.0 (MyMir
 // OUTFIT ENGINE v3.0 — ULTRA-COMPACT PROMPTS
 // ============================================
 
-export const WARDROBE_ENGINE_V3 = `<WARDROBE_ENGINE_V3>
-PURPOSE: Parse wardrobe items into styling-ready entities. Never hallucinate items.
+// [DEPRECATED] Wardrobe logic has been moved into MASTER_STYLING_ENGINE_V1.
+// Use MASTER_STYLING_ENGINE_V1 instead.
+export const WARDROBE_ENGINE_V3 = `
+[DEPRECATED] Wardrobe logic has been moved into MASTER_STYLING_ENGINE_V1.
+Use MASTER_STYLING_ENGINE_V1 instead.
+`;
 
-CATEGORY_NORMALIZATION:
-top|btm|out|drs|eth|sho|acc
+// [DEPRECATED] Outfit generation logic has been moved into MASTER_STYLING_ENGINE_V1.
+// Use MASTER_STYLING_ENGINE_V1 instead.
+export const OUTFIT_ENGINE_V3 = `
+[DEPRECATED] Outfit generation logic has been moved into MASTER_STYLING_ENGINE_V1.
+Use MASTER_STYLING_ENGINE_V1 instead.
 
-STYLING_RULES:
-• Color: Match undertones (warm/cool/neutral), prefer monochrome or complementary
-• Fabric: heavy+light=balanced, texture+smooth=depth, denim anchors all
-• Silhouette: oversized_top→slim_btm, fitted_top→relaxed_btm, cropped→high-rise
-• Pattern: max 2 if different scales, balance with solids
-• Formality: Never cross dress codes (casual≠formal)
+`;
 
-GENDER_RULES:
-• gen:m items → male-appropriate (kurta sets, sherwanis, structured fits)
-• gen:f items → female-appropriate (sarees, salwars, lehengas, kurtis)
-• gen:u items → unisex (jeans, tees, sneakers, blazers)
-• NEVER mix gender categories (salwar ≠ male user, sherwani ≠ female user)
-
-ITEM_SCHEMA:
-{id,n,c,col,fit,f,gen,occ,sty} — use ONLY these fields
-• f: cas|smc|bsc|frm (formality)
-• gen: m|f|u (gender)
-• occ: wed,work,cas,prty,frm,fest,date (occasions)
-• sty: first style tag
-
-GAP_DETECTION:
-Men: white_tee, jeans, sneakers, blazer
-Women: basic_top, trousers, denim, neutral_layer
-
-SAFETY: Use ONLY provided item IDs. Never invent items/colors/categories.
-</WARDROBE_ENGINE_V3>`;
-
-export const OUTFIT_ENGINE_V3 = `<OUTFIT_ENGINE_V3>
-PURPOSE: Generate stylish, diverse, wearable outfits from wardrobe.
-
-OUTFIT_STRUCTURE (STRICT):
-• Separates: upperwear + lowerwear + footwear + (layer OR accessory) REQUIRED
-• Dress: dress/jumpsuit + footwear + (layer OR accessory) REQUIRED
-• Every outfit MUST have 4+ pieces minimum (3 core + 1 accent)
-• Max 1 layer, 1-2 accessories per outfit
-
-ANCHOR_LOGIC:
-If anchor_item provided → MUST appear in EVERY outfit. Non-negotiable.
-
-GENDER_ENFORCEMENT (CRITICAL):
-• If user.gender=male → ONLY use items where gen=m OR gen=u
-• If user.gender=female → ONLY use items where gen=f OR gen=u
-• NEVER pair male user with gen:f items (salwar, saree, lehenga, kurti)
-• NEVER pair female user with gen:m items (sherwani, nehru jacket)
-
-OCCASION_RULES (STRICT):
-• Wedding/Formal → MUST use items where f=frm OR f=smc
-• Wedding India + male → PRIORITIZE eth (kurta sets, sherwanis) OR blazers
-• Wedding India + female → PRIORITIZE eth (sarees, lehengas) OR formal dresses
-• Casual occasion → f=cas OK, but f=frm items acceptable too
-• If no suitable formality items exist → return outfits:[], missingCategories populated
-• NEVER use f=cas items for wedding/formal occasions
-
-SAFE_OUTFIT:
-• Neutral/tonal palette
-• Clean silhouette
-• Low pattern contrast
-• High wearability
-
-BOLD_OUTFIT (must have 2+):
-• Non-neutral hero color OR color blocking
-• Statement proportions OR unconventional layers
-• Pattern mix OR statement texture
-• Unexpected category fusion OR statement footwear
-
-DIVERSITY_RULES (ENFORCE):
-✓ Different shoes per outfit (unless <2 shoes)
-✓ Different bottoms per outfit (unless <2 btms)
-✓ Vary silhouettes (fitted/relaxed mix)
-✓ Vary color families
-✓ Safe≠Bold (meaningful difference)
-
-PENALTY:
--0.25 conf if same shoe reused
--0.20 conf if same btm reused
--0.15 conf if same silhouette
--0.30 conf if gender mismatch
--0.40 conf if occasion-formality mismatch
-
-OUTPUT_REQUIRED:
-• styling_opinion: warm, opinionated fashion comment
-• visual_description: imagination-based visualization
-• boldness_level: 'safe' or 'bold'
-• confidence: 0.0-1.0
-
-FALLBACK: If occasion specific but no valid combos → outfits:[], missingCategories populated
-</OUTFIT_ENGINE_V3>`;
+// Re-export the master styling engine for use in edge functions
+export { MASTER_STYLING_ENGINE_V1 };
 
 // Legacy prompts (deprecated in v3.0, kept for backward compatibility)
 export const WARDROBE_ENGINE_PROMPT = `### MODULE 13 — WARDROBE ENGINE v2.0 (MyMirro)
