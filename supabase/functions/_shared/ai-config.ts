@@ -67,7 +67,17 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
               if (!imageResponse.ok) {
                 throw new Error(`Failed to fetch image: ${imageResponse.status}`);
               }
-              const imageBuffer = await imageResponse.arrayBuffer();
+              let imageBuffer = await imageResponse.arrayBuffer();
+              const originalSize = imageBuffer.byteLength;
+              
+              // Compress image if larger than 1MB to reduce CPU time
+              if (originalSize > 1024 * 1024) {
+                console.log('Compressing large image:', originalSize, 'bytes');
+                const { compressImage } = await import('./image-utils.ts');
+                imageBuffer = await compressImage(imageBuffer, 1024, 80);
+                console.log('Compressed from', originalSize, 'to', imageBuffer.byteLength, 'bytes');
+              }
+              
               // Convert to base64 safely without blowing the call stack
               const bytes = new Uint8Array(imageBuffer);
               const chunkSize = 0x8000; // 32KB chunks
@@ -77,7 +87,7 @@ async function convertMessagesToContents(messages: any[]): Promise<any[]> {
                 binary += String.fromCharCode(...chunk);
               }
               const base64Data = btoa(binary);
-              const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+              const mimeType = 'image/jpeg'; // Always JPEG after compression
               console.log('Successfully converted image, size:', imageBuffer.byteLength, 'type:', mimeType);
               parts.push({
                 inline_data: {
