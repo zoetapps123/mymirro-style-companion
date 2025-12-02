@@ -1319,12 +1319,12 @@ const AICompanion = () => {
     handleSend(suggestion);
   };
 
-  const handleCardClick = (query: string) => {
+  const handleCardClick = (query: string, id: string) => {
     setShowPrompts(false);
     trackCustom("query_card_clicked", { query }, "user_action:click_query_card");
     
     // Mixpanel: Track chat card clicked
-    trackEvent('chat_card_clicked', { query });
+    trackEvent('chat_card_clicked', { query, id });
     
     // Directly send the card query
     handleSend(query);
@@ -1647,7 +1647,7 @@ const AICompanion = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => handleCardClick(card.query)}
+                onClick={() => handleCardClick(card.query, card.id)}
                 className="glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-left hover:glow-primary transition-all duration-300 group"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
