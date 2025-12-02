@@ -759,14 +759,14 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                           onClick={(e) => {
                             e.stopPropagation();
                             
-                            console.log('[Mixpanel] outfit_view_clicked:', { outfit_name: outfit.name });
+                            console.log('[Mixpanel] outfit_card_clicked:', { outfit_name: outfit.name });
                             
-                            trackEvent('outfit_view_clicked', {
+                            trackEvent('outfit_card_clicked', {
                               outfit_id: outfit.id,
                               outfit_name: outfit.name
                             });
                             
-                            trackCustom('outfit_view_clicked', {
+                            trackCustom('outfit_card_clicked', {
                               outfit_id: outfit.id,
                               outfit_name: outfit.name,
                               occasion: outfit.occasion,
@@ -788,20 +788,20 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!isSaved) {
-                              console.log('[Mixpanel] outfit_saved_to_lookbook:', { 
+                              console.log('[Mixpanel] outfit_saved:', { 
                                 outfit_name: outfit.name,
                                 occasion: outfit.occasion,
                                 style_tag: outfit.style_tag
                               });
                               
-                              trackEvent('outfit_saved_to_lookbook', {
+                              trackEvent('outfit_saved', {
                                 outfit_id: outfit.id,
                                 outfit_name: outfit.name,
                                 occasion: outfit.occasion,
                                 style_tag: outfit.style_tag
                               });
                               
-                              trackCustom('outfit_saved_to_lookbook', {
+                              trackCustom('outfit_saved', {
                                 outfit_id: outfit.id,
                                 outfit_name: outfit.name,
                                 occasion: outfit.occasion,
