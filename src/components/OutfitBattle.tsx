@@ -126,11 +126,20 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
       return;
     }
 
-    setParticipants([...participants, {
+    const newParticipants = [...participants, {
       name: currentName.trim(),
       imageData: pendingImage.imageData,
       imageFile: pendingImage.imageFile
-    }]);
+    }];
+    
+    setParticipants(newParticipants);
+    
+    // Track participant added
+    trackCustom('battle_participant_added', {
+      participant_count: newParticipants.length,
+      has_name: true
+    }, 'user_action:add_participant');
+    
     setCurrentName("");
     setPendingImage(null);
     setAwaitingName(false);
@@ -143,7 +152,14 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   };
 
   const removeParticipant = (index: number) => {
-    setParticipants(participants.filter((_, i) => i !== index));
+    const newParticipants = participants.filter((_, i) => i !== index);
+    setParticipants(newParticipants);
+    
+    // Track participant removed
+    trackCustom('battle_participant_removed', {
+      participant_count: newParticipants.length,
+      participant_index: index
+    }, 'user_action:remove_participant');
   };
 
   const updateParticipant = (index: number, field: keyof Participant, value: string) => {
@@ -177,6 +193,12 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
       });
       return;
     }
+
+    // Track battle started
+    trackCustom('battle_started', {
+      participant_count: participants.length,
+      participant_names: participants.map(p => p.name)
+    }, 'user_action:start_battle');
 
     setLoading(true);
     setScanning(true);
@@ -220,6 +242,12 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
         setScanning(false);
         setLoading(false);
 
+        // Track battle failed
+        trackCustom('battle_failed', {
+          error_message: errorMessage,
+          participant_count: participants.length
+        }, 'user_action:battle_error');
+
         if (status === 429) {
           toast({ title: 'Rate limited', description: 'Too many requests. Please try again in a minute.', variant: 'destructive' });
         } else if (status === 402) {
@@ -259,11 +287,11 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
       const battleDuration = Math.floor((Date.now() - (loading ? Date.now() - 2000 : Date.now())) / 1000);
       
       // Track battle completion
-      trackCustom('outfit_battle_completed', {
+      trackCustom('battle_completed', {
         participant_count: participants.length,
-        winner: data.results[0].name,
+        winner_name: data.results[0].name,
         winner_score: data.results[0].score,
-        duration_seconds: battleDuration
+        duration: battleDuration
       }, 'user_action:complete_battle');
 
       // Persist battle in background (non-blocking)
@@ -336,6 +364,12 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
 
   const handleShare = async () => {
     if (!results) return;
+
+    // Track share attempt
+    trackCustom('battle_shared', {
+      winner_name: results.results[0].name,
+      participant_count: results.results.length
+    }, 'user_action:share_battle');
 
     const canvas = document.createElement('canvas');
     canvas.width = 1080;
@@ -874,7 +908,13 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
-              <Button onClick={() => { setResults(null); setParticipants([]); }}>
+              <Button onClick={() => { 
+                trackCustom('battle_reset', {
+                  previous_participant_count: participants.length
+                }, 'user_action:reset_battle');
+                setResults(null); 
+                setParticipants([]); 
+              }}>
                 Rematch
               </Button>
             </div>
