@@ -678,7 +678,7 @@ After they specify occasion, THEN call this tool (if anti-spam check passes).`,
         type: "function",
         function: {
           name: "show_wardrobe_items",
-          description: "Display specific wardrobe items visually to the user",
+          description: "ALWAYS use this to visually display wardrobe items when user says 'show me', 'display', 'let me see'. REQUIRED for outfit combinations.",
           parameters: {
             type: "object",
             properties: {
