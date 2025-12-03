@@ -496,22 +496,6 @@ categories=${[...new Set((wardrobeItems || []).map((i: any) => i.category))].joi
       {
         type: "function",
         function: {
-          name: "show_wardrobe_items",
-          description: "Display wardrobe items (internal use after fetch_wardrobe_items).",
-          parameters: {
-            type: "object",
-            properties: {
-              category: {
-                type: "string",
-                description: "Optional: filter by category (tops, bottoms, shoes, dresses, outerwear, accessories, etc.)"
-              }
-            }
-          }
-        }
-      },
-      {
-        type: "function",
-        function: {
           name: "generate_outfits",
           description: `Generate complete outfit suggestions from user's wardrobe.
 
