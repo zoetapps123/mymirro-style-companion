@@ -21,7 +21,6 @@ const Profile = () => {
   // Track screen view on mount
   useEffect(() => {
     trackScreenView('profile', { context: 'user_profile' }, '/app/profile');
-    trackPageView(SCREEN_NAMES.PROFILE, SCREEN_PATHS.PROFILE);
   }, [trackScreenView]);
 
   useEffect(() => {

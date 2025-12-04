@@ -60,7 +60,7 @@ const Index = () => {
     
     // Mixpanel: Track page view with virtual paths
     const tabScreenMap: Record<Tab, { name: string; path: string }> = {
-      home: { name: SCREEN_NAMES.HOME, path: SCREEN_PATHS.HOME },
+      home: { name: SCREEN_NAMES.CHAT, path: SCREEN_PATHS.CHAT },
       wardrobe: { name: SCREEN_NAMES.WARDROBE, path: SCREEN_PATHS.WARDROBE },
       stylecheck: { name: SCREEN_NAMES.STYLE_CHECK, path: SCREEN_PATHS.STYLE_CHECK },
       profile: { name: SCREEN_NAMES.PROFILE, path: SCREEN_PATHS.PROFILE }

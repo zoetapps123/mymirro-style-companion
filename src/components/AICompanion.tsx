@@ -389,7 +389,6 @@ const AICompanion = () => {
   // Track screen view on mount
   useEffect(() => {
     trackScreenView('chat', { tab: 'chat' }, '/app/chat');
-    trackPageView(SCREEN_NAMES.HOME, SCREEN_PATHS.HOME);
   }, [trackScreenView]);
 
   // Fetch all wardrobe items for chat context

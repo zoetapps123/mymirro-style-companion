@@ -10,6 +10,7 @@ export const SCREEN_NAMES = {
   
   // Main Navigation
   HOME: 'home',
+  CHAT: 'chat',
   WARDROBE: 'wardrobe',
   STYLE_CHECK: 'stylecheck',
   PROFILE: 'profile',
@@ -38,6 +39,7 @@ export const SCREEN_PATHS = {
   
   // Main Navigation
   HOME: '/app/home',
+  CHAT: '/app/chat',
   WARDROBE: '/app/wardrobe',
   STYLE_CHECK: '/app/stylecheck',
   PROFILE: '/app/profile',
