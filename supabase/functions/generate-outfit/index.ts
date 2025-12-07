@@ -9,8 +9,9 @@ import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/c
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
 import { validateOutfitDiversity, enhanceOutfitDiversity } from './diversity-validator.ts';
 import { generateDiverseFallbackOutfits, shuffleWardrobeInput } from './fallback-generator.ts';
-// Phase 1: Filtering module import (debug logging only, not yet integrated)
+// Phase 2+3+4: Filtering and styling rules
 import { filterWardrobeForOutfits, WardrobeFilterInput } from '../_shared/outfit_filtering.ts';
+import { buildStylingRules } from '../_shared/styling_rules.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -835,7 +836,7 @@ function buildOutfitGenerationPrompt(
   const outfitCount = maxOutfits || 3;
   const isSmallWardrobe = filtered.summary.totalItems < 3;
   
-  console.log('🔬 [PHASE 3] Filter Applied:', {
+  console.log('🔬 [PHASE 4] Filter Applied:', {
     before: originalCount,
     after: filtered.summary.totalItems,
     reduction: originalCount > 0 ? `${Math.round((1 - filtered.summary.totalItems / originalCount) * 100)}%` : '0%',
@@ -843,10 +844,21 @@ function buildOutfitGenerationPrompt(
   });
 
   // ============================================
+  // PHASE 4: Build styling rules
+  // ============================================
+  const stylingRules = buildStylingRules({
+    generationType: (generationType as 'occasion' | 'style' | 'anchor') || 'occasion',
+    occasion: occasion || null,
+    style: style || null,
+    anchorItem: anchorItem || null,
+    temperatureC,
+  });
+
+  // ============================================
   // BUILD PROMPT BLOCKS IN EXACT ORDER
   // ============================================
   
-  // 1. TASK BLOCK (compact, deterministic)
+  // 1. TASK BLOCK with embedded RULESET (compact, deterministic)
   const taskBlock = `<TASK>
 Generate ${outfitCount} complete outfits using ONLY the wardrobe items provided below.
 NEVER hallucinate items. NEVER invent colors, silhouettes or categories.
@@ -856,12 +868,9 @@ Do NOT reference unavailable wardrobe categories.
 Follow all rules from MASTER_STYLING_ENGINE_V1 exactly.
 Respond ONLY using the generate_outfit_combinations tool.
 ${isSmallWardrobe ? 'NOTE: Small wardrobe - maximize creativity with available items.' : ''}
-• Favor fits that match the anchor or selected style.
-• Maintain silhouette balance (slim vs oversized).
-• Ensure color harmony within each outfit.
-• Avoid pairing clashing patterns unless justified.
-• Respect seasonal cues from climate.
-• For style-based generation, prioritize aesthetic-first matching.
+<RULESET>
+${stylingRules}
+</RULESET>
 </TASK>`;
 
   // 2. USER_PROFILE BLOCK (minimal)
@@ -943,15 +952,17 @@ ${isSmallWardrobe ? 'NOTE: Small wardrobe - maximize creativity with available i
 
   // Token estimation logging
   const masterEngineTokens = estimateTokens(MASTER_STYLING_ENGINE_V1);
+  const rulesetTokens = estimateTokens(stylingRules);
   const contextTokens = estimateTokens(finalPrompt) - masterEngineTokens;
   const estimatedTokens = estimateTokens(finalPrompt);
   
-  console.log('📊 [PHASE 3] Token Breakdown:', {
+  console.log('📊 [PHASE 4] Token Breakdown:', {
     masterEngine: `${masterEngineTokens}`,
+    ruleset: `${rulesetTokens}`,
     context: `${contextTokens}`,
     total: `${estimatedTokens}`,
-    target: '≤1000',
-    met: estimatedTokens <= 1000 ? '✅' : '❌',
+    target: '≤1100',
+    met: estimatedTokens <= 1100 ? '✅' : '❌',
     items: filtered.summary.totalItems,
     itemTokens: `~${filtered.summary.totalItems * 45}`,
     reduction: originalCount > filtered.summary.totalItems 
