@@ -383,8 +383,10 @@ function calculateBlueprintScore(input: BlueprintScoreInput): number {
     }
   }
   
-  // 5. Special occasion penalties
-  if (occasionLower.includes('wedding') || occasionLower.includes('sangeet')) {
+  // 5. Special occasion penalties and boosts
+  
+  // FEEDBACK #2: Wedding - boost blazer/coat/formal shirts
+  if (occasionLower.includes('wedding') || occasionLower.includes('sangeet') || occasionLower.includes('reception')) {
     // Flip flops/slides are never ok for weddings
     if (productMeta.isFlipFlop) score -= 5;
     // Sports shoes are terrible for weddings
@@ -393,6 +395,14 @@ function calculateBlueprintScore(input: BlueprintScoreInput): number {
     if (productMeta.isEthnic) score += 2;
     // Formal shoes/heels/juttis get bonus
     if (productMeta.isFormalShoe || productMeta.isHeel || productMeta.isMojariJutti) score += 2;
+    
+    // BOOST formal/structured outerwear for weddings
+    if (productMeta.isBlazer) score += 3;
+    if (productMeta.isNehruJacket) score += 3; // Very appropriate for Indian weddings
+    if (productMeta.isJacket && !productMeta.isDenimJacket && !productMeta.isBomber) score += 2; // Formal coats/jackets
+    // Formal shirts (non-tshirt) get bonus
+    if (productMeta.isShirt && !productMeta.isTshirt) score += 2;
+    if (productMeta.isBlouse) score += 2; // Formal tops for women
   }
   
   if (occasionLower.includes('interview')) {
@@ -408,6 +418,41 @@ function calculateBlueprintScore(input: BlueprintScoreInput): number {
     if (productMeta.isFlipFlop) score -= 3;
     // Structured pieces bonus
     if (productMeta.isBlazer || productMeta.isShirt || productMeta.isBlouse) score += 1;
+  }
+  
+  // FEEDBACK #3: Casual occasions - penalize blazer/formal jackets
+  if (occasionLower.includes('casual') || occasionLower.includes('college') || 
+      occasionLower.includes('hangout') || occasionLower.includes('movie') ||
+      occasionLower.includes('shopping') || occasionLower.includes('brunch') ||
+      occasionLower.includes('picnic') || occasionLower.includes('everyday')) {
+    // Blazers don't belong in casual settings
+    if (productMeta.isBlazer) score -= 5;
+    // Formal jackets/coats (not denim or bomber) are too formal
+    if (productMeta.isJacket && !productMeta.isDenimJacket && !productMeta.isBomber && !productMeta.isHoodie) {
+      score -= 4;
+    }
+    // Nehru jackets are formal
+    if (productMeta.isNehruJacket) score -= 4;
+    // Formal shoes penalty
+    if (productMeta.isFormalShoe) score -= 3;
+  }
+  
+  // FEEDBACK #5: Streetwear style - penalize kurta/ethnic wear
+  const styleKeyLower = (styleKey || '').toLowerCase();
+  if (styleKeyLower.includes('street') || styleKeyLower.includes('urban')) {
+    // Kurta and ethnic wear absolutely do NOT belong in streetwear
+    if (productMeta.isKurta) score -= 10;
+    if (productMeta.isEthnic) score -= 10;
+    if (productMeta.isSherwani) score -= 10;
+    if (productMeta.isAnarkali) score -= 10;
+    if (productMeta.isSaree) score -= 10;
+    if (productMeta.isNehruJacket) score -= 5; // Also not streetwear
+    
+    // Boost streetwear-appropriate items
+    if (productMeta.isHoodie) score += 2;
+    if (productMeta.isSneaker) score += 2;
+    if (productMeta.isCargo) score += 2;
+    if (productMeta.isBomber) score += 2;
   }
   
   // 6. Versatile items bonus (+1)
