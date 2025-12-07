@@ -8,6 +8,7 @@ import { orderOutfitForDisplay } from '@/lib/utils';
 import lookbookEmptyImg from '@/assets/lookbook-empty.png';
 import { trackPageView } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
+import { OutfitCardV2, OutfitsGrid } from '@/components/outfits';
 
 interface WardrobeItem {
   id: string;
@@ -110,8 +111,8 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
     return ['All', ...Array.from(uniqueOccasions), ...Array.from(uniqueStyles)];
   }, [outfits]);
 
-  const unsaveOutfit = async (outfitId: string, outfitName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const unsaveOutfit = async (outfitId: string, outfitName: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     
     trackCustom('outfit_unsaved_from_lookbook', {
       outfit_id: outfitId,
@@ -222,12 +223,19 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-primary">
                 📍 {group}
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <OutfitsGrid>
                 {groupOutfits.map(outfit => (
-                  <div
+                  <OutfitCardV2
                     key={outfit.id}
-                    className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => {
+                    outfitId={outfit.id}
+                    outfitName={outfit.name}
+                    occasion={outfit.occasion}
+                    styleTag={outfit.style_tag}
+                    previewImageUrl={outfit.preview_image_url}
+                    items={outfit.items || []}
+                    isSaved={true}
+                    showActions={true}
+                    onCardClick={() => {
                       trackCustom('outfit_card_clicked', {
                         outfit_id: outfit.id,
                         outfit_name: outfit.name,
@@ -235,53 +243,18 @@ const WardrobeLookbook = ({ onBack, onNavigate }: WardrobeLookbookProps) => {
                         source: 'lookbook'
                       }, 'lookbook:outfit_clicked');
                     }}
-                  >
-                    {outfit.preview_image_url ? (
-                      <div className="aspect-square bg-muted relative">
-                        <img
-                          src={outfit.preview_image_url}
-                          alt={outfit.style_tag || outfit.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-contain"
-                        />
-                        <button
-                          onClick={(e) => unsaveOutfit(outfit.id, outfit.name, e)}
-                          className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
-                        >
-                          <Heart className="w-6 h-6 fill-primary text-primary" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="aspect-square bg-white p-3 grid grid-cols-2 gap-2 relative">
-                        {orderOutfitForDisplay(outfit.items || []).map((item, i) => (
-                          <div key={i} className="flex items-center justify-center bg-white">
-                            <img
-                              src={item.processed_image_url || item.image_url}
-                              alt={item.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          </div>
-                        ))}
-                        <button
-                          onClick={(e) => unsaveOutfit(outfit.id, outfit.name, e)}
-                          className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
-                        >
-                          <Heart className="w-6 h-6 fill-primary text-primary" />
-                        </button>
-                      </div>
-                    )}
-                    <div className="p-3">
-                      <h4 className="font-semibold truncate">{outfit.name}</h4>
-                      {outfit.style_tag && (
-                        <p className="text-xs text-muted-foreground truncate">{outfit.style_tag}</p>
-                      )}
-                    </div>
-                  </div>
+                    onView={() => {
+                      trackCustom('outfit_card_clicked', {
+                        outfit_id: outfit.id,
+                        outfit_name: outfit.name,
+                        occasion: outfit.occasion,
+                        source: 'lookbook'
+                      }, 'lookbook:outfit_clicked');
+                    }}
+                    onSave={() => unsaveOutfit(outfit.id, outfit.name)}
+                  />
                 ))}
-              </div>
+              </OutfitsGrid>
             </section>
           ))
         )}

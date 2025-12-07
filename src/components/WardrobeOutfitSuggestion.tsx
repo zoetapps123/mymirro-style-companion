@@ -18,6 +18,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { ANALYTICS_EVENTS } from '@/lib/analyticsEvents';
 import { trackPageView, trackEvent } from '@/lib/mixpanel';
 import { SCREEN_NAMES, SCREEN_PATHS } from '@/lib/screenRoutes';
+import { OutfitCardV2, OutfitCardV2Skeleton } from '@/components/outfits';
 
 interface WardrobeItem {
   id: string;
@@ -682,8 +683,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         <div className="flex gap-4">
           {/* Loading tiles */}
           {isLoading && Array.from({ length: 3 }).map((_, idx) => (
-            <div key={`loading-${idx}`} className="flex-shrink-0 w-[280px]">
-              <OutfitLoadingTile />
+            <div key={`loading-${idx}`} className="flex-shrink-0 w-[200px] sm:w-[220px]">
+              <OutfitCardV2Skeleton />
             </div>
           ))}
           
@@ -694,138 +695,88 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
             </div>
           )}
           
-          {/* Actual outfits */}
-          {!isLoading && outfits.map((outfit, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, scale: 0.9, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.05 }}
-              className="flex-shrink-0 w-[280px] cursor-pointer"
-              onClick={() => {
-                console.log('[Mixpanel] outfit_card_clicked:', { 
-                  outfit_name: outfit.name,
-                  source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor'
-                });
-                
-                trackEvent('outfit_card_clicked', {
-                  outfit_id: outfit.id,
-                  outfit_name: outfit.name,
-                  source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
-                  section: selectedOccasion ? 'Select your occasion' : selectedStyle ? 'Select your Style' : 'From My Items'
-                });
-                
-                // TRACK EVENT
-                trackCustom('outfit_card_clicked', {
-                  outfit_id: outfit.id,
-                  outfit_name: outfit.name,
-                  occasion: outfit.occasion,
-                  style_tag: outfit.style_tag,
-                  item_count: outfit.items.length,
-                  source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
-                  element_id: `outfit-card-${outfit.id}`,
-                }, `Outfit Suggestion - Opened ${outfit.name} Details`);
-                
-                setSelectedOutfit(outfit);
-              }}
-            >
-              <div className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative aspect-square bg-white p-4 flex items-center justify-center">
-                  <div className="grid grid-cols-2 gap-2 w-full h-full max-h-[240px]">
-                    {orderOutfitForDisplay(outfit.items).map((item, i) => (
-                      <div key={i} className="flex items-center justify-center bg-white overflow-hidden">
-                        <img
-                          src={item.processed_image_url || item.image_url}
-                          alt={item.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-4 bg-card">
-                  <h4 className="font-semibold mb-3 truncate text-sm">{outfit.style_tag || outfit.name}</h4>
-                  {(() => {
-                    const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
-                    const isSaved = savedOutfitIds.has(outfitKey);
-                    return (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            
-                            console.log('[Mixpanel] outfit_card_clicked:', { outfit_name: outfit.name });
-                            
-                            trackEvent('outfit_card_clicked', {
-                              outfit_id: outfit.id,
-                              outfit_name: outfit.name
-                            });
-                            
-                            trackCustom('outfit_card_clicked', {
-                              outfit_id: outfit.id,
-                              outfit_name: outfit.name,
-                              occasion: outfit.occasion,
-                              style_tag: outfit.style_tag,
-                              item_count: outfit.items.length,
-                              source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
-                              element_id: `view-outfit-${outfit.id}`,
-                            }, `Outfit Suggestion - Viewed ${outfit.name} Details`);
-                            
-                            setSelectedOutfit(outfit);
-                          }}
-                        >
-                          View Item
-                        </Button>
-                        <Button
-                          variant={isSaved ? "default" : "outline"}
-                          size="sm"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isSaved) {
-                              console.log('[Mixpanel] outfit_saved:', { 
-                                outfit_name: outfit.name,
-                                occasion: outfit.occasion,
-                                style_tag: outfit.style_tag
-                              });
-                              
-                              trackEvent('outfit_saved', {
-                                outfit_id: outfit.id,
-                                outfit_name: outfit.name,
-                                occasion: outfit.occasion,
-                                style_tag: outfit.style_tag
-                              });
-                              
-                              trackCustom('outfit_saved', {
-                                outfit_id: outfit.id,
-                                outfit_name: outfit.name,
-                                occasion: outfit.occasion,
-                                style_tag: outfit.style_tag,
-                                item_count: outfit.items.length,
-                                source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
-                                element_id: `save-outfit-${outfit.id}`,
-                              }, `Outfit Suggestion - Saved ${outfit.name} to Lookbook`);
-                              
-                              saveToLookbook(outfit);
-                            }
-                          }}
-                          disabled={isSaved}
-                        >
-                          <Heart className={`w-4 h-4 mr-1 ${isSaved ? 'fill-current' : ''}`} />
-                          {isSaved ? 'Saved' : 'Save'}
-                        </Button>
-                      </div>
-                    );
-                  })()}
-                </div>
+          {/* Actual outfits - using new OutfitCardV2 */}
+          {!isLoading && outfits.map((outfit, idx) => {
+            const outfitKey = outfit.id || `${outfit.occasion}-${outfit.style_tag}-${outfit.name}`;
+            const isSaved = savedOutfitIds.has(outfitKey);
+            
+            return (
+              <div
+                key={idx}
+                className="flex-shrink-0 w-[200px] sm:w-[220px]"
+              >
+                <OutfitCardV2
+                  outfitId={outfit.id}
+                  outfitName={outfit.name}
+                  occasion={outfit.occasion}
+                  styleTag={outfit.style_tag}
+                  previewImageUrl={outfit.preview_image_url}
+                  items={outfit.items}
+                  isSaved={isSaved}
+                  onCardClick={() => {
+                    trackEvent('outfit_card_clicked', {
+                      outfit_id: outfit.id,
+                      outfit_name: outfit.name,
+                      source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                      section: selectedOccasion ? 'Select your occasion' : selectedStyle ? 'Select your Style' : 'From My Items'
+                    });
+                    
+                    trackCustom('outfit_card_clicked', {
+                      outfit_id: outfit.id,
+                      outfit_name: outfit.name,
+                      occasion: outfit.occasion,
+                      style_tag: outfit.style_tag,
+                      item_count: outfit.items.length,
+                      source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                      element_id: `outfit-card-${outfit.id}`,
+                    }, `Outfit Suggestion - Opened ${outfit.name} Details`);
+                    
+                    setSelectedOutfit(outfit);
+                  }}
+                  onView={() => {
+                    trackEvent('outfit_card_clicked', {
+                      outfit_id: outfit.id,
+                      outfit_name: outfit.name
+                    });
+                    
+                    trackCustom('outfit_card_clicked', {
+                      outfit_id: outfit.id,
+                      outfit_name: outfit.name,
+                      occasion: outfit.occasion,
+                      style_tag: outfit.style_tag,
+                      item_count: outfit.items.length,
+                      source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                      element_id: `view-outfit-${outfit.id}`,
+                    }, `Outfit Suggestion - Viewed ${outfit.name} Details`);
+                    
+                    setSelectedOutfit(outfit);
+                  }}
+                  onSave={() => {
+                    if (!isSaved) {
+                      trackEvent('outfit_saved', {
+                        outfit_id: outfit.id,
+                        outfit_name: outfit.name,
+                        occasion: outfit.occasion,
+                        style_tag: outfit.style_tag
+                      });
+                      
+                      trackCustom('outfit_saved', {
+                        outfit_id: outfit.id,
+                        outfit_name: outfit.name,
+                        occasion: outfit.occasion,
+                        style_tag: outfit.style_tag,
+                        item_count: outfit.items.length,
+                        source: selectedOccasion ? 'occasion' : selectedStyle ? 'style' : 'anchor',
+                        element_id: `save-outfit-${outfit.id}`,
+                      }, `Outfit Suggestion - Saved ${outfit.name} to Lookbook`);
+                      
+                      saveToLookbook(outfit);
+                    }
+                  }}
+                />
               </div>
-            </motion.div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
