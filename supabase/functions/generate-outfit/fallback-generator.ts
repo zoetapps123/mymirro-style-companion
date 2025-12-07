@@ -34,7 +34,7 @@ export function generateDiverseFallbackOutfits(
   const shuffledLayers = shuffleArray([...layers]);
   const shuffledAccessories = shuffleArray([...accessories]);
   
-  const want = Math.min(maxOutfits || 3, 3);
+  const want = Math.min(maxOutfits || 7, 7);
   const combos: any[] = [];
   
   // Track used items to enforce diversity

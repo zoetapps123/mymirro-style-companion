@@ -679,7 +679,7 @@ export const OUTFIT_GENERATION_PROMPTS = {
       ageRange: params.ageRange || null,
       location: null,
       temperatureC: userLocation?.temp || null,
-      count: maxOutfits || 3,
+      count: maxOutfits || 7,
     };
 
     return `You are a professional fashion stylist engine. You must only return valid JSON in the exact schema specified below. Do not produce any plain text. Function-calling only. Follow every rule precisely.

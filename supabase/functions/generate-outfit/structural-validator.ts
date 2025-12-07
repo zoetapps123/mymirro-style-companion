@@ -412,9 +412,9 @@ export function validateOutfitBatch(
  * Limits outfits requested from AI to ensure quality over quantity
  */
 export function getQualityAdjustedMaxOutfits(requestedMax: number): number {
-  // Cap at 5 for quality, never go below 2
-  const QUALITY_CAP = 5;
-  const MIN_OUTFITS = 2;
+  // Cap at 7 for quality, never go below 5 (Feedback #4)
+  const QUALITY_CAP = 7;
+  const MIN_OUTFITS = 5;
   
   return Math.max(MIN_OUTFITS, Math.min(QUALITY_CAP, requestedMax));
 }
