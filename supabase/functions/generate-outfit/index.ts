@@ -475,7 +475,7 @@ serve(async (req) => {
       const accessories = (wardrobeItems || []).filter((i: any) => isAccessory(norm(i.category)));
 
       if (tops.length && bottoms.length && shoes.length) {
-        const want = Math.min(maxOutfits || 3, 3);
+        const want = Math.min(maxOutfits || 7, 7);
         const combos = generateDiverseFallbackOutfits(
           wardrobeItems,
           want,
@@ -508,7 +508,7 @@ serve(async (req) => {
       occasion || null,
       (gender as 'male' | 'female' | null) || null,
       {
-        maxOutfits: getQualityAdjustedMaxOutfits(maxOutfits || 5),
+        maxOutfits: getQualityAdjustedMaxOutfits(maxOutfits || 7),
         minQualityScore: 40,
         dropInvalidItems: true
       }
@@ -870,7 +870,7 @@ function buildOutfitGenerationPrompt(
   // Apply filtering + scoring + grouping with caps
   const filtered = filterWardrobeForOutfits(filterInput);
   // PHASE 6.4: Quality cap - request fewer outfits from AI for higher quality
-  const outfitCount = getQualityAdjustedMaxOutfits(maxOutfits || 3);
+  const outfitCount = getQualityAdjustedMaxOutfits(maxOutfits || 7);
   const isSmallWardrobe = filtered.summary.totalItems < 3;
   
   console.log('🔬 [PHASE 4] Filter Applied:', {

@@ -108,7 +108,7 @@ const WEDDING_MALE: OutfitBlueprint = {
   optionalAccessories: ['acc'],
   allowedProductTypes: {
     ethnic: ['sherwani', 'kurta_set', 'kurta_pajama', 'bandhgala', 'achkan', 'pathani_suit', 'nehru_jacket_set'],
-    tops: ['formal_shirt', 'dress_shirt', 'kurta'],
+    tops: ['formal_shirt', 'dress_shirt'], // Kurta removed - use kurta_set in ethnic instead
     bottoms: ['formal_trouser', 'dress_pants', 'churidar', 'dhoti_pants', 'aligarh_pajama'],
     outerwear: ['nehru_jacket', 'blazer', 'bandhgala_jacket', 'waistcoat', 'bundi']
   },
