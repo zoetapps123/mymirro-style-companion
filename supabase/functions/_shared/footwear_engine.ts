@@ -1,5 +1,13 @@
-// Footwear Intelligence Engine - Phase 6.2
-// Scores and ranks footwear based on occasion, style, and blueprint rules
+/**
+ * Footwear Intelligence Engine - Phase 6.2 + 6.5
+ * Scores and ranks footwear based on occasion, style, and blueprint rules
+ * 
+ * PHASE 6.5 PERFORMANCE GUARANTEES:
+ * - All functions are PURE (no external calls, no network requests)
+ * - Works only on in-memory data passed as arguments
+ * - No Supabase queries, no Gemini calls
+ * - Simple arithmetic scoring only
+ */
 
 import { OutfitBlueprint, StyleKey } from './outfit_blueprints.ts';
 
