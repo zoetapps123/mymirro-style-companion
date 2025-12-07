@@ -16,6 +16,7 @@ import { OutfitBlueprint, StyleKey, getBlueprintFor, isCategoryValidForBlueprint
 import { ProductTypeMeta, extractProductTypeMeta, isProductTypeAllowed, inferFormalityFromProductMeta, canBeElevatedByBlazer, isStructuredPiece } from './product_type_meta.ts';
 import { FootwearMeta, wardrobeItemToFootwearMeta, scoreFootwearForContext } from './footwear_engine.ts';
 import { AccessoryMeta, wardrobeItemToAccessoryMeta, planAccessories } from './accessories_engine.ts';
+import { parseProductTypeFromName, shouldBlockForOccasion } from './product_type_parser.ts';
 
 // ============================================
 // TYPES
@@ -671,6 +672,14 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
     
     if (!normalizedCategory) {
       // Skip items with unknown categories
+      continue;
+    }
+    
+    // PHASE 7: Category override blocking
+    const parsedType = parseProductTypeFromName(item.name || '');
+    const blockResult = shouldBlockForOccasion(parsedType, input.occasion || '');
+    if (blockResult.blocked) {
+      // Skip blocked items entirely for this occasion
       continue;
     }
 
