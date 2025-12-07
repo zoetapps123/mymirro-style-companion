@@ -776,55 +776,27 @@ function prepareWardrobeWithAnchor(items: any[], anchorItem?: any, maxItems: num
 }
 
 // ============================================
-// NEW: Context-only prompt builder for v2 (PHASE 2: Cleaned up for token efficiency)
 // ============================================
-function buildContextPromptV2(args: {
-  wardrobeSummary: any;
-  wardrobeByCategory: any;
-  request: any;
-  anchorItem?: { id: string; name: string; category: string } | null;
-  userProfile?: {
-    gender?: string | null;
-    ageRange?: string | null;
-  } | null;
-  isSmallWardrobe?: boolean;
-}) {
-  const {
-    wardrobeSummary,
-    wardrobeByCategory,
-    request,
-    anchorItem,
-    userProfile,
-    isSmallWardrobe,
-  } = args;
+// PHASE 3: Optimized Prompt Builder
+// ============================================
 
-  let parts: string[] = [];
+/**
+ * Derives season hint from temperature
+ */
+function deriveSeasonHint(temperatureC?: number | null): string | null {
+  if (temperatureC === null || temperatureC === undefined) return null;
+  if (temperatureC >= 30) return 'summer';
+  if (temperatureC >= 22) return 'warm';
+  if (temperatureC >= 15) return 'mild';
+  if (temperatureC >= 5) return 'cool';
+  return 'winter';
+}
 
-  // PHASE 2: Simplified context - removed emotionalContext, tasteProfile, conversationMode
-  // Only include essential user profile info
-  if (userProfile?.gender || userProfile?.ageRange) {
-    parts.push(`<USER_PROFILE>{"gender":"${userProfile.gender || 'unknown'}","ageRange":"${userProfile.ageRange || 'unknown'}"}</USER_PROFILE>`);
-  }
-
-  // Request context (compact)
-  parts.push(`<REQUEST>${JSON.stringify(request)}</REQUEST>`);
-
-  // Wardrobe summary (compact)
-  parts.push(`<WARDROBE_SUMMARY>${JSON.stringify(wardrobeSummary)}</WARDROBE_SUMMARY>`);
-
-  // Wardrobe by category (already ultra-compact items)
-  parts.push(`<WARDROBE_BY_CATEGORY>${JSON.stringify(wardrobeByCategory)}</WARDROBE_BY_CATEGORY>`);
-
-  if (anchorItem) {
-    parts.push(`<ANCHOR_ITEM>${JSON.stringify(anchorItem)}</ANCHOR_ITEM>`);
-  }
-
-  // PHASE 2: Add note for small wardrobes
-  if (isSmallWardrobe) {
-    parts.push('<NOTE>Generate outfits ONLY using provided items. Do NOT invent missing categories. If required pieces are missing, generate minimal outfit using available items only.</NOTE>');
-  }
-
-  return parts.join('\n');
+/**
+ * Builds compact JSON string without pretty-printing
+ */
+function compactJSON(obj: any): string {
+  return JSON.stringify(obj);
 }
 
 function buildOutfitGenerationPrompt(
@@ -835,17 +807,18 @@ function buildOutfitGenerationPrompt(
   wardrobeItems?: any[],
   maxOutfits?: number,
   userLocation?: { temp: number; weather: string; lat: number } | null,
-  _emotionalContext?: { emotional_tone: string; soft_mode_required: boolean; confidence: number },
-  _tasteProfile?: { color_palette: string; dominant_colors: string[]; style_aesthetic: string[]; wardrobe_size: number },
+  _emotionalContext?: any,
+  _tasteProfile?: any,
   _conversationMode?: string,
   userProfile?: { gender?: string; ageRange?: string; bodyShape?: string; skinTone?: string }
 ): string {
   // ============================================
-  // PHASE 2: Use new filtering system
+  // PHASE 2+3: Filter + Optimize
   // ============================================
   const originalCount = wardrobeItems?.length || 0;
+  const temperatureC = userLocation?.temp ?? null;
   
-  // Build filter input from context
+  // Build filter input
   const filterInput: WardrobeFilterInput = {
     generationType: (generationType as 'occasion' | 'style' | 'anchor') || 'occasion',
     occasion: occasion || null,
@@ -854,25 +827,67 @@ function buildOutfitGenerationPrompt(
     wardrobeItems: wardrobeItems || [],
     userGender: userProfile?.gender || null,
     ageRange: userProfile?.ageRange || null,
-    temperatureC: userLocation?.temp ?? null,
+    temperatureC,
   };
 
   // Apply filtering + scoring + grouping with caps
   const filtered = filterWardrobeForOutfits(filterInput);
+  const outfitCount = maxOutfits || 3;
+  const isSmallWardrobe = filtered.summary.totalItems < 3;
   
-  // Log Phase 2 filter results
-  console.log('🔬 [PHASE 2] Outfit Filter Applied:', {
-    totalBefore: originalCount,
-    totalAfter: filtered.summary.totalItems,
+  console.log('🔬 [PHASE 3] Filter Applied:', {
+    before: originalCount,
+    after: filtered.summary.totalItems,
     reduction: originalCount > 0 ? `${Math.round((1 - filtered.summary.totalItems / originalCount) * 100)}%` : '0%',
     breakdown: filtered.summary,
-    hasAnchor: !!anchorItem,
-    generationType,
   });
 
-  // Build wardrobe summary from filtered results
-  const wardrobeSummary = {
-    totalItems: filtered.summary.totalItems,
+  // ============================================
+  // BUILD PROMPT BLOCKS IN EXACT ORDER
+  // ============================================
+  
+  // 1. TASK BLOCK (compact, deterministic)
+  const taskBlock = `<TASK>
+Generate ${outfitCount} complete outfits using ONLY the wardrobe items provided below.
+NEVER hallucinate items. NEVER invent colors, silhouettes or categories.
+${anchorItem ? `Include anchorItemId "${anchorItem.id}" in ALL outfits.` : ''}
+If categories are missing, generate minimal outfits using ONLY available items.
+Do NOT reference unavailable wardrobe categories.
+Follow all rules from MASTER_STYLING_ENGINE_V1 exactly.
+Respond ONLY using the generate_outfit_combinations tool.
+${isSmallWardrobe ? 'NOTE: Small wardrobe - maximize creativity with available items.' : ''}
+• Favor fits that match the anchor or selected style.
+• Maintain silhouette balance (slim vs oversized).
+• Ensure color harmony within each outfit.
+• Avoid pairing clashing patterns unless justified.
+• Respect seasonal cues from climate.
+• For style-based generation, prioritize aesthetic-first matching.
+</TASK>`;
+
+  // 2. USER_PROFILE BLOCK (minimal)
+  const userProfileBlock = (userProfile?.gender || userProfile?.ageRange) 
+    ? `<USER_PROFILE>${compactJSON({gender:userProfile.gender||'unknown',ageRange:userProfile.ageRange||'unknown'})}</USER_PROFILE>`
+    : '';
+
+  // 3. REQUEST BLOCK (semantic, compact)
+  const requestBlock = `<REQUEST>${compactJSON({
+    generationType,
+    occasion: occasion || null,
+    style: style || null,
+    anchorItemId: anchorItem?.id || null,
+    maxOutfits: outfitCount,
+    temperatureC,
+  })}</REQUEST>`;
+
+  // 4. CLIMATE BLOCK (new, high-impact)
+  const seasonHint = deriveSeasonHint(temperatureC);
+  const climateBlock = (temperatureC !== null || seasonHint) 
+    ? `<CLIMATE>${compactJSON({temperatureC,seasonHint})}</CLIMATE>`
+    : '';
+
+  // 5. WARDROBE_SUMMARY BLOCK (from filtered)
+  const summaryBlock = `<WARDROBE_SUMMARY>${compactJSON({
+    total: filtered.summary.totalItems,
     tops: filtered.summary.tops,
     bottoms: filtered.summary.bottoms,
     shoes: filtered.summary.shoes,
@@ -880,80 +895,68 @@ function buildOutfitGenerationPrompt(
     dresses: filtered.summary.dresses,
     ethnic: filtered.summary.ethnic,
     accessories: filtered.summary.accessories,
+  })}</WARDROBE_SUMMARY>`;
+
+  // 6. WARDROBE_BY_CATEGORY BLOCK (ultra-compact items, no whitespace)
+  const wardrobeByCategory: Record<string, any[]> = {
+    tops: [],
+    bottoms: [],
+    shoes: [],
+    outerwear: [],
+    dresses: [],
+    ethnic: [],
+    accessories: [],
   };
-  
-  // Build wardrobe by category from filtered results using ultraCompactItemForAI
-  const wardrobeByCategory: Record<string, any[]> = {};
   
   for (const scoredItem of filtered.allScoredItems) {
     const compactItem = ultraCompactItemForAI(scoredItem.item);
-    const cat = compactItem.c;
-    if (!wardrobeByCategory[cat]) wardrobeByCategory[cat] = [];
-    wardrobeByCategory[cat].push(compactItem);
+    const cat = scoredItem.normalizedCategory;
+    if (wardrobeByCategory[cat]) {
+      wardrobeByCategory[cat].push(compactItem);
+    }
   }
   
-  // Request context (compact - removed unused fields)
-  const requestContext = {
-    generationType,
-    occasion,
-    style,
-    maxOutfits: maxOutfits || 3,
-    temperatureC: userLocation?.temp,
-  };
-
-  // Detect small wardrobe for fail-safe behavior
-  const isSmallWardrobe = filtered.summary.totalItems < 3;
+  // Remove empty categories for compactness
+  const nonEmptyWardrobe: Record<string, any[]> = {};
+  for (const [cat, items] of Object.entries(wardrobeByCategory)) {
+    if (items.length > 0) {
+      nonEmptyWardrobe[cat] = items;
+    }
+  }
   
-  // Build context-only prompt using new v2 builder
-  const contextPromptV2 = buildContextPromptV2({
-    wardrobeSummary,
-    wardrobeByCategory,
-    request: requestContext,
-    anchorItem: anchorItem ? {
-      id: anchorItem.id,
-      name: anchorItem.name,
-      category: anchorItem.category
-    } : null,
-    userProfile: userProfile ? {
-      gender: userProfile.gender,
-      ageRange: userProfile.ageRange,
-    } : null,
-    isSmallWardrobe,
-  });
+  const wardrobeBlock = `<WARDROBE_BY_CATEGORY>${compactJSON(nonEmptyWardrobe)}</WARDROBE_BY_CATEGORY>`;
 
-  // Build NEW v2 prompt structure with MASTER_STYLING_ENGINE_V1
-  const finalPrompt = `
-${MASTER_STYLING_ENGINE_V1}
+  // ============================================
+  // ASSEMBLE FINAL PROMPT (exact order, no extra whitespace)
+  // ============================================
+  const promptParts = [
+    MASTER_STYLING_ENGINE_V1,
+    taskBlock,
+    userProfileBlock,
+    requestBlock,
+    climateBlock,
+    summaryBlock,
+    wardrobeBlock,
+  ].filter(Boolean);
 
-<TASK>
-Generate ${maxOutfits || 3} outfits using the rules from MASTER_STYLING_ENGINE_V1.
-If an anchor item is provided, it MUST appear in every outfit.
-You MUST only use the generate_outfit_combinations tool.
-You MUST NOT generate plain text responses.
-</TASK>
+  const finalPrompt = promptParts.join('\n');
 
-${contextPromptV2}
-`;
-
-  // Token estimation logging for new structure
+  // Token estimation logging
   const masterEngineTokens = estimateTokens(MASTER_STYLING_ENGINE_V1);
-  const contextTokens = estimateTokens(contextPromptV2);
+  const contextTokens = estimateTokens(finalPrompt) - masterEngineTokens;
   const estimatedTokens = estimateTokens(finalPrompt);
   
-  console.log('📊 [PHASE 2] Token Breakdown:', {
-    masterStylingEngine: `${masterEngineTokens} tokens`,
-    contextPrompt: `${contextTokens} tokens`,
-    total: `${estimatedTokens} tokens`,
-    target: '≤1200 tokens',
-    targetMet: estimatedTokens <= 1200 ? '✅ YES' : '❌ NO',
-    itemFormat: 'ultraCompact (~55-60 tokens/item)',
-    filteredItems: filtered.summary.totalItems,
-    estimatedItemTokens: `~${filtered.summary.totalItems * 58}`,
+  console.log('📊 [PHASE 3] Token Breakdown:', {
+    masterEngine: `${masterEngineTokens}`,
+    context: `${contextTokens}`,
+    total: `${estimatedTokens}`,
+    target: '≤1000',
+    met: estimatedTokens <= 1000 ? '✅' : '❌',
+    items: filtered.summary.totalItems,
+    itemTokens: `~${filtered.summary.totalItems * 45}`,
     reduction: originalCount > filtered.summary.totalItems 
-      ? `${Math.round((1 - filtered.summary.totalItems / originalCount) * 100)}% items filtered`
-      : 'no filtering needed',
-    anchorEnforced: anchorItem ? '🔒 YES' : 'N/A',
-    isSmallWardrobe: isSmallWardrobe ? '⚠️ YES' : 'NO',
+      ? `${Math.round((1 - filtered.summary.totalItems / originalCount) * 100)}%`
+      : '0%',
   });
 
   return finalPrompt;
