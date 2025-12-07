@@ -108,7 +108,7 @@ const WEDDING_MALE: OutfitBlueprint = {
   optionalAccessories: ['acc'],
   allowedProductTypes: {
     ethnic: ['sherwani', 'kurta_set', 'kurta_pajama', 'bandhgala', 'achkan', 'pathani_suit', 'nehru_jacket_set'],
-    tops: ['formal_shirt', 'dress_shirt'], // Kurta removed - use kurta_set in ethnic instead
+    tops: ['formal_shirt', 'dress_shirt', 'kurta'],
     bottoms: ['formal_trouser', 'dress_pants', 'churidar', 'dhoti_pants', 'aligarh_pajama'],
     outerwear: ['nehru_jacket', 'blazer', 'bandhgala_jacket', 'waistcoat', 'bundi']
   },
@@ -263,7 +263,7 @@ const CASUAL_MALE: OutfitBlueprint = {
   optionalLayers: ['out'],
   optionalAccessories: ['acc'],
   allowedProductTypes: {
-    tops: ['tshirt', 'polo', 'henley', 'sweatshirt', 'hoodie', 'casual_shirt', 'tank_top'],
+    tops: ['tshirt', 'polo', 'henley', 'sweatshirt', 'hoodie', 'casual_shirt', 'tank_top'], // Kurta removed from casual
     bottoms: ['jeans', 'shorts', 'cargo', 'joggers', 'chinos', 'linen_pants', 'track_pants'],
     outerwear: ['hoodie', 'denim_jacket', 'bomber', 'windbreaker', 'flannel', 'overshirt']
   },
