@@ -9,6 +9,8 @@ import { generateCacheKey, getCachedResult, setCachedResult } from '../_shared/c
 import { retryWithBackoff } from '../_shared/retry-utils.ts';
 import { validateOutfitDiversity, enhanceOutfitDiversity } from './diversity-validator.ts';
 import { generateDiverseFallbackOutfits, shuffleWardrobeInput } from './fallback-generator.ts';
+// Phase 1: Filtering module import (debug logging only, not yet integrated)
+import { filterWardrobeForOutfits, WardrobeFilterInput } from '../_shared/outfit_filtering.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -181,6 +183,52 @@ serve(async (req) => {
     // Log if wardrobe has gaps but can still generate
     if (validation.needsUpgrade) {
       console.log('✓ Generating with gaps:', validation.reason);
+    }
+
+    // ============================================
+    // PHASE 1: Outfit Filtering Preview (Debug Only)
+    // This computes filtering results but does NOT change behavior yet.
+    // ============================================
+    try {
+      const filterInput: WardrobeFilterInput = {
+        generationType: generationType || 'occasion',
+        occasion: occasion || null,
+        style: style || null,
+        anchorItem: anchorItem || null,
+        wardrobeItems: wardrobeItems || [],
+        userGender: gender || null,
+        ageRange: ageRange || null,
+        temperatureC: userLocation?.temp ?? null,
+      };
+
+      const filterOutput = filterWardrobeForOutfits(filterInput);
+
+      // Debug logging only - NOT used for actual generation in Phase 1
+      console.log('🔬 [PHASE 1] Outfit Filter Preview:', {
+        input: {
+          generationType: filterInput.generationType,
+          occasion: filterInput.occasion,
+          style: filterInput.style,
+          hasAnchor: !!filterInput.anchorItem,
+          totalWardrobeItems: filterInput.wardrobeItems.length,
+          userGender: filterInput.userGender,
+          temperatureC: filterInput.temperatureC,
+        },
+        output: {
+          ...filterOutput.summary,
+          topScores: filterOutput.groupedByCategory.tops.slice(0, 3).map(s => ({ 
+            name: s.item.name?.substring(0, 20), 
+            score: s.score 
+          })),
+          bottomScores: filterOutput.groupedByCategory.bottoms.slice(0, 3).map(s => ({ 
+            name: s.item.name?.substring(0, 20), 
+            score: s.score 
+          })),
+        }
+      });
+    } catch (filterError) {
+      // Phase 1: Never fail on filtering errors - just log and continue
+      console.warn('⚠️ [PHASE 1] Outfit filter preview failed (non-blocking):', filterError);
     }
 
     // Check cache first (unless bypassed)
