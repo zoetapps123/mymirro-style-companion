@@ -185,52 +185,6 @@ serve(async (req) => {
       console.log('✓ Generating with gaps:', validation.reason);
     }
 
-    // ============================================
-    // PHASE 1: Outfit Filtering Preview (Debug Only)
-    // This computes filtering results but does NOT change behavior yet.
-    // ============================================
-    try {
-      const filterInput: WardrobeFilterInput = {
-        generationType: generationType || 'occasion',
-        occasion: occasion || null,
-        style: style || null,
-        anchorItem: anchorItem || null,
-        wardrobeItems: wardrobeItems || [],
-        userGender: gender || null,
-        ageRange: ageRange || null,
-        temperatureC: userLocation?.temp ?? null,
-      };
-
-      const filterOutput = filterWardrobeForOutfits(filterInput);
-
-      // Debug logging only - NOT used for actual generation in Phase 1
-      console.log('🔬 [PHASE 1] Outfit Filter Preview:', {
-        input: {
-          generationType: filterInput.generationType,
-          occasion: filterInput.occasion,
-          style: filterInput.style,
-          hasAnchor: !!filterInput.anchorItem,
-          totalWardrobeItems: filterInput.wardrobeItems.length,
-          userGender: filterInput.userGender,
-          temperatureC: filterInput.temperatureC,
-        },
-        output: {
-          ...filterOutput.summary,
-          topScores: filterOutput.groupedByCategory.tops.slice(0, 3).map(s => ({ 
-            name: s.item.name?.substring(0, 20), 
-            score: s.score 
-          })),
-          bottomScores: filterOutput.groupedByCategory.bottoms.slice(0, 3).map(s => ({ 
-            name: s.item.name?.substring(0, 20), 
-            score: s.score 
-          })),
-        }
-      });
-    } catch (filterError) {
-      // Phase 1: Never fail on filtering errors - just log and continue
-      console.warn('⚠️ [PHASE 1] Outfit filter preview failed (non-blocking):', filterError);
-    }
-
     // Check cache first (unless bypassed)
     const itemIds = wardrobeItems?.map((i: any) => i.id).sort() || [];
     const cacheKey = await generateCacheKey({ 
@@ -822,81 +776,52 @@ function prepareWardrobeWithAnchor(items: any[], anchorItem?: any, maxItems: num
 }
 
 // ============================================
-// NEW: Context-only prompt builder for v2
+// NEW: Context-only prompt builder for v2 (PHASE 2: Cleaned up for token efficiency)
 // ============================================
 function buildContextPromptV2(args: {
   wardrobeSummary: any;
   wardrobeByCategory: any;
   request: any;
   anchorItem?: { id: string; name: string; category: string } | null;
-  emotionalContext?: any;
-  tasteProfile?: any;
-  conversationMode?: string | null;
   userProfile?: {
     gender?: string | null;
     ageRange?: string | null;
-    bodyShape?: string | null;
-    skinTone?: string | null;
   } | null;
+  isSmallWardrobe?: boolean;
 }) {
   const {
     wardrobeSummary,
     wardrobeByCategory,
     request,
     anchorItem,
-    emotionalContext,
-    tasteProfile,
-    conversationMode,
     userProfile,
+    isSmallWardrobe,
   } = args;
 
   let parts: string[] = [];
 
-  parts.push('<OUTFIT_GENERATION_CONTEXT>');
-
-  if (emotionalContext) {
-    parts.push('<EMOTIONAL_CONTEXT>');
-    parts.push(JSON.stringify(emotionalContext));
-    parts.push('</EMOTIONAL_CONTEXT>');
+  // PHASE 2: Simplified context - removed emotionalContext, tasteProfile, conversationMode
+  // Only include essential user profile info
+  if (userProfile?.gender || userProfile?.ageRange) {
+    parts.push(`<USER_PROFILE>{"gender":"${userProfile.gender || 'unknown'}","ageRange":"${userProfile.ageRange || 'unknown'}"}</USER_PROFILE>`);
   }
 
-  if (tasteProfile) {
-    parts.push('<TASTE_PROFILE>');
-    parts.push(JSON.stringify(tasteProfile));
-    parts.push('</TASTE_PROFILE>');
-  }
+  // Request context (compact)
+  parts.push(`<REQUEST>${JSON.stringify(request)}</REQUEST>`);
 
-  if (conversationMode) {
-    parts.push(`<CONVERSATION_MODE>${conversationMode}</CONVERSATION_MODE>`);
-  }
+  // Wardrobe summary (compact)
+  parts.push(`<WARDROBE_SUMMARY>${JSON.stringify(wardrobeSummary)}</WARDROBE_SUMMARY>`);
 
-  if (userProfile) {
-    parts.push('<USER_PROFILE>');
-    parts.push(JSON.stringify(userProfile));
-    parts.push('</USER_PROFILE>');
-  }
-
-  parts.push('</OUTFIT_GENERATION_CONTEXT>');
-
-  // Wardrobe summary
-  parts.push('<WARDROBE_SUMMARY>');
-  parts.push(JSON.stringify(wardrobeSummary));
-  parts.push('</WARDROBE_SUMMARY>');
-
-  // Wardrobe by category
-  parts.push('<WARDROBE_BY_CATEGORY>');
-  parts.push(JSON.stringify(wardrobeByCategory));
-  parts.push('</WARDROBE_BY_CATEGORY>');
-
-  // Request
-  parts.push('<REQUEST>');
-  parts.push(JSON.stringify(request));
-  parts.push('</REQUEST>');
+  // Wardrobe by category (already ultra-compact items)
+  parts.push(`<WARDROBE_BY_CATEGORY>${JSON.stringify(wardrobeByCategory)}</WARDROBE_BY_CATEGORY>`);
 
   if (anchorItem) {
-    parts.push('<ANCHOR_ITEM>');
-    parts.push(JSON.stringify(anchorItem));
-    parts.push('</ANCHOR_ITEM>');
+    parts.push(`<ANCHOR_ITEM>${JSON.stringify(anchorItem)}</ANCHOR_ITEM>`);
+  }
+
+  // PHASE 2: Add note for small wardrobes
+  if (isSmallWardrobe) {
+    parts.push('<NOTE>Generate outfits ONLY using provided items. Do NOT invent missing categories. If required pieces are missing, generate minimal outfit using available items only.</NOTE>');
   }
 
   return parts.join('\n');
@@ -910,59 +835,74 @@ function buildOutfitGenerationPrompt(
   wardrobeItems?: any[],
   maxOutfits?: number,
   userLocation?: { temp: number; weather: string; lat: number } | null,
-  emotionalContext?: { emotional_tone: string; soft_mode_required: boolean; confidence: number },
-  tasteProfile?: { color_palette: string; dominant_colors: string[]; style_aesthetic: string[]; wardrobe_size: number },
-  conversationMode?: string,
+  _emotionalContext?: { emotional_tone: string; soft_mode_required: boolean; confidence: number },
+  _tasteProfile?: { color_palette: string; dominant_colors: string[]; style_aesthetic: string[]; wardrobe_size: number },
+  _conversationMode?: string,
   userProfile?: { gender?: string; ageRange?: string; bodyShape?: string; skinTone?: string }
 ): string {
-  // PHASE 4, 5, 6: Pre-filter, sample, and prioritize wardrobe
+  // ============================================
+  // PHASE 2: Use new filtering system
+  // ============================================
   const originalCount = wardrobeItems?.length || 0;
-  let optimizedWardrobe = wardrobeItems || [];
   
-  if (anchorItem) {
-    optimizedWardrobe = prepareWardrobeWithAnchor(optimizedWardrobe, anchorItem, MAX_ITEMS_FOR_MODEL);
-  } else {
-    optimizedWardrobe = filterRelevantItems(optimizedWardrobe, occasion, style);
-  }
+  // Build filter input from context
+  const filterInput: WardrobeFilterInput = {
+    generationType: (generationType as 'occasion' | 'style' | 'anchor') || 'occasion',
+    occasion: occasion || null,
+    style: style || null,
+    anchorItem: anchorItem || null,
+    wardrobeItems: wardrobeItems || [],
+    userGender: userProfile?.gender || null,
+    ageRange: userProfile?.ageRange || null,
+    temperatureC: userLocation?.temp ?? null,
+  };
+
+  // Apply filtering + scoring + grouping with caps
+  const filtered = filterWardrobeForOutfits(filterInput);
   
-  // Shuffle within categories to prevent positional bias
-  optimizedWardrobe = shuffleWardrobeInput(optimizedWardrobe);
-  
-  console.log(`📊 Wardrobe optimization: ${originalCount} → ${optimizedWardrobe.length} items`);
-  if (optimizedWardrobe.length < originalCount) {
-    console.log(`✂️ Filtered ${originalCount - optimizedWardrobe.length} items for relevance`);
-  }
-  
-  // Prepare wardrobe data structures for new context builder
-  const norm = (s: any) => (s || '').toString().toLowerCase();
-  
+  // Log Phase 2 filter results
+  console.log('🔬 [PHASE 2] Outfit Filter Applied:', {
+    totalBefore: originalCount,
+    totalAfter: filtered.summary.totalItems,
+    reduction: originalCount > 0 ? `${Math.round((1 - filtered.summary.totalItems / originalCount) * 100)}%` : '0%',
+    breakdown: filtered.summary,
+    hasAnchor: !!anchorItem,
+    generationType,
+  });
+
+  // Build wardrobe summary from filtered results
   const wardrobeSummary = {
-    totalItems: optimizedWardrobe.length,
-    tops: optimizedWardrobe.filter(i => ['shirt','top','tee','t-shirt','blouse','polo','kurta'].some(k => norm(i.category).includes(k))).length,
-    bottoms: optimizedWardrobe.filter(i => ['jeans','trouser','pants','chinos','skirt','shorts','bottoms','bottom'].some(k => norm(i.category).includes(k))).length,
-    shoes: optimizedWardrobe.filter(i => ['shoe','sneaker','boot','loafer','heel','sandal'].some(k => norm(i.category).includes(k))).length,
-    outerwear: optimizedWardrobe.filter(i => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear'].some(k => norm(i.category).includes(k))).length,
-    dresses: optimizedWardrobe.filter(i => ['dress','gown','jumpsuit','romper'].some(k => norm(i.category).includes(k))).length,
-    ethnic: optimizedWardrobe.filter(i => ['kurta set','saree','lehenga','sherwani','salwar'].some(k => norm(i.category).includes(k) || norm(i.name).includes(k))).length,
-    accessories: optimizedWardrobe.filter(i => ['accessory','watch','belt','bag','handbag','sunglass','hat','scarf','jewelry'].some(k => norm(i.category).includes(k))).length,
+    totalItems: filtered.summary.totalItems,
+    tops: filtered.summary.tops,
+    bottoms: filtered.summary.bottoms,
+    shoes: filtered.summary.shoes,
+    outerwear: filtered.summary.outerwear,
+    dresses: filtered.summary.dresses,
+    ethnic: filtered.summary.ethnic,
+    accessories: filtered.summary.accessories,
   };
   
-  const wardrobeByCategory = optimizedWardrobe.reduce((acc: any, item: any) => {
-    const compactItem = ultraCompactItemForAI(item);
-    const cat = compactItem.c;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(compactItem);
-    return acc;
-  }, {});
+  // Build wardrobe by category from filtered results using ultraCompactItemForAI
+  const wardrobeByCategory: Record<string, any[]> = {};
   
+  for (const scoredItem of filtered.allScoredItems) {
+    const compactItem = ultraCompactItemForAI(scoredItem.item);
+    const cat = compactItem.c;
+    if (!wardrobeByCategory[cat]) wardrobeByCategory[cat] = [];
+    wardrobeByCategory[cat].push(compactItem);
+  }
+  
+  // Request context (compact - removed unused fields)
   const requestContext = {
     generationType,
     occasion,
     style,
     maxOutfits: maxOutfits || 3,
-    temperature: userLocation?.temp,
-    weather: userLocation?.weather,
+    temperatureC: userLocation?.temp,
   };
+
+  // Detect small wardrobe for fail-safe behavior
+  const isSmallWardrobe = filtered.summary.totalItems < 3;
   
   // Build context-only prompt using new v2 builder
   const contextPromptV2 = buildContextPromptV2({
@@ -974,10 +914,11 @@ function buildOutfitGenerationPrompt(
       name: anchorItem.name,
       category: anchorItem.category
     } : null,
-    emotionalContext,
-    tasteProfile,
-    conversationMode,
-    userProfile,
+    userProfile: userProfile ? {
+      gender: userProfile.gender,
+      ageRange: userProfile.ageRange,
+    } : null,
+    isSmallWardrobe,
   });
 
   // Build NEW v2 prompt structure with MASTER_STYLING_ENGINE_V1
@@ -999,19 +940,20 @@ ${contextPromptV2}
   const contextTokens = estimateTokens(contextPromptV2);
   const estimatedTokens = estimateTokens(finalPrompt);
   
-  console.log('📊 v2.0 Master Engine Token Breakdown:', {
+  console.log('📊 [PHASE 2] Token Breakdown:', {
     masterStylingEngine: `${masterEngineTokens} tokens`,
     contextPrompt: `${contextTokens} tokens`,
     total: `${estimatedTokens} tokens`,
-    target: '≤1400 tokens',
-    targetMet: estimatedTokens <= 1400 ? '✅ YES' : '❌ NO',
+    target: '≤1200 tokens',
+    targetMet: estimatedTokens <= 1200 ? '✅ YES' : '❌ NO',
     itemFormat: 'ultraCompact (~55-60 tokens/item)',
-    wardrobeItems: optimizedWardrobe.length,
-    estimatedItemTokens: `~${optimizedWardrobe.length * 58}`,
-    reduction: originalCount > optimizedWardrobe.length 
-      ? `${Math.round((1 - optimizedWardrobe.length / originalCount) * 100)}% items filtered`
-      : 'no filtering',
-    anchorEnforced: anchorItem ? '🔒 YES' : 'N/A'
+    filteredItems: filtered.summary.totalItems,
+    estimatedItemTokens: `~${filtered.summary.totalItems * 58}`,
+    reduction: originalCount > filtered.summary.totalItems 
+      ? `${Math.round((1 - filtered.summary.totalItems / originalCount) * 100)}% items filtered`
+      : 'no filtering needed',
+    anchorEnforced: anchorItem ? '🔒 YES' : 'N/A',
+    isSmallWardrobe: isSmallWardrobe ? '⚠️ YES' : 'NO',
   });
 
   return finalPrompt;
