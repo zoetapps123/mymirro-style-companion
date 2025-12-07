@@ -420,11 +420,13 @@ function calculateBlueprintScore(input: BlueprintScoreInput): number {
     if (productMeta.isBlazer || productMeta.isShirt || productMeta.isBlouse) score += 1;
   }
   
-  // FEEDBACK #3: Casual occasions - penalize blazer/formal jackets
+  // FEEDBACK #1 & #3: Casual occasions - penalize kurta, blazer/formal jackets
   if (occasionLower.includes('casual') || occasionLower.includes('college') || 
       occasionLower.includes('hangout') || occasionLower.includes('movie') ||
       occasionLower.includes('shopping') || occasionLower.includes('brunch') ||
       occasionLower.includes('picnic') || occasionLower.includes('everyday')) {
+    // FEEDBACK #1: Kurta doesn't belong in casual western outfits
+    if (productMeta.isKurta) score -= 8;
     // Blazers don't belong in casual settings
     if (productMeta.isBlazer) score -= 5;
     // Formal jackets/coats (not denim or bomber) are too formal
