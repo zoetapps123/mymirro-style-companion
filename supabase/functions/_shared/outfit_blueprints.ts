@@ -1,6 +1,14 @@
-// Outfit Blueprints Engine - Phase 6.1
-// Canonical outfit structures for occasion x style x gender combinations
-// Built with 45+ years of fashion styling intelligence (Indian + Western)
+/**
+ * Outfit Blueprints Engine - Phase 6.1 + 6.5
+ * Canonical outfit structures for occasion x style x gender combinations
+ * Built with 45+ years of fashion styling intelligence (Indian + Western)
+ * 
+ * PHASE 6.5 PERFORMANCE GUARANTEES:
+ * - All functions are PURE (no external calls, no network requests)
+ * - Blueprint lookup is O(1) hash map access
+ * - No Supabase queries, no Gemini calls
+ * - Works only on in-memory data
+ */
 
 export type OccasionKey =
   | 'wedding_female'

@@ -1,10 +1,15 @@
 /**
- * Outfit Filtering Module - Phase 6.3
+ * Outfit Filtering Module - Phase 6.3 + 6.5
  * 
  * Blueprint-aware, fashion-intelligent filtering layer for outfit generation.
  * Uses occasion blueprints, product type metadata, and contextual scoring.
  * 
  * PHASE 6.3: Scoring-based filtering with blueprint integration
+ * PHASE 6.5: Performance guarantees:
+ *   - All functions are PURE (no external calls, no network requests)
+ *   - Scoring runs ONCE per item on already-filtered data
+ *   - No extra Supabase queries or Gemini calls
+ *   - All heavy work (normalization, scoring) is in-memory only
  */
 
 import { OutfitBlueprint, StyleKey, getBlueprintFor, isCategoryValidForBlueprint } from './outfit_blueprints.ts';
@@ -635,24 +640,33 @@ const GLOBAL_MAX_ITEMS = 20;
  * Filters, scores, and groups wardrobe items for outfit generation.
  * 
  * PHASE 6.3: Blueprint-aware filtering with contextual scoring.
- * - Uses occasion/style blueprints for intelligent scoring
- * - Applies category caps and global limits
- * - NEVER removes the anchor item
- * - Tracks structured pieces for t-shirt elevation logic
+ * PHASE 6.5: Performance guarantees:
+ *   - All operations are in-memory only (no network calls)
+ *   - Uses footwear_engine for intelligent shoe scoring
+ *   - Uses accessories_engine for intelligent accessory scoring
+ *   - Single pass through wardrobe items
+ *   - NEVER removes the anchor item
+ *   - Tracks structured pieces for t-shirt elevation logic
  */
 export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFilterOutput {
   const scored: ScoredWardrobeItem[] = [];
   const anchorItemId = input.anchorItem?.id;
   
-  // Get blueprint for context-aware scoring
+  // Get blueprint for context-aware scoring (PURE - no external calls)
   const gender = (input.userGender?.toLowerCase() === 'male' ? 'male' : 'female') as 'male' | 'female';
   const blueprint = getBlueprintFor(input.occasion, gender);
+  const styleKey = input.style ? (input.style.toLowerCase().replace(/\s+/g, '_') as StyleKey) : null;
   
   // Track if wardrobe has structured pieces (for t-shirt elevation)
   let hasStructuredPieces = false;
+  
+  // Collect footwear and accessories for specialized scoring
+  const footwearItems: { item: any; meta: FootwearMeta; normalizedCategory: NormalizedCategory }[] = [];
+  const accessoryItems: { item: any; meta: AccessoryMeta; normalizedCategory: NormalizedCategory }[] = [];
 
+  // PHASE 6.5: Single pass through wardrobe items
   for (const item of input.wardrobeItems || []) {
-    // 1) Normalize category
+    // 1) Normalize category (PURE function)
     const normalizedCategory = normalizeCategoryForFiltering(item);
     
     if (!normalizedCategory) {
@@ -660,12 +674,27 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
       continue;
     }
 
-    // 2) Compute score with blueprint awareness
+    // 2) Compute base score with blueprint awareness (PURE function)
     const scoreResult = scoreWardrobeItemForFiltering(item, normalizedCategory, input, blueprint);
     
     // Track structured pieces
     if (isStructuredPiece(scoreResult.productMeta)) {
       hasStructuredPieces = true;
+    }
+    
+    // 3) Collect specialized items for engine scoring
+    if (normalizedCategory === 'shoes') {
+      footwearItems.push({
+        item,
+        meta: wardrobeItemToFootwearMeta(item),
+        normalizedCategory
+      });
+    } else if (normalizedCategory === 'accessories') {
+      accessoryItems.push({
+        item,
+        meta: wardrobeItemToAccessoryMeta(item),
+        normalizedCategory
+      });
     }
 
     scored.push({ 
@@ -675,6 +704,47 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
       productMeta: scoreResult.productMeta,
       blueprintScore: scoreResult.blueprintScore
     });
+  }
+  
+  // PHASE 6.5: Apply specialized engine scoring to footwear (PURE - in memory only)
+  if (footwearItems.length > 0 && blueprint) {
+    const footwearMetas = footwearItems.map(f => f.meta);
+    const scoredFootwear = scoreFootwearForContext({
+      footwear: footwearMetas,
+      blueprint,
+      occasion: input.occasion || null,
+      styleKey
+    });
+    
+    // Apply engine scores to main scored array
+    for (const sf of scoredFootwear) {
+      const scoredItem = scored.find(s => s.item.id === sf.id);
+      if (scoredItem) {
+        // Add footwear engine bonus (capped to prevent runaway scores)
+        scoredItem.score += Math.min(sf.score, 5);
+      }
+    }
+  }
+  
+  // PHASE 6.5: Apply specialized engine scoring to accessories (PURE - in memory only)
+  if (accessoryItems.length > 0) {
+    const accessoryMetas = accessoryItems.map(a => a.meta);
+    const accessoryPlan = planAccessories({
+      accessories: accessoryMetas,
+      blueprint,
+      occasion: input.occasion || null,
+      styleKey
+    });
+    
+    // Boost primary and secondary accessories
+    if (accessoryPlan.primary) {
+      const scoredItem = scored.find(s => s.item.id === accessoryPlan.primary!.id);
+      if (scoredItem) scoredItem.score += 3;
+    }
+    if (accessoryPlan.secondary) {
+      const scoredItem = scored.find(s => s.item.id === accessoryPlan.secondary!.id);
+      if (scoredItem) scoredItem.score += 2;
+    }
   }
 
   // 3) Group by category

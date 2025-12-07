@@ -1,5 +1,13 @@
-// Accessories Intelligence Engine - Phase 6.2
-// Plans and scores accessory selection based on occasion, style, and outfit context
+/**
+ * Accessories Intelligence Engine - Phase 6.2 + 6.5
+ * Plans and scores accessory selection based on occasion, style, and outfit context
+ * 
+ * PHASE 6.5 PERFORMANCE GUARANTEES:
+ * - All functions are PURE (no external calls, no network requests)
+ * - Works only on in-memory data passed as arguments
+ * - No Supabase queries, no Gemini calls
+ * - Simple arithmetic scoring only
+ */
 
 import { OutfitBlueprint, StyleKey } from './outfit_blueprints.ts';
 

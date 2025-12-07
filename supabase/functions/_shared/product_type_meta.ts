@@ -1,5 +1,14 @@
-// Product Type Metadata Extraction - Phase 6.3
-// Extracts detailed product type flags from wardrobe item data for intelligent filtering
+/**
+ * Product Type Metadata Engine - Phase 6.3 + 6.5
+ * Extracts detailed product type flags from wardrobe item data
+ * Used for blueprint-aware filtering and scoring
+ * 
+ * PHASE 6.5 PERFORMANCE GUARANTEES:
+ * - All functions are PURE (no external calls, no network requests)
+ * - String matching is O(n) where n is keyword count (small constant)
+ * - No Supabase queries, no Gemini calls
+ * - Works only on in-memory data
+ */
 
 export interface ProductTypeMeta {
   productType?: string;

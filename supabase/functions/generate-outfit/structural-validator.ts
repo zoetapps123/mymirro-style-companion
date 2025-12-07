@@ -1,7 +1,16 @@
-// ============================================
-// STRUCTURAL VALIDATOR - Phase 6.4
-// Non-hallucination guardrails & outfit structure validation
-// ============================================
+/**
+ * ============================================
+ * STRUCTURAL VALIDATOR - Phase 6.4 + 6.5
+ * Non-hallucination guardrails & outfit structure validation
+ * ============================================
+ * 
+ * PHASE 6.5 PERFORMANCE GUARANTEES:
+ * - All functions are PURE (no external calls, no network requests)
+ * - Validates against in-memory wardrobe item IDs (Set lookup: O(1))
+ * - Blueprint lookup is O(1) hash map access
+ * - No Supabase queries, no Gemini calls
+ * - Runs ONCE per outfit batch after AI generation
+ */
 
 import { OutfitBlueprint, getBlueprintFor, CategoryCode } from '../_shared/outfit_blueprints.ts';
 
