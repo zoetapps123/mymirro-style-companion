@@ -82,11 +82,11 @@ const WEDDING_FEMALE: OutfitBlueprint = {
   optionalLayers: ['out'],
   optionalAccessories: ['acc'],
   allowedProductTypes: {
-    ethnic: ['saree', 'lehenga', 'lehenga_set', 'anarkali', 'kurta_set', 'sharara_set', 'gharara_set', 'salwar_suit'],
-    dresses: ['gown', 'occasion_dress', 'cocktail_dress', 'maxi_dress'],
-    bottoms: ['lehenga_skirt', 'palazzo', 'sharara', 'gharara', 'churidar'],
-    tops: ['blouse', 'choli', 'crop_top'],
-    outerwear: ['dupatta', 'shawl', 'stole', 'cape', 'shrug']
+    ethnic: ['saree', 'lehenga', 'lehenga_set', 'anarkali', 'kurta_set', 'sharara_set', 'gharara_set', 'salwar_suit', 'indo_western_gown', 'fusion_dress', 'kurta_dress'],
+    dresses: ['gown', 'occasion_dress', 'cocktail_dress', 'maxi_dress', 'co-ord_set'],
+    bottoms: ['lehenga_skirt', 'palazzo', 'sharara', 'gharara', 'churidar', 'cigarette_pants', 'pleated_trousers', 'tailored_pants', 'ethnic_pants', 'aligarhi_pajama', 'co-ord_bottom'],
+    tops: ['blouse', 'choli', 'crop_top', 'peplum_top', 'halter_top', 'chic_blouse', 'sleek_knit'],
+    outerwear: ['dupatta', 'shawl', 'stole', 'cape', 'shrug', 'shrug_long', 'cropped_blazer']
   },
   preferredFootwearTags: ['heels', 'block_heels', 'wedges', 'juttis', 'mojari', 'embellished_flats', 'kolhapuri'],
   preferredAccessories: ['statement_earrings', 'necklace', 'bangles', 'maang_tikka', 'clutch', 'potli', 'ring'],
@@ -107,10 +107,10 @@ const WEDDING_MALE: OutfitBlueprint = {
   optionalLayers: ['out'],
   optionalAccessories: ['acc'],
   allowedProductTypes: {
-    ethnic: ['sherwani', 'kurta_set', 'kurta_pajama', 'bandhgala', 'achkan', 'pathani_suit', 'nehru_jacket_set'],
-    tops: ['formal_shirt', 'dress_shirt', 'kurta'],
-    bottoms: ['formal_trouser', 'dress_pants', 'churidar', 'dhoti_pants', 'aligarh_pajama'],
-    outerwear: ['nehru_jacket', 'blazer', 'bandhgala_jacket', 'waistcoat', 'bundi']
+    ethnic: ['sherwani', 'kurta_set', 'kurta_pajama', 'bandhgala', 'achkan', 'pathani_suit', 'nehru_jacket_set', 'kurta_set_mixed'],
+    tops: ['formal_shirt', 'dress_shirt', 'kurta', 'fitted_shirt'],
+    bottoms: ['formal_trouser', 'dress_pants', 'churidar', 'dhoti_pants', 'aligarh_pajama', 'straight_fit_pants', 'tailored_pants', 'cigarette_pants'],
+    outerwear: ['nehru_jacket', 'blazer', 'bandhgala_jacket', 'waistcoat', 'bundi', 'boxy_blazer', 'longline_jacket']
   },
   preferredFootwearTags: ['formal_shoes', 'oxford', 'derby', 'loafers', 'mojari', 'juttis', 'kolhapuri', 'patent_leather'],
   preferredAccessories: ['watch', 'pocket_square', 'cufflinks', 'brooch', 'safa', 'turban', 'stole'],
