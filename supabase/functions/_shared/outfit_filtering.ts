@@ -1,11 +1,16 @@
 /**
- * Outfit Filtering Module - Phase 1
+ * Outfit Filtering Module - Phase 6.3
  * 
- * Deterministic, fashion-intelligent filtering layer for outfit generation.
- * This module scores and groups wardrobe items by relevance before AI processing.
+ * Blueprint-aware, fashion-intelligent filtering layer for outfit generation.
+ * Uses occasion blueprints, product type metadata, and contextual scoring.
  * 
- * PHASE 1: Only computes and returns structured results - NOT yet integrated into pipeline.
+ * PHASE 6.3: Scoring-based filtering with blueprint integration
  */
+
+import { OutfitBlueprint, StyleKey, getBlueprintFor, isCategoryValidForBlueprint } from './outfit_blueprints.ts';
+import { ProductTypeMeta, extractProductTypeMeta, isProductTypeAllowed, inferFormalityFromProductMeta, canBeElevatedByBlazer, isStructuredPiece } from './product_type_meta.ts';
+import { FootwearMeta, wardrobeItemToFootwearMeta, scoreFootwearForContext } from './footwear_engine.ts';
+import { AccessoryMeta, wardrobeItemToAccessoryMeta, planAccessories } from './accessories_engine.ts';
 
 // ============================================
 // TYPES
@@ -37,6 +42,8 @@ export interface ScoredWardrobeItem {
   item: any;
   normalizedCategory: NormalizedCategory;
   score: number;
+  productMeta?: ProductTypeMeta;
+  blueprintScore?: number;
 }
 
 export interface WardrobeFilterOutput {
@@ -60,6 +67,8 @@ export interface WardrobeFilterOutput {
     ethnic: number;
     accessories: number;
   };
+  blueprint?: OutfitBlueprint | null;
+  hasStructuredPieces?: boolean;
 }
 
 // ============================================
@@ -284,6 +293,147 @@ function getCompactFormality(formalityLevel?: string | null): CompactFormality |
 }
 
 // ============================================
+// BLUEPRINT-AWARE SCORING (Phase 6.3)
+// ============================================
+
+interface BlueprintScoreInput {
+  blueprint: OutfitBlueprint | null;
+  productMeta: ProductTypeMeta;
+  formalityCode: CompactFormality;
+  styleKey: StyleKey | null;
+  occasion: string | null;
+  normalizedCategory: NormalizedCategory;
+}
+
+/**
+ * Calculate blueprint-aware context score for an item
+ */
+function calculateBlueprintScore(input: BlueprintScoreInput): number {
+  const { blueprint, productMeta, formalityCode, styleKey, occasion, normalizedCategory } = input;
+  
+  if (!blueprint) return 0;
+  
+  let score = 0;
+  const occasionLower = (occasion || '').toLowerCase();
+  
+  // 1. Product type in blueprint's allowed types (+3)
+  const allowedTypes = blueprint.allowedProductTypes;
+  if (normalizedCategory === 'tops' && isProductTypeAllowed(productMeta.productType, allowedTypes.tops)) {
+    score += 3;
+  } else if (normalizedCategory === 'bottoms' && isProductTypeAllowed(productMeta.productType, allowedTypes.bottoms)) {
+    score += 3;
+  } else if (normalizedCategory === 'dresses' && isProductTypeAllowed(productMeta.productType, allowedTypes.dresses)) {
+    score += 3;
+  } else if (normalizedCategory === 'ethnic' && isProductTypeAllowed(productMeta.productType, allowedTypes.ethnic)) {
+    score += 3;
+  } else if (normalizedCategory === 'outerwear' && isProductTypeAllowed(productMeta.productType, allowedTypes.outerwear)) {
+    score += 3;
+  }
+  
+  // 2. Formality alignment (+2 or -2)
+  const blueprintFormality = blueprint.formalityLevel;
+  const formalityMatch = checkFormalityAlignment(formalityCode, blueprintFormality);
+  score += formalityMatch;
+  
+  // 3. Style alignment (+2)
+  if (styleKey && blueprint.allowedStyles.includes(styleKey)) {
+    score += 2;
+  }
+  
+  // 4. Blueprint-specific rules
+  
+  // Cargo rules
+  if (productMeta.isCargo) {
+    if (!blueprint.allowCargos) {
+      score -= 3; // Penalty but not hard block
+    } else {
+      score += 1; // Bonus if explicitly allowed
+    }
+  }
+  
+  // Jeans rules
+  if (productMeta.isJeans) {
+    if (!blueprint.allowJeans && !blueprint.allowJeansFusion) {
+      score -= 3;
+    } else if (blueprint.allowJeansFusion && !blueprint.allowJeans) {
+      score -= 1; // Low priority fusion only
+    } else if (blueprint.allowJeans) {
+      score += 1;
+    }
+  }
+  
+  // Gym shoes rules
+  if (productMeta.isSportsShoe || productMeta.isFlipFlop) {
+    if (!blueprint.allowGymShoes) {
+      score -= 4; // Strong penalty
+    }
+  }
+  
+  // Backpack rules
+  if (productMeta.isBackpack) {
+    if (!blueprint.allowBackpacks) {
+      score -= 4;
+    } else {
+      score += 1;
+    }
+  }
+  
+  // 5. Special occasion penalties
+  if (occasionLower.includes('wedding') || occasionLower.includes('sangeet')) {
+    // Flip flops/slides are never ok for weddings
+    if (productMeta.isFlipFlop) score -= 5;
+    // Sports shoes are terrible for weddings
+    if (productMeta.isSportsShoe) score -= 5;
+    // Ethnic items get bonus
+    if (productMeta.isEthnic) score += 2;
+    // Formal shoes/heels/juttis get bonus
+    if (productMeta.isFormalShoe || productMeta.isHeel || productMeta.isMojariJutti) score += 2;
+  }
+  
+  if (occasionLower.includes('interview')) {
+    // No casual items
+    if (productMeta.isTshirt || productMeta.isCargo || productMeta.isShorts) score -= 4;
+    if (productMeta.isSneaker || productMeta.isFlipFlop) score -= 4;
+    // Formal items bonus
+    if (productMeta.isBlazer || productMeta.isFormalTrouser || productMeta.isShirt) score += 2;
+  }
+  
+  if (occasionLower.includes('office') || occasionLower.includes('work')) {
+    // Flip flops penalty
+    if (productMeta.isFlipFlop) score -= 3;
+    // Structured pieces bonus
+    if (productMeta.isBlazer || productMeta.isShirt || productMeta.isBlouse) score += 1;
+  }
+  
+  // 6. Versatile items bonus (+1)
+  const versatileItems = productMeta.isChinos || productMeta.isLoafer || 
+    (productMeta.isSneaker && !productMeta.isSportsShoe); // Clean sneakers
+  if (versatileItems) score += 1;
+  
+  return score;
+}
+
+function checkFormalityAlignment(itemFormality: CompactFormality, blueprintLevel: string): number {
+  const formalityOrder: CompactFormality[] = ['cas', 'smc', 'bsc', 'frm'];
+  const itemIndex = formalityOrder.indexOf(itemFormality);
+  
+  let expectedIndex = 1; // Default to smart casual
+  switch (blueprintLevel) {
+    case 'casual': expectedIndex = 0; break;
+    case 'smart_casual': expectedIndex = 1; break;
+    case 'semi_formal': expectedIndex = 2; break;
+    case 'formal':
+    case 'black_tie': expectedIndex = 3; break;
+  }
+  
+  const diff = Math.abs(itemIndex - expectedIndex);
+  if (diff === 0) return 2;  // Perfect match
+  if (diff === 1) return 1;  // Close match
+  if (diff === 2) return -1; // Mismatch
+  return -2;                  // Strong mismatch
+}
+
+// ============================================
 // SCORING HELPER
 // ============================================
 
@@ -299,20 +449,40 @@ const NEUTRAL_COLORS = new Set([
 /**
  * Calculates a relevance score for a wardrobe item.
  * Higher scores indicate better matches for the given filter input.
- * This function NEVER throws and NEVER filters - it only computes a number.
+ * Phase 6.3: Now includes blueprint-aware scoring.
  */
 export function scoreWardrobeItemForFiltering(
   item: any,
   normalizedCategory: NormalizedCategory | null,
-  input: WardrobeFilterInput
-): number {
+  input: WardrobeFilterInput,
+  blueprint?: OutfitBlueprint | null
+): { score: number; productMeta: ProductTypeMeta; blueprintScore: number } {
   try {
     let score = 0;
+    const productMeta = extractProductTypeMeta(item);
+    let blueprintScore = 0;
 
     // 1) Base score - every item gets at least 1 point
     score += 1;
 
-    // 2) Formality match for occasion-based generation
+    // 2) Blueprint-aware scoring (Phase 6.3)
+    if (blueprint && normalizedCategory) {
+      const itemFormality = inferFormalityFromProductMeta(productMeta);
+      const styleKey = input.style ? (input.style.toLowerCase().replace(/\s+/g, '_') as StyleKey) : null;
+      
+      blueprintScore = calculateBlueprintScore({
+        blueprint,
+        productMeta,
+        formalityCode: itemFormality,
+        styleKey,
+        occasion: input.occasion || null,
+        normalizedCategory
+      });
+      
+      score += blueprintScore;
+    }
+
+    // 3) Formality match for occasion-based generation (legacy - still useful)
     if (input.occasion) {
       const allowedFormalities = getAllowedFormalitiesForOccasion(input.occasion);
       const itemFormality = getCompactFormality(item?.formality_level);
@@ -320,13 +490,12 @@ export function scoreWardrobeItemForFiltering(
       if (allowedFormalities && itemFormality) {
         const formalityIndex = allowedFormalities.indexOf(itemFormality);
         if (formalityIndex === 0) {
-          score += 5; // Best match
+          score += 3; // Best match (reduced from 5 as blueprint handles this)
         } else if (formalityIndex === 1) {
-          score += 3; // Good match
+          score += 2; // Good match
         } else if (formalityIndex >= 2) {
           score += 1; // Acceptable
         }
-        // No penalty for non-match in Phase 1
       }
       
       // Bonus if occasion appears in suitable_occasions
@@ -336,12 +505,12 @@ export function scoreWardrobeItemForFiltering(
         if (suitableOccasions.some((o: string) => 
           o?.toLowerCase?.().includes(occasionLower) || occasionLower.includes(o?.toLowerCase?.() || '')
         )) {
-          score += 4;
+          score += 3;
         }
       }
     }
 
-    // 3) Style match for style-based generation
+    // 4) Style match for style-based generation
     if (input.generationType === 'style' && input.style) {
       const styleLower = input.style.toLowerCase();
       const itemStyles = item?.style_aesthetic || [];
@@ -351,12 +520,12 @@ export function scoreWardrobeItemForFiltering(
           s?.toLowerCase?.().includes(styleLower) || styleLower.includes(s?.toLowerCase?.() || '')
         );
         if (hasStyleMatch) {
-          score += 5;
+          score += 4;
         }
       }
     }
 
-    // 4) Anchor item compatibility for anchor-based generation
+    // 5) Anchor item compatibility for anchor-based generation
     if (input.generationType === 'anchor' && input.anchorItem) {
       // If this IS the anchor item, give huge score
       if (item?.id === input.anchorItem?.id) {
@@ -367,7 +536,7 @@ export function scoreWardrobeItemForFiltering(
         const itemFormality = getCompactFormality(item?.formality_level);
         
         if (anchorFormality && itemFormality && anchorFormality === itemFormality) {
-          score += 3;
+          score += 2;
         }
         
         // Check style aesthetic overlap
@@ -381,13 +550,13 @@ export function scoreWardrobeItemForFiltering(
             )
           );
           if (hasOverlap) {
-            score += 3;
+            score += 2;
           }
         }
       }
     }
 
-    // 5) Metadata completeness bonus
+    // 6) Metadata completeness bonus
     let metadataScore = 0;
     if (item?.color || item?.primary_color) metadataScore++;
     if (item?.formality_level) metadataScore++;
@@ -396,18 +565,18 @@ export function scoreWardrobeItemForFiltering(
     if (item?.suitable_occasions?.length > 0) metadataScore++;
     
     if (metadataScore >= 4) {
-      score += 3; // Rich metadata
+      score += 2; // Rich metadata
     } else if (metadataScore >= 2) {
       score += 1; // Moderate metadata
     }
 
-    // 6) Neutral/versatile color bonus
+    // 7) Neutral/versatile color bonus
     const itemColor = (item?.color || item?.primary_color || '').toString().toLowerCase();
     if (NEUTRAL_COLORS.has(itemColor)) {
       score += 1;
     }
 
-    // 7) Climate/temperature hints
+    // 8) Climate/temperature hints
     if (input.temperatureC !== null && input.temperatureC !== undefined) {
       const seasons = item?.season || [];
       const weatherSuitability = (item?.weather_suitability || '').toLowerCase();
@@ -418,9 +587,8 @@ export function scoreWardrobeItemForFiltering(
           score += 2;
         }
         if (seasons.includes('winter') || weatherSuitability.includes('cold') || weatherSuitability.includes('cool')) {
-          score -= 1; // Slight penalty for winter items in hot weather
+          score -= 1;
         }
-        // Outerwear penalty in hot weather
         if (normalizedCategory === 'outerwear') {
           score -= 2;
         }
@@ -432,15 +600,14 @@ export function scoreWardrobeItemForFiltering(
           score += 2;
         }
         if (normalizedCategory === 'outerwear') {
-          score += 2; // Bonus for outerwear in cold weather
+          score += 2;
         }
       }
     }
 
-    return score;
+    return { score, productMeta, blueprintScore };
   } catch {
-    // Never throw - return base score on any error
-    return 1;
+    return { score: 1, productMeta: {}, blueprintScore: 0 };
   }
 }
 
@@ -467,14 +634,22 @@ const GLOBAL_MAX_ITEMS = 20;
 /**
  * Filters, scores, and groups wardrobe items for outfit generation.
  * 
- * PHASE 2: Applies category caps and global limits.
- * - Caps each category to max items (highest-scoring kept)
- * - Enforces global max of 20 items
+ * PHASE 6.3: Blueprint-aware filtering with contextual scoring.
+ * - Uses occasion/style blueprints for intelligent scoring
+ * - Applies category caps and global limits
  * - NEVER removes the anchor item
+ * - Tracks structured pieces for t-shirt elevation logic
  */
 export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFilterOutput {
   const scored: ScoredWardrobeItem[] = [];
   const anchorItemId = input.anchorItem?.id;
+  
+  // Get blueprint for context-aware scoring
+  const gender = (input.userGender?.toLowerCase() === 'male' ? 'male' : 'female') as 'male' | 'female';
+  const blueprint = getBlueprintFor(input.occasion, gender);
+  
+  // Track if wardrobe has structured pieces (for t-shirt elevation)
+  let hasStructuredPieces = false;
 
   for (const item of input.wardrobeItems || []) {
     // 1) Normalize category
@@ -485,10 +660,21 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
       continue;
     }
 
-    // 2) Compute score
-    const score = scoreWardrobeItemForFiltering(item, normalizedCategory, input);
+    // 2) Compute score with blueprint awareness
+    const scoreResult = scoreWardrobeItemForFiltering(item, normalizedCategory, input, blueprint);
+    
+    // Track structured pieces
+    if (isStructuredPiece(scoreResult.productMeta)) {
+      hasStructuredPieces = true;
+    }
 
-    scored.push({ item, normalizedCategory, score });
+    scored.push({ 
+      item, 
+      normalizedCategory, 
+      score: scoreResult.score,
+      productMeta: scoreResult.productMeta,
+      blueprintScore: scoreResult.blueprintScore
+    });
   }
 
   // 3) Group by category
@@ -577,5 +763,7 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
     allScoredItems: categories.flatMap(cat => grouped[cat]),
     groupedByCategory: grouped,
     summary,
+    blueprint,
+    hasStructuredPieces,
   };
 }
