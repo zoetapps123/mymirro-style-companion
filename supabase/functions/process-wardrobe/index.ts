@@ -906,6 +906,61 @@ Use the return_visual_detection function to return structured JSON with ONLY the
   };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// COLOR-FIRST DEDUPLICATION HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+const COLOR_KEYWORDS = [
+  'black', 'white', 'gray', 'grey', 'navy', 'blue', 'red', 'green', 
+  'brown', 'beige', 'tan', 'pink', 'purple', 'orange', 'yellow',
+  'cream', 'charcoal', 'maroon', 'olive', 'teal', 'coral', 'burgundy',
+  'khaki', 'mustard', 'peach', 'lavender', 'mint', 'gold', 'silver',
+  'indigo', 'cyan', 'magenta', 'turquoise', 'rose', 'salmon', 'ivory'
+];
+
+/**
+ * Extracts ALL color keywords from an item name and returns them sorted.
+ * E.g., "White Black Sneakers" → ["black", "white"]
+ */
+function extractColorSignature(itemName: string): string[] {
+  const lowerName = itemName.toLowerCase();
+  const colors = COLOR_KEYWORDS.filter(color => {
+    // Use word boundary to avoid partial matches (e.g., "gold" in "golden")
+    const regex = new RegExp(`\\b${color}\\b`);
+    return regex.test(lowerName);
+  });
+  return colors.sort(); // Sort for consistent comparison
+}
+
+/**
+ * Compares two color signatures for exact match (order-independent).
+ * Returns true if colors match exactly, false otherwise.
+ * If either has no colors detected, returns true (can't determine).
+ */
+function colorSignaturesMatch(colors1: string[], colors2: string[]): boolean {
+  // If either has no colors detected, skip color check (can't determine)
+  if (colors1.length === 0 || colors2.length === 0) {
+    return true; // Assume possible match if we can't detect colors
+  }
+  
+  // Both must have exactly the same colors (order-independent)
+  if (colors1.length !== colors2.length) {
+    return false;
+  }
+  
+  // Since both are sorted, we can compare directly
+  return colors1.every((c, i) => c === colors2[i]);
+}
+
+/**
+ * Removes color words from a name to get non-color words for comparison.
+ */
+function getNonColorWords(itemName: string): Set<string> {
+  const lowerName = itemName.toLowerCase();
+  const words = lowerName.split(/\s+/);
+  return new Set(words.filter(word => !COLOR_KEYWORDS.includes(word) && word.length > 1));
+}
+
 interface DuplicateCheckResult {
   uniqueItems: WardrobeDetectionItem[];
   duplicatesSkipped: number;
@@ -920,7 +975,7 @@ async function enhancedSmartDeduplication(
 
   // ═══════════════════════════════════════════════════════════════
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🔍 STEP 3: DEDUPLICATION CHECK');
+  console.log('🔍 STEP 3: DEDUPLICATION CHECK (COLOR-FIRST APPROACH)');
   console.log('═══════════════════════════════════════════════════════════════');
 
   const { data: existingItems, error } = await supabase.from("wardrobe_items").select("*").eq("user_id", userId);
@@ -947,14 +1002,15 @@ async function enhancedSmartDeduplication(
   const uniqueItems: WardrobeDetectionItem[] = [];
   const skipReasons: string[] = [];
 
-  // Simplified deduplication: match on item_name similarity and item_type
   for (const newItem of detectedItems) {
     let isDuplicate = false;
     let skipReason = "";
 
-    // Find items with matching item_type in same parent_category
+    // Determine if this is an accessory (skip color check for accessories)
+    const isAccessory = newItem.parent_category === "Accessories";
+
+    // Find items with matching parent_category
     const similarItems = existingItems.filter((existing) => {
-      // Map existing item's category to parent_category for comparison
       let existingParent = "Clothing";
       if (existing.category === "Shoes") existingParent = "Footwear";
       else if (existing.category === "Accessories") existingParent = "Accessories";
@@ -962,30 +1018,51 @@ async function enhancedSmartDeduplication(
       return existingParent === newItem.parent_category;
     });
 
-    // Check for name similarity (using simple string matching)
+    // Check for duplicates using color-first approach (except for accessories)
     const nameMatch = similarItems.find((existing) => {
       const newName = newItem.item_name.toLowerCase();
       const existingName = existing.name.toLowerCase();
       
-      // Check if item_type matches (if we have it in existing item)
+      // 1. Item type must match
       const typeMatch = existing.item_type && newItem.item_type && 
         existing.item_type.toLowerCase() === newItem.item_type.toLowerCase();
       
-      // Check if names are very similar (contain same words)
-      const newWords = new Set(newName.split(/\s+/));
-      const existingWords = new Set(existingName.split(/\s+/));
+      if (!typeMatch) {
+        return false;
+      }
+
+      // 2. For NON-accessories: Color signature must match exactly
+      if (!isAccessory) {
+        const newColors = extractColorSignature(newItem.item_name);
+        const existingColors = extractColorSignature(existing.name);
+        
+        if (!colorSignaturesMatch(newColors, existingColors)) {
+          console.log(`🎨 Color mismatch for "${newItem.item_name}" vs "${existing.name}": [${newColors.join(',')}] vs [${existingColors.join(',')}] → UNIQUE`);
+          return false;
+        }
+      }
+
+      // 3. Check non-color word overlap (for fabric, material, style)
+      const newWords = getNonColorWords(newName);
+      const existingWords = getNonColorWords(existingName);
       
-      // Calculate word overlap
+      // Calculate overlap excluding color words
       const commonWords = [...newWords].filter(word => existingWords.has(word));
-      const overlapRatio = commonWords.length / Math.min(newWords.size, existingWords.size);
+      const overlapRatio = commonWords.length / Math.max(1, Math.min(newWords.size, existingWords.size));
       
-      // Consider duplicate if type matches AND high name overlap
-      const isMatch = typeMatch && overlapRatio > 0.6;
+      // For accessories: use original logic (type match + 60% overlap)
+      // For clothing/footwear: colors already matched, so 50% overlap on non-color words
+      const threshold = isAccessory ? 0.6 : 0.5;
+      const isMatch = overlapRatio >= threshold;
       
       if (isMatch) {
-        console.log(`🔍 Name+type match for "${newItem.item_name}":`, {
-          existing: existing.name,
-          overlapRatio: Math.round(overlapRatio * 100) + "%",
+        const newColors = extractColorSignature(newItem.item_name);
+        const existingColors = extractColorSignature(existing.name);
+        console.log(`🔍 Duplicate match for "${newItem.item_name}" ≈ "${existing.name}":`, {
+          isAccessory,
+          colors: isAccessory ? 'skipped' : `[${newColors.join(',')}] = [${existingColors.join(',')}]`,
+          nonColorOverlap: Math.round(overlapRatio * 100) + "%",
+          threshold: Math.round(threshold * 100) + "%"
         });
       }
       
