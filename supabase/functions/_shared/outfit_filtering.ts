@@ -445,25 +445,43 @@ export function scoreWardrobeItemForFiltering(
 }
 
 // ============================================
+// CATEGORY CAPS (Phase 2)
+// ============================================
+
+const CATEGORY_CAPS: Record<NormalizedCategory, number> = {
+  tops: 5,
+  bottoms: 4,
+  shoes: 3,
+  outerwear: 2,
+  dresses: 2,
+  ethnic: 2,
+  accessories: 3,
+};
+
+const GLOBAL_MAX_ITEMS = 20;
+
+// ============================================
 // MAIN FILTER FUNCTION
 // ============================================
 
 /**
  * Filters, scores, and groups wardrobe items for outfit generation.
  * 
- * PHASE 1: This function ONLY computes and returns a structured result.
- * It does NOT enforce any caps or limits - those will be added in Phase 2.
+ * PHASE 2: Applies category caps and global limits.
+ * - Caps each category to max items (highest-scoring kept)
+ * - Enforces global max of 20 items
+ * - NEVER removes the anchor item
  */
 export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFilterOutput {
   const scored: ScoredWardrobeItem[] = [];
+  const anchorItemId = input.anchorItem?.id;
 
   for (const item of input.wardrobeItems || []) {
     // 1) Normalize category
     const normalizedCategory = normalizeCategoryForFiltering(item);
     
     if (!normalizedCategory) {
-      // Skip items with unknown categories in Phase 1
-      // Later we can decide how to handle these
+      // Skip items with unknown categories
       continue;
     }
 
@@ -494,9 +512,58 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
     grouped[cat].sort((a, b) => b.score - a.score);
   }
 
-  // 5) Summary
+  // 5) PHASE 2: Apply category caps (keep highest-scoring items)
+  for (const cat of categories) {
+    const cap = CATEGORY_CAPS[cat];
+    if (grouped[cat].length > cap) {
+      // Before capping, ensure anchor item is preserved if in this category
+      const anchorIndex = grouped[cat].findIndex(s => s.item.id === anchorItemId);
+      
+      if (anchorIndex >= 0 && anchorIndex >= cap) {
+        // Anchor is outside cap range - swap it into the kept range
+        const anchorItem = grouped[cat][anchorIndex];
+        grouped[cat].splice(anchorIndex, 1);
+        grouped[cat].unshift(anchorItem); // Put at front
+      }
+      
+      // Apply cap
+      grouped[cat] = grouped[cat].slice(0, cap);
+    }
+  }
+
+  // 6) PHASE 2: Enforce global max items
+  let allCappedItems: ScoredWardrobeItem[] = [];
+  for (const cat of categories) {
+    allCappedItems.push(...grouped[cat]);
+  }
+
+  if (allCappedItems.length > GLOBAL_MAX_ITEMS) {
+    // Sort all by score descending
+    allCappedItems.sort((a, b) => b.score - a.score);
+    
+    // Keep top items, but NEVER remove anchor
+    const kept: ScoredWardrobeItem[] = [];
+    let anchorKept = false;
+    
+    for (const item of allCappedItems) {
+      if (item.item.id === anchorItemId) {
+        kept.push(item);
+        anchorKept = true;
+      } else if (kept.length < GLOBAL_MAX_ITEMS - (anchorItemId && !anchorKept ? 1 : 0)) {
+        kept.push(item);
+      }
+    }
+    
+    // If anchor wasn't in top items, it was already kept via the score boost
+    // Rebuild grouped from kept items
+    for (const cat of categories) {
+      grouped[cat] = kept.filter(s => s.normalizedCategory === cat);
+    }
+  }
+
+  // 7) Summary (reflects capped items)
   const summary = {
-    totalItems: scored.length,
+    totalItems: categories.reduce((sum, cat) => sum + grouped[cat].length, 0),
     tops: grouped.tops.length,
     bottoms: grouped.bottoms.length,
     shoes: grouped.shoes.length,
@@ -507,7 +574,7 @@ export function filterWardrobeForOutfits(input: WardrobeFilterInput): WardrobeFi
   };
 
   return {
-    allScoredItems: scored,
+    allScoredItems: categories.flatMap(cat => grouped[cat]),
     groupedByCategory: grouped,
     summary,
   };
