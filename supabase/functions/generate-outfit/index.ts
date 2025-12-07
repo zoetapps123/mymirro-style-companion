@@ -12,6 +12,8 @@ import { generateDiverseFallbackOutfits, shuffleWardrobeInput } from './fallback
 // Phase 2+3+4: Filtering and styling rules
 import { filterWardrobeForOutfits, WardrobeFilterInput } from '../_shared/outfit_filtering.ts';
 import { buildStylingRules } from '../_shared/styling_rules.ts';
+// Phase 6.4: Structural validation & anti-hallucination
+import { validateOutfitBatch, getQualityAdjustedMaxOutfits } from './structural-validator.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -497,7 +499,33 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Validate and enhance diversity
+    // ============================================
+    // PHASE 6.4: STRUCTURAL VALIDATION (Anti-Hallucination)
+    // ============================================
+    const structuralValidation = validateOutfitBatch(
+      result.outfits,
+      wardrobeItems,
+      occasion || null,
+      (gender as 'male' | 'female' | null) || null,
+      {
+        maxOutfits: getQualityAdjustedMaxOutfits(maxOutfits || 5),
+        minQualityScore: 40,
+        dropInvalidItems: true
+      }
+    );
+
+    console.log('[PHASE 6.4] Structural Validation:', {
+      inputOutfits: result.outfits.length,
+      validatedOutfits: structuralValidation.validatedOutfits.length,
+      droppedOutfits: structuralValidation.droppedOutfits.length,
+      overallQuality: structuralValidation.overallQuality,
+      warnings: structuralValidation.totalWarnings.length
+    });
+
+    // Use validated outfits (hallucinations removed, quality filtered)
+    result.outfits = structuralValidation.validatedOutfits;
+
+    // Step 2: Validate and enhance diversity (on cleaned outfits)
     const diversityReport = validateOutfitDiversity(result.outfits, wardrobeItems);
     console.log('📊 DIVERSITY METRICS:', {
       score: diversityReport.score,
@@ -584,6 +612,12 @@ serve(async (req) => {
         color_variety: diversityReport.colorVariety,
         issues: diversityReport.issues,
         enhancement_applied: !diversityReport.isValid
+      },
+      // Phase 6.4: Structural validation metadata
+      quality_metrics: {
+        overall_quality: structuralValidation.overallQuality,
+        hallucinations_removed: structuralValidation.droppedOutfits.length,
+        validation_warnings: structuralValidation.totalWarnings
       }
     };
 
@@ -601,7 +635,7 @@ serve(async (req) => {
       response.notes = result.notes;
     }
 
-    console.log('[OUTFIT ENGINE v4.0 OUTPUT]', {
+    console.log('[OUTFIT ENGINE v4.0 + Phase 6.4 OUTPUT]', {
       total_outfits: outfitsWithItems.length,
       safe_index: result.safe_outfit_index,
       bold_index: result.bold_outfit_index,
@@ -609,7 +643,9 @@ serve(async (req) => {
       has_opinions: outfitsWithItems.some((o: any) => o.styling_opinion),
       diversity_score: diversityReport.score,
       silhouette_variety: diversityReport.silhouetteVariety ? '✅' : '❌',
-      color_variety: diversityReport.colorVariety ? '✅' : '❌'
+      color_variety: diversityReport.colorVariety ? '✅' : '❌',
+      structural_quality: structuralValidation.overallQuality,
+      hallucinations_removed: structuralValidation.droppedOutfits.length
     });
 
     // Cache the result
@@ -833,7 +869,8 @@ function buildOutfitGenerationPrompt(
 
   // Apply filtering + scoring + grouping with caps
   const filtered = filterWardrobeForOutfits(filterInput);
-  const outfitCount = maxOutfits || 3;
+  // PHASE 6.4: Quality cap - request fewer outfits from AI for higher quality
+  const outfitCount = getQualityAdjustedMaxOutfits(maxOutfits || 3);
   const isSmallWardrobe = filtered.summary.totalItems < 3;
   
   console.log('🔬 [PHASE 4] Filter Applied:', {
