@@ -17,6 +17,13 @@ interface OutfitItem {
   image_url: string;
 }
 
+interface OutfitMetadata {
+  reasoning?: string;
+  visual_description?: string;
+  caption?: string;
+  [key: string]: any;
+}
+
 interface OutfitCardV2Props {
   outfitId?: string;
   outfitName?: string;
@@ -25,6 +32,7 @@ interface OutfitCardV2Props {
   previewImageUrl?: string | null;
   items: OutfitItem[];
   isSaved?: boolean;
+  metadata?: OutfitMetadata | null;
   onView?: () => void;
   onSave?: () => void;
   onCardClick?: () => void;
@@ -39,6 +47,7 @@ export const OutfitCardV2 = ({
   previewImageUrl,
   items,
   isSaved = false,
+  metadata,
   onView,
   onSave,
   onCardClick,
@@ -47,14 +56,26 @@ export const OutfitCardV2 = ({
   const [imageError, setImageError] = useState(false);
   
   // Generate title and caption (memoized for stability)
+  // Now uses AI reasoning/visual_description for better names
   const displayTitle = useMemo(() => 
-    generateOutfitTitle(occasion, styleTag, outfitName),
-    [occasion, styleTag, outfitName]
+    generateOutfitTitle(
+      occasion, 
+      styleTag, 
+      outfitName, 
+      metadata?.reasoning, 
+      metadata?.visual_description
+    ),
+    [occasion, styleTag, outfitName, metadata?.reasoning, metadata?.visual_description]
   );
   
   const displayCaption = useMemo(() => 
-    generateOutfitCaption(occasion, styleTag),
-    [occasion, styleTag]
+    generateOutfitCaption(
+      occasion, 
+      styleTag, 
+      metadata?.caption,
+      metadata?.reasoning
+    ),
+    [occasion, styleTag, metadata?.caption, metadata?.reasoning]
   );
 
   const handleCardClick = () => {

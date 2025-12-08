@@ -260,6 +260,14 @@ serve(async (req) => {
                   type: 'object',
                   properties: {
                     outfitId: { type: 'string' },
+                    name: { 
+                      type: 'string', 
+                      description: 'Creative 2-4 word outfit name (e.g., "Urban Elegance", "Weekend Flow", "Date Night Charm")' 
+                    },
+                    caption: { 
+                      type: 'string', 
+                      description: 'One-line styling insight in 6-12 words describing the vibe or key styling choice' 
+                    },
                     pieces: {
                       type: 'array',
                       items: {
@@ -284,7 +292,7 @@ serve(async (req) => {
                       items: { type: 'string' }
                     }
                   },
-                  required: ['pieces', 'reasoning', 'styleTag']
+                  required: ['pieces', 'reasoning', 'styleTag', 'name']
                 }
               },
               totalGenerated: { type: 'number' },

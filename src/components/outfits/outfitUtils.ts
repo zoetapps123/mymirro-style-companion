@@ -1,39 +1,44 @@
 // UI-only utilities for generating outfit titles and captions
 
 const OCCASION_TITLE_MAP: Record<string, string[]> = {
-  wedding: ['Wedding Chic', 'Elegant Ceremony', 'Celebration Look'],
-  reception: ['Reception Ready', 'Evening Elegance', 'Party Mode'],
-  sangeet: ['Sangeet Style', 'Festive Glow', 'Dance Night'],
-  office: ['Smart Clean', 'Office Sharp', 'Workday Prep'],
-  interview: ['Interview Ready', 'First Impressions', 'Pro Look'],
-  meeting: ['Meeting Mode', 'Business Clean', 'Sharp & Ready'],
-  party: ['Party Mode', 'Night Out', 'Statement Look'],
-  club: ['Club Night', 'Dance Ready', 'After Dark'],
-  casual: ['Everyday Easy', 'Casual Flow', 'Laid Back'],
-  brunch: ['Brunch Minimal', 'Weekend Chill', 'Sunday Best'],
-  daily: ['Daily Pick', 'Go-To Look', 'Easy Day'],
-  college: ['Campus Cool', 'Class Ready', 'Student Style'],
-  date: ['Date Night', 'Romance Ready', 'Evening Charm'],
-  datenight: ['Date Night', 'Romance Ready', 'Evening Charm'],
+  wedding: ['Wedding Chic', 'Elegant Affair', 'Celebration Look', 'Ceremony Ready'],
+  reception: ['Reception Ready', 'Evening Elegance', 'Party Mode', 'Night Glam'],
+  sangeet: ['Sangeet Style', 'Festive Glow', 'Dance Night', 'Celebration Vibes'],
+  office: ['Smart Clean', 'Office Sharp', 'Workday Prep', 'Professional Edge'],
+  interview: ['Interview Ready', 'First Impressions', 'Pro Look', 'Career Sharp'],
+  meeting: ['Meeting Mode', 'Business Clean', 'Sharp & Ready', 'Boardroom Ready'],
+  party: ['Party Mode', 'Night Out', 'Statement Look', 'After Hours'],
+  club: ['Club Night', 'Dance Ready', 'After Dark', 'Night Energy'],
+  casual: ['Everyday Easy', 'Casual Flow', 'Laid Back', 'Effortless Style'],
+  brunch: ['Brunch Minimal', 'Weekend Chill', 'Sunday Best', 'Morning Vibes'],
+  daily: ['Daily Pick', 'Go-To Look', 'Easy Day', 'Everyday Fit'],
+  college: ['Campus Cool', 'Class Ready', 'Student Style', 'University Vibes'],
+  date: ['Date Night', 'Romance Ready', 'Evening Charm', 'Dinner Date'],
+  datenight: ['Date Night', 'Romance Ready', 'Evening Charm', 'Subtle Allure'],
+  formal: ['Formal Edge', 'Black Tie Ready', 'Refined Look', 'Elegant Night'],
+  travel: ['Travel Ready', 'On The Go', 'Journey Style', 'Wanderlust Fit'],
 };
 
 const STYLE_TITLE_MAP: Record<string, string[]> = {
-  minimal: ['Minimal Clean', 'Pure Lines', 'Less Is More'],
-  minimalist: ['Minimalist Flow', 'Simple & Chic', 'Clean Slate'],
-  streetwear: ['Urban Oversize', 'Street Edge', 'City Mode'],
-  elegant: ['Tonal Chic', 'Refined Look', 'Polished Style'],
-  boho: ['Boho Flow', 'Free Spirit', 'Earthy Tones'],
-  preppy: ['Preppy Fresh', 'Classic Crisp', 'Campus Chic'],
-  grunge: ['Dark Edge', 'Grunge Mix', 'Raw Vibes'],
-  athleisure: ['Active Blend', 'Sport Casual', 'Movement Ready'],
-  sporty: ['Sport Mode', 'Athletic Mix', 'Active Style'],
-  indie: ['Indie Mix', 'Artistic Edge', 'Unique Blend'],
-  techwear: ['Tech Urban', 'Future Fit', 'Modern Edge'],
-  y2k: ['Y2K Retro', '2000s Vibe', 'Throwback Style'],
+  minimal: ['Minimal Clean', 'Pure Lines', 'Less Is More', 'Clean Slate'],
+  minimalist: ['Minimalist Flow', 'Simple & Chic', 'Clean Slate', 'Quiet Luxury'],
+  streetwear: ['Urban Oversize', 'Street Edge', 'City Mode', 'Street Ready'],
+  elegant: ['Tonal Chic', 'Refined Look', 'Polished Style', 'Classic Elegance'],
+  boho: ['Boho Flow', 'Free Spirit', 'Earthy Tones', 'Bohemian Vibes'],
+  preppy: ['Preppy Fresh', 'Classic Crisp', 'Campus Chic', 'Ivy League'],
+  grunge: ['Dark Edge', 'Grunge Mix', 'Raw Vibes', 'Rebel Style'],
+  athleisure: ['Active Blend', 'Sport Casual', 'Movement Ready', 'Comfort Edge'],
+  sporty: ['Sport Mode', 'Athletic Mix', 'Active Style', 'Game Ready'],
+  indie: ['Indie Mix', 'Artistic Edge', 'Unique Blend', 'Creative Flow'],
+  techwear: ['Tech Urban', 'Future Fit', 'Modern Edge', 'Cyber Ready'],
+  y2k: ['Y2K Retro', '2000s Vibe', 'Throwback Style', 'Nostalgic Edge'],
+  vintage: ['Vintage Soul', 'Retro Charm', 'Classic Revival', 'Old School Cool'],
+  edgy: ['Bold Edge', 'Statement Style', 'Dark Mode', 'Sharp Contrast'],
 };
 
 const GENERIC_TITLES = [
-  'Fresh Look', 'Style Pick', 'Curated Fit', 'Smart Mix', 'Today\'s Pick'
+  'Fresh Look', 'Style Pick', 'Curated Fit', 'Smart Mix', "Today's Pick",
+  'Effortless Fit', 'Easy Combo', 'Go-To Look', 'Balanced Style'
 ];
 
 const OCCASION_CAPTIONS: Record<string, string[]> = {
@@ -43,6 +48,8 @@ const OCCASION_CAPTIONS: Record<string, string[]> = {
   party: ['Statement pieces for a standout evening', 'Bold mix for after-hours energy'],
   brunch: ['Laid-back layers for weekend vibes', 'Easy elegance for slow mornings'],
   date: ['Refined charm for an evening connection', 'Subtle sophistication for special moments'],
+  interview: ['Confident silhouette for lasting impressions', 'Polished look for career moments'],
+  travel: ['Comfortable layers for on-the-go style', 'Versatile pieces for any destination'],
 };
 
 const STYLE_CAPTIONS: Record<string, string[]> = {
@@ -52,6 +59,8 @@ const STYLE_CAPTIONS: Record<string, string[]> = {
   boho: ['Flowy textures in earthy harmony', 'Free-spirited layers with natural warmth'],
   preppy: ['Classic structure with crisp details', 'Campus-ready with polished accents'],
   athleisure: ['Performance meets everyday style', 'Active comfort with casual polish'],
+  vintage: ['Retro-inspired pieces with modern flair', 'Nostalgic charm meets current trends'],
+  edgy: ['Bold contrasts with statement pieces', 'Sharp silhouettes with attitude'],
 };
 
 const GENERIC_CAPTIONS = [
@@ -72,47 +81,128 @@ function normalizeKey(str: string | undefined | null): string {
 }
 
 /**
- * Generate an outfit title based on occasion/style
- * Returns a 6-16 character title
+ * Extract a meaningful name from AI reasoning or visual description
+ */
+function deriveNameFromReasoning(reasoning?: string | null, visualDesc?: string | null): string | null {
+  const text = reasoning || visualDesc || '';
+  if (!text || text.length < 10) return null;
+  
+  // Look for patterns like "clean urban look", "relaxed weekend vibe", etc.
+  const patterns = [
+    /(?:a\s+)?(\w+)\s+(urban|casual|elegant|relaxed|bold|refined|modern|classic|sleek|minimal|sporty)\s+(?:look|vibe|style|fit)/i,
+    /(?:a\s+)?(\w+)\s+and\s+(\w+)\s+(?:look|vibe|style|outfit)/i,
+    /creates?\s+(?:a\s+)?(\w+)\s+(\w+)\s+(?:aesthetic|vibe|feel)/i,
+    /(\w+)\s+(chic|edge|flow|mode|ready)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      // Capitalize first letter of each word
+      const words = match.slice(1, 3).filter(Boolean);
+      if (words.length >= 2) {
+        const name = words
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
+        if (name.length >= 6 && name.length <= 20) {
+          return name;
+        }
+      }
+    }
+  }
+  
+  // Try to extract adjective-noun combos
+  const adjectives = ['clean', 'sleek', 'bold', 'soft', 'sharp', 'warm', 'cool', 'fresh', 'dark', 'light', 'rich', 'muted'];
+  const nouns = ['look', 'style', 'vibe', 'edge', 'flow', 'mode', 'mix', 'blend'];
+  
+  const lowerText = text.toLowerCase();
+  for (const adj of adjectives) {
+    if (lowerText.includes(adj)) {
+      for (const noun of nouns) {
+        if (lowerText.includes(noun)) {
+          const name = adj.charAt(0).toUpperCase() + adj.slice(1) + ' ' + noun.charAt(0).toUpperCase() + noun.slice(1);
+          return name;
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Generate an outfit title based on occasion/style/reasoning
+ * Priority: existingName > derivedFromReasoning > occasion/style maps > generic
  */
 export function generateOutfitTitle(
   occasion?: string | null,
   style?: string | null,
-  existingName?: string | null
+  existingName?: string | null,
+  reasoning?: string | null,
+  visualDesc?: string | null
 ): string {
-  // If there's already a good name, use it
+  // 1. Use existing name if valid (6-20 chars, not generic fallback)
   if (existingName && existingName.length >= 6 && existingName.length <= 20) {
-    return existingName;
+    const genericFallbacks = ['Look', 'Outfit', 'Style'];
+    const isGenericFallback = genericFallbacks.some(g => 
+      existingName.endsWith(` ${g}`) && existingName.split(' ').length <= 2
+    );
+    if (!isGenericFallback) {
+      return existingName;
+    }
+  }
+
+  // 2. Try deriving from AI reasoning/visual description
+  const derivedName = deriveNameFromReasoning(reasoning, visualDesc);
+  if (derivedName) {
+    return derivedName;
   }
 
   const normOccasion = normalizeKey(occasion);
   const normStyle = normalizeKey(style);
 
-  // Try occasion-based title first
+  // 3. Try occasion-based title
   for (const [key, titles] of Object.entries(OCCASION_TITLE_MAP)) {
     if (normOccasion.includes(key) || key.includes(normOccasion)) {
       return getRandomItem(titles);
     }
   }
 
-  // Try style-based title
+  // 4. Try style-based title
   for (const [key, titles] of Object.entries(STYLE_TITLE_MAP)) {
     if (normStyle.includes(key) || key.includes(normStyle)) {
       return getRandomItem(titles);
     }
   }
 
-  // Fallback to generic
+  // 5. Fallback to generic
   return getRandomItem(GENERIC_TITLES);
 }
 
 /**
  * Generate a micro-caption (6-12 words)
+ * Now also accepts reasoning to derive captions
  */
 export function generateOutfitCaption(
   occasion?: string | null,
-  style?: string | null
+  style?: string | null,
+  aiCaption?: string | null,
+  reasoning?: string | null
 ): string {
+  // Use AI-generated caption if valid
+  if (aiCaption && aiCaption.length >= 20 && aiCaption.length <= 80) {
+    return aiCaption;
+  }
+  
+  // Try to extract a good line from reasoning
+  if (reasoning && reasoning.length > 30) {
+    // Take first sentence if it's a good length
+    const firstSentence = reasoning.split(/[.!]/)[0]?.trim();
+    if (firstSentence && firstSentence.length >= 20 && firstSentence.length <= 70) {
+      return firstSentence;
+    }
+  }
+
   const normOccasion = normalizeKey(occasion);
   const normStyle = normalizeKey(style);
 

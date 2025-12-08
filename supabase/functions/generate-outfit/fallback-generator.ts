@@ -11,6 +11,35 @@ const isShoe = (c: string) => ['shoe','sneaker','boot','loafer','heel','sandal',
 const isLayer = (c: string) => ['jacket','blazer','coat','cardigan','sweater','hoodie','outerwear','layer'].some(k => c.includes(k));
 const isAccessory = (c: string) => ['accessor','watch','belt','bag','handbag','sunglass','hat','scarf','jewelry'].some(k => c.includes(k));
 
+// Fallback name maps for variety
+const OCCASION_NAMES: Record<string, string[]> = {
+  wedding: ['Elegant Affair', 'Celebration Ready', 'Wedding Chic'],
+  office: ['Work Sharp', 'Office Sleek', 'Professional Edge'],
+  casual: ['Easy Flow', 'Chill Mode', 'Relaxed Fit'],
+  party: ['Night Out', 'Party Ready', 'After Hours'],
+  brunch: ['Sunday Best', 'Brunch Vibes', 'Weekend Easy'],
+  date: ['Date Night', 'Evening Charm', 'Romance Ready'],
+  datenight: ['Date Night', 'Evening Charm', 'Romance Ready'],
+  interview: ['Interview Ready', 'First Impression', 'Pro Look'],
+  college: ['Campus Cool', 'Class Ready', 'Student Style'],
+};
+
+const STYLE_NAMES: Record<string, string[]> = {
+  minimal: ['Clean Lines', 'Minimal Edge', 'Pure Simple'],
+  minimalist: ['Less Is More', 'Simple Chic', 'Clean Slate'],
+  streetwear: ['Urban Edge', 'Street Ready', 'City Mode'],
+  elegant: ['Refined Look', 'Polished Style', 'Tonal Chic'],
+  boho: ['Free Spirit', 'Boho Flow', 'Earthy Vibes'],
+  preppy: ['Campus Chic', 'Preppy Fresh', 'Classic Crisp'],
+  sporty: ['Sport Mode', 'Active Style', 'Movement Ready'],
+  athleisure: ['Active Blend', 'Sport Casual', 'Comfort Edge'],
+};
+
+const GENERIC_NAMES = [
+  'Fresh Look', 'Style Pick', 'Curated Fit', 'Smart Mix', 'Today\'s Pick',
+  'Effortless Fit', 'Easy Combo', 'Go-To Look'
+];
+
 export function generateDiverseFallbackOutfits(
   wardrobeItems: any[],
   maxOutfits: number,
@@ -77,8 +106,13 @@ export function generateDiverseFallbackOutfits(
     // Determine boldness based on outfit position
     const boldnessLevel = i === want - 1 ? 'bold' : (i === 0 ? 'safe' : 'balanced');
     
+    // Generate a creative name for the fallback outfit
+    const outfitName = generateFallbackName(occasion, style, i);
+    
     combos.push({
       outfitId: `fallback-${i + 1}`,
+      name: outfitName,
+      caption: generateFallbackCaption(top, bottom, occasion, style),
       pieces,
       reasoning: generateFallbackReasoning(top, bottom, shoe, layer, occasion, style),
       styleTag,
@@ -89,6 +123,41 @@ export function generateDiverseFallbackOutfits(
   }
   
   return combos;
+}
+
+// Helper: Generate a creative fallback name
+function generateFallbackName(occasion?: string, style?: string, index: number = 0): string {
+  const normOcc = norm(occasion);
+  const normStyle = norm(style);
+  
+  // Try occasion-based name
+  for (const [key, names] of Object.entries(OCCASION_NAMES)) {
+    if (normOcc.includes(key) || key.includes(normOcc)) {
+      return names[index % names.length];
+    }
+  }
+  
+  // Try style-based name
+  for (const [key, names] of Object.entries(STYLE_NAMES)) {
+    if (normStyle.includes(key) || key.includes(normStyle)) {
+      return names[index % names.length];
+    }
+  }
+  
+  // Generic fallback
+  return GENERIC_NAMES[index % GENERIC_NAMES.length];
+}
+
+// Helper: Generate a fallback caption
+function generateFallbackCaption(top: any, bottom: any, occasion?: string, style?: string): string {
+  const context = occasion || style || 'everyday';
+  const topColor = top.primary_color || top.color || '';
+  const bottomType = bottom.item_type || bottom.category || 'bottoms';
+  
+  if (topColor) {
+    return `${topColor} tones paired with ${bottomType.toLowerCase()} for ${context} vibes`;
+  }
+  return `Balanced ${context} combination with versatile pieces`;
 }
 
 // Helper: Find unused item or cycle if all used
