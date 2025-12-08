@@ -1,12 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Heart, Loader2 } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { 
   generateOutfitTitle, 
-  generateOutfitCaption, 
-  getCategoryMaxHeight,
-  orderItemsForSilhouette 
+  generateOutfitCaption
 } from './outfitUtils';
 
 interface OutfitItem {
@@ -58,44 +56,34 @@ export const OutfitCardV2 = ({
     generateOutfitCaption(occasion, styleTag),
     [occasion, styleTag]
   );
-  
-  // Order items for silhouette display
-  const orderedItems = useMemo(() => 
-    orderItemsForSilhouette(items),
-    [items]
-  );
 
   const handleCardClick = () => {
     onCardClick?.();
   };
 
-  // Render the silhouette composition (vertical stack of items)
-  const renderSilhouetteComposition = () => {
+  // Render the 2x2 grid composition (original layout)
+  const renderGridComposition = () => {
+    const displayItems = items.slice(0, 4);
+    
     return (
-      <div className="flex flex-col items-center justify-center gap-3 w-4/5 mx-auto py-3">
-        {orderedItems.map((item, idx) => {
-          const maxHeight = getCategoryMaxHeight(item.category);
+      <div className="grid grid-cols-2 gap-2 w-full p-3">
+        {displayItems.map((item, idx) => {
           const imageUrl = item.processed_image_url || item.image_url;
           
           return (
             <motion.div
               key={item.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2, delay: idx * 0.05 }}
-              className="relative flex items-center justify-center w-full"
-              style={{ maxHeight: `${maxHeight}px` }}
+              className="aspect-square bg-muted/30 rounded-lg overflow-hidden flex items-center justify-center"
             >
               <img
                 src={imageUrl}
                 alt={item.name}
                 loading="lazy"
                 decoding="async"
-                className="max-w-full object-contain drop-shadow-sm"
-                style={{ 
-                  maxHeight: `${maxHeight}px`,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.06))'
-                }}
+                className="w-full h-full object-contain p-1"
                 onError={(e) => {
                   // Fallback to original image if processed fails
                   if (item.processed_image_url && e.currentTarget.src === item.processed_image_url) {
@@ -113,7 +101,7 @@ export const OutfitCardV2 = ({
   // Render preview image if available
   const renderPreviewImage = () => {
     if (!previewImageUrl || imageError) {
-      return renderSilhouetteComposition();
+      return renderGridComposition();
     }
 
     return (
@@ -144,8 +132,8 @@ export const OutfitCardV2 = ({
           border: '1px solid hsl(var(--border) / 0.5)',
         }}
       >
-        {/* Image/Silhouette Container */}
-        <div className="relative aspect-[3/4] flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/20">
+        {/* Image/Grid Container - Square aspect ratio */}
+        <div className="relative aspect-square flex items-center justify-center bg-gradient-to-b from-background to-muted/20">
           {renderPreviewImage()}
           
           {/* Saved indicator */}
@@ -211,10 +199,13 @@ export const OutfitCardV2Skeleton = () => {
       boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
       border: '1px solid hsl(var(--border) / 0.5)',
     }}>
-      <div className="aspect-[3/4] p-4 flex flex-col items-center justify-center gap-3">
-        <div className="w-3/4 h-24 bg-muted/50 rounded-lg animate-pulse" />
-        <div className="w-2/3 h-28 bg-muted/50 rounded-lg animate-pulse" />
-        <div className="w-1/2 h-16 bg-muted/50 rounded-lg animate-pulse" />
+      <div className="aspect-square p-3">
+        <div className="grid grid-cols-2 gap-2 w-full h-full">
+          <div className="bg-muted/50 rounded-lg animate-pulse" />
+          <div className="bg-muted/50 rounded-lg animate-pulse" />
+          <div className="bg-muted/50 rounded-lg animate-pulse" />
+          <div className="bg-muted/50 rounded-lg animate-pulse" />
+        </div>
       </div>
       <div className="p-4 space-y-3">
         <div className="h-4 bg-muted/50 rounded animate-pulse w-3/4" />
