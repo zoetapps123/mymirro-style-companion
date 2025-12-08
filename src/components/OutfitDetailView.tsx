@@ -422,8 +422,17 @@ export const OutfitDetailView = ({ outfit, onBack, onSave }: OutfitDetailViewPro
             ) : currentOutfitImage ? (
               <img src={currentOutfitImage} alt={outfit.name} className="w-full h-full object-contain" />
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No preview available
+              // Fallback: Show 2x2 grid of items when no preview available
+              <div className="grid grid-cols-2 gap-3 p-4 h-full">
+                {selectedItems.slice(0, 4).map(item => (
+                  <div key={item.id} className="aspect-square bg-muted/30 rounded-lg overflow-hidden flex items-center justify-center">
+                    <img 
+                      src={item.processed_image_url || item.image_url} 
+                      alt={item.name}
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
