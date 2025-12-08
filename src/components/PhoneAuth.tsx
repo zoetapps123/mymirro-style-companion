@@ -263,39 +263,42 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#FDE8E4] via-[#FDF0ED] to-[#FDF5F3] p-6 pb-safe">
-      {/* Logo */}
-      <div className="text-center pt-8 pb-4">
-        <img src={logo} alt="MyMirro" className="h-10 mx-auto" />
+      {/* Header Section - Logo, Blob, and Headline */}
+      <div className="flex flex-col items-center mb-[60px]">
+        {/* Logo */}
+        <div className="text-center pt-8 pb-4">
+          <img src={logo} alt="MyMirro" className="h-10 mx-auto" />
+        </div>
+
+        {/* AI Chat Blob Illustration */}
+        <motion.div 
+          className="flex items-center justify-center mb-4"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <img 
+            src={signupChatBlob} 
+            alt="MyMirro AI Stylist" 
+            className="w-full max-w-[340px] h-auto object-contain"
+          />
+        </motion.div>
+
+        {/* Main Headline */}
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+        >
+          <h1 className="text-[#1a1a1a] text-[20px] font-normal leading-tight font-boston">
+            Your stylist is waiting.
+          </h1>
+          <h1 className="text-[#1a1a1a] text-[20px] font-normal leading-tight font-boston">
+            Shall we begin?
+          </h1>
+        </motion.div>
       </div>
-
-      {/* AI Chat Blob Illustration */}
-      <motion.div 
-        className="flex items-center justify-center mb-4 mt-2"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-      >
-        <img 
-          src={signupChatBlob} 
-          alt="MyMirro AI Stylist" 
-          className="w-full max-w-[340px] h-auto object-contain"
-        />
-      </motion.div>
-
-      {/* Main Headline */}
-      <motion.div 
-        className="text-center mb-10"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-      >
-        <h1 className="text-[#1a1a1a] text-[20px] font-normal leading-tight font-boston">
-          Your stylist is waiting.
-        </h1>
-        <h1 className="text-[#1a1a1a] text-[20px] font-normal leading-tight font-boston">
-          Shall we begin?
-        </h1>
-      </motion.div>
 
       {/* Form Section */}
       <div className="flex-1 flex flex-col justify-end max-w-md mx-auto w-full">
