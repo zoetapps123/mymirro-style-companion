@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
-import aiBlob from "@/assets/ai-blob.png";
+import signupChatBlob from "@/assets/signup-chat-blob.png";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
@@ -268,46 +268,19 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
         <img src={logo} alt="MyMirro" className="h-10 mx-auto" />
       </div>
 
-      {/* AI Blob Illustration with Chat Bubbles */}
-      <div className="relative flex items-center justify-center mb-4 mt-2">
-        {/* Blob Image */}
-        <motion.img 
-          src={aiBlob} 
-          alt="" 
-          className="w-48 h-48 object-contain"
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+      {/* AI Chat Blob Illustration */}
+      <motion.div 
+        className="flex items-center justify-center mb-4 mt-2"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      >
+        <img 
+          src={signupChatBlob} 
+          alt="MyMirro AI Stylist" 
+          className="w-full max-w-[340px] h-auto object-contain"
         />
-        
-        {/* Right Chat Bubble */}
-        <motion.div 
-          className="absolute right-4 top-4 bg-white rounded-xl px-3 py-2 shadow-sm max-w-[160px]"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-        >
-          <p className="text-[11px] text-[#1a1a1a] leading-tight font-medium">
-            Hi, I'm MyMirro<br />your personal AI stylist.
-          </p>
-          {/* Speech bubble tail */}
-          <div className="absolute -left-2 bottom-3 w-0 h-0 border-t-[6px] border-t-transparent border-r-[8px] border-r-white border-b-[6px] border-b-transparent" />
-        </motion.div>
-        
-        {/* Left Chat Bubble */}
-        <motion.div 
-          className="absolute left-0 bottom-4 bg-white rounded-xl px-3 py-2 shadow-sm max-w-[180px]"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-        >
-          <p className="text-[11px] text-[#1a1a1a] leading-tight font-medium">
-            I can help you plan outfits, shop smarter, and level up your style using your own closet.
-          </p>
-          {/* Speech bubble tail */}
-          <div className="absolute -right-2 bottom-3 w-0 h-0 border-t-[6px] border-t-transparent border-l-[8px] border-l-white border-b-[6px] border-b-transparent" />
-        </motion.div>
-      </div>
+      </motion.div>
 
       {/* Main Headline */}
       <motion.div 
