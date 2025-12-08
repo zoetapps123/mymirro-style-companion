@@ -301,7 +301,7 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
       </div>
 
       {/* Form Section */}
-      <div className="flex-1 flex flex-col justify-end max-w-md mx-auto w-full">
+      <div className="flex flex-col max-w-md mx-auto w-full">
         <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-3">
           {/* Email Input */}
           {(isSignUp || isForgotPassword) && (
