@@ -28,17 +28,8 @@ interface PhoneAuthProps {
 }
 
 const phoneSchema = z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number");
+const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
-
-// Utility function to generate non-predictable email from phone number
-const generateSecureEmail = async (phone: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(`mymirro_${phone}_secure`);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return `${hashHex.substring(0, 32)}@mymirro.app`;
-};
 
 // Utility function to hash phone number for privacy
 const hashPhoneNumber = async (phone: string): Promise<string> => {
@@ -54,9 +45,11 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   const [loading, setLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const { toast } = useToast();
 
@@ -93,13 +86,23 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
     e.preventDefault();
     setError("");
 
-    // Validate inputs
+    // Validate phone
     const phoneValidation = phoneSchema.safeParse(phone);
     if (!phoneValidation.success) {
       setError(phoneValidation.error.errors[0].message);
       return;
     }
 
+    // Validate email only for signup
+    if (isSignUp) {
+      const emailValidation = emailSchema.safeParse(email);
+      if (!emailValidation.success) {
+        setError(emailValidation.error.errors[0].message);
+        return;
+      }
+    }
+
+    // Validate password
     const passwordValidation = passwordSchema.safeParse(password);
     if (!passwordValidation.success) {
       setError(passwordValidation.error.errors[0].message);
@@ -110,12 +113,10 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
     try {
       const fullPhone = `${countryCode}${phone}`;
-      // Generate secure, non-predictable email from phone number
-      const email = await generateSecureEmail(phone);
       
       if (isSignUp) {
         const { error: signUpError, data } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
@@ -177,9 +178,20 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
         }, 800);
 
       } else {
-        // Sign in
+        // Sign in - look up email from phone number
+        const { data: userData, error: lookupError } = await supabase
+          .from('user_profiles')
+          .select('email')
+          .eq('phone', fullPhone)
+          .single();
+
+        if (lookupError || !userData?.email) {
+          setError("Phone number not found. Please sign up first.");
+          return;
+        }
+
         const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
-          email,
+          email: userData.email,
           password,
         });
 
@@ -220,6 +232,46 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
     } catch (err: any) {
       console.error('Auth error:', err);
       setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    const emailValidation = emailSchema.safeParse(email);
+    if (!emailValidation.success) {
+      setError(emailValidation.error.errors[0].message);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
+
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+
+      toast({
+        title: "Reset link sent! 📧",
+        description: "Check your email for password reset instructions",
+      });
+
+      setIsForgotPassword(false);
+      setEmail("");
+    } catch (err: any) {
+      console.error('Reset password error:', err);
+      setError("Failed to send reset link. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -310,9 +362,10 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
       {/* Form Section */}
       <div className="space-y-4 max-w-md mx-auto w-full px-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Phone Number Row */}
-          <div className="flex gap-2 max-w-[348px] mx-auto">
+        <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-4">
+          {/* Phone Number Row - Hide in forgot password mode */}
+          {!isForgotPassword && (
+            <div className="flex gap-2 max-w-[348px] mx-auto">
             <Select value={countryCode} onValueChange={setCountryCode}>
               <SelectTrigger className="w-[68px] h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] text-[14px] font-semibold">
                 <SelectValue />
@@ -335,9 +388,28 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               disabled={loading}
             />
           </div>
+          )}
 
-          {/* Password */}
-          <div className="relative max-w-[348px] mx-auto">
+          {/* Email - Show on signup OR forgot password */}
+          {(isSignUp || isForgotPassword) && (
+            <div className="max-w-[348px] mx-auto">
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError("");
+                }}
+                className="w-full h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] placeholder:text-[#8D8D93] text-[14px] px-4"
+                disabled={loading}
+              />
+            </div>
+          )}
+
+          {/* Password - Hide in forgot password mode */}
+          {!isForgotPassword && (
+            <div className="relative max-w-[348px] mx-auto">
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
@@ -357,12 +429,13 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+          )}
 
-          {!isSignUp && (
+          {!isSignUp && !isForgotPassword && (
             <div className="text-right max-w-[348px] mx-auto">
               <button
                 type="button"
-                onClick={onBack}
+                onClick={() => setIsForgotPassword(true)}
                 className="text-[#4A3E55] text-[14px] font-medium hover:underline"
               >
                 Forgot your password?
@@ -382,19 +455,26 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                 className="w-[152px] h-[40px] bg-black hover:bg-black/90 text-white text-[14px] font-semibold rounded-[10px]"
                 disabled={loading}
               >
-                {loading ? "Processing..." : isSignUp ? "Sign up" : "Log in"}
+                {loading ? "Processing..." : isForgotPassword ? "Send Reset Link" : isSignUp ? "Sign up" : "Log in"}
               </Button>
             </motion.div>
           </div>
         </form>
 
-        {/* Already have an account */}
+        {/* Already have an account / Back to login */}
         <motion.button
-          onClick={onBack}
+          onClick={() => {
+            if (isForgotPassword) {
+              setIsForgotPassword(false);
+              setError("");
+            } else {
+              onBack();
+            }
+          }}
           whileHover={{ scale: 1.02 }}
           className="w-full text-[#4A3E55] text-[14px] font-medium text-center pt-2"
         >
-          {isSignUp ? "Already have an account" : "Create new account"}
+          {isForgotPassword ? "Back to login" : isSignUp ? "Already have an account" : "Create new account"}
         </motion.button>
       </div>
     </div>

@@ -809,6 +809,18 @@ WAIT for user response before taking any action.`;
       throw new Error("System prompt validation failed - refusing to call AI without persona");
     }
 
+    // Tool calling instruction - only use last user message
+    const toolCallingInstruction = {
+      role: "system",
+      content: `<TOOL_CALLING_RULE>
+CRITICAL: When deciding whether to call any tool, ONLY analyze the LAST user message in the conversation.
+- Use the full conversation history for context and understanding
+- But make tool calling decisions ONLY based on what the user said in their most recent message
+- Do NOT call tools based on previous messages in the history
+- Previous messages are for context only, not for triggering tool calls
+</TOOL_CALLING_RULE>`
+    };
+
     // Call Gemini API with streaming
     const response = await retryWithBackoff(() => callGeminiAPIStreaming({
       model: 'google/gemini-2.5-flash',
@@ -820,7 +832,8 @@ WAIT for user response before taking any action.`;
         { role: "system", content: OUTFIT_ENGINE_PROMPT },        // Module 10 - Outfit Engine
         { role: "system", content: WARDROBE_ENGINE_PROMPT },      // Module 13 - Wardrobe Engine
         { role: "system", content: `${wardrobeSummary}\n\n${wardrobeJSON}\n\n${battlesJSON}\n\n${styleChecksJSON}` },
-        ...processedMessages
+        ...processedMessages,
+        toolCallingInstruction
       ],
       tools: availableTools,
       temperature: 0.7,
@@ -1135,6 +1148,32 @@ WAIT for user response before taking any action.`;
           }
 
           console.log('Transform: stream ended, total chars:', assistantMessage.length);
+
+          // Log chat to database for analytics
+          try {
+            console.log('Attempting to log chat...', { userId, hasMessage: !!lastUserMsg, responseLength: assistantMessage.length });
+            
+            // Create service role client for logging (bypass RLS)
+            const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            const logClient = createClient(supabaseUrl, serviceRoleKey);
+            
+            const { error: logError } = await logClient.from('chat_logs').insert({
+              user_id: userId,
+              messages: messages,
+              user_message: typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : JSON.stringify(lastUserMsg?.content),
+              ai_response: assistantMessage,
+              intent: intentDetection.intent,
+              conversation_turn: currentTurn
+            });
+            
+            if (logError) {
+              console.error('Failed to log chat:', logError);
+            } else {
+              console.log('Chat logged successfully');
+            }
+          } catch (logError) {
+            console.error('Exception while logging chat:', logError);
+          }
 
           // After stream ends, call pill-suggestions
           if (lastUserMsg && assistantMessage) {
