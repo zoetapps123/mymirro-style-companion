@@ -4,10 +4,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
-import slide1 from "@/assets/slide-1.png";
-import slide2 from "@/assets/slide-2.png";
-import slide3 from "@/assets/slide-3.png";
-import { motion, AnimatePresence } from "framer-motion";
+import aiBlob from "@/assets/ai-blob.png";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { z } from "zod";
@@ -50,37 +48,12 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
   const { toast } = useToast();
-
-  const slides = [
-    {
-      title: "Ask your stylist anything",
-      image: slide1
-    },
-    {
-      title: "Organize and style your wardrobe",
-      image: slide2
-    },
-    {
-      title: "Rate your outfits with AI",
-      image: slide3
-    }
-  ];
 
   useEffect(() => {
     trackScreenView('auth', {}, '/', '/');
-    // Track Mixpanel page view based on auth state
     trackPageView(SCREEN_NAMES.AUTH_LOGIN, SCREEN_PATHS.AUTH_LOGIN);
   }, [trackScreenView]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [slides.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,121 +262,78 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#FFE3C3] via-[#D9A7FF] to-[#FBD6FF] p-6 pb-safe">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#FDE8E4] via-[#FDF0ED] to-[#FDF5F3] p-6 pb-safe">
       {/* Logo */}
-      <div className="text-center pt-[80px] pb-[30px]">
-        <img src={logo} alt="MyMirro" className="h-12 mx-auto" />
+      <div className="text-center pt-8 pb-4">
+        <img src={logo} alt="MyMirro" className="h-10 mx-auto" />
       </div>
 
-      {/* Hero Image Card & Content */}
-      <div className="flex-1 flex flex-col items-center justify-start max-w-md mx-auto w-full overflow-y-auto">
-        {/* Hero Image Carousel Card */}
-        <div 
-          className="relative w-[337px] h-[242px] mb-[12px] rounded-[24px] overflow-hidden p-4"
-          onTouchStart={(e) => {
-            const touchStartX = e.touches[0].clientX;
-            e.currentTarget.setAttribute('data-touch-start', touchStartX.toString());
-          }}
-          onTouchEnd={(e) => {
-            const touchStartX = parseFloat(e.currentTarget.getAttribute('data-touch-start') || '0');
-            const touchEndX = e.changedTouches[0].clientX;
-            const diff = touchStartX - touchEndX;
-            
-            if (Math.abs(diff) > 50) {
-              if (diff > 0) {
-                // Swipe left - next slide
-                setCurrentSlide((prev) => (prev + 1) % slides.length);
-              } else {
-                // Swipe right - previous slide
-                setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-              }
-            }
-          }}
+      {/* AI Blob Illustration with Chat Bubbles */}
+      <div className="relative flex items-center justify-center mb-4 mt-2">
+        {/* Blob Image */}
+        <motion.img 
+          src={aiBlob} 
+          alt="" 
+          className="w-48 h-48 object-contain"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        />
+        
+        {/* Right Chat Bubble */}
+        <motion.div 
+          className="absolute right-4 top-4 bg-white rounded-xl px-3 py-2 shadow-sm max-w-[160px]"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentSlide}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full h-full"
-            >
-              <img 
-                src={slides[currentSlide].image} 
-                alt={slides[currentSlide].title} 
-                className="w-full h-full object-contain"
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Pagination Dots */}
-        <div className="flex gap-2 mb-[12px]">
-          {slides.map((_, index) => (
-            <motion.button
-              key={index}
-              onClick={() => setCurrentSlide(index)}
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
-              className={`rounded-full transition-all duration-300 ${
-                index === currentSlide 
-                  ? 'w-[24px] h-[6px] bg-[#F45AC8]' 
-                  : 'w-[6px] h-[6px] bg-[#E4D5FF]'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Main Headline - Changes with slide */}
-        <motion.h2 
-          key={`title-${currentSlide}`}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-white text-[20px] font-bold text-center px-4 mb-[36px]"
+          <p className="text-[11px] text-[#1a1a1a] leading-tight font-medium">
+            Hi, I'm MyMirro<br />your personal AI stylist.
+          </p>
+          {/* Speech bubble tail */}
+          <div className="absolute -left-2 bottom-3 w-0 h-0 border-t-[6px] border-t-transparent border-r-[8px] border-r-white border-b-[6px] border-b-transparent" />
+        </motion.div>
+        
+        {/* Left Chat Bubble */}
+        <motion.div 
+          className="absolute left-0 bottom-4 bg-white rounded-xl px-3 py-2 shadow-sm max-w-[180px]"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
         >
-          {slides[currentSlide].title}
-        </motion.h2>
-
-        {/* Subheading */}
-        <p className="text-[#41374E] text-[14px] font-semibold text-left max-w-[348px] mx-auto w-full mb-[16px] px-4">
-          Start your fashion journey with MyMirro✨
-        </p>
+          <p className="text-[11px] text-[#1a1a1a] leading-tight font-medium">
+            I can help you plan outfits, shop smarter, and level up your style using your own closet.
+          </p>
+          {/* Speech bubble tail */}
+          <div className="absolute -right-2 bottom-3 w-0 h-0 border-t-[6px] border-t-transparent border-l-[8px] border-l-white border-b-[6px] border-b-transparent" />
+        </motion.div>
       </div>
+
+      {/* Main Headline */}
+      <motion.div 
+        className="text-center mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+      >
+        <h1 className="text-[#1a1a1a] text-2xl font-semibold leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
+          Your stylist is waiting.
+        </h1>
+        <h1 className="text-[#1a1a1a] text-2xl font-semibold leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
+          Shall we begin?
+        </h1>
+      </motion.div>
 
       {/* Form Section */}
-      <div className="space-y-4 max-w-md mx-auto w-full px-4">
-        <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-4">
-          {/* Phone Number Row - Hide in forgot password mode */}
-          {!isForgotPassword && (
-            <div className="flex gap-2 max-w-[348px] mx-auto">
-            <Select value={countryCode} onValueChange={setCountryCode}>
-              <SelectTrigger className="w-[68px] h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] text-[14px] font-semibold">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="+91">+91</SelectItem>
-                <SelectItem value="+1">+1</SelectItem>
-                <SelectItem value="+44">+44</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              type="tel"
-              placeholder="Phone number"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
-                setError("");
-              }}
-              className="flex-1 h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] placeholder:text-[#8D8D93] text-[14px] px-4"
-              disabled={loading}
-            />
-          </div>
-          )}
-
-          {/* Email - Show on signup OR forgot password */}
+      <div className="flex-1 flex flex-col justify-end max-w-md mx-auto w-full">
+        <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-3">
+          {/* Email Input */}
           {(isSignUp || isForgotPassword) && (
-            <div className="max-w-[348px] mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
               <Input
                 type="email"
                 placeholder="Email address"
@@ -412,42 +342,79 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
                   setEmail(e.target.value);
                   setError("");
                 }}
-                className="w-full h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] placeholder:text-[#8D8D93] text-[14px] px-4"
+                className="w-full h-14 bg-[#FDDDD6] border-0 rounded-2xl text-[#1a1a1a] placeholder:text-[#9B8A8A] text-base px-5 font-medium"
                 disabled={loading}
               />
-            </div>
+            </motion.div>
           )}
 
-          {/* Password - Hide in forgot password mode */}
+          {/* Phone Number Input */}
           {!isForgotPassword && (
-            <div className="relative max-w-[348px] mx-auto">
-            <Input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              className="w-full h-[50px] bg-[#F5F8FF] border-0 rounded-[10px] text-[#262626] placeholder:text-[#8D8D93] pr-12 text-[14px] px-4"
-              disabled={loading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8D8D93]"
+            <motion.div 
+              className="flex gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
+              <Select value={countryCode} onValueChange={setCountryCode}>
+                <SelectTrigger className="w-[72px] h-14 bg-[#FDDDD6] border-0 rounded-2xl text-[#1a1a1a] text-base font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="+91">+91</SelectItem>
+                  <SelectItem value="+1">+1</SelectItem>
+                  <SelectItem value="+44">+44</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="tel"
+                placeholder="Phone number"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
+                  setError("");
+                }}
+                className="flex-1 h-14 bg-[#FDDDD6] border-0 rounded-2xl text-[#1a1a1a] placeholder:text-[#9B8A8A] text-base px-5 font-medium"
+                disabled={loading}
+              />
+            </motion.div>
+          )}
+
+          {/* Password Input */}
+          {!isForgotPassword && (
+            <motion.div 
+              className="relative"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                className="w-full h-14 bg-[#FDDDD6] border-0 rounded-2xl text-[#1a1a1a] placeholder:text-[#9B8A8A] pr-12 text-base px-5 font-medium"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9B8A8A]"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </motion.div>
           )}
 
           {!isSignUp && !isForgotPassword && (
-            <div className="text-right max-w-[348px] mx-auto">
+            <div className="text-right">
               <button
                 type="button"
                 onClick={() => setIsForgotPassword(true)}
-                className="text-[#4A3E55] text-[14px] font-medium hover:underline"
+                className="text-[#6B5A5A] text-sm font-medium hover:underline"
               >
                 Forgot your password?
               </button>
@@ -455,21 +422,24 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           )}
 
           {error && (
-            <p className="text-sm text-red-600 text-center max-w-[348px] mx-auto">{error}</p>
+            <p className="text-sm text-red-600 text-center">{error}</p>
           )}
 
           {/* Sign Up Button */}
-          <div className="flex justify-center pt-2">
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button
-                type="submit"
-                className="w-[152px] h-[40px] bg-black hover:bg-black/90 text-white text-[14px] font-semibold rounded-[10px]"
-                disabled={loading}
-              >
-                {loading ? "Processing..." : isForgotPassword ? "Send Reset Link" : isSignUp ? "Sign up" : "Log in"}
-              </Button>
-            </motion.div>
-          </div>
+          <motion.div 
+            className="flex justify-center pt-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+          >
+            <Button
+              type="submit"
+              className="w-40 h-12 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white text-base font-semibold rounded-full"
+              disabled={loading}
+            >
+              {loading ? "Processing..." : isForgotPassword ? "Send Reset Link" : isSignUp ? "Sign up" : "Log in"}
+            </Button>
+          </motion.div>
         </form>
 
         {/* Already have an account / Back to login */}
@@ -482,8 +452,10 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
               onBack();
             }
           }}
-          whileHover={{ scale: 1.02 }}
-          className="w-full text-[#4A3E55] text-[14px] font-medium text-center pt-2"
+          className="w-full text-[#4A4A4A] text-base font-medium text-center py-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7 }}
         >
           {isForgotPassword ? "Back to login" : isSignUp ? "Already have an account" : "Create new account"}
         </motion.button>
