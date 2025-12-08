@@ -311,15 +311,15 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
       {/* Main Headline */}
       <motion.div 
-        className="text-center mb-8"
+        className="text-center mb-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.5 }}
       >
-        <h1 className="text-[#1a1a1a] text-2xl font-semibold leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
+        <h1 className="text-[#1a1a1a] text-[20px] font-normal leading-tight font-boston">
           Your stylist is waiting.
         </h1>
-        <h1 className="text-[#1a1a1a] text-2xl font-semibold leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
+        <h1 className="text-[#1a1a1a] text-[20px] font-normal leading-tight font-boston">
           Shall we begin?
         </h1>
       </motion.div>
