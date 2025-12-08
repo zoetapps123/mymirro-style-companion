@@ -40,6 +40,8 @@ interface GeneratedOutfit {
   preview_image_url?: string;
   items: WardrobeItem[];
   reasoning?: string;
+  visual_description?: string;
+  caption?: string;
 }
 
 interface WardrobeOutfitSuggestionProps {
@@ -336,7 +338,9 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
         style_tag: outfit.style_tag,
         preview_image_url: outfit.preview_image_url,
         items: outfit.items,
-        reasoning: outfit.metadata?.reasoning
+        reasoning: outfit.metadata?.reasoning,
+        visual_description: outfit.metadata?.visual_description,
+        caption: outfit.metadata?.caption,
       };
 
       if (outfit.metadata?.type === 'occasion' && outfit.occasion) {
@@ -477,12 +481,16 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
           continue;
         }
 
-        // Save new outfit
+        // Save new outfit - prefer AI-generated name
+        const outfitName = outfit.name && outfit.name.length >= 6 
+          ? outfit.name 
+          : `${value} Look`;
+        
         const { data: savedOutfit, error: saveError } = await supabase
           .from('outfits')
           .insert({
             user_id: user.id,
-            name: outfit.name || `${value} Look`,
+            name: outfitName,
             occasion: type === 'occasion' ? value : outfit.occasion,
             style_tag: outfit.styleTag || value,
             preview_image_url: outfit.preview_image_url,
@@ -491,6 +499,8 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
               type, 
               value, 
               reasoning: outfit.reasoning,
+              visual_description: outfit.visual_description,
+              caption: outfit.caption,
               anchorItemId: anchorItem?.id 
             }
           })
@@ -713,6 +723,11 @@ const WardrobeOutfitSuggestion = ({ onBack, onNavigate }: WardrobeOutfitSuggesti
                   previewImageUrl={outfit.preview_image_url}
                   items={outfit.items}
                   isSaved={isSaved}
+                  metadata={{
+                    reasoning: outfit.reasoning,
+                    visual_description: outfit.visual_description,
+                    caption: outfit.caption,
+                  }}
                   onCardClick={() => {
                     trackEvent('outfit_card_clicked', {
                       outfit_id: outfit.id,

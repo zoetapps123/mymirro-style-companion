@@ -24,6 +24,9 @@ export interface Outfit {
     type?: string;
     reasoning?: string;
     anchorItemId?: string;
+    visual_description?: string;
+    caption?: string;
+    [key: string]: any;
   };
   items: OutfitItem[];
 }
