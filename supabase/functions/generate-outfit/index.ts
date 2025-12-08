@@ -554,7 +554,8 @@ serve(async (req) => {
       ).filter(Boolean);
 
       return {
-        name: `${occasion || style || 'Styled'} Look`,
+        name: outfit.name || `${occasion || style || 'Styled'} Look`,
+        caption: outfit.caption,
         styleTag: outfit.styleTag,
         reasoning: outfit.reasoning,
         items: outfitItems,
