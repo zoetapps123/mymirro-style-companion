@@ -128,11 +128,20 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
 
         if (signUpError) {
           if (signUpError.message.includes("already registered")) {
-            setError("This phone number is already registered. Please log in instead.");
+            setError("This email is already registered. Please log in instead.");
           } else {
             setError(signUpError.message);
           }
           return;
+        }
+
+        // Save email and phone to user_profiles for login lookup
+        if (data.user) {
+          await supabase.from('user_profiles').upsert({
+            id: data.user.id,
+            email: email.trim(),
+            phone: fullPhone,
+          }, { onConflict: 'id' });
         }
 
         // Track Snapchat Pixel signup event
@@ -183,15 +192,17 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
           .from('user_profiles')
           .select('email')
           .eq('phone', fullPhone)
-          .single();
+          .maybeSingle();
 
-        if (lookupError || !userData?.email) {
+        if (lookupError || !userData || !userData.email) {
           setError("Phone number not found. Please sign up first.");
           return;
         }
 
+        const userEmail = userData.email as string;
+
         const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
-          email: userData.email,
+          email: userEmail,
           password,
         });
 

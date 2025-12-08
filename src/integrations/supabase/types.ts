@@ -125,6 +125,39 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_logs: {
+        Row: {
+          ai_response: string | null
+          conversation_turn: number | null
+          created_at: string | null
+          id: string
+          intent: string | null
+          messages: Json | null
+          user_id: string
+          user_message: string | null
+        }
+        Insert: {
+          ai_response?: string | null
+          conversation_turn?: number | null
+          created_at?: string | null
+          id?: string
+          intent?: string | null
+          messages?: Json | null
+          user_id: string
+          user_message?: string | null
+        }
+        Update: {
+          ai_response?: string | null
+          conversation_turn?: number | null
+          created_at?: string | null
+          id?: string
+          intent?: string | null
+          messages?: Json | null
+          user_id?: string
+          user_message?: string | null
+        }
+        Relationships: []
+      }
       conversation_state: {
         Row: {
           chat_direction: string | null
@@ -731,9 +764,11 @@ export type Database = {
           body_shape: string | null
           created_at: string | null
           demo_stylecheck_image_url: string | null
+          email: string | null
           gender: string | null
           id: string
           name: string | null
+          phone: string | null
           skin_tone: string | null
           updated_at: string | null
         }
@@ -742,9 +777,11 @@ export type Database = {
           body_shape?: string | null
           created_at?: string | null
           demo_stylecheck_image_url?: string | null
+          email?: string | null
           gender?: string | null
           id: string
           name?: string | null
+          phone?: string | null
           skin_tone?: string | null
           updated_at?: string | null
         }
@@ -753,9 +790,11 @@ export type Database = {
           body_shape?: string | null
           created_at?: string | null
           demo_stylecheck_image_url?: string | null
+          email?: string | null
           gender?: string | null
           id?: string
           name?: string | null
+          phone?: string | null
           skin_tone?: string | null
           updated_at?: string | null
         }
