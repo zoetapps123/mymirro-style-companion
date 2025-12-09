@@ -36,6 +36,7 @@ const Index = () => {
   const [isSignUp, setIsSignUp] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Initialize analytics tracking
   const { trackCustom, trackScreenView } = useAnalytics();
@@ -50,7 +51,12 @@ const Index = () => {
   }, [activeTab]);
 
   // Track virtual page views and screen changes for tab changes
+  // Only track when user is authenticated and not showing auth/onboarding screens
   useEffect(() => {
+    if (!isAuthReady || showAuth || showOnboarding) {
+      return; // Don't track until auth is confirmed and main app is visible
+    }
+    
     trackScreenView(
       activeTab, 
       { tab: activeTab },
@@ -67,7 +73,7 @@ const Index = () => {
     };
     const screenInfo = tabScreenMap[activeTab];
     trackPageView(screenInfo.name, screenInfo.path);
-  }, [activeTab, trackScreenView]);
+  }, [activeTab, trackScreenView, isAuthReady, showAuth, showOnboarding]);
   const checkAuthAndFlow = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -119,7 +125,9 @@ const Index = () => {
         return;
       }
 
-      // Everything is complete
+      // Everything is complete - mark auth as ready
+      setIsAuthReady(true);
+      
       const walkthroughComplete = safeLocalStorage.get("walkthroughComplete") === "true";
       if (!walkthroughComplete) {
         setShowWalkthrough(true);
@@ -128,6 +136,7 @@ const Index = () => {
       console.error('checkAuthAndFlow failed:', err);
       setShowAuth(true);
       setIsSignUp(true);
+      setIsAuthReady(false);
     }
   };
 
