@@ -11,6 +11,7 @@ import Confetti from 'react-confetti';
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { trackPageView } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 
 // Image compression helper
 // Image compression utility moved to shared lib
@@ -72,6 +73,7 @@ const OutfitBattle = ({ onBack, initialData }: OutfitBattleProps) => {
   const [pendingImage, setPendingImage] = useState<{ imageData: string, imageFile: File } | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [comparisonText, setComparisonText] = useState<string>("");
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
 
   // Track screen view on mount
   useEffect(() => {

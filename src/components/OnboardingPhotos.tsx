@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Upload, X, Loader2, ArrowLeft } from "lucide-react";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { LoadingTile } from "@/components/ui/loading-tile";
 import { compressForWardrobe, dataUrlToFile } from "@/lib/imageCompression";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 
 interface OnboardingPhotosProps {
   onComplete: () => void;
@@ -23,6 +24,7 @@ const OnboardingPhotos = ({ onComplete, onBack }: OnboardingPhotosProps) => {
   const [existingItemsCount, setExistingItemsCount] = useState(0);
   const [processingCount, setProcessingCount] = useState(0);
   const { toast } = useToast();
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
 
   // Check existing wardrobe items count
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 
 interface Participant {
   name: string;
@@ -35,6 +36,7 @@ const Battles = () => {
   const [currentScanIndex, setCurrentScanIndex] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [latestBattle, setLatestBattle] = useState<Battle | null>(null);
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
 
   useEffect(() => {
     fetchLatestBattle();
@@ -427,7 +429,7 @@ const Battles = () => {
 
       {/* Upload Area */}
       <input
-        ref={fileInputRef}
+        ref={isMobile ? undefined : desktopInputRef}
         type="file"
         accept="image/*"
         multiple
@@ -435,9 +437,17 @@ const Battles = () => {
         className="hidden"
         disabled={loading}
       />
+      <ImageUploadSheet
+        open={uploadSheetOpen}
+        onOpenChange={setUploadSheetOpen}
+        onFileSelect={handleImageSelect}
+        multiple
+        disabled={loading}
+        title="Add Participants"
+      />
       
       <div 
-        onClick={() => !loading && fileInputRef.current?.click()}
+        onClick={() => !loading && openUpload()}
         className="glass-card rounded-2xl p-8 border-2 border-dashed border-border/50 text-center space-y-4 hover:border-primary/50 transition-colors cursor-pointer"
       >
         <div className="mx-auto w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center glow-primary">
