@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { OccasionVibeSelector } from "./OccasionVibeSelector";
 import AnalysisLoader from "./AnalysisLoader";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 interface StyleCheckHubProps {
   onNavigate: (view: 'outfit-check' | 'outfit-battle') => void;
   onNavigateToBattle?: (outfitData: any) => void;
@@ -53,7 +54,7 @@ const StyleCheckHub = ({
   const [userFeedback, setUserFeedback] = useState<'like' | 'dislike' | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showOriginalImageModal, setShowOriginalImageModal] = useState(false);
-
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
   // Restore Style Check state from localStorage or database
   useEffect(() => {
     const restoreState = async () => {
@@ -1170,7 +1171,7 @@ const StyleCheckHub = ({
           type: "spring",
           stiffness: 300
         }}>
-              <label htmlFor="outfit-upload">
+              <div onClick={(e) => { if (!uploadedImage) { e.preventDefault(); openUpload(); } }}>
                 <Card className="cursor-pointer border-2 border-dashed border-border/50 hover:border-primary/50 transition-all duration-300 overflow-hidden">
                   {uploadedImage ? <div className="relative aspect-[4/5] sm:aspect-video">
                       <img src={uploadedImage} alt="Your outfit" className="w-full h-full object-cover" />
@@ -1261,8 +1262,15 @@ const StyleCheckHub = ({
                       </div>
                     </div>}
                 </Card>
-              </label>
-              <input id="outfit-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={predicting || scanning} />
+              </div>
+              <input id="outfit-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={predicting || scanning} ref={desktopInputRef} />
+              <ImageUploadSheet
+                open={uploadSheetOpen}
+                onOpenChange={setUploadSheetOpen}
+                onFileSelect={handleImageUpload}
+                disabled={predicting || scanning}
+                title="Add Outfit Photo"
+              />
             </motion.div>
           </motion.div>}
 

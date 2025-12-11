@@ -15,6 +15,7 @@ import { trackEvent } from "@/lib/mixpanel";
 import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import { ItemClassificationDialog } from "./ItemClassificationDialog";
 import { compressForWardrobe, dataUrlToFile } from "@/lib/imageCompression";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 // Image processing functions imported dynamically when needed
 
 interface WardrobeItem {
@@ -41,6 +42,7 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState("");
   const [uncertainItem, setUncertainItem] = useState<{ preview: string; item: any; index: number } | null>(null);
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
 
   useEffect(() => {
     fetchWardrobeItems();
@@ -463,18 +465,25 @@ const WardrobeUpload = ({ onBack }: WardrobeUploadProps) => {
           />
         </div>
         <input
-          ref={fileInputRef}
+          ref={isMobile ? undefined : desktopInputRef}
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
           className="hidden"
           disabled={loading}
         />
+        <ImageUploadSheet
+          open={uploadSheetOpen}
+          onOpenChange={setUploadSheetOpen}
+          onFileSelect={handleImageUpload}
+          disabled={loading}
+          title="Add Wardrobe Item"
+        />
         <Button 
           className="glow-primary gap-2"
           onClick={() => {
             trackClick('wardrobe_add_items_button', 'add-items', { feature: 'wardrobe_upload' });
-            fileInputRef.current?.click();
+            openUpload();
           }}
           disabled={loading}
         >

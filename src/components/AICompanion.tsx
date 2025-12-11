@@ -14,6 +14,7 @@ import { ANALYTICS_EVENTS, EVENT_CATEGORIES } from "@/lib/analyticsEvents";
 import { trackEvent, trackPageView } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
 import ReactMarkdown from "react-markdown";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 
 interface ToolCall {
   type: "show_wardrobe_items" | "create_outfit_suggestion" | "outfits_loading" | "generate_outfits" | "wardrobe_insufficient" | "show_single_item" | "recommend_general_item" | "fetch_wardrobe_items" | "run_style_check" | "add_to_wardrobe";
@@ -85,6 +86,7 @@ const AICompanion = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const { trackCustom, trackScreenView } = useAnalytics();
   const chatStartTimeRef = useRef<number>(Date.now());
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
   const messageCountRef = useRef<number>(0);
   const [lastChatTime, setLastChatTime] = useState<number>(0);
   
@@ -1746,18 +1748,25 @@ const AICompanion = () => {
 
           <div className="flex items-center gap-2">
             <input
-              ref={fileInputRef}
+              ref={isMobile ? undefined : desktopInputRef}
               type="file"
               accept="image/*"
               multiple
               onChange={handleImageSelect}
               className="hidden"
             />
+            <ImageUploadSheet
+              open={uploadSheetOpen}
+              onOpenChange={setUploadSheetOpen}
+              onFileSelect={handleImageSelect}
+              multiple
+              title="Add Photos"
+            />
             <Button
               size="icon"
               variant="outline"
               className="border-border flex-shrink-0 min-w-[44px] min-h-[44px] bg-background"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => openUpload()}
               title="Upload outfit image"
             >
               <Camera className="w-5 h-5" />

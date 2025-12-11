@@ -14,6 +14,7 @@ import { WARDROBE_ROUTES } from "@/lib/wardrobeRoutes";
 import { trackEvent } from "@/lib/mixpanel";
 import emptyWardrobeImg from "@/assets/empty-wardrobe.png";
 import { WardrobeLoadingSkeleton } from "@/components/ui/wardrobe-loading-skeleton";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
 
   const features = [
     { icon: DoorOpen, title: "Your\nCloset", view: 'items' as const, active: true },
@@ -393,7 +395,7 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
                 element_id: 'wardrobe-empty-add-item',
                 context: 'empty_state',
               }, 'wardrobe:add_item_clicked', WARDROBE_ROUTES.GALLERY);
-              fileInputRef.current?.click();
+              openUpload();
             }}
             className="px-8 py-3 bg-primary/10 text-primary rounded-full font-medium hover:bg-primary/20 transition-colors"
           >
@@ -402,12 +404,19 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
         </div>
 
         <input
-          ref={fileInputRef}
+          ref={isMobile ? undefined : desktopInputRef}
           type="file"
           accept="image/*"
           multiple
           onChange={handleImageUpload}
           className="hidden"
+        />
+        <ImageUploadSheet
+          open={uploadSheetOpen}
+          onOpenChange={setUploadSheetOpen}
+          onFileSelect={handleImageUpload}
+          multiple
+          title="Add Wardrobe Items"
         />
       </div>
     );
@@ -561,17 +570,24 @@ const WardrobeMyItems = ({ onNavigate }: WardrobeMyItemsProps) => {
 
       {/* Hidden File Input */}
       <input
-        ref={fileInputRef}
+        ref={isMobile ? undefined : desktopInputRef}
         type="file"
         accept="image/*"
         multiple
         onChange={handleImageUpload}
         className="hidden"
       />
+      <ImageUploadSheet
+        open={uploadSheetOpen}
+        onOpenChange={setUploadSheetOpen}
+        onFileSelect={handleImageUpload}
+        multiple
+        title="Add Wardrobe Items"
+      />
 
       {/* Floating Add Button */}
       <motion.button
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => openUpload()}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         className="fixed bottom-24 right-6 w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-lg z-50"

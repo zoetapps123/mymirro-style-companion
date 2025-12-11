@@ -9,6 +9,7 @@ import { OutfitCheckOccasionModal } from "./OutfitCheckOccasionModal";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { trackPageView, trackEvent } from "@/lib/mixpanel";
 import { SCREEN_NAMES, SCREEN_PATHS } from "@/lib/screenRoutes";
+import { ImageUploadSheet, useImageUploadSheet } from "@/components/ui/image-upload-sheet";
 
 interface OutfitCheckProps {
   onBack: () => void;
@@ -22,7 +23,8 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
   const uploadAttempts = useRef(0);
   const uploadStartTime = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-    const { toast } = useToast();
+  const { toast } = useToast();
+  const { isOpen: uploadSheetOpen, setIsOpen: setUploadSheetOpen, isMobile, desktopInputRef, openUpload } = useImageUploadSheet();
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -504,7 +506,7 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
       {!result && (
         <>
           <input
-            ref={fileInputRef}
+            ref={isMobile ? undefined : desktopInputRef}
             type="file"
             accept="image/*"
             onChange={(e) => {
@@ -520,9 +522,25 @@ const OutfitCheck = ({ onBack, onNavigateToBattle }: OutfitCheckProps) => {
             className="hidden"
             disabled={loading}
           />
+          <ImageUploadSheet
+            open={uploadSheetOpen}
+            onOpenChange={setUploadSheetOpen}
+            onFileSelect={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  setUploadedImage(reader.result as string);
+                  setShowOccasionModal(true);
+                };
+                reader.readAsDataURL(e.target.files[0]);
+              }
+            }}
+            disabled={loading}
+            title="Add Outfit Photo"
+          />
           <div 
             onClick={() => {
-              if (!loading) fileInputRef.current?.click();
+              if (!loading) openUpload();
             }}
             className="glass-card rounded-2xl p-6 sm:p-8 border-2 border-dashed text-center space-y-3 sm:space-y-4 transition-all active:scale-[0.98] border-accent/50 hover:border-accent cursor-pointer"
           >
