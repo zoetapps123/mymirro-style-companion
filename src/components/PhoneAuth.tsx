@@ -115,6 +115,32 @@ const PhoneAuth = ({ isSignUp, onBack, onSuccess }: PhoneAuthProps) => {
             email: email.trim(),
             phone: fullPhone,
           }, { onConflict: 'id' });
+
+          // Send WhatsApp welcome message via Interakt (fire and forget)
+          try {
+            const welcomeResponse = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp-welcome`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                },
+                body: JSON.stringify({
+                  phone: fullPhone,
+                }),
+              }
+            );
+            
+            if (!welcomeResponse.ok) {
+              console.error('Failed to send WhatsApp welcome:', await welcomeResponse.text());
+            } else {
+              console.log('WhatsApp welcome message sent successfully');
+            }
+          } catch (whatsappError) {
+            // Don't block signup if WhatsApp fails
+            console.error('WhatsApp welcome error:', whatsappError);
+          }
         }
 
         // Track Snapchat Pixel signup event
