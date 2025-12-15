@@ -1,4 +1,4 @@
-project_id = "lwxpedwhtowjkhxrovzx"
+project_id = "yuuagtsrybqipljshjcl"
 
 [functions.predict-outfit-vibe]
 verify_jwt = false
